@@ -39,6 +39,28 @@ def _usa_qt(ruta: str) -> bool:
         return True
 
 
+@pytest.fixture(scope="session", autouse=True)
+def _qapplication_de_la_sesion():
+    """Cierre 1.0: una sola QApplication por proceso, creada antes de cualquier prueba.
+
+    Varias pruebas de QML/controladores hacen `QCoreApplication.instance() or
+    QCoreApplication(sys.argv)`. Si una de ellas corre primero en un worker, la
+    instancia única del proceso queda siendo una QCoreApplication y la siguiente
+    prueba de widgets (`QApplication.instance() or QApplication(...)` devuelve esa
+    QCoreApplication) aborta el proceso al crear un QWidget: el worker de xdist
+    cae ("node down: Not properly terminated") y la prueba en curso falla, solo
+    con ciertos órdenes de reparto. QApplication es subclase de QCoreApplication,
+    así que las pruebas que solo piden `.instance()` siguen funcionando."""
+    try:
+        from PySide6.QtWidgets import QApplication
+    except Exception:
+        yield None
+        return
+    import sys
+    app = QApplication.instance() or QApplication(sys.argv)
+    yield app
+
+
 @pytest.fixture(autouse=True)
 def _recolectar_en_hilo_principal(request):
     yield

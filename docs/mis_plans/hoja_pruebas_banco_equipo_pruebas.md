@@ -122,14 +122,14 @@
 | E-T12-03 | Esterilización sin conmutación rápida RECUPERACION ↔ PWM | En operación (vapor) | E12 C-07/C-08 (tanda 12) |
 | E-T12-04 | Bowie & Dick de usuario con `presion_add` 9 | En operación (vapor) | J12 C-04.1 (tanda 12) |
 | F-T12-01 | Excursión de una Referencia en la exposición: el conteo se detiene y reinicia (C-13) | En operación (vapor) | E12 C-13 (tanda 12) |
-| F-T12-02 | Referencia desconectada: el ciclo sigue, SEN-11 y ticket NO CONFORME | En operación (vapor) | E12 C-13.7b (tanda 12) |
+| F-T12-02 | Referencia desconectada: el ciclo sigue, SEN-11 y observación en el ticket (carga sólida) | En operación (vapor) | E12 C-13.7b (tanda 12); FC-08 (tanda 21) |
 | B-11 | PREPARADO: el aire de cámara cierra a los 3 ticks reales | En seco (sin vapor) | Q1 R1-P2 (tanda 7) |
 | C-07 | DESPEJAR de COM-02/03 solo con el enlace de vuelta en ok | En seco (sin vapor) | Q1 T2-b (tanda 7); complementa C-06 |
 | D-37 | Calentamiento: rango de temperatura y de presión por separado | En seco (sin vapor) | Q1 R1-P3 (tanda 7) |
 | D-R8-01 | Reasignación de E/S: solo ingeniero, fuera de ciclo, conflictos rechazados | En seco (sin vapor) | R8 (tanda 8, D8-5.12) |
 | D-R8-02 | Reasignar una salida: Vapor cámara de DO 04 a un puerto libre | En seco (sin vapor) | R8 (tanda 8, D8-5.12) |
 | D-R8-03 | Reasignar el paro de emergencia: confirmación reforzada y cambio observado | En seco (sin vapor) | R8 (tanda 8, D8-5.12) |
-| D-R8-04 | Reasignar una entrada analógica: calibración obligatoria en el puerto nuevo | En seco (sin vapor) | R8 (tanda 8, D8-5.12) |
+| D-R8-04 | Reasignar una entrada analógica: CONDICIONADO, desde la tanda 24 se verifica con lectura (ver T24-03) | En seco (sin vapor) | R8 (tanda 8, D8-5.12); CONDICIONADO por RSB-07 (tanda 24, R23 decisión 9) |
 | D-R8-05 | Restaurar fábrica, respaldo y archivo dañado | En seco (sin vapor) | R8 (tanda 8, D8-5.12) |
 | D-39 | Canales de Entradas/Salidas según el perfil de instalación | En seco (sin vapor) | E1 D8-3.17 (tanda 8) |
 | E-R8-01 | Ciclo completo con Vapor cámara y Presión cámara reasignados | En operación (vapor) | R8 (tanda 8, D8-5.12) |
@@ -157,7 +157,7 @@
 | H-05 | Corte de vapor de chaqueta | En operación (vapor) | D-CHQ / SAF-09 / VCH-CHQ |
 | H-06 | Temperatura real con la presión en el techo de ESTERILIZACION | En operación (vapor) | P1 / D-14.1 (DECISIÓN SIN CONFIRMAR) |
 | H-07 | Diferencia Principal–Referencia y oscilación pico a pico | En operación (vapor) | P3 / D-14.3 y P6 / D-14.6 (DECISIONES SIN CONFIRMAR) |
-| H-08 | Ciclo NO CONFORME: franja, reconocimiento y marcas | En operación (vapor) | P4 / D-14.4 |
+| H-08 | Referencia sin lectura: observación en sólidos, CIC-19 en líquidos | En operación (vapor) | P4 / D-14.4; FC-08 (tanda 21, reemplaza NO CONFORME) |
 | I-01 | Setup: zona horaria de Windows | En seco (sin vapor) | INS-01 (tanda 17) |
 | I-02 | Setup: unidad D: y disposición programa/datos | En seco (sin vapor) | INS-02 (tanda 17) |
 | I-03 | ACL de programa con un usuario estándar | En seco (sin vapor) | INS-02 ACL (tanda 17, revisión V17-s1-01) |
@@ -185,6 +185,11 @@
 | T23-02 | Reasignación por grupo: RTD y AI con el mismo número sin conflicto | En seco (sin vapor) | AIN-01 / AIN-02 / AIN-04; AIN-R1, AIN-R3 (tanda 23) |
 | T23-03 | Módulo E/S desconectado: textos con «módulo E/S», ninguno con «tarjeta» | En seco (sin vapor) | MES-01 / MES-04 (tanda 23) |
 | T23-04 | Ticket, PDF, Información del equipo y del sistema y Setup sin «tarjeta» | En seco (sin vapor) | MES-02 / MES-04 (tanda 23) |
+| T24-01 | Reasignar la presión de cámara sin sensores y con el paro activo: se acepta, con aviso | En seco (sin vapor) | RSB-01 / RSB-02 / RSB-03 (tanda 24); HAZ-IO-05 |
+| T24-02 | Rechazos de la reasignación: se muestra el motivo, no el mensaje genérico | En seco (sin vapor) | RSB-04 / RSB-05 (tanda 24) |
+| T24-03 | Verificar una analógica reasignada con su lectura, sin calibrarla de nuevo | En seco (sin vapor) | RSB-07 (tanda 24); HAZ-IO-02 y AIN-R3 a reevaluar |
+| T24-04 | Columna Tipo de Reasignación: RTD en temperaturas, AI en presiones | En seco (sin vapor) | RSB-08 (tanda 24) |
+| T24-05 | Paro de emergencia reasignado: vapor y aire comprimido no se encienden solos hasta verificarlo | En seco (sin vapor) | RSB-01 / RSB-06 (tanda 24); HAZ-IO-05 |
 
 ## Bloque A. Arranque, instalación y módulo E/S (en seco)
 
@@ -1417,18 +1422,18 @@
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
 
-### D-R8-04 — Reasignar una entrada analógica: calibración obligatoria en el puerto nuevo
+### D-R8-04 — Reasignar una entrada analógica: CONDICIONADO, desde la tanda 24 se verifica con lectura (ver T24-03)
 
-- **Modo:** En seco (sin vapor)  ·  **Origen:** R8 (tanda 8, D8-5.12)
-- **Objetivo:** Una analógica reasignada usa la calibración del puerto nuevo: no se verifica sin calibrarla después de reasignar; un puerto sin calibración se rechaza.
+- **Modo:** En seco (sin vapor)  ·  **Origen:** R8 (tanda 8, D8-5.12); CONDICIONADO por RSB-07 (tanda 24, R23 decisión 9)
+- **Objetivo:** CONDICIONADO: la tanda 24 (RSB-07) retiró la exigencia de calibrar para verificar; los pasos 3 y 4 y el criterio original solo valen para versiones anteriores a la tanda 24. En la actual, ejecutar T24-03 y usar este caso solo para la recomendación metrológica de calibrar en sitio (AIN-R3) y el rechazo del puerto sin calibración.
 - **Precondiciones:** Equipo en PREPARADO, puerta abierta, patrón de presión. Mover el transmisor de presión de cámara de AI 01 a AI 05 (antes de la tanda 23 se rotulaban AI 09 y AI 13).
 - **Pasos:**
   1. Intentar reasignar Presión cámara a un puerto AI sin calibración, si lo hay.
   2. Reasignar Presión cámara a AI 05 y reiniciar.
-  3. Intentar Verificar sin calibrar.
+  3. (Solo versiones anteriores a la tanda 24) Intentar Verificar sin calibrar: debía dar «Falta: calibrar el sensor en su puerto nuevo». En la tanda 24 o posterior se verifica con la lectura (T24-03).
   4. Calibrar Presión cámara en Entradas / Salidas contra el patrón y Verificar.
 - **Resultado esperado:** Puerto sin calibración: rechazo «Ese puerto analógico no tiene calibración» (desde la tanda 23 las AI 01–16 traen calibración nominal, AIN-04, y este caso puede no existir: anotarlo como no aplicable). AI 05 sin calibrar en sitio: «Falta: calibrar el sensor en su puerto nuevo». Tras calibrar, la lectura coincide con el patrón (± tolerancia de calibración) y se verifica.
-- **Criterio de aprobado/fallo:** Aprobado si nunca se pudo dejar la presión de cámara verificada sin calibrarla en el puerto nuevo.
+- **Criterio de aprobado/fallo:** Solo versiones anteriores a la tanda 24: aprobado si nunca se pudo dejar la presión de cámara verificada sin calibrarla en el puerto nuevo. Tanda 24 o posterior: aprobado si, tras calibrar contra el patrón, la lectura coincide con él; verificar sin calibrar es el comportamiento vigente (RSB-07).
 - **Valor observado:** ______________________________________________
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
@@ -2255,10 +2260,10 @@
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
 
-### F-T12-02 — Referencia desconectada: el ciclo sigue, SEN-11 y ticket NO CONFORME
+### F-T12-02 — Referencia desconectada: el ciclo sigue, SEN-11 y observación en el ticket (carga sólida)
 
-- **Modo:** En operación (vapor)  ·  **Origen:** E12 C-13.7b (tanda 12)
-- **Objetivo:** Una Referencia sin lectura ya no hace fallar el ciclo: el ciclo continúa con las sondas que leen, aparece la alarma no bloqueante SEN-11 (Referencia sin lectura) con el nombre de la sonda y el ciclo queda marcado **"NO CONFORME: punto de referencia sin verificar"** en el ticket y en el registro, aunque la Referencia vuelva a leer. Un ciclo NO CONFORME no usa apertura automática. El Principal o la presión sin lectura siguen siendo FALLO (SEN-02 / código de presión).
+- **Modo:** En operación (vapor)  ·  **Origen:** E12 C-13.7b (tanda 12); FC-08 (tanda 21)
+- **Objetivo:** Una Referencia sin lectura ya no hace fallar el ciclo: el ciclo continúa con las sondas que leen, aparece la alarma no bloqueante SEN-11 (Referencia sin lectura) con el nombre de la sonda y, desde la tanda 21 (FC-08, riesgo HAZ-T21-01 aceptado por Cristian), el ciclo puede terminar COMPLETADO con una **observación** («Observación: {sensor} sin lectura desde HH:MM ({fase})») en el ticket, el PDF y el registro, aunque la Referencia vuelva a leer; ya no existe la marca NO CONFORME. Con la observación no hay apertura automática. Con carga líquida es FALLO CIC-19 (H-08). El Principal o la presión sin lectura siguen siendo FALLO (SEN-02 / código de presión).
 - **Precondiciones:** Programa con una Referencia asignada (como F-T12-01; puede ser la sonda real). Si se quiere comprobar la apertura automática, una copia del programa con `apertura_automatica` = true.
 - **Pasos:**
   1. Iniciar el ciclo. Durante la exposición, desconectar el conector de la Referencia (o el simulador) unos 30 s y volverlo a conectar.
@@ -2266,8 +2271,8 @@
   3. Dejar terminar el ciclo; revisar si la puerta se abre sola (con apertura automática) o pide CONFIRMAR.
   4. Revisar el ticket, el detalle del ciclo en el Historial y el PDF.
   5. (Opcional, otro ciclo) desconectar la Referencia durante CALENTAMIENTO: la ventana de estabilidad debe completarse con las sondas que sí leen.
-- **Resultado esperado:** Paso 2: alarma SEN-11 no bloqueante con el nombre de la sonda; el conteo de la exposición sigue. Paso 3: flujo manual de confirmación, sin apertura automática. Paso 4: la marca NO CONFORME en el ticket, el Historial y el PDF (en el idioma vigente), aunque la Referencia volvió a leer. Paso 5: el ciclo pasa a ESTERILIZACION sin esperar a la Referencia.
-- **Criterio de aprobado/fallo:** Aprobado si el ciclo termina con la marca NO CONFORME y sin apertura automática. Es Fallo si un ciclo con una Referencia que perdió lectura termina como conforme, o si se abre la puerta sola.
+- **Resultado esperado:** Paso 2: alarma SEN-11 no bloqueante con el nombre de la sonda; el conteo de la exposición sigue. Paso 3: flujo manual de confirmación, sin apertura automática. Paso 4: la línea de observación en el ticket, el Historial y el PDF (en el idioma vigente), sin «NO CONFORME», aunque la Referencia volvió a leer. Paso 5: el ciclo pasa a ESTERILIZACION sin esperar a la Referencia.
+- **Criterio de aprobado/fallo:** Aprobado si el ciclo termina COMPLETADO con la observación registrada y sin apertura automática. Es Fallo si la observación no aparece en los registros, si aparece «NO CONFORME» en un ciclo nuevo, o si se abre la puerta sola.
 - **Valor observado:** ______________________________________________
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
@@ -2375,17 +2380,18 @@
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
 
-### H-08 — Ciclo NO CONFORME: franja, reconocimiento y marcas
+### H-08 — Referencia sin lectura: observación en sólidos, CIC-19 en líquidos
 
-- **Modo:** En operación (vapor)  ·  **Origen:** P4 / D-14.4
-- **Objetivo:** Un ciclo con la Referencia sin lectura no se confirma sin el reconocimiento explícito.
-- **Precondiciones:** Ciclo corto con la sonda de Referencia asignada.
+- **Modo:** En operación (vapor)  ·  **Origen:** P4 / D-14.4; FC-08 (tanda 21, reemplaza NO CONFORME)
+- **Objetivo:** NO CONFORME se retiró en la tanda 21 (FC-08, HAZ-T21-01, riesgo aceptado por Cristian). Una Referencia sin lectura con carga sólida deja el ciclo COMPLETADO con una observación; con carga líquida es FALLO CIC-19.
+- **Precondiciones:** Dos ciclos cortos con la sonda de Referencia asignada: uno con programa de carga sólida y otro con carga líquida (`globals.tipo_carga` distinto de sólido). Para el sólido, `apertura_automatica` = true en una copia del programa.
 - **Pasos:**
-  1. Desconectar la sonda de Referencia durante la exposición.
-  2. Al terminar, intentar CONFIRMAR; luego pulsar «Reconozco que la carga no es liberable» y confirmar.
-  3. Revisar el historial, el ticket, el PDF y el correo del ciclo.
-- **Resultado esperado:** Franja roja «CICLO NO CONFORME»; CONFIRMAR deshabilitado hasta el reconocimiento; el reconocimiento queda en la bitácora; «NO CONFORME» en historial, ticket, PDF y correo.
-- **Criterio de aprobado/fallo:** Aprobado si no se puede confirmar sin reconocer y la marca aparece en todos los registros.
+  1. Ciclo sólido: desconectar la sonda de Referencia durante la exposición y dejar terminar el ciclo.
+  2. Revisar la pantalla de fin de ciclo (píldora ámbar «Observaciones» y su modal), el ticket, el PDF, el correo y el Historial; comprobar que no hay apertura automática de la puerta y que CONFIRMAR no pide ningún reconocimiento.
+  3. Ciclo líquido: desconectar la Referencia durante la exposición.
+  4. Revisar el panel de fin de ciclo, la alarma y el Historial.
+- **Resultado esperado:** Sólido: COMPLETADO, alarma SEN-11 no bloqueante, píldora ámbar y línea «Observación: {sensor} sin lectura desde HH:MM ({fase})» en ticket, PDF, correo e Historial; sin apertura automática; sin franja roja ni reconocimiento. Líquido: FALLO CIC-19 con el protocolo normal de fallo.
+- **Criterio de aprobado/fallo:** Aprobado si el sólido termina COMPLETADO con la observación en todos los registros y sin apertura automática, y el líquido termina en CIC-19. Es Fallo si aparece «NO CONFORME» en un ciclo nuevo o si un líquido termina conforme.
 - **Valor observado:** ______________________________________________
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
@@ -2818,6 +2824,93 @@
   4. Repetir ticket, PDF e Información en inglés.
 - **Resultado esperado:** Ningún texto con «tarjeta» (ni «board» en inglés); un código de alarma `TARJETA_*` en el ticket o el PDF sale como `MODULO_ES_*`.
 - **Criterio de aprobado/fallo:** Aprobado si ninguno de los cuatro muestra «tarjeta» o «board».
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+## Bloque T24. Reasignación de E/S sin bloqueos, verificación por lectura y tipo RTD/AI (tanda 24, en seco, después de instalar)
+
+### T24-01 — Reasignar la presión de cámara sin sensores y con el paro activo: se acepta, con aviso
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** RSB-01 / RSB-02 / RSB-03 (tanda 24); HAZ-IO-05
+- **Objetivo:** La reasignación ya no se rechaza por sensores sin lectura, cámara no segura, paro activo ni estado seguro; el diálogo avisa de verificar la presión en el manómetro y el reinicio deja todo apagado.
+- **Precondiciones:** Sesión de ingeniero. Equipo en PREPARACION, PREPARADO o FALLA, sin ciclo, sin modo prueba. Ningún sensor conectado y paro de emergencia pulsado. Anotar la asignación vigente para restaurarla al final. Verificar con un manómetro independiente que la cámara está a presión atmosférica.
+- **Pasos:**
+  1. Abrir Opciones › Reasignación y mover la presión de cámara a otro puerto AI libre; aplicar con contraseña.
+  2. Leer el diálogo de Aplicar: debe incluir el aviso de verificar en el manómetro que la cámara está a presión atmosférica.
+  3. Confirmar y observar el reinicio del control: todas las salidas deben quedar apagadas y, con el paro activo, ninguna válvula debe moverse.
+  4. En Preciclo, intentar iniciar un ciclo.
+  5. En la bitácora, buscar la fila `reinicio_control` y comprobar que su detalle lleva el aviso de la cámara.
+  6. Restaurar la asignación anotada.
+- **Resultado esperado:** Reasignación aceptada; aviso presente en el diálogo; reinicio con las salidas apagadas y sin movimiento de válvulas con el paro activo; Preciclo no deja iniciar el ciclo (SEN-09, función sin verificar); aviso registrado en `reinicio_control`.
+- **Criterio de aprobado/fallo:** Aprobado si se acepta la reasignación, se ve el aviso, no se mueve ninguna válvula con el paro activo y no se puede iniciar un ciclo sin verificar. Es Fallo si se rechaza por sensor o paro, o si se mueve una válvula.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### T24-02 — Rechazos de la reasignación: se muestra el motivo, no el mensaje genérico
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** RSB-04 / RSB-05 (tanda 24)
+- **Objetivo:** Cada rechazo de Aplicar o Verificar muestra su texto propio y no «No se pudo aplicar la reasignación».
+- **Precondiciones:** Sesión de ingeniero. Equipo en PREPARADO.
+- **Pasos:**
+  1. Entrar en modo prueba de salidas e intentar aplicar una reasignación.
+  2. Salir del modo prueba; aplicar con la contraseña mal escrita.
+  3. Reasignar una función reforzada (interlock de puerta, paro o final de carrera) escribiendo mal el nombre.
+  4. Asignar una función a un puerto ya ocupado por otra.
+  5. Restaurar la asignación original si algo se aplicó.
+- **Resultado esperado:** Paso 1: «Salga primero del modo prueba de salidas». Paso 2: rechazo por contraseña. Paso 3: rechazo por nombre mal escrito. Paso 4: rechazo por puerto ocupado. Ninguno muestra «No se pudo aplicar la reasignación».
+- **Criterio de aprobado/fallo:** Aprobado si cada uno de los cuatro rechazos muestra su motivo propio.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### T24-03 — Verificar una analógica reasignada con su lectura, sin calibrarla de nuevo
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** RSB-07 (tanda 24); HAZ-IO-02 y AIN-R3 a reevaluar
+- **Objetivo:** Una analógica reasignada se verifica con una lectura válida en el puerto nuevo y la calibración vigente del puerto (la nominal cuenta); el diálogo muestra la lectura y la bitácora la guarda.
+- **Precondiciones:** Presión de cámara ya reasignada a un puerto AI nuevo y el control reiniciado (T24-01). Transductor conectado en el puerto nuevo, cámara a presión atmosférica. Manómetro de referencia.
+- **Pasos:**
+  1. Con el transductor desconectado, abrir Verificar de la presión de cámara: debe decir «Falta: una lectura válida del sensor en el puerto nuevo» con el botón Verificar deshabilitado.
+  2. Conectar el transductor en el puerto nuevo; abrir Verificar: el diálogo muestra la lectura actual en kPa. Compararla con el manómetro.
+  3. Confirmar con nombre y contraseña, sin calibrar antes.
+  4. En la bitácora, abrir la fila `reasignacion_io_verificada` y anotar `metodo`, `lectura` y `unidad`.
+  5. Restaurar la asignación anotada.
+- **Resultado esperado:** Sin transductor, falta de lectura y Verificar deshabilitado; con transductor, lectura en kPa coherente con el manómetro y verificación aceptada sin calibrar; auditoría con `metodo: "lectura"`, el valor y la unidad.
+- **Criterio de aprobado/fallo:** Aprobado si no se pudo verificar sin lectura, se pudo con lectura sin calibrar y la bitácora guarda la lectura. Anotar la diferencia lectura − manómetro: la recomendación de calibrar en sitio sigue vigente (AIN-R3).
+- **Lectura del diálogo / manómetro / diferencia:** ________ / ________ / ________
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### T24-04 — Columna Tipo de Reasignación: RTD en temperaturas, AI en presiones
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** RSB-08 (tanda 24)
+- **Objetivo:** La columna Tipo rotula RTD en las temperaturas y AI en las presiones; DI y DO no cambian.
+- **Precondiciones:** Sesión de ingeniero. Opciones › Reasignación abierta.
+- **Pasos:**
+  1. Revisar la columna Tipo de las filas de temperatura (Principal, Referencias, drenaje).
+  2. Revisar la columna Tipo de las filas de presión.
+  3. Revisar las filas DI y DO y el diálogo de Verificar de una temperatura.
+- **Resultado esperado:** Temperaturas: «RTD»; presiones: «AI»; DI y DO igual que antes; el diálogo de Verificar de una temperatura también dice «RTD».
+- **Criterio de aprobado/fallo:** Aprobado si ninguna temperatura aparece con tipo «AI».
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### T24-05 — Paro de emergencia reasignado: vapor y aire comprimido no se encienden solos hasta verificarlo
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** RSB-01 / RSB-06 (tanda 24); HAZ-IO-05
+- **Objetivo:** Tras reasignar el paro, mientras no esté verificado el control automático no enciende las salidas que aportan energía (vapor, aire comprimido).
+- **Precondiciones:** Equipo en PREPARADO, sin ciclo, cámara fría y a presión atmosférica, puertas cerradas. Anotar la asignación vigente. Paro cableado y accionable.
+- **Pasos:**
+  1. Reasignar el paro de emergencia a otro puerto DI (nombre escrito, contraseña) y esperar el reinicio del control.
+  2. Sin verificarlo, observar durante 2 minutos las salidas de vapor de chaqueta, vapor de cámara y aire comprimido en Entradas/Salidas.
+  3. Pulsar y soltar el paro en el puerto nuevo y Verificar.
+  4. Observar de nuevo las salidas y la alarma SEN-09.
+  5. Restaurar la asignación anotada.
+- **Resultado esperado:** Paso 2: ninguna de esas salidas se enciende sola y SEN-09 sigue activa. Paso 4: SEN-09 se despeja para el paro y el control vuelve a operar con normalidad.
+- **Criterio de aprobado/fallo:** Aprobado si, antes de verificarlo, vapor y aire comprimido permanecen apagados. Es Fallo si alguna se enciende sola.
 - **Valor observado:** ______________________________________________
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________

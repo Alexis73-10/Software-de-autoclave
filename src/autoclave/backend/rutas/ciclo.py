@@ -404,9 +404,14 @@ def abort_cycle(authorization: str | None = Header(None)):
         if pendiente:
             raise _Rechazo(409, "resultado_pendiente",
                            "El ciclo ya terminó: confirme el resultado")
-        # FC-12: antes de la bandera, así CicloState y CycleLogger ya lo ven
-        estado.cancelado_por = sesion.usuario if sesion is not None else None
-        estado.set_flag("CICLO_CANCELADO", True)
+        # Idempotencia (revisión T21): comprobación y marcado atómicos bajo
+        # _sm_lock. Si la cancelación ya está pedida y el tick aún no la
+        # consumió, esta llamada no vuelve a auditar ni pisa `cancelado_por`.
+        ya_pedida = estado.get_flag("CICLO_CANCELADO") is True
+        if not ya_pedida:
+            # FC-12: antes de la bandera, así CicloState y CycleLogger ya lo ven
+            estado.cancelado_por = sesion.usuario if sesion is not None else None
+            estado.set_flag("CICLO_CANCELADO", True)
         detalle = {"fase": fase if isinstance(fase, str) else ""}
         operador = getattr(estado, "operador_inicio", "") or ""
         detalle["operador_ciclo"] = operador if isinstance(operador, str) else ""
@@ -414,17 +419,28 @@ def abort_cycle(authorization: str | None = Header(None)):
             detalle["sin_sesion"] = True
         if en_espera_datos:
             detalle["en_espera_datos"] = True
-    try:
-        ciclo_id = _ciclo_de_pantalla()
-        fila = context.db.get_ciclo(ciclo_id) if isinstance(ciclo_id, int) else None
-        if fila is not None:
-            detalle["ciclo_db_id"] = ciclo_id
-            detalle["numero_ciclo"] = fila["numero_ciclo"]
-    except Exception:
-        logger.debug("/cycle/abort: sin número de ciclo para la bitácora")
-    # FC-12 (tanda 21): fila de la cancelación, con el usuario si lo hay
-    _auditar("ciclo_cancelado", sesion, entidad=entidad,
-             valor_nuevo=detalle.get("numero_ciclo"), detalle=detalle)
+    if not ya_pedida:
+        ciclo_id = None
+        try:
+            ciclo_id = _ciclo_de_pantalla()
+            fila = context.db.get_ciclo(ciclo_id) if isinstance(ciclo_id, int) else None
+            if fila is not None:
+                detalle["ciclo_db_id"] = ciclo_id
+                detalle["numero_ciclo"] = fila["numero_ciclo"]
+        except Exception as e:
+            logger.debug("/cycle/abort: sin número de ciclo para la bitácora")
+            # Sin base de datos (u otro fallo de lectura) la cancelación sigue
+            # su curso, pero no queda fila ni número de ciclo: dejarlo claro
+            logger.warning("/cycle/abort: cancelación aceptada, pero la bitácora queda sin "
+                           "número de ciclo o sin fila (ciclo_id=%s): %s",
+                           ciclo_id if ciclo_id is not None else "desconocido",
+                           type(e).__name__)
+        # FC-12 (tanda 21): fila de la cancelación, con el usuario si lo hay
+        _auditar("ciclo_cancelado", sesion, entidad=entidad,
+                 valor_nuevo=detalle.get("numero_ciclo"), detalle=detalle)
+    else:
+        logger.info("/cycle/abort: cancelación ya pedida; segunda llamada sin efecto "
+                    "(usuario=%s)", sesion.usuario if sesion is not None else "-")
     if en_espera_datos:
         logger.warning("/cycle/abort: cancelación aceptada sin datos del módulo E/S "
                        "(tolerancia por DI vencida o desconexión antes de COM-02)")

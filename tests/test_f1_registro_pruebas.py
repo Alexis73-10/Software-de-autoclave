@@ -81,7 +81,7 @@ def test_el_formulario_sale_de_pruebas_py_con_todos_los_bloques():
     # prueba sigue exigiendo el conjunto exacto de bloques. Tanda 19 (MOD-15):
     # bloque M (enlace Modbus). Tanda 20 (T20-06): al regenerar pruebas.py se
     # portaron los bloques E9, N11 y T12 que solo estaban en el .md. Tanda 23: bloque T23 (verificación en el equipo).
-    assert s["total"] >= 28 and {b[0] for b in s["bloques"]} == set("ABCDEFGHIM") | {"E9", "N11", "T12", "T23"}
+    assert s["total"] >= 28 and {b[0] for b in s["bloques"]} == set("ABCDEFGHIM") | {"E9", "N11", "T12", "T23", "T24"}
     ids = {p["id"] for p in s["pruebas"]}
     assert {"A-04", "B-01", "B-03", "B-04", "B-07", "D-06", "D-07", "D-08", "E-06"} <= ids   # H1
     assert definiciones.verificar_snapshot(s)
