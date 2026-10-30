@@ -9,6 +9,17 @@ Una entrada por **entrega** (compilación con Setup que se instala en el equipo)
 
 <!-- entradas: las agrega compilar_entrega.py debajo de esta línea, la más nueva primero -->
 
+## 1.0.0-alpha.13 — 2026-10-30
+
+- Etiqueta: `v1.0.0-alpha.13` (commit `chore(ver): 1.0.0-alpha.13`, sobre `40c3262`)
+- AppVerNum: `1.0.0.1013`
+- SHA-256 del Setup y del zip: en el mensaje de la etiqueta y en `entrega/v1.0.0-alpha.13_2026-10-30/SHA256SUMS.txt` (solo existen después de compilar)
+- Commits desde `v1.0.0-alpha.12`:
+  - f6b506fe test(cierre-1.0): una QApplication por proceso para evitar caídas de worker con -n auto
+  - a24ad7e6 docs(cierre-1.0): checklist de cierre, borrador V1.1, riesgos y hoja de banco T24
+  - b202c38b fix(cierre-1.0): cancelación idempotente e indicador de puerta que falla del lado seguro
+
+
 ## 1.0.0-alpha.12 — 2026-10-30
 
 - Etiqueta: `v1.0.0-alpha.12` (commit `chore(ver): 1.0.0-alpha.12`, sobre `4aa05c7`)
