@@ -15,3 +15,10 @@
 - Hallazgo 3: `float(_tiempo_seg)` antes de escribir el restante de exposición; despreciable. Aceptado.
 - Hallazgo 4: el simulador no pasa `total_exposicion_s`, así que allí la esterilización activa muestra 0.0; fuera del alcance de la tanda. Aceptado.
 - Hallazgo 5: los atributos de exposición quedan con valor viejo tras cierres de `CicloState` hasta el reset de la siguiente esterilización; sin efecto (el conteo propio exige estado «activa»). Aceptado.
+
+## Ajuste: tope efectivo en QML (revisión, hallazgo 2)
+- Qué: `CirculoFaseLiquido.qml` usa `_topeEfectivo = Math.min(tope, 0.90)`; el enlace ya no puede subir el tope (HAZ-LLF-01).
+- Decidió: revisor; aplicó: director.
+
+## Hallazgo fuera de alcance (no corregido)
+- `tiempo_restante` (restante_s) lanza OverflowError con un entero gigante en `exposicion_restante_s` y TypeError con referencias None. Preexistente, ajeno a esta tanda; queda para otra.

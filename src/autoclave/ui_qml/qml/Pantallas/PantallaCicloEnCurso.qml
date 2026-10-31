@@ -469,6 +469,11 @@ Item {
         anchors.fill: parent
         escala: raiz.m(1)
         fases: raiz.fases
+        datosVigentes: raiz.datosVigentes
+        cicloDbId: raiz.progreso?.cicloDbId ?? -1
+        enVista: raiz.visible
+        topeFraccion: raiz.progreso?.topeFraccion ?? 0.90
+        nivelIndeterminado: raiz.progreso?.nivelIndeterminado ?? 0.25
     }
 
     // ======================= tarjeta de parámetros (= PantallaPreciclo.qml, +151) =======================
