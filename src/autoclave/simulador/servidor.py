@@ -23,6 +23,7 @@ from fastapi import Body, FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 
 from autoclave.backend.actividad_ui import ActividadUI
+from autoclave.backend.arranque.registro import ETAPAS_ARRANQUE
 from autoclave.core.runtime import progreso_ciclo
 from autoclave.services.domain.reportes import resumen_periodo
 from autoclave.simulador.autenticacion_simulada import registrar_autenticacion
@@ -98,6 +99,14 @@ def crear_app(repeticion, cycle_manager, config: dict, velocidad: float = 10.0,
         if ui not in aplicables:
             aplicables.append(ui)
 
+    @app.get("/arranque")
+    def arranque():
+        # la intro de la UI lee esto; sin él declara «sin respuesta del sistema
+        # de control» a los 20 s. El simulador arranca con todo cumplido.
+        return {"terminado": True, "falloBloqueante": False, "etapaActual": None,
+                "etapas": [{"clave": clave, "estado": "ok", "codigo": None, "peso": peso}
+                           for clave, peso, _ in ETAPAS_ARRANQUE]}
+
     @app.get("/status")
     def status():
         m = repeticion.muestra(est.t_sim())
@@ -107,6 +116,7 @@ def crear_app(repeticion, cycle_manager, config: dict, velocidad: float = 10.0,
             "fase_en_sostenimiento": False,
             "prevacio_progreso": "",
             "card_connected": True,
+            "estado_modulo_es": "ok",   # sin él la UI asume «desconectada»
             "test_mode_active": False,
             "ui_inactividad_s": actividad.inactividad_s(),
             "doors": dict(est.puertas),
