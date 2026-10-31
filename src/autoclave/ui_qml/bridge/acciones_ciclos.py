@@ -37,6 +37,7 @@ from PySide6.QtCore import Property, QObject, Signal, Slot
 from autoclave import i18n
 from autoclave.core.runtime.progreso_ciclo import FASES_UI
 from autoclave.core.runtime import alarmas_i18n
+from autoclave.installation.identidad import identidad_de_ciclo, rotulo_serial_especifika
 from autoclave.installation.modelo import desglosar_modelo
 from autoclave.services.domain.logging import ticket_formatter
 from autoclave.services.domain.logging.ticket_formatter import format_ticket
@@ -57,12 +58,18 @@ MAX_DESTINOS_ENVIO = 11
 logger = logging.getLogger(__name__)
 
 
-def texto_empresa(modelo, serie, idioma: str | None = None) -> str:
+def texto_empresa(modelo, serie, idioma: str | None = None,
+                  serial_especifika: str | None = None) -> str:
     """Línea de empresa de la cabecera del PDF. E2 (tanda 8; D8-0 y D8-3.23):
     si el modelo sigue la regla "SPK-SAT …", se agregan la familia
     ("Hospitalario"/"Laboratorio"), la capacidad y el tipo de carga, deducidos
     del nombre guardado; un modelo anterior queda como antes."""
-    texto = i18n.t("exportacion.empresa", idioma, modelo=modelo or "", serie=serie or "")
+    # Automatización: modelo y serie originales de un equipo ajeno; no se dice que
+    # Especifika lo fabricó, y el serial Especifika se agrega
+    clave = "exportacion.empresa_automatizacion" if serial_especifika else "exportacion.empresa"
+    texto = i18n.t(clave, idioma, modelo=modelo or "", serie=serie or "")
+    if serial_especifika:
+        texto += f" · {rotulo_serial_especifika(idioma)}: {serial_especifika}"
     datos = desglosar_modelo(modelo)
     if datos is None:
         return texto
@@ -302,7 +309,7 @@ class AccionesCiclos(QObject):
         def tarea():
             destinos = self._validar_envio(config, destino)
             pdfs, ciclos = self._pdfs(ids)
-            serie = ciclos[0].get("serie") or ""
+            serie = identidad_de_ciclo(ciclos[0])["serie"] or ""
             numeros = ", ".join(f"{c['numero_ciclo']:06d}" for c in ciclos)
             asunto, cuerpo = _marcar_no_conforme(
                 i18n.t("exportacion.asunto", serie=serie, ciclos=numeros),
@@ -334,7 +341,8 @@ class AccionesCiclos(QObject):
             with tempfile.TemporaryDirectory() as carpeta:
                 ruta = Path(carpeta) / nombre
                 self._generar_pdf_resumen(ruta, {
-                    "empresa": texto_empresa(r.get("modelo"), r.get("serie")),
+                    "empresa": texto_empresa(r.get("modelo"), r.get("serie"),
+                                             serial_especifika=r.get("serial_especifika")),
                     "titulo": i18n.t("exportacion.titulo_resumen"),
                     "periodo": texto_periodo,
                     "resumen": reporte_resumen.presentable(r),
@@ -392,7 +400,8 @@ class AccionesCiclos(QObject):
                                    desde=dominio.formatear_fecha(desde),
                                    hasta=dominio.formatear_fecha(hasta))
             portada = {
-                "empresa": texto_empresa(r.get("modelo"), r.get("serie")),
+                "empresa": texto_empresa(r.get("modelo"), r.get("serie"),
+                                             serial_especifika=r.get("serial_especifika")),
                 "titulo": i18n.t("exportacion.titulo_consolidado"),
                 "periodo": texto_periodo,
                 "resumen": reporte_resumen.presentable(r),
@@ -551,8 +560,10 @@ class AccionesCiclos(QObject):
             resultado = i18n.t("exportacion.no_conforme_resultado", resultado=resultado)
         fin = dominio.formatear_fecha(ciclo.get("fecha_fin"))
         hora_fin = dominio.formatear_hora(ciclo.get("fecha_fin"))
+        ident = identidad_de_ciclo(ciclo)    # automatización: originales + serial Especifika
         return {
-            "empresa": texto_empresa(ciclo.get("modelo"), ciclo.get("serie")),
+            "empresa": texto_empresa(ident["modelo"], ident["serie"],
+                                     serial_especifika=ident["serial_especifika"]),
             "titulo": i18n.t("exportacion.titulo", numero=f"{ciclo['numero_ciclo']:06d}",
                              programa=ciclo.get("nombre_ciclo") or dominio.SIN_DATO),
             "campos": [

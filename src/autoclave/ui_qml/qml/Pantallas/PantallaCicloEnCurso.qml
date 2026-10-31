@@ -780,6 +780,9 @@ Item {
         font.family: Tipografia.familia
         font.weight: Tipografia.pesoSemiBold
         font.pixelSize: raiz.fuente(17)
+        // un modelo de 80 caracteres (equipo automatizado) no desborda la celda: baja la letra, nunca se recorta (D8-5.4)
+        width: parent.width - x - raiz.m(6)
+        fontSizeMode: Text.HorizontalFit; minimumPixelSize: Escala.fuenteMinima
     }
     BarraInferiorMenu {
         id: barraInferior

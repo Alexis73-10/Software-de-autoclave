@@ -411,6 +411,16 @@ def _migracion_v11(conn: sqlite3.Connection) -> None:
         "BEGIN SELECT RAISE(ABORT, 'solo las semillas son cuentas del sistema'); END")
 
 
+def _migracion_v12(conn: sqlite3.Connection) -> None:
+    """Instalación por automatización: identidad original del equipo en
+    `ciclos` (`serie_original`, `modelo_original`). Aditiva e idempotente, sin
+    DEFAULT: las filas anteriores y las de fabricación quedan en NULL."""
+    columnas = {f[1] for f in conn.execute("PRAGMA table_info(ciclos)")}
+    for columna in ("serie_original", "modelo_original"):
+        if columna not in columnas:
+            conn.execute(f"ALTER TABLE ciclos ADD COLUMN {columna} TEXT")
+
+
 def _valores_fallo_json(valores) -> str:
     """'' sin parámetros; JSON (sin NaN) si los hay. Nunca lanza."""
     if not isinstance(valores, dict) or not valores:
@@ -433,6 +443,7 @@ _MIGRACIONES = (
     (9, _migracion_v9),
     (10, _migracion_v10),
     (11, _migracion_v11),
+    (12, _migracion_v12),
 )
 
 ESQUEMA_VERSION = _MIGRACIONES[-1][0]
@@ -956,8 +967,12 @@ class DbManager:
         numero_programa: int | None = None,
         uuid: str | None = None,
         programa_json: str | None = None,
+        serie_original: str | None = None,
+        modelo_original: str | None = None,
     ) -> int:
-        """Inserta un nuevo ciclo y retorna su ID."""
+        """Inserta un nuevo ciclo y retorna su ID. `serie_original` y
+        `modelo_original` solo los trae un equipo instalado por automatización
+        (NULL en fabricación)."""
         with self._lock:
             cur = self._conn.execute(
                 """
@@ -965,8 +980,9 @@ class DbManager:
                     (numero_ciclo, fecha_inicio, tipo_ciclo, nombre_ciclo,
                      temp_esterilizacion, tiempo_esterilizacion,
                      modelo, serie, version_sw, operador,
-                     asignacion_sensores, numero_programa, uuid, programa_json)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                     asignacion_sensores, numero_programa, uuid, programa_json,
+                     serie_original, modelo_original)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                 """,
                 (
                     numero,
@@ -983,6 +999,8 @@ class DbManager:
                     numero_programa,
                     uuid,
                     programa_json,
+                    serie_original,
+                    modelo_original,
                 ),
             )
             self._conn.commit()
@@ -1039,8 +1057,8 @@ class DbManager:
                          modelo, serie, version_sw, operador,
                          asignacion_sensores, numero_programa, uuid, programa_json,
                          fecha_fin, resultado, motivo_fallo, codigo_fallo, f0_final,
-                         avisos_ticket)
-                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                         avisos_ticket, serie_original, modelo_original)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                     """,
                     (
                         encabezado.get("numero"),
@@ -1057,7 +1075,10 @@ class DbManager:
                         encabezado.get("numero_programa"),
                         uuid_ciclo,
                         encabezado.get("programa_json"),
-                    ) + fin,
+                    ) + fin + (
+                        encabezado.get("serie_original"),
+                        encabezado.get("modelo_original"),
+                    ),
                 )
                 ciclo_id = cur.lastrowid
                 for l in lecturas:

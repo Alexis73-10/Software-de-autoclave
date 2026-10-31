@@ -36,6 +36,12 @@ Item {
     // ── Valores capturados ───────────────────────────────────────────────
     property string serie: ""
     property string codigo: ""
+    // Instalación por automatización (equipo de terceros automatizado por Especifika):
+    // el código INSA/REIA queda atado a la serie y el modelo originales
+    property bool automatizado: false
+    property string serie_original: ""
+    property string modelo_original: ""
+    readonly property string modoInstalacion: automatizado ? "automatizacion" : "fabricacion"
     property string clase: ""            // "" = sin elegir
     property int numPuertas: 0           // 0 = sin elegir
     property string tipoPuerta: ""
@@ -148,7 +154,11 @@ Item {
     // ── Campos de texto y teclado ────────────────────────────────────────
     readonly property var campos: ({
         serie:  { titulo: I18n.t("instalacion.serie", I18n.lang),  maximo: 20 },
-        codigo: { titulo: I18n.t("instalacion.codigo", I18n.lang), maximo: 12 },
+        // 48 caracteres Base32 (v2) con guiones de a 4 = 59; el v1 son 12
+        codigo: { titulo: I18n.t("instalacion.codigo", I18n.lang), maximo: 60 },
+        // serie 1-40 y modelo 1-80 tras normalizar (se quitan blancos); margen para los blancos
+        serie_original: { titulo: I18n.t("instalacion.serie_original", I18n.lang), maximo: 60 },
+        modelo_original: { titulo: I18n.t("instalacion.modelo_original", I18n.lang), maximo: 100 },
         // LIC-02: 64 = PASSWORD_MAX del backend (validacion_usuario.py)
         clave_admin: { titulo: I18n.t("instalacion.clave_admin", I18n.lang), maximo: 64, oculto: true },
         confirmacion_admin: { titulo: I18n.t("instalacion.confirmacion_admin", I18n.lang), maximo: 64, oculto: true },
@@ -166,6 +176,24 @@ Item {
     }
     function textoCampo(nombre) {
         return campoActivo === nombre && teclado ? teclado.textoEnEdicion : raiz[nombre]
+    }
+    // Validación en vivo de la serie / modelo originales (la regla vive en Python)
+    function errorOriginalVivo(nombre) {
+        if (!automatizado || !puente)
+            return ""
+        const t = textoCampo(nombre)
+        if (t === "")
+            return ""
+        const k = puente.validarOriginal(nombre === "serie_original" ? "serie" : "modelo", t)
+        return k !== "" ? I18n.t(k, I18n.lang) : ""
+    }
+    // Forma que guardará el perfil (mayúsculas, espacios normalizados); lo decide el puente
+    function normalizado(campo, texto) {
+        return puente ? puente.normalizarOriginal(campo, texto) : texto.trim()
+    }
+    function alternarAutomatizado() {
+        automatizado = !automatizado
+        errores = ({})
     }
 
     // ── Cambios de valores ───────────────────────────────────────────────
@@ -197,8 +225,25 @@ Item {
                 e.serie = I18n.t("instalacion.error_serie", I18n.lang)
             if (codigo.trim() === "")
                 e.codigo = I18n.t("instalacion.error_codigo_vacio", I18n.lang)
-            else if (e.serie === undefined && puente && !puente.validarCodigo(serie.trim(), codigo.trim()))
-                e.codigo = I18n.t("instalacion.error_codigo", I18n.lang)
+            if (automatizado) {
+                const ks = serie_original.trim() === "" ? "" : (puente ? puente.validarOriginal("serie", serie_original) : "")
+                const km = modelo_original.trim() === "" ? "" : (puente ? puente.validarOriginal("modelo", modelo_original) : "")
+                if (serie_original.trim() === "")
+                    e.serie_original = I18n.t("instalacion.error_serie_original_vacia", I18n.lang)
+                else if (ks !== "")
+                    e.serie_original = I18n.t(ks, I18n.lang)
+                if (modelo_original.trim() === "")
+                    e.modelo_original = I18n.t("instalacion.error_modelo_original_vacio", I18n.lang)
+                else if (km !== "")
+                    e.modelo_original = I18n.t(km, I18n.lang)
+            }
+            if (codigo.trim() !== "" && e.serie === undefined && e.serie_original === undefined
+                    && e.modelo_original === undefined && puente) {
+                const k = puente.validarCodigo(serie.trim(), codigo.trim(), modoInstalacion,
+                                               serie_original, modelo_original)
+                if (k !== "")
+                    e.codigo = I18n.t(k, I18n.lang)
+            }
         } else if (paso === "equipo") {
             if (clase === "")
                 e.clase = I18n.t("instalacion.error_equipo", I18n.lang)
@@ -249,6 +294,9 @@ Item {
     function perfil() {
         return {
             serial_number: serie.trim().toUpperCase(),
+            tipo_instalacion: modoInstalacion,
+            serial_original: automatizado ? serie_original : "",
+            modelo_original: automatizado ? modelo_original : "",
             // M1: sin model_id; el puente lo calcula de estos datos
             equipment_class: clase,
             capacidad_litros: capacidadLitros,
@@ -299,6 +347,9 @@ Item {
         { clave: "resumen_capacidad", valor: capacidadLitros > 0 ? I18n.t("instalacion.litros", I18n.lang, { n: capacidadLitros }) : "" },
         { clave: "resumen_carga", valor: tipoCarga !== "" ? I18n.t("instalacion.carga_" + tipoCarga, I18n.lang) : "" },
         { clave: "resumen_serie", valor: serie.trim().toUpperCase() },
+        { clave: "resumen_tipo", valor: automatizado ? I18n.t("instalacion.tipo_automatizacion", I18n.lang) : "" },
+        { clave: "resumen_serie_original", valor: automatizado ? normalizado("serie", serie_original) : "" },
+        { clave: "resumen_modelo_original", valor: automatizado ? normalizado("modelo", modelo_original) : "" },
         { clave: "resumen_equipo", valor: etiquetaClase(clase) },
         { clave: "resumen_puertas", valor: numPuertas + " · " + I18n.t("instalacion.puerta_" + tipoPuerta, I18n.lang) },
         // SAF-01 de T9: el tipo de puerta decide si el software maneja el
@@ -427,10 +478,55 @@ Item {
                         mensajeError: raiz.errores.codigo ?? ""
                         nombreObjeto: "campoCodigo"
                         nombreError: "errorCodigo"
-                        onTocado: raiz.editar("codigo")
+                        onTocado: raiz.editar("codigo", raiz.automatizado ? "serie_original" : "")
+                    }
+                    FilaInterruptor {
+                        objectName: "interruptorAutomatizado"
+                        y: Escala.px(334)
+                        width: parent.width
+                        etiqueta: I18n.t("instalacion.automatizado", I18n.lang)
+                        marcado: raiz.automatizado
+                        ultima: true
+                        onAlternado: raiz.alternarAutomatizado()
                     }
                     Ayuda {
-                        y: Escala.px(352)
+                        id: ayudaAutomatizado
+                        objectName: "ayudaAutomatizado"
+                        visible: raiz.automatizado
+                        y: Escala.px(334 + 88 + 8)
+                        width: parent.width
+                        text: I18n.t("instalacion.automatizado_ayuda", I18n.lang)
+                    }
+                    CampoFormulario {
+                        id: campoSerieOriginal
+                        visible: raiz.automatizado
+                        y: Escala.px(440) + ayudaAutomatizado.height
+                        width: parent.width
+                        etiqueta: I18n.t("instalacion.serie_original", I18n.lang)
+                        marcador: I18n.t("instalacion.serie_original_marcador", I18n.lang)
+                        valor: raiz.textoCampo("serie_original")
+                        activo: raiz.campoActivo === "serie_original"
+                        mensajeError: raiz.errores.serie_original ?? raiz.errorOriginalVivo("serie_original")
+                        nombreObjeto: "campoSerieOriginal"
+                        nombreError: "errorSerieOriginal"
+                        onTocado: raiz.editar("serie_original", "modelo_original")
+                    }
+                    CampoFormulario {
+                        id: campoModeloOriginal
+                        visible: raiz.automatizado
+                        y: Escala.px(607) + ayudaAutomatizado.height
+                        width: parent.width
+                        etiqueta: I18n.t("instalacion.modelo_original", I18n.lang)
+                        marcador: I18n.t("instalacion.modelo_original_marcador", I18n.lang)
+                        valor: raiz.textoCampo("modelo_original")
+                        activo: raiz.campoActivo === "modelo_original"
+                        mensajeError: raiz.errores.modelo_original ?? raiz.errorOriginalVivo("modelo_original")
+                        nombreObjeto: "campoModeloOriginal"
+                        nombreError: "errorModeloOriginal"
+                        onTocado: raiz.editar("modelo_original")
+                    }
+                    Ayuda {
+                        y: raiz.automatizado ? Escala.px(790) + ayudaAutomatizado.height : Escala.px(450)
                         width: parent.width
                         text: I18n.t("instalacion.activacion_ayuda", I18n.lang)
                     }

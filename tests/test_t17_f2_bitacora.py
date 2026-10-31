@@ -22,6 +22,7 @@ from autoclave.backend import contrasenas
 from autoclave.core.runtime import bitacora
 from autoclave.services.domain.logging.db_manager import DbManager
 from autoclave.state_machine.machine.enum_global import GlobalState
+from tests.helpers import codigo_doble
 from tests.helpers.backend_doble import cargar_servidor
 
 pytestmark = pytest.mark.req("BIT-01", "BIT-02", "BIT-03", "BIT-04", "BIT-05")
@@ -193,10 +194,10 @@ def asistente(monkeypatch, tmp_path):
 
 def test_al_terminar_el_asistente_una_sola_fila_equipo_instalado(asistente):
     pi, tmp = asistente
-    p = pi.PuenteInstalacion(validar_codigo=lambda s, c: True,
+    p = pi.PuenteInstalacion(verificar_codigo=codigo_doble.acepta(),
                              abrir_bd=lambda: DbManager(tmp / "autoclave.db"),
                              es_semilla=lambda _c: False)
-    assert p.validarCodigo("ab-123", "X")
+    assert p.validarCodigo("ab-123", "X", "fabricacion", "", "") == ""
     # la zona horaria se lee al llamar: la función por defecto está parcheada
     assert p.instalar(_datos_instalacion()) == {"ok": True, "error": ""}
     db = DbManager(tmp / "autoclave.db")
@@ -215,7 +216,8 @@ def test_al_terminar_el_asistente_una_sola_fila_equipo_instalado(asistente):
 def test_registrar_equipo_instalado_con_zona(tmp_path):
     pytest.importorskip("PySide6")
     from autoclave.ui_qml.bridge import puente_instalacion as pi
-    perfil = MagicMock(serial_number="S-1", model_id="AE-45")
+    perfil = MagicMock(serial_number="S-1", model_id="AE-45", tipo_instalacion="fabricacion",
+                      serial_original=None, modelo_original=None)
     pi.registrar_equipo_instalado(perfil, abrir_bd=lambda: DbManager(tmp_path / "a.db"),
                                   zona=lambda: "SA Pacific Standard Time")
     db = DbManager(tmp_path / "a.db")

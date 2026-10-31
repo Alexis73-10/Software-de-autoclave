@@ -72,6 +72,12 @@ def _dist(tmp_path, correo=None, extra_ciclos=(), sin_fabrica=False, calib_modbu
     # la calibración del enlace Modbus y el verificador falla si falta.
     (interno / "config" / "calibration_modbus.yaml").write_bytes(
         calib_modbus if calib_modbus is not None else (CONFIG / "calibration_modbus.yaml").read_bytes())
+    # Instalación por automatización: el verificador exige un K_t de transporte
+    # v2 que no sea el de prueba (§7.1); aquí uno cualquiera distinto de él.
+    (raiz / "_internal" / "config").mkdir(parents=True, exist_ok=True)
+    (raiz / "_internal" / "config" / "activacion_transporte.json").write_text(
+        json.dumps({"version": 2, "transporte": "ab" * 32, "huella_maestro": "00000000"}),
+        encoding="utf-8")
     fab = interno / "cycles" / "factory"
     fab.mkdir(parents=True)
     if not sin_fabrica:

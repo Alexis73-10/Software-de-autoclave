@@ -18,6 +18,8 @@ from autoclave.backend.dependencias import (DISTINTO_DE_CICLO, RechazoApi, _audi
     _log_desarrollo, _rechazar, _token_de, context, guard_estado, requiere_rol, tokens)
 from autoclave.backend.rutas._comun import (_LEEN_CONECTIVIDAD, _ciclo_json,
     _encolar_en_impresora, _inicio_del_dia, _meta_equipo, _rango_del_periodo)
+from autoclave.installation.identidad import (
+    identidad_de_meta, identidad_de_perfil, meta_con_originales, rotulo_serial_especifika)
 from autoclave.backend.rutas.apagado import (_reinicio_lock, bloquear_para_reinicio,
     comprobar_reinicio_disponible, lanzar_reinicio)
 
@@ -92,7 +94,7 @@ def _put_printer_config(body: _ImpresoraConfigBody, sesion: Sesion, entidad: str
 def print_test_page(sesion: Sesion = Depends(requiere_rol(ROL_TECNICO, ROL_INGENIERO))):
     """Página de prueba de la impresora térmica (409 en ciclo; 503 sin impresora)."""
     from autoclave.services.domain.logging import ticket_mantenimiento as tm
-    _encolar_en_impresora([tm.pagina_prueba(_meta_equipo())])
+    _encolar_en_impresora([tm.pagina_prueba(meta_con_originales(_meta_equipo(), getattr(context, "profile", None)))])
     _log_desarrollo("impresora_prueba", sesion, entidad="/printer/test-page")   # D9-6
     return {"ok": True}
 _EDITAN_CORREO = (ROL_ADMIN, ROL_INGENIERO)
@@ -218,14 +220,21 @@ def post_email_test(sesion: Sesion = Depends(requiere_rol(*_EDITAN_CORREO))):
     if not config.configurado:
         raise RechazoApi(409, "correo_no_configurado", "Falta remitente, servidor o contraseña")
     meta = _meta_equipo()
+    # Automatización: serie y modelo originales + serial Especifika (mismo texto
+    # que antes en fabricación)
+    ident = identidad_de_meta(meta_con_originales(meta, getattr(context, "profile", None)))
+    serie_visible, modelo_visible = ident["serie"], ident["modelo"]
     enviados, fallidos = 0, []
     for destino in destinos:
         m = EmailMessage()
         m["From"], m["To"] = config.remitente, destino
-        m["Subject"] = i18n.t("conectividad.asunto_prueba", None, serie=meta["serie"] or "-")
-        m.set_content(i18n.t("conectividad.cuerpo_prueba", None, serie=meta["serie"] or "-",
-                             modelo=meta["modelo"] or "-",
-                             fecha=datetime.now().strftime("%Y-%m-%d %H:%M")))
+        m["Subject"] = i18n.t("conectividad.asunto_prueba", None, serie=serie_visible or "-")
+        cuerpo = i18n.t("conectividad.cuerpo_prueba", None, serie=serie_visible or "-",
+                        modelo=modelo_visible or "-",
+                        fecha=datetime.now().strftime("%Y-%m-%d %H:%M"))
+        if ident["serial_especifika"]:
+            cuerpo += f"\n{rotulo_serial_especifika()}: {ident['serial_especifika']}"
+        m.set_content(cuerpo)
         try:
             _enviar_correo(config, m)
             enviados += 1
@@ -249,10 +258,20 @@ def _resumen_periodo(periodo: str, fecha: date | None) -> dict:
     numeros = {tipo: getattr(c, "number", None) for tipo, c in list(context.cycle_manager.cycles.items())}
     resumen = resumen_periodo.resumir(context.db.get_conteo_resultados(desde, hasta), numeros)
     perfil = context.profile
+    serie = getattr(perfil, "serial_number", "") or ""
+    modelo = getattr(perfil, "model_id", "") or ""
+    # Automatización: serie y modelo originales; el serial Especifika va aparte
+    # (la clave solo existe en ese caso: en fabricación el JSON no cambia)
+    ident = identidad_de_perfil(perfil) if perfil is not None else None
+    extra = {}
+    if ident is not None and ident["serial_especifika"] is not None:
+        serie, modelo = ident["serie"], ident["modelo"]
+        extra = {"serial_especifika": ident["serial_especifika"]}
     return {
         "periodo": periodo,
-        "serie":   getattr(perfil, "serial_number", "") or "",
-        "modelo":  getattr(perfil, "model_id", "") or "",
+        "serie":   serie,
+        "modelo":  modelo,
+        **extra,
         "desde":   desde[:10],
         "hasta":   (date.fromisoformat(hasta[:10]) - timedelta(days=1)).isoformat(),
         **resumen,
@@ -310,5 +329,6 @@ def print_report_summary(body: _ImprimirResumenBody):
     _encolar_en_impresora)."""
     r = _resumen_periodo(body.periodo, body.fecha)
     _encolar_en_impresora([resumen_periodo.format_ticket_resumen(
-        r, r["desde"], r["hasta"], serie=r["serie"], modelo=r["modelo"])])
+        r, r["desde"], r["hasta"], serie=r["serie"], modelo=r["modelo"],
+        serial_especifika=r.get("serial_especifika"))])
     return {"ok": True}

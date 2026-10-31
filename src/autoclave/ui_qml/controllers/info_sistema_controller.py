@@ -31,7 +31,7 @@ ESTADOS_IMPRESORA = ("lista", "no_instalada", "desconectada", "sin_papel", "erro
 # E2 (tanda 8; D8-0): la clase se muestra con su nombre del catálogo
 # (equipo.clase_*: "Hospitalario"/"Laboratorio"), nunca el valor interno
 CLASES_EQUIPO = tuple(c.value for c in EquipmentClass)
-CLAVES_FILA = ("modelo", "capacidad", "tipo_carga", "clase", "serie", "fecha_instalacion", "fuente_vapor", "version_software", "firmware",
+CLAVES_FILA = ("modelo", "capacidad", "tipo_carga", "clase", "serie", "serial_especifika", "fecha_instalacion", "fuente_vapor", "version_software", "firmware",
                "id_modulo_es", "enlace_io", "ciclos_realizados", "proximo_mantenimiento", "ciclos_restantes", "idioma",
                "unidades", "impresora", "red")
 
@@ -74,6 +74,9 @@ def grupos_de(d: dict) -> list[dict]:
             fila("tipo_carga", "", f"info_sistema.carga_{carga}" if carga in ("V", "H") else ""),
             fila("clase", "", f"equipo.clase_{clase}" if clase in CLASES_EQUIPO else ""),
             fila("serie", eq.get("serie")),
+            # automatización: /system/info trae `serial_especifika` (solo ahí)
+            *([fila("serial_especifika", eq.get("serial_especifika"))]
+              if _txt(eq.get("serial_especifika")) else []),
             fila("fecha_instalacion", _txt(eq.get("instalacion"))[:10]),
             fila("fuente_vapor", "", f"info_sistema.vapor_{vapor}" if vapor else ""),
         ]},

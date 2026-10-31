@@ -90,16 +90,24 @@ def _idioma(idioma: str | None) -> str:
 
 
 def format_ticket_resumen(resumen: dict, desde: str, hasta: str, serie: str, modelo: str,
-                          ahora: datetime | None = None, idioma: str | None = None) -> str:
-    """Ticket del resumen; desde/hasta: primer y último día (ISO) del periodo."""
+                          ahora: datetime | None = None, idioma: str | None = None,
+                          serial_especifika: str | None = None) -> str:
+    """Ticket del resumen; desde/hasta: primer y último día (ISO) del periodo.
+    `serial_especifika`: solo en un equipo de automatización (serie y modelo son
+    los originales); agrega esa línea tras la serie."""
     from autoclave.services.domain.logging.ticket_formatter import lineas_rotulo
+    from autoclave.installation.identidad import rotulo_serial_especifika
     ahora = ahora or datetime.now()   # sello de impresión (registro), no temporiza nada
     tx = _TXT[_idioma(idioma)]
     t = resumen["totales"]
     lineas = [
         " ", _LINEA, tx["titulo"],
         f"{tx['desde']}: {_fecha(desde)}", f"{tx['hasta']}: {_fecha(hasta)}",
-        _cortar(f"{tx['serie']}: {serie}"),
+        # automatización: serie original (puede ser larga: pasa a la línea
+        # siguiente, sin cortarse) y serial Especifika
+        *(lineas_rotulo(tx['serie'], serie, _ANCHO)
+          + lineas_rotulo(rotulo_serial_especifika(_idioma(idioma)), serial_especifika, _ANCHO)
+          if serial_especifika else [_cortar(f"{tx['serie']}: {serie}")]),
         # M1: el nombre del modelo no se corta (pasa a la línea siguiente si no cabe)
         *lineas_rotulo(tx['modelo'], modelo, _ANCHO),
         f"{tx['impreso']}: {ahora.strftime('%d/%m/%Y')}",

@@ -9,6 +9,7 @@ from datetime import datetime
 import pytest
 
 from autoclave import i18n
+from tests.helpers import codigo_doble
 from autoclave.installation import storage
 
 pytest.importorskip("PySide6")
@@ -28,8 +29,7 @@ def _datos(**cambios):
     return d
 
 
-def _ok(_s, _c):
-    return True
+_ok = codigo_doble.acepta()
 
 
 @pytest.fixture
@@ -44,24 +44,24 @@ def test_clases_solo_de_piso():
 
 
 def test_el_puente_calcula_el_modelo():
-    p = pi.construir_perfil(_datos(), "X", AHORA, validar_codigo=_ok)
+    p = pi.construir_perfil(_datos(), "X", AHORA, verificar_codigo=_ok)
     assert p.model_id == "SPK-SAT 45V2-LAB"
     assert p.capacidad_litros == 45 and p.tipo_carga == "V"
 
 
 def test_ignora_el_model_id_que_manda_la_qml():
-    p = pi.construir_perfil(_datos(model_id="MODELO ESPECIAL"), "X", AHORA, validar_codigo=_ok)
+    p = pi.construir_perfil(_datos(model_id="MODELO ESPECIAL"), "X", AHORA, verificar_codigo=_ok)
     assert p.model_id == "SPK-SAT 45V2-LAB"
 
 
 def test_una_puerta_y_piso():
     p = pi.construir_perfil(_datos(equipment_class="piso", door_count=1, capacidad_litros=180,
-                                   tipo_carga="H"), "X", AHORA, validar_codigo=_ok)
+                                   tipo_carga="H"), "X", AHORA, verificar_codigo=_ok)
     assert p.model_id == "SPK-SAT 180H" and p.door_id == 1
 
 
 def test_capacidad_entera_que_llega_como_float_desde_qml():
-    p = pi.construir_perfil(_datos(capacidad_litros=45.0), "X", AHORA, validar_codigo=_ok)
+    p = pi.construir_perfil(_datos(capacidad_litros=45.0), "X", AHORA, verificar_codigo=_ok)
     assert p.capacidad_litros == 45 and isinstance(p.capacidad_litros, int)
 
 
@@ -69,32 +69,32 @@ def test_capacidad_entera_que_llega_como_float_desde_qml():
 def test_instalar_mesa_es_error_i18n(clase):
     with pytest.raises(ValueError) as e:
         pi.construir_perfil(_datos(equipment_class=clase, door_count=1, cooling_level=0),
-                            "X", AHORA, validar_codigo=_ok)
+                            "X", AHORA, verificar_codigo=_ok)
     assert str(e.value) == i18n.t("instalacion.error_clase_fuera_alcance")
 
 
 @pytest.mark.parametrize("litros", [19, 2001, 45.5, "45", True, None, 0])
 def test_rechaza_capacidad(litros):
     with pytest.raises(ValueError) as e:
-        pi.construir_perfil(_datos(capacidad_litros=litros), "X", AHORA, validar_codigo=_ok)
+        pi.construir_perfil(_datos(capacidad_litros=litros), "X", AHORA, verificar_codigo=_ok)
     assert str(e.value) == i18n.t("instalacion.error_capacidad")
 
 
 @pytest.mark.parametrize("carga", ["v", "X", "", None])
 def test_rechaza_tipo_de_carga(carga):
     with pytest.raises(ValueError) as e:
-        pi.construir_perfil(_datos(tipo_carga=carga), "X", AHORA, validar_codigo=_ok)
+        pi.construir_perfil(_datos(tipo_carga=carga), "X", AHORA, verificar_codigo=_ok)
     assert str(e.value) == i18n.t("instalacion.error_tipo_carga")
 
 
 @pytest.mark.parametrize("puertas", [0, 3])
 def test_rechaza_puertas(puertas):
     with pytest.raises(ValueError, match="puertas"):
-        pi.construir_perfil(_datos(door_count=puertas), "X", AHORA, validar_codigo=_ok)
+        pi.construir_perfil(_datos(door_count=puertas), "X", AHORA, verificar_codigo=_ok)
 
 
 def test_el_perfil_escrito_es_valido_y_consistente(perfil_tmp):
-    pi.escribir_perfil(pi.construir_perfil(_datos(), "X", validar_codigo=_ok))
+    pi.escribir_perfil(pi.construir_perfil(_datos(), "X", verificar_codigo=_ok))
     datos = json.loads(perfil_tmp.read_text(encoding="utf-8"))
     assert datos["model_id"] == "SPK-SAT 45V2-LAB"
     assert datos["capacidad_litros"] == 45 and datos["tipo_carga"] == "V"
@@ -116,7 +116,7 @@ def test_cargar_un_perfil_de_mesa_existente_no_abre_el_asistente(perfil_tmp, mon
 def test_slot_vista_previa():
     from PySide6.QtCore import QCoreApplication
     QCoreApplication.instance() or QCoreApplication(sys.argv)
-    puente = pi.PuenteInstalacion(validar_codigo=_ok)
+    puente = pi.PuenteInstalacion(verificar_codigo=_ok)
     assert puente.calcularModelo("piso_lab", 2000, "H", 2) == "SPK-SAT 2000H2-LAB"
     assert puente.calcularModelo("piso", 45, "V", 1) == "SPK-SAT 45V"
     assert puente.calcularModelo("piso", 0, "V", 1) == ""          # dato faltante
@@ -131,12 +131,12 @@ def test_puente_instalar_mesa_devuelve_error(perfil_tmp):
     QCoreApplication.instance() or QCoreApplication(sys.argv)
     # LIC-02 (licencia L0): contraseñas obligatorias, guardadas en una base temporal
     from autoclave.services.domain.logging.db_manager import DbManager
-    puente = pi.PuenteInstalacion(validar_codigo=_ok,
+    puente = pi.PuenteInstalacion(verificar_codigo=_ok,
                                   abrir_bd=lambda: DbManager(perfil_tmp.parent / "autoclave.db"),
                                   es_semilla=lambda c: False)
     claves = {"clave_admin": "admin-nueva-1", "confirmacion_admin": "admin-nueva-1",
               "clave_ingeniero": "inge-nueva-1", "confirmacion_ingeniero": "inge-nueva-1"}
-    assert puente.validarCodigo("ab-123", "X") is True
+    assert puente.validarCodigo("ab-123", "X", "fabricacion", "", "") == ""
     r = puente.instalar(_datos(equipment_class="mesa_b", door_count=1, cooling_level=0))
     assert r == {"ok": False, "error": i18n.t("instalacion.error_clase_fuera_alcance")}
     assert not perfil_tmp.exists()

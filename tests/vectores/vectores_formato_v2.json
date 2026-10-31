@@ -1,0 +1,549 @@
+{
+  "formato": "ESPK2",
+  "version_documento": "2.1.0",
+  "fuente": "docs/especificacion/formato_codigos_v2.md §7",
+  "aviso": "Secretos FICTICIOS de prueba. Ningún equipo real los acepta. Prohibido usarlos en producción.",
+  "secretos_prueba": {
+    "maestro_hex": "961ea662a18e6466cc24b7c67006a54a8047d1efcd881973abe21e74501113b6",
+    "maestro_origen": "SHA-256('ESPECIFIKA-PRUEBA-MAESTRO-NO-USAR-EN-EQUIPOS')",
+    "transporte_hex": "6578a9994682225f37861fe063d7f5edd44e022a91f884acc21d014ef3889857",
+    "transporte_origen": "SHA-256('ESPECIFIKA-PRUEBA-TRANSPORTE-NO-USAR-EN-EQUIPOS')"
+  },
+  "k_e": [
+    {
+      "serial": "SN260001",
+      "generacion": 1,
+      "k_e_hex": "d383903ceafaa1bde01f03c91b1873ea"
+    },
+    {
+      "serial": "SN260002",
+      "generacion": 1,
+      "k_e_hex": "7de4cd924d48888a3befef2c58ce2e3c"
+    },
+    {
+      "serial": "SN260002",
+      "generacion": 2,
+      "k_e_hex": "98f97b12af559a24f8790129e849246b"
+    },
+    {
+      "serial": "SN260003",
+      "generacion": 1,
+      "k_e_hex": "939cea8e1c2a9fe893731645814f543e"
+    },
+    {
+      "serial": "SN260003",
+      "generacion": 2,
+      "k_e_hex": "3a8f40db1d921f7166d5eff7f35745c9"
+    }
+  ],
+  "positivos": [
+    {
+      "id": "V1",
+      "tipo": "INS",
+      "serial": "SN260001",
+      "generacion": 1,
+      "permanente": true,
+      "ventana": "2026-11-03",
+      "ventana_dia": 306,
+      "P": 0,
+      "G": 0,
+      "orig": null,
+      "emerg": 0,
+      "codigo": "BQJS-AAAA-AAIW-NAEZ-WFI3-S5BR-MPJE-NJOU-ENWF-ET5K-LOYY-AKCF",
+      "acepta_desde": "2026-11-03",
+      "acepta_hasta": "2026-11-09"
+    },
+    {
+      "id": "V2",
+      "tipo": "INS",
+      "serial": "SN260002",
+      "generacion": 1,
+      "permanente": false,
+      "ventana": "2026-11-03",
+      "ventana_dia": 306,
+      "P": 60,
+      "G": 10,
+      "orig": null,
+      "emerg": 0,
+      "codigo": "BAJS-AAAH-QUBD-GM2Q-5AYE-UA3S-5FDF-23ZX-J3BG-TMWY-BJJ3-O7L7",
+      "acepta_desde": "2026-11-03",
+      "acepta_hasta": "2026-11-09"
+    },
+    {
+      "id": "V3",
+      "tipo": "REI",
+      "serial": "SN260002",
+      "generacion": 2,
+      "permanente": false,
+      "ventana": "2027-02-01",
+      "ventana_dia": 396,
+      "P": 90,
+      "G": 10,
+      "orig": "2026-11-05",
+      "orig_dia": 308,
+      "emerg": 1,
+      "codigo": "CAMM-ATIL-IUSU-EGTJ-7SAO-J6AQ-NRXL-UBMO-ISJD-OC3X-M6J6-FRWK",
+      "acepta_desde": "2027-02-01",
+      "acepta_hasta": "2027-02-07"
+    },
+    {
+      "id": "V4",
+      "tipo": "SOL",
+      "serial": "SN260002",
+      "generacion": 1,
+      "estado": "GRACIA",
+      "estado_valor": 1,
+      "nonce_hex": "12345678",
+      "codigo": "AEJD-IVTY-VK5T"
+    },
+    {
+      "id": "V4b",
+      "tipo": "SOL",
+      "serial": "SN260002",
+      "generacion": 1,
+      "estado": "BLOQUEADO",
+      "estado_valor": 2,
+      "nonce_hex": "0000beef",
+      "codigo": "AIAA-BPXP-72L2"
+    },
+    {
+      "id": "V5",
+      "tipo": "FIN",
+      "serial": "SN260002",
+      "generacion": 1,
+      "solicitud": "V4",
+      "codigo": "DREY-HPEG-KIWP-L2AH-FR35"
+    },
+    {
+      "id": "V6",
+      "tipo": "EMG",
+      "serial": "SN260002",
+      "generacion": 1,
+      "solicitud": "V4",
+      "n": 1,
+      "codigo": "EEX7-GEEI-Z7AJ-3ILI-VE3I"
+    },
+    {
+      "id": "V7",
+      "tipo": "EXT",
+      "serial": "SN260002",
+      "generacion": 1,
+      "solicitud": "V4",
+      "P": 120,
+      "codigo": "FHRQ-R7WS-NUGF-4RHH-WYST"
+    },
+    {
+      "id": "V8",
+      "tipo": "EMG",
+      "serial": "SN260002",
+      "generacion": 1,
+      "solicitud": "V4b",
+      "n": 2,
+      "codigo": "ED3R-WWC4-3PZ5-TLS6-6WLW"
+    }
+  ],
+  "negativos": [
+    {
+      "id": "N1a",
+      "base": "V1",
+      "fecha": "2026-11-02",
+      "esperado": "ventana"
+    },
+    {
+      "id": "N1b",
+      "base": "V1",
+      "fecha": "2026-11-10",
+      "esperado": "ventana"
+    },
+    {
+      "id": "N2",
+      "base": "V1",
+      "serial": "SN260002",
+      "fecha": "2026-11-04",
+      "esperado": "etiqueta"
+    },
+    {
+      "id": "N3",
+      "base": "V2",
+      "codigo": "BAJS-AAAH-QUAD-GM2Q-5AYE-UA3S-5FDF-23ZX-J3BG-TMWY-BJJ3-O7L7",
+      "fecha": "2026-11-07",
+      "esperado": "digitacion",
+      "consume_intento": false
+    },
+    {
+      "id": "N4",
+      "base": "V2",
+      "codigo": "BAJS-AAHA-QUBD-GM2Q-5AYE-UA3S-5FDF-23ZX-J3BG-TMWY-BJJ3-O7L7",
+      "fecha": "2026-11-07",
+      "esperado": "digitacion",
+      "consume_intento": false
+    },
+    {
+      "id": "N5a",
+      "base": "V4",
+      "verificar_con": {
+        "serial": "SN260001",
+        "generacion": 1
+      },
+      "esperado": "serial_o_generacion"
+    },
+    {
+      "id": "N5b",
+      "base": "V4",
+      "verificar_con": {
+        "serial": "SN260002",
+        "generacion": 2
+      },
+      "esperado": "serial_o_generacion"
+    },
+    {
+      "id": "N6",
+      "base": "V4",
+      "codigo": "AEJD-IVTY-VK5U",
+      "esperado": "digitacion",
+      "consume_intento": false
+    },
+    {
+      "id": "N7a",
+      "base": "V5",
+      "solicitud": "V4b",
+      "esperado": "etiqueta",
+      "consume_intento": true
+    },
+    {
+      "id": "N7b",
+      "base": "V5",
+      "verificar_con": {
+        "serial": "SN260002",
+        "generacion": 2
+      },
+      "esperado": "etiqueta",
+      "consume_intento": true
+    },
+    {
+      "id": "N8",
+      "base": "V6",
+      "n": 2,
+      "esperado": "etiqueta",
+      "consume_intento": true
+    },
+    {
+      "id": "N9",
+      "base": "V7",
+      "P": 121,
+      "esperado": "etiqueta",
+      "consume_intento": true
+    },
+    {
+      "id": "N10a",
+      "caso": "EMG con emerg=3",
+      "esperado": "estado",
+      "consume_intento": false
+    },
+    {
+      "id": "N10b",
+      "caso": "FIN en PERMANENTE",
+      "esperado": "estado",
+      "consume_intento": false
+    },
+    {
+      "id": "N10c",
+      "caso": "EXT en PERMANENTE",
+      "esperado": "estado",
+      "consume_intento": false
+    },
+    {
+      "id": "N11",
+      "caso": "cabecera con versión distinta de 0",
+      "esperado": "formato",
+      "consume_intento": false
+    }
+  ],
+  "normalizacion": [
+    {
+      "entrada": "dREY HPEG kiwp-L2AH-FR35",
+      "equivale_a": "V5"
+    }
+  ],
+  "automatizacion": {
+    "descripcion": "Variante de automatización INSA/REIA (§4.2.1, formato 2.1.0). Misma cabecera (B o C), 48 caracteres y mismo empaquetado que INS/REI; solo cambia el mensaje de la etiqueta.",
+    "normalizacion": [
+      {
+        "serie_tecleada": "  ab-12 34 ",
+        "modelo_tecleado": "  Tuttnauer   2540\tEKA ",
+        "serie_n": "AB-1234",
+        "modelo_n": "TUTTNAUER 2540 EKA",
+        "h_orig": "b13fcf4f8edb38ef8ad5953f240bd2891b1ce6227ea31ee85baca2f1dc9b8132"
+      },
+      {
+        "serie_tecleada": "sx9876",
+        "modelo_tecleado": "modelo x",
+        "serie_n": "SX9876",
+        "modelo_n": "MODELO X",
+        "h_orig": "5e6c0b8966f946b2c8a42acc0128455c5492221752f02e3785a6d293d163c891"
+      },
+      {
+        "serie_tecleada": "A\tB\nC\r",
+        "modelo_tecleado": "\n  m \u000b x\f ",
+        "serie_n": "ABC",
+        "modelo_n": "M X",
+        "h_orig": "02de2ce9ab136e2f420c4734fed88ae6d942db416ada02d7307d31d42c33e23f"
+      },
+      {
+        "serie_tecleada": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "modelo_tecleado": "mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm",
+        "serie_n": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+        "modelo_n": "MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM",
+        "h_orig": "43ea7d13fe552024d71218857c272c1931aeccf22fde763c88bf4d36f94e00bd"
+      },
+      {
+        "serie_tecleada": "AB-1234",
+        "modelo_tecleado": "tuttnauer 2540 eka",
+        "serie_n": "AB-1234",
+        "modelo_n": "TUTTNAUER 2540 EKA",
+        "h_orig": "b13fcf4f8edb38ef8ad5953f240bd2891b1ce6227ea31ee85baca2f1dc9b8132"
+      }
+    ],
+    "rechazos_normalizacion": [
+      {
+        "id": "RA1",
+        "serie_tecleada": "",
+        "modelo_tecleado": "Modelo",
+        "campo": "serie",
+        "codigo": "FMT_SERIE_ORIGINAL"
+      },
+      {
+        "id": "RA2",
+        "serie_tecleada": " \t\n ",
+        "modelo_tecleado": "Modelo",
+        "campo": "serie",
+        "codigo": "FMT_SERIE_ORIGINAL"
+      },
+      {
+        "id": "RA3",
+        "serie_tecleada": "AB12",
+        "modelo_tecleado": "   ",
+        "campo": "modelo",
+        "codigo": "FMT_MODELO_ORIGINAL"
+      },
+      {
+        "id": "RA4",
+        "serie_tecleada": "ÁB12",
+        "modelo_tecleado": "Modelo",
+        "campo": "serie",
+        "codigo": "FMT_SERIE_ORIGINAL"
+      },
+      {
+        "id": "RA5",
+        "serie_tecleada": "AB12",
+        "modelo_tecleado": "Modelo|X",
+        "campo": "modelo",
+        "codigo": "FMT_MODELO_ORIGINAL"
+      },
+      {
+        "id": "RA6",
+        "serie_tecleada": "AB|12",
+        "modelo_tecleado": "Modelo",
+        "campo": "serie",
+        "codigo": "FMT_SERIE_ORIGINAL"
+      },
+      {
+        "id": "RA7",
+        "serie_tecleada": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "modelo_tecleado": "Modelo",
+        "campo": "serie",
+        "codigo": "FMT_SERIE_ORIGINAL"
+      },
+      {
+        "id": "RA8",
+        "serie_tecleada": "AB12",
+        "modelo_tecleado": "mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm",
+        "campo": "modelo",
+        "codigo": "FMT_MODELO_ORIGINAL"
+      },
+      {
+        "id": "RA9",
+        "serie_tecleada": "AB 12",
+        "modelo_tecleado": "Modelo",
+        "campo": "serie",
+        "codigo": "FMT_SERIE_ORIGINAL"
+      },
+      {
+        "id": "RA10",
+        "serie_tecleada": "AB12",
+        "modelo_tecleado": "Autoclave ñ",
+        "campo": "modelo",
+        "codigo": "FMT_MODELO_ORIGINAL"
+      },
+      {
+        "id": "RA11",
+        "serie_tecleada": "straße",
+        "modelo_tecleado": "Modelo",
+        "campo": "serie",
+        "codigo": "FMT_SERIE_ORIGINAL"
+      },
+      {
+        "id": "RA12",
+        "serie_tecleada": "AB12",
+        "modelo_tecleado": "M\u001fX",
+        "campo": "modelo",
+        "codigo": "FMT_MODELO_ORIGINAL"
+      }
+    ],
+    "positivos": [
+      {
+        "id": "VA1",
+        "tipo": "INS",
+        "variante": "INSA",
+        "serial": "SN260003",
+        "generacion": 1,
+        "permanente": false,
+        "ventana": "2026-11-03",
+        "ventana_dia": 306,
+        "P": 60,
+        "G": 10,
+        "orig": null,
+        "emerg": 0,
+        "serie_tecleada": "  ab-12 34 ",
+        "modelo_tecleado": "  Tuttnauer   2540\tEKA ",
+        "serie_n": "AB-1234",
+        "modelo_n": "TUTTNAUER 2540 EKA",
+        "h_orig": "b13fcf4f8edb38ef8ad5953f240bd2891b1ce6227ea31ee85baca2f1dc9b8132",
+        "mensaje_sin_k_e": "ESPK2|INSA|SN260003|b13fcf4f8edb38ef8ad5953f240bd2891b1ce6227ea31ee85baca2f1dc9b8132|0|306|0|60|10|0|",
+        "codigo": "BAJS-AAAH-QULU-67EJ-HB2A-T3CG-37GL-MFPL-YGPY-HU4N-NFSS-NZIW",
+        "codigo_fabricacion_mismos_campos": "BAJS-AAAH-QUEY-MSWL-KYZV-MGO4-7N5W-YOKV-L775-YB43-VDUY-EN5X",
+        "acepta_desde": "2026-11-03",
+        "acepta_hasta": "2026-11-09"
+      },
+      {
+        "id": "VA2",
+        "tipo": "INS",
+        "variante": "INSA",
+        "serial": "SN260003",
+        "generacion": 1,
+        "permanente": true,
+        "ventana": "2026-11-03",
+        "ventana_dia": 306,
+        "P": 0,
+        "G": 0,
+        "orig": null,
+        "emerg": 0,
+        "serie_tecleada": "sx9876",
+        "modelo_tecleado": "modelo x",
+        "serie_n": "SX9876",
+        "modelo_n": "MODELO X",
+        "h_orig": "5e6c0b8966f946b2c8a42acc0128455c5492221752f02e3785a6d293d163c891",
+        "mensaje_sin_k_e": "ESPK2|INSA|SN260003|5e6c0b8966f946b2c8a42acc0128455c5492221752f02e3785a6d293d163c891|1|306|0|0|0|0|",
+        "codigo": "BQJS-AAAA-AAGY-AOK5-C3PZ-LAB6-KJWG-3V5E-QFHR-TQLO-T4ZP-FXP4",
+        "codigo_fabricacion_mismos_campos": "BQJS-AAAA-AAFO-AWVN-AFFK-AMBT-FP4P-4Z55-HPFT-QYUZ-NCIN-DYZA",
+        "acepta_desde": "2026-11-03",
+        "acepta_hasta": "2026-11-09"
+      },
+      {
+        "id": "VA3",
+        "tipo": "REI",
+        "variante": "REIA",
+        "serial": "SN260003",
+        "generacion": 2,
+        "permanente": false,
+        "ventana": "2027-02-01",
+        "ventana_dia": 396,
+        "P": 90,
+        "G": 10,
+        "orig": "2026-11-05",
+        "orig_dia": 308,
+        "emerg": 1,
+        "serie_tecleada": "AB-1234",
+        "modelo_tecleado": "tuttnauer 2540 eka",
+        "serie_n": "AB-1234",
+        "modelo_n": "TUTTNAUER 2540 EKA",
+        "h_orig": "b13fcf4f8edb38ef8ad5953f240bd2891b1ce6227ea31ee85baca2f1dc9b8132",
+        "mensaje_sin_k_e": "ESPK2|REIA|SN260003|b13fcf4f8edb38ef8ad5953f240bd2891b1ce6227ea31ee85baca2f1dc9b8132|0|396|308|90|10|1|",
+        "codigo": "CAMM-ATIL-IUVK-WQYV-JJCB-5YAG-AYM7-6Q6O-KMB2-CVN6-23KA-UQE4",
+        "codigo_fabricacion_mismos_campos": "CAMM-ATIL-IUZ5-YU7Z-O2FE-DKX5-XBKE-4AHJ-GV4F-UZ2L-LBFO-SJD5",
+        "acepta_desde": "2027-02-01",
+        "acepta_hasta": "2027-02-07"
+      }
+    ],
+    "negativos": [
+      {
+        "id": "NA1",
+        "base": "VA1",
+        "caso": "INSA verificado sin originales (como INS)",
+        "fecha": "2026-11-05",
+        "esperado": "etiqueta",
+        "consume_intento": true
+      },
+      {
+        "id": "NA2",
+        "base": "VA1",
+        "caso": "el INS de fabricación con los mismos campos, verificado con los originales (como INSA)",
+        "codigo": "BAJS-AAAH-QUEY-MSWL-KYZV-MGO4-7N5W-YOKV-L775-YB43-VDUY-EN5X",
+        "originales": [
+          "AB-1234",
+          "TUTTNAUER 2540 EKA"
+        ],
+        "fecha": "2026-11-05",
+        "esperado": "etiqueta",
+        "consume_intento": true
+      },
+      {
+        "id": "NA3",
+        "base": "VA1",
+        "caso": "misma serie, otro modelo",
+        "originales": [
+          "AB-1234",
+          "TUTTNAUER 2540 EK"
+        ],
+        "fecha": "2026-11-05",
+        "esperado": "etiqueta",
+        "consume_intento": true
+      },
+      {
+        "id": "NA4",
+        "base": "VA1",
+        "caso": "otra serie, mismo modelo",
+        "originales": [
+          "AB-1235",
+          "TUTTNAUER 2540 EKA"
+        ],
+        "fecha": "2026-11-05",
+        "esperado": "etiqueta",
+        "consume_intento": true
+      },
+      {
+        "id": "NA5",
+        "base": "V3",
+        "caso": "REI de fabricación verificado con originales (como REIA)",
+        "originales": [
+          "AB-1234",
+          "TUTTNAUER 2540 EKA"
+        ],
+        "fecha": "2027-02-03",
+        "esperado": "etiqueta",
+        "consume_intento": true
+      },
+      {
+        "id": "NA6",
+        "base": "VA3",
+        "caso": "REIA verificado sin originales (como REI)",
+        "fecha": "2027-02-03",
+        "esperado": "etiqueta",
+        "consume_intento": true
+      },
+      {
+        "id": "NA7",
+        "base": "VA3",
+        "caso": "REIA con el serial interno equivocado",
+        "serial": "SN260002",
+        "originales": [
+          "AB-1234",
+          "TUTTNAUER 2540 EKA"
+        ],
+        "fecha": "2027-02-03",
+        "esperado": "etiqueta",
+        "consume_intento": true
+      }
+    ]
+  }
+}

@@ -231,6 +231,52 @@ class InstallationProfile:
     # que se calculó model_id. None = perfil anterior a M1 (capacidad "—").
     capacidad_litros: int | None = None
     tipo_carga:      str | None = None
+    # Instalación por automatización: ausente = fabricación. Los originales van
+    # en forma normalizada y el sello los protege (ver storage.load).
+    tipo_instalacion: str = "fabricacion"
+    serial_original: str | None = None
+    modelo_original: str | None = None
+    sello_identidad: str | None = None
+
+
+TIPOS_INSTALACION = ("fabricacion", "automatizacion")
+CAMPOS_AUTOMATIZACION = ("serial_original", "modelo_original", "sello_identidad")
+_RE_SERIAL_ESPECIFIKA = re.compile(r"SN[0-9]{6}")
+_RE_SELLO = re.compile(r"[0-9a-f]{64}")
+
+
+def _errores_automatizacion(data: dict) -> list[str]:
+    # Una sola fuente para la normalización de los originales: la del verificador
+    # v2 (copia exacta de la del generador).
+    from autoclave.installation import activacion_v2 as v2
+    tipo = data.get("tipo_instalacion", "fabricacion")
+    if tipo not in TIPOS_INSTALACION:
+        return [f"valor inválido en 'tipo_instalacion': {tipo!r} "
+                f"(se espera uno de {list(TIPOS_INSTALACION)})"]
+    if tipo == "fabricacion":
+        return [f"'{c}' solo va en una instalación por automatización"
+                for c in CAMPOS_AUTOMATIZACION if c in data]
+    errores: list[str] = []
+    for campo, norm, largo in (("serial_original", v2.normalizar_serie_original, v2.SERIE_ORIGINAL_MAX),
+                               ("modelo_original", v2.normalizar_modelo_original, v2.MODELO_ORIGINAL_MAX)):
+        v = data.get(campo)
+        if not isinstance(v, str):
+            errores.append(f"campo faltante o de tipo incorrecto: '{campo}'")
+            continue
+        try:
+            canonico = norm(v) == v
+        except v2.OriginalInvalido:
+            canonico = False
+        if not canonico:
+            errores.append(f"valor inválido en '{campo}': debe estar en forma normalizada "
+                           f"(ASCII imprimible, sin '|', 1 a {largo} caracteres)")
+    sello = data.get("sello_identidad")
+    if not isinstance(sello, str) or not _RE_SELLO.fullmatch(sello):
+        errores.append("'sello_identidad' ausente o inválido (64 hexadecimales en minúscula)")
+    sn = data.get("serial_number")
+    if isinstance(sn, str) and not _RE_SERIAL_ESPECIFIKA.fullmatch(sn):
+        errores.append("'serial_number' debe tener la forma SN y 6 dígitos en automatización")
+    return errores
 
 
 _REQUIRED_TYPES: dict[str, type] = {
@@ -365,6 +411,7 @@ def validate_profile_data(data: dict) -> list[str]:
     # ser el nombre calculado (protege contra una edición a mano). Un perfil
     # nuevo de mesa queda inválido porque calcular_modelo rechaza la clase.
     errors.extend(_errores_modelo(data))
+    errors.extend(_errores_automatizacion(data))
 
     # Validaciones cruzadas (solo si equipment_class es válido)
     ec_value = data.get("equipment_class")

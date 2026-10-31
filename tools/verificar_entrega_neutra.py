@@ -7,7 +7,10 @@ Comprueba, en `_internal/autoclave/` de la carpeta compilada:
      byte a byte) y además no tiene remitente ni destinatarios;
   2. `cycles/` solo contiene `factory/` (ni `user/`, ni `defecto/`, ni archivos
      sueltos) y `factory/` tiene al menos un programa;
-  3. la calibración Modbus es la neutra y no viaja la serial retirada (D8-3.18,
+  3. `_internal/config/activacion_transporte.json` existe, es válido y NO es el K_t
+     ficticio de prueba del formato v2 (§7.1, público): con él se fabricarían
+     códigos de instalación con los vectores publicados;
+  4. la calibración Modbus es la neutra y no viaja la serial retirada (D8-3.18,
      T20-03; tools/verificar_calibracion_neutra.py).
 Sale con 0 si todo se cumple, con 1 (y los motivos) si algo falla, con 2 si el
 uso es incorrecto. La entrega no se publica si sale distinto de 0."""
@@ -21,6 +24,9 @@ PLANTILLA_CORREO = RAIZ / "src" / "autoclave" / "config" / "plantillas" / "corre
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import verificar_calibracion_neutra  # noqa: E402
+
+sys.path.insert(0, str(RAIZ / "src"))
+from autoclave.installation import secretos  # noqa: E402
 
 
 def _sha(ruta: Path) -> str:
@@ -59,13 +65,24 @@ def fallas_ciclos(interno: Path) -> list[str]:
     return fallas
 
 
+def fallas_transporte(dist: Path) -> list[str]:
+    ruta = dist / "_internal" / "config" / "activacion_transporte.json"
+    try:
+        k_t = secretos.leer_transporte(ruta)
+    except secretos.SecretosInvalidos as e:
+        return [f"FALLA: transporte de activación v2 ausente o inválido ({e})"]
+    if secretos.es_transporte_de_prueba(k_t):
+        return [f"FALLA: {ruta} es el K_t de prueba del formato v2 (§7.1); la entrega no puede llevarlo"]
+    return []
+
+
 def main(argv) -> int:
     if len(argv) != 2:
         print(__doc__)
         return 2
     dist = Path(argv[1])
     interno = dist / "_internal" / "autoclave"
-    fallas = fallas_correo(interno) + fallas_ciclos(interno)
+    fallas = fallas_correo(interno) + fallas_ciclos(interno) + fallas_transporte(dist)
     for f in fallas:
         print(f)
     calibracion = verificar_calibracion_neutra.main([argv[0], str(dist)])

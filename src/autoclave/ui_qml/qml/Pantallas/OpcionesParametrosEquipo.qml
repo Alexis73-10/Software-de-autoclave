@@ -610,6 +610,12 @@ Item {
         visible: control.reiniciando
         anchors.fill: parent
         z: 200
+                FilaLectura {
+                    objectName: "serialEspecifikaEquipo"
+                    visible: control.serialEspecifika !== ""
+                    rotulo: I18n.t("equipo.serial_especifika", I18n.lang)
+                    valor: control.serialEspecifika
+                }
         color: "#CC000000"
         MouseArea { anchors.fill: parent }
         Column {

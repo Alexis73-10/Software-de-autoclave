@@ -16,6 +16,7 @@ from autoclave.installation.activation import (
     validate_factory_key,
     validate_installation_code,
 )
+from autoclave.installation.activacion_v2 import verificar_codigo_instalacion
 from autoclave.ui_qml.bridge.puente_instalacion import PuenteInstalacion
 
 SERIE = "SN128745"
@@ -85,19 +86,21 @@ def test_codigos_no_intercambiables_tras_normalizar():
 # --- el asistente pasa por la misma validación ---
 
 def test_asistente_acepta_el_caso_real_con_cero():
-    validar = lambda serie, codigo: validate_installation_code(serie, codigo, DIA)  # noqa: E731
-    puente = PuenteInstalacion(validar_codigo=validar)
-    assert puente.validarCodigo("sn128745", "U0Z3P26V0UE5") is True
-    assert puente.validarCodigo("SN128745", "U0Z3-P26V-0UE5") is True
-    puente_otro_dia = PuenteInstalacion(
-        validar_codigo=lambda s, c: validate_installation_code(s, c, date(2026, 10, 22)))
-    assert puente_otro_dia.validarCodigo("SN128745", "U0Z3P26V0UE5") is False
+    def verificar(dia):
+        return lambda serie, codigo, modo, *_a, **_k: verificar_codigo_instalacion(
+            serie, codigo, modo, hoy=dia)
+    puente = PuenteInstalacion(verificar_codigo=verificar(DIA))
+    assert puente.validarCodigo("sn128745", "U0Z3P26V0UE5", "fabricacion", "", "") == ""
+    assert puente.validarCodigo("SN128745", "U0Z3-P26V-0UE5", "fabricacion", "", "") == ""
+    puente_otro_dia = PuenteInstalacion(verificar_codigo=verificar(date(2026, 10, 22)))
+    assert puente_otro_dia.validarCodigo(
+        "SN128745", "U0Z3P26V0UE5", "fabricacion", "", "") == "instalacion.error_codigo"
 
 
 def test_asistente_usa_por_defecto_la_validacion_comun():
     import inspect
     firma = inspect.signature(PuenteInstalacion.__init__)
-    assert firma.parameters["validar_codigo"].default is validate_installation_code
+    assert firma.parameters["verificar_codigo"].default is verificar_codigo_instalacion
 
 
 # --- D10-2.2: fuente del generador ---

@@ -87,8 +87,12 @@ if _ciclos_ajenos:
 import os
 import sys as _sys
 _sys.path.insert(0, _r('src'))
-from autoclave.installation.secretos import entrada_compilacion
+from autoclave.installation.secretos import entrada_compilacion, entrada_compilacion_transporte
 a.datas.append(entrada_compilacion())
+# Instalación por automatización: K_t del formato de códigos v2 como
+# config/activacion_transporte.json. Sin archivo válido, o con el K_t de prueba,
+# la compilación se detiene.
+a.datas.append(entrada_compilacion_transporte())
 pyz = PYZ(a.pure)
 
 exe = EXE(

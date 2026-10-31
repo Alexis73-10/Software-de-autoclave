@@ -11,6 +11,8 @@ from pathlib import Path
 import pytest
 
 from autoclave.installation import storage
+from autoclave.installation.activacion_v2 import ResultadoCodigo
+from tests.helpers import codigo_doble
 from autoclave.installation.equipment import EquipmentClass
 from autoclave.installation.clock_guard import ClockTamperedError
 
@@ -32,8 +34,7 @@ def _datos(**cambios):
     return d
 
 
-def _ok(_s, _c):
-    return True
+_ok = codigo_doble.acepta()
 
 
 @pytest.fixture
@@ -54,7 +55,7 @@ def test_clases_del_contrato():
 
 
 def test_construir_perfil():
-    p = pi.construir_perfil(_datos(), "X", AHORA, validar_codigo=_ok)
+    p = pi.construir_perfil(_datos(), "X", AHORA, verificar_codigo=_ok)
     assert p.serial_number == "AB-123" and p.machine_id == "ACV-2026-AB-123"
     assert p.locked is True and p.door_id == 2 and p.vapor_source == "generator"
     assert p.temperature_probes["temp_camara"] is True          # obligatoria
@@ -73,35 +74,35 @@ def test_construir_perfil():
 ])
 def test_construir_perfil_rechaza(cambios, motivo):
     with pytest.raises(ValueError) as e:
-        pi.construir_perfil(_datos(**cambios), "X", AHORA, validar_codigo=_ok)
+        pi.construir_perfil(_datos(**cambios), "X", AHORA, verificar_codigo=_ok)
     assert motivo.lower() in str(e.value).lower()
 
 
 def test_codigo_invalido_se_revalida():
     with pytest.raises(ValueError, match="activación"):
-        pi.construir_perfil(_datos(), "X", AHORA, validar_codigo=lambda s, c: False)
+        pi.construir_perfil(_datos(), "X", AHORA, verificar_codigo=codigo_doble.rechaza())
 
 
 def test_una_puerta_fija_la_puerta_del_pc():
-    p = pi.construir_perfil(_datos(door_count=1, door_id=2), "X", AHORA, validar_codigo=_ok)
+    p = pi.construir_perfil(_datos(door_count=1, door_id=2), "X", AHORA, verificar_codigo=_ok)
     assert p.door_id == 1
 
 
 def test_escribe_y_no_sobrescribe_un_perfil_valido(perfil_tmp):
-    p = pi.construir_perfil(_datos(), "X", validar_codigo=_ok)
+    p = pi.construir_perfil(_datos(), "X", verificar_codigo=_ok)
     pi.escribir_perfil(p)
     assert json.loads(perfil_tmp.read_text(encoding="utf-8"))["serial_number"] == "AB-123"
     assert pi.requiere_instalacion() is False
     with pytest.raises(RuntimeError):
         pi.escribir_perfil(pi.construir_perfil(_datos(serial_number="otro"), "X",
-                                               validar_codigo=_ok))
+                                               verificar_codigo=_ok))
     assert json.loads(perfil_tmp.read_text(encoding="utf-8"))["serial_number"] == "AB-123"
 
 
 def test_perfil_invalido_se_aparta_no_se_borra(perfil_tmp):
     perfil_tmp.write_text("{no es json", encoding="utf-8")
     assert pi.requiere_instalacion() is True
-    pi.escribir_perfil(pi.construir_perfil(_datos(), "X", validar_codigo=_ok), AHORA)
+    pi.escribir_perfil(pi.construir_perfil(_datos(), "X", verificar_codigo=_ok), AHORA)
     apartado = perfil_tmp.with_name("installation_profile.json.invalido-20261016-080000")
     assert apartado.read_text(encoding="utf-8") == "{no es json"
     assert pi.requiere_instalacion() is False
@@ -121,15 +122,18 @@ def test_puente_instala_con_el_codigo_validado(perfil_tmp, qtbot=None):
     # LIC-02 (licencia L0): el asistente exige las contraseñas y las guarda en
     # una base temporal (la prueba de esas reglas está en test_l0_contrasenas_instalacion.py)
     from autoclave.services.domain.logging.db_manager import DbManager
-    puente = pi.PuenteInstalacion(validar_codigo=lambda s, c: codigos.append((s, c)) or c == "BUENO",
+    def verificador(s, c, modo=None, *_a, **_k):
+        codigos.append((s, c))
+        return ResultadoCodigo(ok=c == "BUENO", motivo=None if c == "BUENO" else "etiqueta", formato="v2")
+    puente = pi.PuenteInstalacion(verificar_codigo=verificador,
                                   abrir_bd=lambda: DbManager(perfil_tmp.parent / "autoclave.db"),
                                   es_semilla=lambda c: False)
     claves = {"clave_admin": "admin-nueva-1", "confirmacion_admin": "admin-nueva-1",
               "clave_ingeniero": "inge-nueva-1", "confirmacion_ingeniero": "inge-nueva-1"}
-    assert puente.validarCodigo("ab-123", "MALO") is False
+    assert puente.validarCodigo("ab-123", "MALO", "fabricacion", "", "") == "instalacion.error_codigo"
     assert puente.instalar(_datos(contrasenas=claves))["ok"] is False      # sin código válido
     assert not perfil_tmp.exists()
-    assert puente.validarCodigo("ab-123", "BUENO") is True
+    assert puente.validarCodigo("ab-123", "BUENO", "fabricacion", "", "") == ""
     instalados = []
     puente.instalado.connect(lambda: instalados.append(1))
     r = puente.instalar(_datos(contrasenas=claves))
@@ -153,7 +157,7 @@ engine = QQmlEngine()
 engine.addImportPath(qml_dir)
 avisos = []
 engine.warnings.connect(lambda ws: avisos.extend(w.toString() for w in ws))
-puente = PuenteInstalacion(validar_codigo=lambda s, c: False)
+puente = PuenteInstalacion(verificar_codigo=lambda *_a, **_k: __import__("autoclave.installation.activacion_v2", fromlist=["x"]).ResultadoCodigo(ok=False, motivo="etiqueta"))
 comp = QQmlComponent(engine, QUrl.fromLocalFile(qml_dir + "/InstalacionVentana.qml"))
 raiz = comp.createWithInitialProperties({"puenteInstalacion": puente})
 assert raiz is not None, comp.errorString()
@@ -210,7 +214,7 @@ def test_app_abre_el_asistente_solo_en_la_puerta_1_sin_perfil(monkeypatch, door,
 def test_tmg01_created_at_en_hora_local(perfil_tmp, monkeypatch):
     """clock_guard compara la fecha local: el perfil se sella en hora local."""
     import autoclave.installation.clock_guard as cg
-    p = pi.construir_perfil(_datos(), "X", validar_codigo=_ok)
+    p = pi.construir_perfil(_datos(), "X", verificar_codigo=_ok)
     assert abs((p.created_at - datetime.now()).total_seconds()) < 5
     pi.escribir_perfil(p)
     monkeypatch.setattr(cg, "_today", lambda: p.created_at.date())
@@ -218,7 +222,7 @@ def test_tmg01_created_at_en_hora_local(perfil_tmp, monkeypatch):
 
 
 def test_tmg03_perfil_atomico_sin_temporal(perfil_tmp):
-    pi.escribir_perfil(pi.construir_perfil(_datos(), "X", validar_codigo=_ok))
+    pi.escribir_perfil(pi.construir_perfil(_datos(), "X", verificar_codigo=_ok))
     assert not perfil_tmp.with_name(perfil_tmp.name + ".tmp").exists()
 
 

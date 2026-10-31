@@ -144,11 +144,44 @@ class Documento:
         self.pagina += 1
 
 
+def _envolver(l: _Lienzo, texto: str, ancho: float) -> list[str]:
+    """Parte `texto` (fuente actual del pintor) en líneas que caben en `ancho`,
+    cortando primero en « · » y, si un tramo solo no cabe, por caracteres. Un
+    texto que ya cabe sale intacto en una línea (el PDF de fabricación no cambia)."""
+    fm = QFontMetricsF(l.p.font(), l.p.device())
+    if fm.horizontalAdvance(texto) <= ancho:
+        return [texto]
+    lineas: list[str] = []
+    actual = ""
+    for tramo in texto.split(" · "):
+        prueba = tramo if not actual else actual + " · " + tramo
+        if fm.horizontalAdvance(prueba) <= ancho:
+            actual = prueba
+            continue
+        if actual:
+            lineas.append(actual)
+        actual = ""
+        while fm.horizontalAdvance(tramo) > ancho and len(tramo) > 1:
+            n = len(tramo)
+            while n > 1 and fm.horizontalAdvance(tramo[:n]) > ancho:
+                n -= 1
+            lineas.append(tramo[:n])
+            tramo = tramo[n:]
+        actual = tramo
+    if actual:
+        lineas.append(actual)
+    return lineas
+
+
 def _encabezado(l: _Lienzo, datos: dict) -> float:
     """Título y datos del ciclo; devuelve la y donde termina."""
     fm = l.fuente(8)
     y = fm.ascent()
-    l.texto(0, y, datos.get("empresa", ""), _SECUNDARIO)
+    lineas = _envolver(l, datos.get("empresa", "") or "", l.ancho)
+    for i, linea in enumerate(lineas):
+        if i:
+            y += fm.height()
+        l.texto(0, y, linea, _SECUNDARIO)
     fm = l.fuente(16, negrita=True)
     y += _mm(3) + fm.ascent()
     l.texto(0, y, datos.get("titulo", ""))

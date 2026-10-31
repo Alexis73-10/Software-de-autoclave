@@ -19,6 +19,7 @@ from autoclave.state_machine.alarms.instancia import EstadoInstancia
 from autoclave.state_machine.states import vaciado_chaqueta
 from autoclave.core.runtime import sensores_ciclo as sc
 from autoclave.core.runtime import camara_segura
+from autoclave.installation.identidad import identidad_de_perfil
 from autoclave.installation.profile import (entradas_no_monitoreadas, sondas_no_vigiladas,
     modulo_es_emparejado)
 from autoclave.auth.roles import ROL_ADMIN, ROL_INGENIERO, ROL_TECNICO
@@ -125,8 +126,17 @@ def get_system_info():
     clase = getattr(clase, "value", clase)
     unidades = _parte(context.config_unidades.leer)
     red = _parte(_hay_red)
+    # Automatización: modelo y serie originales y, aparte, el serial Especifika
+    # (SNAANNNN). La clave `serial_especifika` solo existe en ese caso: en
+    # fabricación el JSON es el de siempre.
+    modelo_v, serie_v = de_perfil("model_id"), de_perfil("serial_number")
+    ident = identidad_de_perfil(perfil) if perfil is not None else None
+    extra_identidad = {}
+    if ident is not None and ident["serial_especifika"] is not None:
+        modelo_v, serie_v = ident["modelo"], ident["serie"]
+        extra_identidad = {"serial_especifika": ident["serial_especifika"]}
     return {
-        "equipo": {"modelo": de_perfil("model_id"), "serie": de_perfil("serial_number"),
+        "equipo": {"modelo": modelo_v, "serie": serie_v, **extra_identidad,
                    "instalacion": de_perfil("created_at"), "fuente_vapor": de_perfil("vapor_source"),
                    # M1 (tanda 7): None en perfiles anteriores (la pantalla muestra "—")
                    "capacidad_litros": capacidad if type(capacidad) is int else None,

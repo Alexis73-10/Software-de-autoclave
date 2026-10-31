@@ -88,3 +88,68 @@ def entrada_compilacion() -> tuple[str, str, str]:
           f"(huella instalación {huella(secretos['instalacion'])}, "
           f"fábrica {huella(secretos['fabrica'])})")
     return (RECURSO_EMPAQUETADO, str(ruta), "DATA")
+
+
+# --- Transporte K_t del formato de códigos v2 (instalación por automatización) ---
+# Archivo aparte del v1 (que no cambia): {"version": 2, "transporte": "<64 hex>",
+# "huella_maestro": "<8 hex>"}, lo exporta el generador. Desarrollo:
+#     %USERPROFILE%\Documents\especifika_secretos\activacion_v2.json
+# o la ruta completa de la variable ESPECIFIKA_TRANSPORTE. Se empaqueta como
+# config/activacion_transporte.json (fuera de autoclave/config, como el v1).
+
+VARIABLE_ENTORNO_TRANSPORTE = "ESPECIFIKA_TRANSPORTE"
+VERSION_TRANSPORTE = 2
+RECURSO_TRANSPORTE = "config/activacion_transporte.json"
+# K_t ficticio de prueba (§7.1 del formato v2): público; jamás debe viajar en una entrega.
+K_T_DE_PRUEBA_HEX = "6578a9994682225f37861fe063d7f5edd44e022a91f884acc21d014ef3889857"
+
+
+def ruta_archivo_transporte() -> Path:
+    """Ruta del archivo de K_t de desarrollo/compilación."""
+    propia = os.environ.get(VARIABLE_ENTORNO_TRANSPORTE, "").strip()
+    if propia:
+        return Path(propia)
+    base = os.environ.get("USERPROFILE") or str(Path.home())
+    return Path(base) / "Documents" / "especifika_secretos" / "activacion_v2.json"
+
+
+def leer_transporte(ruta: Path | str) -> bytes:
+    """K_t (32 bytes) del archivo del generador, o SecretosInvalidos. El mensaje
+    de error nunca incluye el valor."""
+    ruta = Path(ruta)
+    if not ruta.is_file():
+        raise SecretosInvalidos(f"no existe {ruta}")
+    try:
+        datos = json.loads(ruta.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        raise SecretosInvalidos(f"no se pudo leer {ruta} como JSON") from None
+    if not isinstance(datos, dict) or datos.get("version") != VERSION_TRANSPORTE:
+        raise SecretosInvalidos(f"versión distinta de {VERSION_TRANSPORTE}")
+    valor = datos.get("transporte")
+    if not isinstance(valor, str) or len(valor) != 64:
+        raise SecretosInvalidos("'transporte' no tiene 64 caracteres hexadecimales")
+    try:
+        return bytes.fromhex(valor)
+    except ValueError:
+        raise SecretosInvalidos("'transporte' no es hexadecimal") from None
+
+
+def es_transporte_de_prueba(k_t: bytes) -> bool:
+    return k_t == bytes.fromhex(K_T_DE_PRUEBA_HEX)
+
+
+def entrada_compilacion_transporte() -> tuple[str, str, str]:
+    """Entrada TOC de PyInstaller para empaquetar el K_t. Sin archivo válido, o
+    con el K_t ficticio de prueba (públicos los vectores), detiene la compilación."""
+    ruta = ruta_archivo_transporte()
+    try:
+        k_t = leer_transporte(ruta)
+    except SecretosInvalidos as e:
+        raise SystemExit(f"LIC-01: compilación sin transporte de activación v2 ({e}). "
+                         f"Exporte el transporte desde el generador a {ruta} o defina "
+                         f"{VARIABLE_ENTORNO_TRANSPORTE}.") from None
+    if es_transporte_de_prueba(k_t):
+        raise SystemExit("LIC-01: el transporte de activación v2 es el K_t de prueba "
+                         "(§7.1 del formato); no puede ir en una entrega.")
+    print(f"LIC-01: transporte de activación v2 de {ruta} (huella {huella(k_t)})")
+    return (RECURSO_TRANSPORTE, str(ruta), "DATA")

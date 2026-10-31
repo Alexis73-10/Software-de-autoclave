@@ -280,6 +280,8 @@ Item {
     Text {
         objectName: "pieArranque"
         anchors.horizontalCenter: parent.horizontalCenter
+        width: Math.min(implicitWidth, raiz.width * 0.9)
+        fontSizeMode: Text.HorizontalFit; minimumPixelSize: Escala.fuenteMinima
         y: raiz.height * 0.935 - height / 2
         text: {
             // Tanda 17 (R4, V17-s4-05): rótulo del catálogo (antes literal "Software v");
