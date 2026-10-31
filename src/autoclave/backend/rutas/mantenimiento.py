@@ -19,6 +19,7 @@ from fastapi import APIRouter
 from autoclave.backend.dependencias import (CALIBRATION_PATH, RechazoApi, _auditar,
     _log_desarrollo, _rechazar, context, requiere_rol)
 from autoclave.backend.rutas._comun import _encolar_en_impresora, _meta_equipo
+from autoclave.installation.identidad import meta_con_originales
 
 # Mismo nombre de logger que antes de partir server.py (ORG-12): los
 # registros conservan su origen "autoclave.backend.server".
@@ -266,7 +267,7 @@ def print_calibration(sesion: Sesion = Depends(requiere_rol(ROL_TECNICO, ROL_ING
         ref = context.config_manager.describir("presion_atmosferica")
     except Exception:
         ref = {}
-    texto = tm.ganancias(_meta_equipo(), sensores, ref.get("valor"),
+    texto = tm.ganancias(meta_con_originales(_meta_equipo(), getattr(context, "profile", None)), sensores, ref.get("valor"),
                          (ref.get("ultima_modificacion") or {}).get("fecha"))
     _encolar_en_impresora([texto])
     _log_desarrollo("impresion_ganancias", sesion, entidad="/maintenance/print/calibration",

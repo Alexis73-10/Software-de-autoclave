@@ -59,7 +59,9 @@ _SCRIPT = textwrap.dedent(r'''
         def close(self):
             pass
 
-    puente = Puente(validar_codigo=lambda s, c: True, abrir_bd=BdFalsa, es_semilla=lambda c: False)
+    from autoclave.installation.activacion_v2 import ResultadoCodigo
+    puente = Puente(verificar_codigo=lambda *_a, **_k: ResultadoCodigo(ok=True, formato="v2"),
+                    abrir_bd=BdFalsa, es_semilla=lambda c: False)
     # instalar() no escribe el perfil del equipo: se captura lo que mandaría la QML
     import autoclave.ui_qml.bridge.puente_instalacion as pi
     pi.escribir_perfil = lambda perfil, ahora=None: instalados.append(perfil)

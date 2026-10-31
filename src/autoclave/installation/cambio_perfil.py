@@ -26,6 +26,11 @@ NOMBRE_REGISTRO = "installation_profile_cambios.log"
 # cambia reinstalando el perfil. Ninguna herramienta los escribe.
 CAMPOS_DEL_MODELO = ("model_id", "equipment_class", "door_count", "capacidad_litros", "tipo_carga")
 
+# Instalación por automatización: la identidad del equipo tampoco la cambia
+# ninguna herramienta (la protege el sello del perfil).
+CAMPOS_DE_IDENTIDAD = ("serial_number", "machine_id", "tipo_instalacion",
+                       "serial_original", "modelo_original", "sello_identidad")
+
 
 class CambioCancelado(Exception):
     """El ingeniero no confirmó el cambio (o no hay terminal para preguntar)."""
@@ -52,6 +57,8 @@ def escribir_campo(perfil: Path, campo: str, valor: dict, herramienta: str,
     escrito. Con `confirmado=True` no pregunta (opción --si)."""
     if campo in CAMPOS_DEL_MODELO:
         raise ValueError(f"'{campo}' define el nombre del modelo: solo cambia reinstalando el perfil")
+    if campo in CAMPOS_DE_IDENTIDAD:
+        raise ValueError(f"'{campo}' es parte de la identidad del equipo: solo cambia reinstalando el perfil")
     data = json.loads(perfil.read_text(encoding="utf-8"))
     antes = data.get(campo)
     data[campo] = valor

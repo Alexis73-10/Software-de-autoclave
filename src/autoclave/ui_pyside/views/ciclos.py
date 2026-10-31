@@ -64,6 +64,7 @@ def _build_cycle_lines(ciclo: dict, lecturas: list) -> list[str]:
         "numero_ciclo":          ciclo.get("numero_ciclo", 0),
         "serie":                 ciclo.get("serie", ""),
         "modelo":                ciclo.get("modelo", ""),
+        **_tf._originales_del_ciclo(ciclo),   # automatización: identidad original
         "version_sw":            ciclo.get("version_sw", ""),
         "nombre_ciclo":          ciclo.get("nombre_ciclo") or "",
         "tipo_ciclo":            ciclo.get("tipo_ciclo") or "",

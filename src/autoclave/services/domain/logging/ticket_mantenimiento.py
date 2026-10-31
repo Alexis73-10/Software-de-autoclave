@@ -35,14 +35,32 @@ def _t(idioma: str, clave: str) -> str:
     return _TXT.get(idioma, _TXT["es"])[clave]
 
 
+def _lineas_identidad(meta: dict, idioma: str) -> list[str]:
+    """Serie y modelo. Fabricación: las dos líneas de siempre. Automatización
+    (meta con `serie_original` y `modelo_original`): los originales, partidos
+    si no caben, y el serial Especifika."""
+    from autoclave.installation.identidad import (
+        identidad_de_meta, partir, rotulo_serial_especifika)
+    ident = identidad_de_meta(meta)
+    if ident["serial_especifika"] is None:
+        return [f"{_t(idioma, 'serie')}: {meta.get('serie', '')}",
+                f"{_t(idioma, 'modelo')}: {meta.get('modelo', '')}"]
+    lineas = []
+    for rotulo, valor in ((_t(idioma, "serie"), ident["serie"]),
+                          (rotulo_serial_especifika(idioma), ident["serial_especifika"]),
+                          (_t(idioma, "modelo"), ident["modelo"])):
+        linea = f"{rotulo}: {valor}"
+        lineas += [linea] if len(linea) <= ANCHO else [f"{rotulo}:", *partir(valor, ANCHO)]
+    return lineas
+
+
 def _cabecera(titulo: str, meta: dict, idioma: str, ahora: datetime) -> list[str]:
     return [
         "=" * ANCHO,
         titulo.center(ANCHO),
         "=" * ANCHO,
         f"{_t(idioma, 'fecha')}: {ahora.strftime('%Y-%m-%d %H:%M')}",
-        f"{_t(idioma, 'serie')}: {meta.get('serie', '')}",
-        f"{_t(idioma, 'modelo')}: {meta.get('modelo', '')}",
+        *_lineas_identidad(meta, idioma),
         "-" * ANCHO,
     ]
 

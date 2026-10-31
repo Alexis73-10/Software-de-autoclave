@@ -21,6 +21,7 @@ from datetime import datetime
 
 from PySide6.QtCore import Property, QObject, Signal, Slot
 
+from autoclave.installation.identidad import identidad_de_perfil
 from autoclave.ui_qml.domain import resumen_sistema as resumen_dominio
 
 logger = logging.getLogger(__name__)
@@ -135,9 +136,19 @@ def filas_equipo(perfil, door: int, version_sw, historial, modulo_es=None,
         resultado = ultimo.get("resultado") or ""
         ultimo_ciclo = f"{fecha or ''}  {resultado}".strip() or None
 
+    # Automatización: modelo y serie originales y una fila «Serial Especifika»
+    # (SNAANNNN); fabricación: las filas de siempre
+    ident = identidad_de_perfil(p) if p else None
+    modelo = p.model_id if p else None
+    serie = p.serial_number if p else None
+    filas_serial = []
+    if ident is not None and ident["serial_especifika"] is not None:
+        modelo, serie = ident["modelo"], ident["serie"]
+        filas_serial = [_fila("serial_especifika", ident["serial_especifika"])]
     return [
-        _fila("modelo", p.model_id if p else None),
-        _fila("serie", p.serial_number if p else None),
+        _fila("modelo", modelo),
+        _fila("serie", serie),
+        *filas_serial,
         _fila("id_maquina", p.machine_id if p else None),
         _fila_enum("clase", "clase_", p.equipment_class if p else None),
         _fila("puertas", p.door_count if p else None),
@@ -231,11 +242,24 @@ class InfoEquipo(QObject):
 
     @Property(str, constant=True)
     def modelo(self) -> str:
-        return self._perfil.model_id if self._perfil else ""
+        if not self._perfil:
+            return ""
+        ident = identidad_de_perfil(self._perfil)
+        return ident["modelo"] if ident["serial_especifika"] is not None else self._perfil.model_id
 
     @Property(str, constant=True)
     def serie(self) -> str:
-        return self._perfil.serial_number if self._perfil else ""
+        if not self._perfil:
+            return ""
+        ident = identidad_de_perfil(self._perfil)
+        return ident["serie"] if ident["serial_especifika"] is not None else self._perfil.serial_number
+
+    @Property(str, constant=True)
+    def serialEspecifika(self) -> str:
+        """Serie interna (SNAANNNN) en un equipo de automatización; "" en fabricación."""
+        if not self._perfil:
+            return ""
+        return identidad_de_perfil(self._perfil)["serial_especifika"] or ""
 
     @Property("QVariantList", notify=filasChanged)
     def filas(self) -> list:

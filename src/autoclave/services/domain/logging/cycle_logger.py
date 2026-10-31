@@ -477,6 +477,14 @@ class CycleLogger:
             programa_json = programa_json,
             operador    = operador,
         )
+        # Instalación por automatización: identidad original del equipo. Solo se
+        # agrega si existe, para que un ciclo de fabricación quede idéntico
+        # (columnas NULL y encabezado del respaldo sin claves nuevas).
+        for _clave, _atributo in (("serie_original", "serial_original"),
+                                  ("modelo_original", "modelo_original")):
+            _valor = getattr(self.profile, _atributo, None)
+            if isinstance(_valor, str) and _valor:
+                datos_ciclo[_clave] = _valor
         # T8 (§7.4): respaldo antes de la base, con los mismos datos. S3d: el
         # fsync sale del tick; va por el mismo hilo FIFO que la base
         self._bd_avisada = False
@@ -525,6 +533,11 @@ class CycleLogger:
                 "sin_registro":          self.sin_base_de_datos,
                 "operador":              operador,
             }
+            # Automatización: el encabezado en vivo muestra la identidad original
+            # (solo si existe; en fabricación el meta queda como antes)
+            for _clave in ("serie_original", "modelo_original"):
+                if _clave in datos_ciclo:
+                    meta[_clave] = datos_ciclo[_clave]
             # I3 (tanda 5): idioma y unidades vigentes al iniciar, para todo el ticket
             self._presentacion = presentacion_actual()
             self.printer.enqueue(format_header(meta, self._presentacion))

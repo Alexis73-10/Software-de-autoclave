@@ -43,7 +43,7 @@ _SCRIPT = textwrap.dedent(r'''
     engine.exit.connect(app.exit)   # QQmlApplicationEngine (app.py) lo hace solo
     avisos = []
     engine.warnings.connect(lambda ws: avisos.extend(w.toString() for w in ws))
-    puente = PuenteInstalacion(validar_codigo=lambda s, c: False)
+    puente = PuenteInstalacion(verificar_codigo=lambda *_a, **_k: __import__("autoclave.installation.activacion_v2", fromlist=["x"]).ResultadoCodigo(ok=False, motivo="etiqueta"))
     comp = QQmlComponent(engine, QUrl.fromLocalFile(QML_DIR + "/InstalacionVentana.qml"))
     ventana = comp.createWithInitialProperties({"puenteInstalacion": puente})
     assert ventana is not None, comp.errorString()

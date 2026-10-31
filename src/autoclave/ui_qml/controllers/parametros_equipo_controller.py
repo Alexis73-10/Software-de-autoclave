@@ -14,6 +14,7 @@ from PySide6.QtCore import Property, QObject, Signal, Slot
 from PySide6.QtQml import qmlRegisterType
 
 from autoclave.core.managers.config_manager import GRUPOS as _GRUPOS_PARAMETROS
+from autoclave.installation.identidad import identidad_de_perfil
 from autoclave.ui_qml import sesion_backend
 from autoclave.ui_qml.domain import permisos_opciones as permisos
 
@@ -80,6 +81,7 @@ class ParametrosEquipoController(QObject):
         self._estado = ""
         self._serie = ""
         self._modelo = ""
+        self._serial_especifika = ""
         self._reiniciando = False       # R11: el backend aceptó reiniciar el software
 
     def _s(self):
@@ -150,6 +152,12 @@ class ParametrosEquipoController(QObject):
         p = (self._leer_perfil or _perfil)()
         self._serie = str(getattr(p, "serial_number", "") or "") if p else ""
         self._modelo = str(getattr(p, "model_id", "") or "") if p else ""
+        self._serial_especifika = ""
+        # Automatización: serie y modelo originales; la serie interna aparte
+        ident = identidad_de_perfil(p) if p else None
+        if ident is not None and ident["serial_especifika"] is not None:
+            self._serie, self._modelo = str(ident["serie"]), str(ident["modelo"])
+            self._serial_especifika = str(ident["serial_especifika"])
         self.datosChanged.emit()
         self.parametrosGrupoChanged.emit()
 
@@ -295,6 +303,11 @@ class ParametrosEquipoController(QObject):
     @Property(str, notify=datosChanged)
     def modelo(self) -> str:
         return self._modelo
+
+    @Property(str, notify=datosChanged)
+    def serialEspecifika(self) -> str:
+        """Serie interna (SNAANNNN) de un equipo de automatización; "" en fabricación."""
+        return self._serial_especifika
 
     @Property(bool, notify=datosChanged)
     def impresoraConocida(self) -> bool:

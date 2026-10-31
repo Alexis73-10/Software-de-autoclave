@@ -7,7 +7,10 @@
 #
 #   clases                         capacidades por clase (get_capabilities);
 #                                  solo piso y piso_lab (M1, AM-3)
-#   validarCodigo(serie, codigo)   código de activación del día (activation.py)
+#   validarCodigo(serie, codigo, modo, serieOriginal, modeloOriginal) -> "" o clave i18n
+#                                  código de instalación v1/v2 (activacion_v2.py); modo
+#                                  "fabricacion" | "automatizacion" (automatización: solo v2
+#                                  INSA/REIA atado a la serie y el modelo originales)
 #   calcularModelo(clase, litros, carga, puertas) -> nombre o "" (vista previa)
 #   validarContrasenas(admin, conf_admin, ingeniero, conf_ingeniero) -> {campo: error_ui}
 #   instalar(perfil) -> {ok, error}   (perfil.contrasenas: las 4 de arriba)
@@ -39,7 +42,10 @@ from PySide6.QtCore import Property, QObject, Signal, Slot
 
 from autoclave.devices.puertas.door_type import DoorType
 from autoclave.installation import storage
-from autoclave.installation.activation import validate_installation_code
+from autoclave.installation.activacion_v2 import (Modo, OriginalInvalido, ResultadoCodigo,
+                                                  normalizar_modelo_original,
+                                                  normalizar_serie_original, sellar_identidad,
+                                                  verificar_codigo_instalacion)
 from autoclave.installation.bootstrap import get_installation_profile
 from autoclave.installation.clock_guard import ClockTamperedError
 from autoclave import i18n
@@ -123,15 +129,77 @@ def _entero(datos: dict, clave: str) -> int:
     return valor
 
 
+_MOTIVO_A_CLAVE = {
+    "serie_original": "instalacion.error_serie_original",
+    "modelo_original": "instalacion.error_modelo_original",
+    "v1_en_automatizacion": "instalacion.error_codigo_v1_automatizacion",
+    "serial_formato": "instalacion.error_serial_v2",
+}
+
+
+def clave_error_codigo(resultado: ResultadoCodigo, modo: Modo) -> str:
+    """Clave i18n del rechazo de un código. `sin_transporte` no revela la causa
+    (queda en el log del verificador); en automatización cualquier otro rechazo
+    da el mensaje genérico que no dice qué dato falló."""
+    motivo = resultado.motivo
+    if motivo == "sin_transporte":
+        logger.error("Código v2 rechazado: la compilación no tiene el transporte de activación v2")
+        return "instalacion.error_codigo"
+    if motivo in _MOTIVO_A_CLAVE:
+        return _MOTIVO_A_CLAVE[motivo]
+    if modo is Modo.AUTOMATIZACION:
+        return "instalacion.error_codigo_automatizacion"
+    return "instalacion.error_codigo"
+
+
+def _modo(valor) -> Modo:
+    """Cualquier cosa que no sea exactamente "automatizacion" es fabricación."""
+    return Modo.AUTOMATIZACION if valor in (Modo.AUTOMATIZACION, Modo.AUTOMATIZACION.value) else Modo.FABRICACION
+
+
+def ahora_local() -> datetime:
+    """Único origen de la hora de la instalación (local, sin zona): lo usan el
+    perfil y la validación en vivo del código, para que ambos vean el mismo día."""
+    return datetime.now()
+
+
 def construir_perfil(datos: dict, codigo: str, ahora: datetime | None = None,
-                     validar_codigo=validate_installation_code) -> InstallationProfile:
+                     verificar_codigo=verificar_codigo_instalacion,
+                     sellar=sellar_identidad) -> InstallationProfile:
     """Valida los datos de la pantalla y arma el perfil (bloqueado). Lanza
-    ValueError con el motivo en español."""
+    ValueError con el motivo en español.
+
+    Automatización: el código (INSA/REIA) se verifica atado a la serie y el
+    modelo originales; el perfil lleva los originales normalizados y el sello
+    de identidad. En fabricación los originales que mande la pantalla se
+    ignoran. `machine_id` y `serial_number` usan siempre la serie Especifika
+    (SNAANNNN)."""
     serie = str(datos.get("serial_number") or "").strip().upper()
     if not serie:
         raise ValueError("Número de serie vacío")
-    if not validar_codigo(serie, str(codigo or "")):
-        raise ValueError("Código de activación inválido")
+    modo = _modo(datos.get("tipo_instalacion"))
+    # Hora local sin zona (TMG-01 de T9): clock_guard compara date.today()
+    # (local) con created_at.date(); en UTC, instalar después de las 19:00 en
+    # Colombia daba ARR_RELOJ hasta la medianoche. Se calcula una sola vez.
+    ahora = ahora or ahora_local()
+    if modo is Modo.AUTOMATIZACION:
+        resultado = verificar_codigo(serie, str(codigo or ""), modo,
+                                     datos.get("serial_original"), datos.get("modelo_original"),
+                                     hoy=ahora.date())
+    else:
+        resultado = verificar_codigo(serie, str(codigo or ""), modo, hoy=ahora.date())
+    if not resultado.ok:
+        raise ValueError(i18n.t(clave_error_codigo(resultado, modo)))
+    originales = None
+    if modo is Modo.AUTOMATIZACION:
+        # lo que el verificador firmó; si no los devuelve (doble de prueba), se normalizan aquí
+        originales = resultado.originales
+        if originales is None:
+            try:
+                originales = (normalizar_serie_original(datos.get("serial_original")),
+                              normalizar_modelo_original(datos.get("modelo_original")))
+            except OriginalInvalido as e:
+                raise ValueError(i18n.t(_MOTIVO_A_CLAVE[f"{e.campo}_original"])) from None
     try:
         clase = EquipmentClass(datos.get("equipment_class"))
     except ValueError:
@@ -178,10 +246,11 @@ def construir_perfil(datos: dict, codigo: str, ahora: datetime | None = None,
     suministros = {k: suministros.get(k, True) is not False for k in SUPPLY_INPUT_KEYS}
     sondas = normalizar_temperature_probes({k: v is not False for k, v in sondas.items()})
     sondas[SONDA_OBLIGATORIA] = True      # la sonda de cámara no se puede desactivar
-    # Hora local sin zona (TMG-01 de T9): clock_guard compara date.today()
-    # (local) con created_at.date(); en UTC, instalar después de las 19:00 en
-    # Colombia daba ARR_RELOJ hasta la medianoche
-    ahora = ahora or datetime.now()
+    extra = {}
+    if originales is not None:
+        extra = {"tipo_instalacion": Modo.AUTOMATIZACION.value,
+                 "serial_original": originales[0], "modelo_original": originales[1],
+                 "sello_identidad": sellar(Modo.AUTOMATIZACION.value, serie, *originales)}
     return InstallationProfile(
         machine_id=f"ACV-{ahora.strftime('%Y')}-{serie}",
         model_id=modelo,
@@ -199,6 +268,7 @@ def construir_perfil(datos: dict, codigo: str, ahora: datetime | None = None,
         vapor_source=vapor,
         capacidad_litros=capacidad,
         tipo_carga=carga,
+        **extra,
     )
 
 
@@ -261,13 +331,19 @@ def registrar_equipo_instalado(perfil: InstallationProfile, abrir_bd=_abrir_bd,
     terminarla, con serie, modelo, versión y zona horaria de Windows. Un error
     no deshace la instalación (el perfil ya está escrito): queda en el log."""
     from autoclave._version import version_completa
+    # solo en automatización: la fila de fabricación queda como antes
+    extra = ({"tipo_instalacion": perfil.tipo_instalacion,
+              "serie_original": perfil.serial_original,
+              "modelo_original": perfil.modelo_original}
+             if perfil.tipo_instalacion == Modo.AUTOMATIZACION.value else {})
     try:
         db = abrir_bd()
         try:
             db.registrar_auditoria(
                 "equipo_instalado", usuario="sistema", entidad=perfil.serial_number,
                 detalle={"serie": perfil.serial_number, "modelo": perfil.model_id,
-                         "version": version_completa(), "zona_horaria": zona()})
+                         "version": version_completa(), "zona_horaria": zona(),
+                         **extra})
         finally:
             db.close()
     except Exception:
@@ -300,10 +376,11 @@ def escribir_perfil(perfil: InstallationProfile, ahora: datetime | None = None) 
 class PuenteInstalacion(QObject):
     instalado = Signal()
 
-    def __init__(self, parent=None, validar_codigo=validate_installation_code,
-                 abrir_bd=_abrir_bd, es_semilla=es_clave_semilla):
+    def __init__(self, parent=None, verificar_codigo=verificar_codigo_instalacion,
+                 abrir_bd=_abrir_bd, es_semilla=es_clave_semilla, sellar=sellar_identidad):
         super().__init__(parent)
-        self._validar_codigo = validar_codigo
+        self._verificar_codigo = verificar_codigo
+        self._sellar = sellar
         self._abrir_bd = abrir_bd
         self._es_semilla = es_semilla
         self._clases = clases_disponibles()
@@ -313,14 +390,52 @@ class PuenteInstalacion(QObject):
     def clases(self) -> list:
         return self._clases
 
-    @Slot(str, str, result=bool)
-    def validarCodigo(self, serie: str, codigo: str) -> bool:
-        ok = bool(self._validar_codigo(serie.strip().upper(), codigo))
-        if ok:
-            self._codigo = codigo
+    @Slot(str, str, str, str, str, result=str)
+    def validarCodigo(self, serie: str, codigo: str, modo: str = "fabricacion",
+                      serieOriginal: str = "", modeloOriginal: str = "") -> str:
+        """"" si el código es válido para la serie (y, en automatización, para
+        la serie y el modelo originales); si no, la clave i18n del error.
+        instalar() lo revalida todo."""
+        serie = serie.strip().upper()
+        modo_v = _modo(modo)
+        hoy = ahora_local().date()
+        if modo_v is Modo.AUTOMATIZACION:
+            resultado = self._verificar_codigo(serie, codigo, modo_v, serieOriginal, modeloOriginal,
+                                               hoy=hoy)
         else:
-            logger.warning("Código de activación inválido para la serie '%s'", serie.strip().upper())
-        return ok
+            resultado = self._verificar_codigo(serie, codigo, modo_v, hoy=hoy)
+        if resultado.ok:
+            self._codigo = codigo
+            return ""
+        self._codigo = ""
+        logger.warning("Código de instalación inválido para la serie '%s' (%s): %s",
+                       serie, modo_v.value, resultado.motivo)
+        return clave_error_codigo(resultado, modo_v)
+
+    @Slot(str, str, result=str)
+    def normalizarOriginal(self, campo: str, texto: str) -> str:
+        """Forma que guardará el perfil de la serie ("serie") o el modelo
+        originales (mayúsculas, espacios normalizados); si es inválido, el
+        texto tal cual."""
+        try:
+            if campo == "serie":
+                return normalizar_serie_original(texto)
+            return normalizar_modelo_original(texto)
+        except OriginalInvalido:
+            return texto
+
+    @Slot(str, str, result=str)
+    def validarOriginal(self, campo: str, texto: str) -> str:
+        """Validación en vivo de la serie ("serie") o el modelo ("modelo")
+        originales: "" si es válido, si no la clave i18n del error."""
+        try:
+            if campo == "serie":
+                normalizar_serie_original(texto)
+            else:
+                normalizar_modelo_original(texto)
+        except OriginalInvalido as e:
+            return _MOTIVO_A_CLAVE[f"{e.campo}_original"]
+        return ""
 
     @Slot(str, "QVariant", str, int, result=str)
     def calcularModelo(self, clase: str, capacidad, carga: str, puertas: int) -> str:
@@ -350,7 +465,8 @@ class PuenteInstalacion(QObject):
         claves = datos.pop("contrasenas", None)
         claves = dict(claves) if hasattr(claves, "keys") else {}
         try:
-            perfil = construir_perfil(datos, self._codigo, validar_codigo=self._validar_codigo)
+            perfil = construir_perfil(datos, self._codigo, verificar_codigo=self._verificar_codigo,
+                                      sellar=self._sellar)
             if errores_contrasenas(claves, es_semilla=self._es_semilla):
                 raise ValueError(i18n.t("instalacion.error_contrasenas"))
             if _hay_perfil_valido():

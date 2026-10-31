@@ -8,6 +8,8 @@
 # en español.
 
 from datetime import datetime
+from autoclave.installation.identidad import (
+    identidad_de_perfil, partir, rotulo_serial_especifika)
 from autoclave.installation.profile import InstallationProfile
 
 _W   = 48
@@ -75,6 +77,23 @@ def _lineas_software(rotulo: str, version: str) -> list[str]:
     return [rotulo, f"  v{version}"[:_W]]
 
 
+def _lineas_identidad(profile, tx: dict, idioma: str) -> list[str]:
+    """Modelo y serie del ticket. Fabricación: las dos líneas de siempre.
+    Automatización: modelo y serie originales (si no caben en las 32 columnas
+    del valor, siguen en líneas indentadas) y «Serial Especifika: SNAANNNN»."""
+    ident = identidad_de_perfil(profile)
+    if ident["serial_especifika"] is None:
+        return [f"{tx['modelo']:<16}{ident['modelo']}",
+                f"{tx['serie']:<16}{ident['serie']}"]
+    lineas = []
+    for rotulo, valor in ((tx['modelo'], ident['modelo']), (tx['serie'], ident['serie'])):
+        trozos = partir(valor, _W - 16)
+        lineas.append(f"{rotulo:<16}{trozos[0]}")
+        lineas += [" " * 16 + t for t in trozos[1:]]
+    lineas.append(f"{rotulo_serial_especifika(idioma)}: {ident['serial_especifika']}"[:_W])
+    return lineas
+
+
 def format_startup_ticket(
     profile: InstallationProfile,
     version: str,
@@ -100,8 +119,7 @@ def format_startup_ticket(
         _SEP,
         "ESPECIFIKA -- AUTOCLAVE".center(_W),
         _SEP,
-        f"{tx['modelo']:<16}{profile.model_id}",
-        f"{tx['serie']:<16}{profile.serial_number}",
+        *_lineas_identidad(profile, tx, idioma),
         f"{tx['clase']:<16}{_nombre_clase(profile.equipment_class, idioma)}",
         *_lineas_software(tx['software'], version),
         _DIV,

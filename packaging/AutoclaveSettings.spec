@@ -51,6 +51,12 @@ _ciclos_ajenos = [d[0] for d in a.datas
                   and not d[0].replace('\\', '/').startswith('autoclave/cycles/factory/')]
 if _ciclos_ajenos:
     raise SystemExit(f'D9-7: solo cycles/factory va en la entrega; sobran {_ciclos_ajenos}')
+# Instalación por automatización: esta aplicación carga el perfil y verifica su sello,
+# así que lleva el K_t del formato v2 (config/activacion_transporte.json). Sin archivo
+# válido, o con el K_t de prueba, la compilación se detiene.
+_sys_ver.path.insert(0, _r('src'))
+from autoclave.installation.secretos import entrada_compilacion_transporte
+a.datas.append(entrada_compilacion_transporte())
 pyz = PYZ(a.pure)
 
 exe = EXE(

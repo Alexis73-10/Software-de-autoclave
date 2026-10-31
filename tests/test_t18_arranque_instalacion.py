@@ -394,7 +394,7 @@ progreso = ProgresoArranqueSinPerfil("sin_perfil", sostener_ms=300)
 progreso.iniciar()
 props = {"progresoArranque": progreso, "versionSoftware": "1.0.0-alpha.3"}
 if ventana_qml == "InstalacionVentana.qml":
-    props["puenteInstalacion"] = PuenteInstalacion(validar_codigo=lambda s, c: False)
+    props["puenteInstalacion"] = PuenteInstalacion(verificar_codigo=lambda *_a, **_k: __import__("autoclave.installation.activacion_v2", fromlist=["x"]).ResultadoCodigo(ok=False, motivo="etiqueta"))
 comp = QQmlComponent(engine, QUrl.fromLocalFile(QML_DIR + "/" + ventana_qml))
 raiz = comp.createWithInitialProperties(props)
 assert raiz is not None, comp.errorString()
@@ -483,7 +483,7 @@ engine = QQmlEngine()
 engine.addImportPath(QML_DIR)
 engine.exit.connect(app.exit)
 comp = QQmlComponent(engine, QUrl.fromLocalFile(QML_DIR + "/InstalacionVentana.qml"))
-raiz = comp.createWithInitialProperties({"puenteInstalacion": PuenteInstalacion(validar_codigo=lambda s, c: False)})
+raiz = comp.createWithInitialProperties({"puenteInstalacion": PuenteInstalacion(verificar_codigo=lambda *_a, **_k: __import__("autoclave.installation.activacion_v2", fromlist=["x"]).ResultadoCodigo(ok=False, motivo="etiqueta"))})
 a = raiz.findChild(QObject, "asistenteInstalacion")
 obs = {}
 a.setProperty("activo", False)          # intro aún a la vista: la cuenta no corre

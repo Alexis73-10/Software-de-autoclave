@@ -31,7 +31,14 @@ Window {
             { valor: "piso",       vacio: true,  chaqueta: true,  liquidos: false, puertasMax: 2, enfriamientoMax: 4 },
             { valor: "piso_lab",   vacio: true,  chaqueta: true,  liquidos: true,  puertasMax: 2, enfriamientoMax: 4 }
         ]
-        function validarCodigo(serie, codigo) { return codigo.toUpperCase() === "ABCDEFGHIJKL" }
+        // Contrato nuevo: devuelve "" si el código vale, o la clave i18n del error
+        function validarCodigo(serie, codigo, modo, serieOriginal, modeloOriginal) {
+            return codigo.toUpperCase() === "ABCDEFGHIJKL" ? "" : "instalacion.error_codigo"
+        }
+        function validarOriginal(campo, texto) {
+            if (texto.length > 0) return ""
+            return campo === "serie" ? "instalacion.error_serie_original" : "instalacion.error_modelo_original"
+        }
         function instalar(perfil) {
             console.log("PRUEBA instalar():", JSON.stringify(perfil))
             return { ok: true }

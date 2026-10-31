@@ -322,6 +322,21 @@ def lineas_version(rotulo: str, valor, ancho: int = ANCHO_TICKET) -> list[str]:
     return [f"{rotulo}:"] + [t[j:j + ancho] for t in trozos for j in range(0, len(t), ancho)]
 
 
+def _lineas_identidad(meta: dict, p: Presentacion) -> list[str]:
+    """Serie y modelo del encabezado. Fabricación: las líneas de siempre.
+    Automatización (meta con `serie_original` y `modelo_original`): serie y
+    modelo originales y «Serial Especifika: SNAANNNN»; cada uno pasa a la línea
+    siguiente si no cabe en las 24 columnas."""
+    from autoclave.installation.identidad import identidad_de_meta, rotulo_serial_especifika
+    ident = identidad_de_meta(meta)
+    if ident["serial_especifika"] is None:
+        return [f"{_t(p, 'serie')}: {meta.get('serie', '')}",
+                *lineas_rotulo(_t(p, 'modelo'), meta.get('modelo', ''))]
+    return [*lineas_rotulo(_t(p, 'serie'), ident["serie"]),
+            *lineas_rotulo(rotulo_serial_especifika(p.idioma), ident["serial_especifika"]),
+            *lineas_rotulo(_t(p, 'modelo'), ident["modelo"])]
+
+
 def format_header(meta: dict, p: Presentacion | None = None) -> str:
     """Encabezado del ticket (todo lo previo a las filas de lecturas)."""
     p = p or presentacion_actual()
@@ -353,8 +368,7 @@ def format_header(meta: dict, p: Presentacion | None = None) -> str:
         "------------------------",
         f"{_t(p, 'fecha')}: {fecha_str}",
         f"{_t(p, 'hora')}:  {hora_inicio}",
-        f"{_t(p, 'serie')}: {meta.get('serie', '')}",
-        *lineas_rotulo(_t(p, 'modelo'), meta.get('modelo', '')),
+        *_lineas_identidad(meta, p),
         *lineas_version(_t(p, 'software'), meta.get('version_sw', '')),
         f"{_t(p, 'ciclo')}: {numero}",
         nombre_ciclo(meta, p),
@@ -480,6 +494,15 @@ def leer_avisos_ticket(texto) -> tuple[float | None, list]:
     return sin_datos, avisos
 
 
+def _originales_del_ciclo(ciclo) -> dict:
+    """{"serie_original", "modelo_original"} de un ciclo guardado por un equipo
+    de automatización; {} si no los tiene (fabricación o ciclo histórico)."""
+    so, mo = _campo(ciclo, "serie_original"), _campo(ciclo, "modelo_original")
+    if (isinstance(so, str) and so.strip()) and (isinstance(mo, str) and mo.strip()):
+        return {"serie_original": so, "modelo_original": mo}
+    return {}
+
+
 def format_ticket(ciclo, lecturas, p: Presentacion | None = None) -> str:
     """Arma el ticket completo de un ciclo guardado (reimpresión). `p`: la
     presentación a usar (el PDF de la UI pasa la suya); None = la vigente."""
@@ -487,6 +510,7 @@ def format_ticket(ciclo, lecturas, p: Presentacion | None = None) -> str:
         "numero_ciclo":          ciclo["numero_ciclo"],
         "serie":                 ciclo["serie"],
         "modelo":                ciclo["modelo"],
+        **_originales_del_ciclo(ciclo),
         "version_sw":            ciclo["version_sw"],
         "nombre_ciclo":          ciclo["nombre_ciclo"],
         "tipo_ciclo":            ciclo["tipo_ciclo"],

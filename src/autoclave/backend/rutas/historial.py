@@ -119,6 +119,12 @@ def get_cycle_history(limite: int = 50):
     ]
 
 
+def _sin_originales_nulos(ciclo: dict) -> dict:
+    """Un ciclo de fabricación sale igual que antes: sin las columnas de originales vacías."""
+    return {k: v for k, v in ciclo.items()
+            if not (k in ("serie_original", "modelo_original") and v is None)}
+
+
 @router.get("/cycle/history/{ciclo_id}/readings")
 def get_cycle_readings(ciclo_id: int):
     """Todas las lecturas de un ciclo histórico."""
@@ -128,7 +134,7 @@ def get_cycle_readings(ciclo_id: int):
 
     rows = context.db.get_lecturas_ciclo(ciclo_id)
     return {
-        "ciclo": {**dict(ciclo), **_no_conforme_json(ciclo)},   # P4 (D-14.4)
+        "ciclo": {**_sin_originales_nulos(dict(ciclo)), **_no_conforme_json(ciclo)},   # P4 (D-14.4)
         "lecturas": [dict(r) for r in rows],
     }
 
@@ -142,6 +148,6 @@ def get_cycle_ticket(ciclo_id: int):
 
     rows = context.db.get_lecturas_para_imprimir(ciclo_id)
     return {
-        "ciclo":    {**dict(ciclo), **_no_conforme_json(ciclo)},   # P4 (D-14.4)
+        "ciclo":    {**_sin_originales_nulos(dict(ciclo)), **_no_conforme_json(ciclo)},   # P4 (D-14.4)
         "lecturas": [dict(r) for r in rows],
     }

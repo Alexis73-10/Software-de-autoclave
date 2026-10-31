@@ -18,6 +18,7 @@ from autoclave.services.domain.logging.db_manager import DbManager
 from autoclave.state_machine.alarms.alarm_manager import AlarmManager
 from autoclave.state_machine.alarms.catalogo import CATALOGO, CONTRASENA_SEMILLA, ROLES_VISIBLES
 from autoclave.ui_qml.bridge import puente_instalacion as pi
+from tests.helpers import codigo_doble
 from tests.helpers.backend_doble import modulo_backend
 
 RAIZ = Path(__file__).resolve().parents[1]
@@ -52,8 +53,8 @@ def entorno(monkeypatch, tmp_path):
 def _puente(tmp_path, **kw):
     kw.setdefault("abrir_bd", lambda: DbManager(tmp_path / "autoclave.db"))
     kw.setdefault("es_semilla", _sin_semilla)
-    p = pi.PuenteInstalacion(validar_codigo=lambda s, c: True, **kw)
-    assert p.validarCodigo("ab-123", "X") is True
+    p = pi.PuenteInstalacion(verificar_codigo=codigo_doble.acepta(), **kw)
+    assert p.validarCodigo("ab-123", "X", "fabricacion", "", "") == ""
     return p
 
 

@@ -23,6 +23,13 @@ def load() -> InstallationProfile:
     if errors:
         raise ProfileValidationError(errors)
 
+    if data.get("tipo_instalacion", "fabricacion") == "automatizacion":
+        # Import perezoso: solo la automatización necesita los secretos v2.
+        from autoclave.installation import activacion_v2
+        if not activacion_v2.verificar_sello_identidad(data):
+            raise ProfileValidationError(
+                ["sello de identidad inválido o sin clave de transporte"])
+
     return InstallationProfile(
         machine_id=data["machine_id"],
         model_id=data["model_id"],
@@ -41,6 +48,10 @@ def load() -> InstallationProfile:
         vapor_source=data.get("vapor_source"),
         capacidad_litros=data.get("capacidad_litros"),
         tipo_carga=data.get("tipo_carga"),
+        tipo_instalacion=data.get("tipo_instalacion", "fabricacion"),
+        serial_original=data.get("serial_original"),
+        modelo_original=data.get("modelo_original"),
+        sello_identidad=data.get("sello_identidad"),
     )
 
 
@@ -69,6 +80,12 @@ def save(profile: InstallationProfile):
         # M1: solo en perfiles nuevos (ausentes = perfil anterior, no se migra)
         **({"capacidad_litros": profile.capacidad_litros, "tipo_carga": profile.tipo_carga}
            if profile.capacidad_litros is not None or profile.tipo_carga is not None else {}),
+        # Automatización: los 4 campos solo en ese tipo (fabricación queda idéntica)
+        **({"tipo_instalacion": profile.tipo_instalacion,
+            "serial_original": profile.serial_original,
+            "modelo_original": profile.modelo_original,
+            "sello_identidad": profile.sello_identidad}
+           if profile.tipo_instalacion == "automatizacion" else {}),
     }, indent=2, ensure_ascii=False)
     # TMG-03 de T9: escritura atómica (temporal + fsync + replace); un corte no
     # deja el perfil truncado
