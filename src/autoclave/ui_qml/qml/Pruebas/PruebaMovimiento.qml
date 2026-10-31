@@ -21,7 +21,7 @@ Window {
             objectName: "tarjetaPrueba"
             escala: 1
             x: 60; y: 100; width: 700; height: 320
-            titulo: "Tarjeta"
+            titulo: "Prueba"
             descripcion: "abre la ventana"
             onPulsada: ventana.abrir()
         }
