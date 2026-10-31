@@ -1,10 +1,9 @@
-import sys
 import json
-import importlib
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 from autoclave.core.managers.cycle_manager import Cycle
+from tests.helpers.backend_doble import cabecera, cargar_servidor
 
 
 def _make_cycle(tmp_path, source="user"):
@@ -37,16 +36,11 @@ def param_client(tmp_path):
 
     mock_ctx = MagicMock()
     mock_ctx.cycle_manager.cycles = {"ciclo_test": cycle}
-
-    for key in list(sys.modules):
-        if "autoclave.backend.server" in key:
-            del sys.modules[key]
-
-    with patch("autoclave.backend.context.BackendContext", return_value=mock_ctx):
-        srv = importlib.import_module("autoclave.backend.server")
+    srv, _ = cargar_servidor(mock_ctx)
 
     from fastapi.testclient import TestClient
-    return TestClient(srv.app), cycle, cycle_path
+    # solo ingeniero escribe parámetros de ciclo (planeacion_backend_autenticacion.md, decisión 25)
+    return TestClient(srv.app, headers=cabecera(srv, "ingeniero")), cycle, cycle_path
 
 
 def test_patch_actualiza_valor_en_memoria_y_lo_persiste(param_client):
@@ -58,28 +52,17 @@ def test_patch_actualiza_valor_en_memoria_y_lo_persiste(param_client):
         "value": 135.0,
     })
     assert resp.status_code == 200
-    assert resp.json() == {"ok": True, "value": 135.0}
+    assert resp.json() == {"ok": True, "value": 135.0, "aplica": "siguiente"}
     assert cycle.parameters["esterilizacion"]["temperatura_esterilizacion"]["value"] == 135.0
 
     persisted = json.loads(cycle_path.read_text(encoding="utf-8"))
     assert persisted["parameters"]["esterilizacion"]["temperatura_esterilizacion"]["value"] == 135.0
 
 
-def test_patch_autocomitea_el_json_persistido(param_client):
-    client, _, cycle_path = param_client
-
-    with patch("autoclave.backend.server.git_autocommit") as mock_autocommit:
-        resp = client.patch("/cycle/parameter", json={
-            "cycle_id": "ciclo_test",
-            "fase": "esterilizacion",
-            "path": ["temperatura_esterilizacion"],
-            "value": 135.0,
-        })
-
-    assert resp.status_code == 200
-    mock_autocommit.assert_called_once()
-    args = mock_autocommit.call_args.args
-    assert args[0] == cycle_path
+def test_patch_sin_git_autocommit(param_client):
+    # decisión 9: git_autocommit se eliminó del backend
+    import autoclave.backend.server as srv
+    assert not hasattr(srv, "git_autocommit")
 
 
 def test_patch_soporta_path_anidado(param_client):
@@ -132,16 +115,10 @@ def test_patch_no_persiste_ciclos_factory(tmp_path):
     cycle, cycle_path = _make_cycle(tmp_path, source="factory")
     mock_ctx = MagicMock()
     mock_ctx.cycle_manager.cycles = {"ciclo_test": cycle}
-
-    for key in list(sys.modules):
-        if "autoclave.backend.server" in key:
-            del sys.modules[key]
-
-    with patch("autoclave.backend.context.BackendContext", return_value=mock_ctx):
-        srv = importlib.import_module("autoclave.backend.server")
+    srv, _ = cargar_servidor(mock_ctx)
 
     from fastapi.testclient import TestClient
-    client = TestClient(srv.app)
+    client = TestClient(srv.app, headers=cabecera(srv, "ingeniero"))
 
     original_contents = cycle_path.read_text(encoding="utf-8")
     resp = client.patch("/cycle/parameter", json={

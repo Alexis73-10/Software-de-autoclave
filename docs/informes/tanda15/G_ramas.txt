@@ -1,0 +1,51 @@
+BORRADA tanda-10 :: Deleted branch tanda-10 (was a0c1886).
+NO_BORRADA tanda-10-g10 :: error: cannot delete branch 'tanda-10-g10' used by worktree at 'C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a6aeb70a86fb83313'
+NO_BORRADA tanda-10-t10 :: error: cannot delete branch 'tanda-10-t10' used by worktree at 'C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a3d482a1c2c15e108'
+NO_BORRADA tanda-10-u10a :: error: cannot delete branch 'tanda-10-u10a' used by worktree at 'C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a2244476aed3f12f6'
+NO_BORRADA tanda-10-u10b :: error: cannot delete branch 'tanda-10-u10b' used by worktree at 'C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a26b3309f9ff1210b'
+NO_BORRADA tanda-10-w10 :: error: cannot delete branch 'tanda-10-w10' used by worktree at 'C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a4be92acb8e0b641a'
+BORRADA tanda-11 :: Deleted branch tanda-11 (was 1ff31ab).
+NO_BORRADA tanda-11-e11 :: error: cannot delete branch 'tanda-11-e11' used by worktree at 'C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-ad7b4bd54afb67488'
+NO_BORRADA tanda-11-n11 :: error: cannot delete branch 'tanda-11-n11' used by worktree at 'C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a51f785e3e9553e65'
+NO_BORRADA tanda-11-o11 :: error: cannot delete branch 'tanda-11-o11' used by worktree at 'C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-adce3217b26664c1f'
+NO_BORRADA tanda-11-r11 :: error: cannot delete branch 'tanda-11-r11' used by worktree at 'C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-af1cb65d74e7fdf5b'
+NO_BORRADA tanda-11-s11 :: error: cannot delete branch 'tanda-11-s11' used by worktree at 'C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a9c4c9b4d52f681b7'
+NO_BORRADA tanda-11-u11 :: error: cannot delete branch 'tanda-11-u11' used by worktree at 'C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-ac703b4234b11450c'
+BORRADA tanda-12 :: Deleted branch tanda-12 (was fd984da).
+NO_BORRADA tanda-12-e12 :: error: cannot delete branch 'tanda-12-e12' used by worktree at 'C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a03ac33aa2e6eeaa0'
+NO_BORRADA tanda-12-j12 :: error: cannot delete branch 'tanda-12-j12' used by worktree at 'C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a75eb91611b96fbb1'
+NO_BORRADA tanda-12-l12 :: error: cannot delete branch 'tanda-12-l12' used by worktree at 'C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a31a938724291c22a'
+NO_BORRADA tanda-12-p12 :: error: cannot delete branch 'tanda-12-p12' used by worktree at 'C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-ab992c69a691fd932'
+BORRADA tanda-6 :: Deleted branch tanda-6 (was 1d6cf98).
+BORRADA tanda-7 :: Deleted branch tanda-7 (was 83a82a8).
+BORRADA tanda-7-c2 :: Deleted branch tanda-7-c2 (was 4d332fd).
+BORRADA tanda-7-d2 :: Deleted branch tanda-7-d2 (was 927593f).
+BORRADA tanda-7-l1 :: Deleted branch tanda-7-l1 (was 5768cfa).
+BORRADA tanda-7-m1 :: Deleted branch tanda-7-m1 (was d46af75).
+BORRADA tanda-7-m2 :: Deleted branch tanda-7-m2 (was 2e63100).
+BORRADA tanda-7-p1 :: Deleted branch tanda-7-p1 (was 6b05ce7).
+BORRADA tanda-7-q1 :: Deleted branch tanda-7-q1 (was e7e21f4).
+BORRADA tanda-8 :: Deleted branch tanda-8 (was c467ae7).
+NO_BORRADA tanda-8-d8 :: error: cannot delete branch 'tanda-8-d8' used by worktree at 'C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a2648dd3cc2073724'
+NO_BORRADA tanda-8-e1 :: error: cannot delete branch 'tanda-8-e1' used by worktree at 'C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-af2e355c6e4aaee60'
+NO_BORRADA tanda-8-e2 :: error: cannot delete branch 'tanda-8-e2' used by worktree at 'C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a5c1633b466a51510'
+NO_BORRADA tanda-8-l8 :: error: cannot delete branch 'tanda-8-l8' used by worktree at 'C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-adb06df2611c6d3e7'
+NO_BORRADA tanda-8-m8 :: error: cannot delete branch 'tanda-8-m8' used by worktree at 'C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a0b940080887b4d88'
+NO_BORRADA tanda-8-n8 :: error: cannot delete branch 'tanda-8-n8' used by worktree at 'C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-afc9779bd44817f3d'
+NO_BORRADA tanda-8-r8 :: error: cannot delete branch 'tanda-8-r8' used by worktree at 'C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a4c98b7bda15d252c'
+NO_BORRADA tanda-8-s1 :: error: cannot delete branch 'tanda-8-s1' used by worktree at 'C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a98cf543dd1b71cb2'
+NO_BORRADA tanda-8-s2a :: error: cannot delete branch 'tanda-8-s2a' used by worktree at 'C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a74be21cea62bc278'
+NO_BORRADA tanda-8-s2b :: error: cannot delete branch 'tanda-8-s2b' used by worktree at 'C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a621292afc926f886'
+NO_BORRADA tanda-8-u8 :: error: cannot delete branch 'tanda-8-u8' used by worktree at 'C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-aa1e469341e0e5eb1'
+NO_BORRADA tanda-8-v8a :: error: cannot delete branch 'tanda-8-v8a' used by worktree at 'C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-ad7d3dc439dcc9b9f'
+NO_BORRADA tanda-8-v8b :: error: cannot delete branch 'tanda-8-v8b' used by worktree at 'C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a4e1a61384f94e185'
+BORRADA tanda-9 :: Deleted branch tanda-9 (was cafb06e).
+NO_BORRADA tanda-9-a9 :: error: cannot delete branch 'tanda-9-a9' used by worktree at 'C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-af8b29bbc4b319d85'
+NO_BORRADA tanda-9-b9 :: error: cannot delete branch 'tanda-9-b9' used by worktree at 'C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-abc664462324dcc68'
+NO_BORRADA tanda-9-c9 :: error: cannot delete branch 'tanda-9-c9' used by worktree at 'C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a3bb314591f7dfc9e'
+NO_BORRADA tanda-9-cap9 :: error: cannot delete branch 'tanda-9-cap9' used by worktree at 'C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a5c42f144a8ff25e4'
+NO_BORRADA tanda-9-e9 :: error: cannot delete branch 'tanda-9-e9' used by worktree at 'C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-adbf5b776b3afc31e'
+NO_BORRADA tanda-9-l9 :: error: cannot delete branch 'tanda-9-l9' used by worktree at 'C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a326ce4d604c87b0b'
+NO_BORRADA tanda-9-p9 :: error: cannot delete branch 'tanda-9-p9' used by worktree at 'C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-ad265c7339bc98e37'
+NO_BORRADA tanda-9-s9 :: error: cannot delete branch 'tanda-9-s9' used by worktree at 'C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a8977a28ac4adbe26'
+NO_BORRADA tanda-9-x9 :: error: cannot delete branch 'tanda-9-x9' used by worktree at 'C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a6e7c80cff1fb1f3d'

@@ -14,6 +14,10 @@ class _FakeEstado:
     def get_machine_state(self):
         return self._state
 
+    def set_flag(self, name, value):
+        # EmergencyStop publica el paro al construirse (D-16)
+        pass
+
 
 def _make_loop(estado=None, cap=None, f0_activo=True):
     from autoclave.services.domain.loop.control_loop import ControlLoop
@@ -38,7 +42,12 @@ def _make_loop(estado=None, cap=None, f0_activo=True):
             cycle_manager=cycle_manager,
             config_manager=MagicMock(),
             cap=cap,
+            # los pasos de estas pruebas son de 60 s: ese es el tick nominal
+            # (un hueco > 2 intervalos no acredita F0, TMG-01 revisión Q1)
+            interval=60.0,
         )
+    # el ciclo corre con la copia del programa (T-17); aquí, el mismo doble
+    loop.state_machine.ciclo.programa_en_curso = cycle
     return loop, estado, cycle
 
 
@@ -91,10 +100,12 @@ def test_no_acumula_ni_lanza_excepcion_si_temp_camara_es_none():
     assert estado.f0_acumulado == 0.0
 
 
-def test_usa_el_minimo_entre_ambos_sensores_cuando_hay_sensor_de_liquido():
+def test_usa_solo_el_sensor_principal():
+    # Tanda 2026-10-14 §1.1: F0 usa solo el Principal (ya no el mínimo
+    # temp_camara/temp_2_camara). Principal por omisión = temp_camara.
     estado = _FakeEstado()
     estado.sensores_temp["temp_camara"] = 134.0
-    estado.sensores_temp["temp_2_camara"] = 100.0  # el líquido va más atrás -> debe dominar
+    estado.sensores_temp["temp_2_camara"] = 100.0  # no en uso: no cuenta
     cap = MagicMock(has_liquid_sensor=True)
     loop, estado, _ = _make_loop(estado=estado, cap=cap)
     loop._acumular_f0(now=1000.0)
@@ -106,9 +117,32 @@ def test_usa_el_minimo_entre_ambos_sensores_cuando_hay_sensor_de_liquido():
     loop2, estado2, _ = _make_loop(estado=estado2, cap=None)
     loop2._acumular_f0(now=1000.0)
     loop2._acumular_f0(now=1060.0)
-    f0_solo_camara = estado2.f0_acumulado
 
-    assert f0_con_liquido < f0_solo_camara
+    assert f0_con_liquido == estado2.f0_acumulado > 0
+
+
+def test_principal_temp_2_camara_acumula_con_ese_sensor():
+    estado = _FakeEstado()
+    estado.sensores_temp["temp_camara"] = 134.0
+    estado.sensores_temp["temp_2_camara"] = 121.1
+    loop, estado, _ = _make_loop(estado=estado, cap=MagicMock(has_liquid_sensor=True))
+    programa = MagicMock()
+    programa.sensores = {"temp_camara": "no_en_uso", "temp_2_camara": "principal",
+                         "temp_ref": "no_en_uso"}
+    programa.get_param.return_value = True
+    loop.programa_en_ejecucion = lambda: programa
+    loop._acumular_f0(now=1000.0)
+    loop._acumular_f0(now=1060.0)
+    assert abs(estado.f0_acumulado - 1.0) < 1e-6     # 1 min a 121.1 °C = F0 1
+
+
+def test_equipo_no_lab_no_acumula_f0():
+    estado = _FakeEstado()
+    estado.sensores_temp["temp_camara"] = 134.0
+    loop, estado, _ = _make_loop(estado=estado, cap=MagicMock(has_liquid_sensor=False))
+    loop._acumular_f0(now=1000.0)
+    loop._acumular_f0(now=1060.0)
+    assert estado.f0_acumulado == 0.0
 
 
 def test_degrada_a_temp_camara_si_hay_liquido_sensor_pero_sin_lectura():

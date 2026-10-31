@@ -20,7 +20,7 @@ class BuzzerPlayer:
         """Inicia un patrón con número de repeticiones"""
         self.patron = patron
         self.index = 0
-        self.tiempo_cambio = time.time()
+        self.tiempo_cambio = time.monotonic()
         self.activo = True
 
         self.repeticiones = repeticiones
@@ -34,7 +34,7 @@ class BuzzerPlayer:
         if not self.activo or not self.patron:
             return
 
-        ahora = time.time()
+        ahora = time.monotonic()
         estado, duracion = self.patron[self.index]
 
         # ejecutar estado actual

@@ -2,7 +2,7 @@ import logging
 import queue
 import threading
 
-from autoclave.devices.printer.win32_printer import PRINTER_NAME, print_raw
+from autoclave.devices.printer.win32_printer import PRINTER_NAME, estado_impresora, print_raw
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +28,10 @@ class RealtimePrinter:
         if not text.endswith("\n"):
             text += "\n"
         self._queue.put(text)
+
+    def estado(self) -> str:
+        """Estado de la impresora según Windows (win32_printer.estado_impresora)."""
+        return estado_impresora(self._printer_name)
 
     def _worker(self):
         while True:

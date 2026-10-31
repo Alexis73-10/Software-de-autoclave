@@ -1,0 +1,7 @@
+{
+    "_nota": "Plantilla NEUTRA de la entrega (D9-7, tanda 9): sin remitente ni destinatarios. El sitio la completa al configurar el correo; la contraseña de aplicación del remitente NO va aquí, sino en el almacén de credenciales de Windows.",
+    "remitente": "",
+    "servidor_smtp": "smtp.gmail.com",
+    "puerto": 587,
+    "destinos": []
+}

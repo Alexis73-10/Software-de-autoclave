@@ -118,3 +118,37 @@ def test_header_filas_pie_equivalen_a_format_ticket():
     )
 
     assert ensamblado == format_ticket(ciclo, lecturas)
+
+
+def test_motivo_ticket_usa_codigo_y_titulo():
+    from autoclave.services.domain.logging.ticket_formatter import motivo_ticket
+    assert motivo_ticket("CIC-03", "CIC-03 · Fallo en calentamiento: largo") ==         "CIC-03 - Fallo en calentamiento"
+
+
+def test_motivo_ticket_sin_codigo_conserva_motivo_viejo():
+    from autoclave.services.domain.logging.ticket_formatter import motivo_ticket
+    assert motivo_ticket("", "Fallo en la fase secado.") == "Fallo en la fase secado."
+    assert motivo_ticket("XXX-99", "texto") == "texto"
+    assert motivo_ticket(None, None) is None
+
+
+def test_format_ticket_usa_codigo_fallo_si_existe():
+    ciclo = _ciclo()
+    ciclo.update({
+        "resultado": "FALLO",
+        "motivo_fallo": "COM-02 · Comunicación perdida durante el ciclo: ...",
+        "codigo_fallo": "COM-02",
+    })
+    texto = format_ticket(ciclo, [])
+    assert "Motivo: COM-02 - Comunicación perdida durante el ciclo" in texto
+
+
+def test_format_ticket_fila_sqlite_sin_codigo_fallo_conserva_motivo():
+    import sqlite3
+    ciclo = _ciclo()
+    ciclo.update({"resultado": "FALLO", "motivo_fallo": "motivo viejo"})
+    con = sqlite3.connect(":memory:")
+    con.row_factory = sqlite3.Row
+    cols = ", ".join(f"? AS {k}" for k in ciclo)
+    fila = con.execute(f"SELECT {cols}", list(ciclo.values())).fetchone()
+    assert "Motivo: motivo viejo" in format_ticket(fila, [])

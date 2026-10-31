@@ -1,0 +1,13 @@
+Línea base de la tanda 15 sobre dev (d09d2a9), 24/25-oct, antes de mover nada.
+
+Recolectados (pytest tests --collect-only -q): 7832 tests
+
+Suite completa (pytest tests -n auto): 9 failed, 7809 passed, 11 skipped, 3 xfailed (423 s)
+Las 9 en serie: 7 passed, 2 failed
+  - tests/test_config_correo.py::test_carga_el_archivo_del_repo
+  - tests/test_config_correo.py::test_descarta_destinos_invalidos
+  (las 2 ajenas de siempre: dependen de data/correo_equipo.json del PC de desarrollo, como en L0 y T13)
+
+Total base: 7816 passed, 2 failed (ajenas), 11 skipped, 3 xfailed = 7832
+
+Test de arquitectura nuevo (ORG-11) sobre dev: 3 failed, 8 passed (ver arquitectura_en_dev.txt): falla como debe.

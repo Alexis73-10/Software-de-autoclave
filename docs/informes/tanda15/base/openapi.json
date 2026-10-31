@@ -1,0 +1,5230 @@
+{
+ "components": {
+  "schemas": {
+   "HTTPValidationError": {
+    "properties": {
+     "detail": {
+      "items": {
+       "$ref": "#/components/schemas/ValidationError"
+      },
+      "title": "Detail",
+      "type": "array"
+     }
+    },
+    "title": "HTTPValidationError",
+    "type": "object"
+   },
+   "ValidationError": {
+    "properties": {
+     "ctx": {
+      "title": "Context",
+      "type": "object"
+     },
+     "input": {
+      "title": "Input"
+     },
+     "loc": {
+      "items": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "integer"
+        }
+       ]
+      },
+      "title": "Location",
+      "type": "array"
+     },
+     "msg": {
+      "title": "Message",
+      "type": "string"
+     },
+     "type": {
+      "title": "Error Type",
+      "type": "string"
+     }
+    },
+    "required": [
+     "loc",
+     "msg",
+     "type"
+    ],
+    "title": "ValidationError",
+    "type": "object"
+   },
+   "_ActivoBody": {
+    "properties": {
+     "activo": {
+      "title": "Activo",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "activo"
+    ],
+    "title": "_ActivoBody",
+    "type": "object"
+   },
+   "_AplicarBody": {
+    "properties": {
+     "cambios": {
+      "additionalProperties": {
+       "type": "integer"
+      },
+      "default": {},
+      "title": "Cambios",
+      "type": "object"
+     },
+     "clave": {
+      "default": "",
+      "title": "Clave",
+      "type": "string"
+     },
+     "confirmar": {
+      "default": false,
+      "title": "Confirmar",
+      "type": "boolean"
+     },
+     "nombres": {
+      "additionalProperties": {
+       "type": "string"
+      },
+      "default": {},
+      "title": "Nombres",
+      "type": "object"
+     }
+    },
+    "title": "_AplicarBody",
+    "type": "object"
+   },
+   "_CambioClaveBody": {
+    "properties": {
+     "clave_actual": {
+      "title": "Clave Actual",
+      "type": "string"
+     },
+     "clave_nueva": {
+      "title": "Clave Nueva",
+      "type": "string"
+     },
+     "confirmacion": {
+      "title": "Confirmacion",
+      "type": "string"
+     }
+    },
+    "required": [
+     "clave_actual",
+     "clave_nueva",
+     "confirmacion"
+    ],
+    "title": "_CambioClaveBody",
+    "type": "object"
+   },
+   "_CorreoConfigBody": {
+    "properties": {
+     "destinatarios": {
+      "items": {
+       "additionalProperties": true,
+       "type": "object"
+      },
+      "title": "Destinatarios",
+      "type": "array"
+     },
+     "envio_activo": {
+      "title": "Envio Activo",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "envio_activo",
+     "destinatarios"
+    ],
+    "title": "_CorreoConfigBody",
+    "type": "object"
+   },
+   "_CycleParamValueBody": {
+    "properties": {
+     "cycle_id": {
+      "title": "Cycle Id",
+      "type": "string"
+     },
+     "fase": {
+      "title": "Fase",
+      "type": "string"
+     },
+     "path": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Path",
+      "type": "array"
+     },
+     "valor_anterior_esperado": {
+      "title": "Valor Anterior Esperado"
+     },
+     "value": {
+      "title": "Value"
+     }
+    },
+    "required": [
+     "cycle_id",
+     "fase",
+     "path",
+     "value"
+    ],
+    "title": "_CycleParamValueBody",
+    "type": "object"
+   },
+   "_DuplicarBody": {
+    "properties": {
+     "crear": {
+      "default": false,
+      "title": "Crear",
+      "type": "boolean"
+     },
+     "nombre": {
+      "title": "Nombre",
+      "type": "string"
+     }
+    },
+    "required": [
+     "nombre"
+    ],
+    "title": "_DuplicarBody",
+    "type": "object"
+   },
+   "_EntradasBody": {
+    "properties": {
+     "entradas": {
+      "items": {},
+      "title": "Entradas",
+      "type": "array"
+     },
+     "programa": {
+      "title": "Programa",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "programa",
+     "entradas"
+    ],
+    "title": "_EntradasBody",
+    "type": "object"
+   },
+   "_ExportarBody": {
+    "properties": {
+     "historial": {
+      "default": false,
+      "title": "Historial",
+      "type": "boolean"
+     },
+     "parametros_programas": {
+      "default": true,
+      "title": "Parametros Programas",
+      "type": "boolean"
+     },
+     "perfil_calibracion": {
+      "default": true,
+      "title": "Perfil Calibracion",
+      "type": "boolean"
+     },
+     "unidad": {
+      "title": "Unidad",
+      "type": "string"
+     },
+     "usuarios": {
+      "default": true,
+      "title": "Usuarios",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "unidad"
+    ],
+    "title": "_ExportarBody",
+    "type": "object"
+   },
+   "_FabricaBody": {
+    "properties": {
+     "clave": {
+      "default": "",
+      "title": "Clave",
+      "type": "string"
+     },
+     "confirmar": {
+      "default": false,
+      "title": "Confirmar",
+      "type": "boolean"
+     }
+    },
+    "title": "_FabricaBody",
+    "type": "object"
+   },
+   "_HabilitadoBody": {
+    "properties": {
+     "habilitado": {
+      "title": "Habilitado",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "habilitado"
+    ],
+    "title": "_HabilitadoBody",
+    "type": "object"
+   },
+   "_IdiomaBody": {
+    "properties": {
+     "idioma": {
+      "enum": [
+       "es",
+       "en"
+      ],
+      "title": "Idioma",
+      "type": "string"
+     }
+    },
+    "required": [
+     "idioma"
+    ],
+    "title": "_IdiomaBody",
+    "type": "object"
+   },
+   "_ImpresoraConfigBody": {
+    "properties": {
+     "habilitada": {
+      "title": "Habilitada",
+      "type": "boolean"
+     },
+     "reiniciar": {
+      "default": false,
+      "title": "Reiniciar",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "habilitada"
+    ],
+    "title": "_ImpresoraConfigBody",
+    "type": "object"
+   },
+   "_ImprimirCiclosBody": {
+    "properties": {
+     "ids": {
+      "items": {
+       "type": "integer"
+      },
+      "minItems": 1,
+      "title": "Ids",
+      "type": "array"
+     }
+    },
+    "required": [
+     "ids"
+    ],
+    "title": "_ImprimirCiclosBody",
+    "type": "object"
+   },
+   "_ImprimirResumenBody": {
+    "properties": {
+     "fecha": {
+      "anyOf": [
+       {
+        "format": "date",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Fecha"
+     },
+     "periodo": {
+      "default": "dia",
+      "enum": [
+       "dia",
+       "semana",
+       "mes"
+      ],
+      "title": "Periodo",
+      "type": "string"
+     }
+    },
+    "title": "_ImprimirResumenBody",
+    "type": "object"
+   },
+   "_LoginBody": {
+    "properties": {
+     "clave": {
+      "title": "Clave",
+      "type": "string"
+     },
+     "usuario": {
+      "title": "Usuario",
+      "type": "string"
+     }
+    },
+    "required": [
+     "usuario",
+     "clave"
+    ],
+    "title": "_LoginBody",
+    "type": "object"
+   },
+   "_MantenimientoConfigBody": {
+    "properties": {
+     "intervalo_ciclos": {
+      "title": "Intervalo Ciclos",
+      "type": "integer"
+     },
+     "intervalo_dias": {
+      "title": "Intervalo Dias",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "intervalo_dias",
+     "intervalo_ciclos"
+    ],
+    "title": "_MantenimientoConfigBody",
+    "type": "object"
+   },
+   "_MantenimientoRegistroBody": {
+    "properties": {
+     "observaciones": {
+      "default": "",
+      "title": "Observaciones",
+      "type": "string"
+     },
+     "tipo": {
+      "title": "Tipo",
+      "type": "string"
+     }
+    },
+    "required": [
+     "tipo"
+    ],
+    "title": "_MantenimientoRegistroBody",
+    "type": "object"
+   },
+   "_ModificarUsuarioBody": {
+    "additionalProperties": false,
+    "properties": {
+     "nombre": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Nombre"
+     },
+     "rol": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Rol"
+     },
+     "usuario": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Usuario"
+     }
+    },
+    "title": "_ModificarUsuarioBody",
+    "type": "object"
+   },
+   "_NuevoUsuarioBody": {
+    "properties": {
+     "activo": {
+      "default": true,
+      "title": "Activo",
+      "type": "boolean"
+     },
+     "clave": {
+      "title": "Clave",
+      "type": "string"
+     },
+     "confirmacion": {
+      "title": "Confirmacion",
+      "type": "string"
+     },
+     "nombre": {
+      "title": "Nombre",
+      "type": "string"
+     },
+     "rol": {
+      "title": "Rol",
+      "type": "string"
+     },
+     "usuario": {
+      "title": "Usuario",
+      "type": "string"
+     }
+    },
+    "required": [
+     "nombre",
+     "usuario",
+     "clave",
+     "confirmacion",
+     "rol"
+    ],
+    "title": "_NuevoUsuarioBody",
+    "type": "object"
+   },
+   "_OperadorBody": {
+    "properties": {
+     "nombre": {
+      "title": "Nombre",
+      "type": "string"
+     }
+    },
+    "required": [
+     "nombre"
+    ],
+    "title": "_OperadorBody",
+    "type": "object"
+   },
+   "_OutputSetBody": {
+    "properties": {
+     "momentanea": {
+      "default": false,
+      "title": "Momentanea",
+      "type": "boolean"
+     },
+     "value": {
+      "title": "Value",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "value"
+    ],
+    "title": "_OutputSetBody",
+    "type": "object"
+   },
+   "_ParametroSistemaBody": {
+    "properties": {
+     "valor": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "number"
+       }
+      ],
+      "title": "Valor"
+     }
+    },
+    "required": [
+     "valor"
+    ],
+    "title": "_ParametroSistemaBody",
+    "type": "object"
+   },
+   "_RestablecerClaveBody": {
+    "properties": {
+     "clave": {
+      "title": "Clave",
+      "type": "string"
+     },
+     "confirmacion": {
+      "title": "Confirmacion",
+      "type": "string"
+     }
+    },
+    "required": [
+     "clave",
+     "confirmacion"
+    ],
+    "title": "_RestablecerClaveBody",
+    "type": "object"
+   },
+   "_RestaurarBody": {
+    "properties": {
+     "archivo": {
+      "title": "Archivo",
+      "type": "string"
+     },
+     "confirmar": {
+      "default": false,
+      "title": "Confirmar",
+      "type": "boolean"
+     },
+     "unidad": {
+      "title": "Unidad",
+      "type": "string"
+     }
+    },
+    "required": [
+     "unidad",
+     "archivo"
+    ],
+    "title": "_RestaurarBody",
+    "type": "object"
+   },
+   "_SalidaForzadaBody": {
+    "properties": {
+     "confirmar": {
+      "default": false,
+      "title": "Confirmar",
+      "type": "boolean"
+     },
+     "motivo": {
+      "default": "",
+      "title": "Motivo",
+      "type": "string"
+     }
+    },
+    "title": "_SalidaForzadaBody",
+    "type": "object"
+   },
+   "_SelectCycleBody": {
+    "properties": {
+     "cycle_id": {
+      "title": "Cycle Id",
+      "type": "string"
+     },
+     "origen": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Origen"
+     }
+    },
+    "required": [
+     "cycle_id"
+    ],
+    "title": "_SelectCycleBody",
+    "type": "object"
+   },
+   "_SensorRolesBody": {
+    "properties": {
+     "asignacion": {
+      "additionalProperties": true,
+      "title": "Asignacion",
+      "type": "object"
+     },
+     "asignacion_anterior_esperada": {
+      "additionalProperties": true,
+      "title": "Asignacion Anterior Esperada",
+      "type": "object"
+     },
+     "programa": {
+      "title": "Programa",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "programa",
+     "asignacion",
+     "asignacion_anterior_esperada"
+    ],
+    "title": "_SensorRolesBody",
+    "type": "object"
+   },
+   "_SuspensionBody": {
+    "properties": {
+     "activa": {
+      "title": "Activa",
+      "type": "boolean"
+     },
+     "pantalla": {
+      "default": "",
+      "title": "Pantalla",
+      "type": "string"
+     }
+    },
+    "required": [
+     "activa"
+    ],
+    "title": "_SuspensionBody",
+    "type": "object"
+   },
+   "_UnidadesBody": {
+    "properties": {
+     "presion": {
+      "enum": [
+       "kPa",
+       "bar",
+       "mbar",
+       "psi"
+      ],
+      "title": "Presion",
+      "type": "string"
+     },
+     "temperatura": {
+      "enum": [
+       "C",
+       "F"
+      ],
+      "title": "Temperatura",
+      "type": "string"
+     }
+    },
+    "required": [
+     "temperatura",
+     "presion"
+    ],
+    "title": "_UnidadesBody",
+    "type": "object"
+   },
+   "_VerificarBody": {
+    "properties": {
+     "clave": {
+      "default": "",
+      "title": "Clave",
+      "type": "string"
+     },
+     "funcion": {
+      "title": "Funcion",
+      "type": "string"
+     },
+     "nombre": {
+      "default": "",
+      "title": "Nombre",
+      "type": "string"
+     }
+    },
+    "required": [
+     "funcion"
+    ],
+    "title": "_VerificarBody",
+    "type": "object"
+   }
+  }
+ },
+ "info": {
+  "title": "Autoclave Backend",
+  "version": "0.1.0"
+ },
+ "openapi": "3.1.0",
+ "paths": {
+  "/alarms/history": {
+   "get": {
+    "operationId": "alarm_history_alarms_history_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "desde",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Desde"
+      }
+     },
+     {
+      "in": "query",
+      "name": "hasta",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Hasta"
+      }
+     },
+     {
+      "in": "query",
+      "name": "nivel",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Nivel"
+      }
+     },
+     {
+      "in": "query",
+      "name": "limite",
+      "required": false,
+      "schema": {
+       "default": 200,
+       "title": "Limite",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Alarm History"
+   }
+  },
+  "/alarms/{clave}/acknowledge": {
+   "post": {
+    "description": "El operador reconoce una alarma ALARMA/FALLO_CRITICO (spec §7.2).",
+    "operationId": "acknowledge_alarm_alarms__clave__acknowledge_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "clave",
+      "required": true,
+      "schema": {
+       "title": "Clave",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": true,
+        "default": {},
+        "title": "Body",
+        "type": "object"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Acknowledge Alarm"
+   }
+  },
+  "/arranque": {
+   "get": {
+    "operationId": "get_arranque_arranque_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Get Arranque"
+   }
+  },
+  "/audit_log": {
+   "get": {
+    "operationId": "get_audit_log_audit_log_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "pagina",
+      "required": false,
+      "schema": {
+       "default": 1,
+       "title": "Pagina",
+       "type": "integer"
+      }
+     },
+     {
+      "in": "query",
+      "name": "por_pagina",
+      "required": false,
+      "schema": {
+       "default": 20,
+       "title": "Por Pagina",
+       "type": "integer"
+      }
+     },
+     {
+      "in": "query",
+      "name": "desde",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "format": "date",
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Desde"
+      }
+     },
+     {
+      "in": "query",
+      "name": "hasta",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "format": "date",
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Hasta"
+      }
+     },
+     {
+      "in": "query",
+      "name": "usuario",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Usuario"
+      }
+     },
+     {
+      "in": "query",
+      "name": "evento",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Evento"
+      }
+     },
+     {
+      "in": "query",
+      "name": "categoria",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Categoria"
+      }
+     },
+     {
+      "in": "header",
+      "name": "authorization",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Get Audit Log"
+   }
+  },
+  "/auth/change_password": {
+   "post": {
+    "description": "Los fallos de la clave actual suman al contador del login del mismo\nusuario (H-T8-01): al 5.º responde 429 y se invalida el token. Una clave\nactual correcta reinicia el contador. 422 con la lista {campo, codigo}.",
+    "operationId": "change_password_auth_change_password_post",
+    "parameters": [
+     {
+      "in": "header",
+      "name": "authorization",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/_CambioClaveBody"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Change Password"
+   }
+  },
+  "/auth/login": {
+   "post": {
+    "description": "401 genérico (sin distinguir usuario inexistente, inactivo o clave\nerrónea) y 429 con el usuario bloqueado, aunque la clave sea correcta.\nLos intentos cuentan también para usuarios inexistentes (decisión 29).\nEl fallo que activa el bloqueo ya responde 429 (decisión 33).",
+    "operationId": "login_auth_login_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/_LoginBody"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Login"
+   }
+  },
+  "/auth/logout": {
+   "post": {
+    "operationId": "logout_auth_logout_post",
+    "parameters": [
+     {
+      "in": "header",
+      "name": "authorization",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Logout"
+   }
+  },
+  "/auth/sesion": {
+   "get": {
+    "description": "Valida el token (spec v7, §4.1): la UI lo llama una vez al reconectar con\nel backend, nunca en sondeo. 401 estándar si el token no es válido.",
+    "operationId": "sesion_actual_auth_sesion_get",
+    "parameters": [
+     {
+      "in": "header",
+      "name": "authorization",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Sesion Actual"
+   }
+  },
+  "/backup/export": {
+   "post": {
+    "operationId": "post_backup_export_backup_export_post",
+    "parameters": [
+     {
+      "in": "header",
+      "name": "authorization",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/_ExportarBody"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Post Backup Export"
+   }
+  },
+  "/backup/restore": {
+   "post": {
+    "operationId": "post_backup_restore_backup_restore_post",
+    "parameters": [
+     {
+      "in": "header",
+      "name": "authorization",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/_RestaurarBody"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Post Backup Restore"
+   }
+  },
+  "/backup/usb": {
+   "get": {
+    "operationId": "get_backup_usb_backup_usb_get",
+    "parameters": [
+     {
+      "in": "header",
+      "name": "authorization",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Get Backup Usb"
+   }
+  },
+  "/calibration/{tipo}/{sensor}": {
+   "get": {
+    "operationId": "get_calibration_calibration__tipo___sensor__get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "tipo",
+      "required": true,
+      "schema": {
+       "title": "Tipo",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "sensor",
+      "required": true,
+      "schema": {
+       "title": "Sensor",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Get Calibration"
+   },
+   "patch": {
+    "description": "Técnico e ingeniero (tanda 2026-10-14 §1.1, C-5; antes solo ingeniero).\nTécnico solo fuera de CICLO; el ingeniero también en CICLO, donde aplica de\ninmediato (§5.8). El usuario sale del token: un `usuario` en el cuerpo se\nignora.",
+    "operationId": "update_calibration_calibration__tipo___sensor__patch",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "tipo",
+      "required": true,
+      "schema": {
+       "title": "Tipo",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "sensor",
+      "required": true,
+      "schema": {
+       "title": "Sensor",
+       "type": "string"
+      }
+     },
+     {
+      "in": "header",
+      "name": "authorization",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": true,
+        "title": "Body",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Update Calibration"
+   }
+  },
+  "/calibration/{tipo}/{sensor}/restaurar": {
+   "post": {
+    "description": "B-ES-4 / §7.4: devuelve el sensor a la calibración neutra (\"defecto\":\nganancia 1.0, offset 0.0) o a los valores previos a la última modificación\n(\"ultimo\", de valor_anterior en audit_log). Mismas reglas que el PATCH:\nrol, estado, auditoría obligatoria con reversión del archivo.",
+    "operationId": "restaurar_calibracion_calibration__tipo___sensor__restaurar_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "tipo",
+      "required": true,
+      "schema": {
+       "title": "Tipo",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "sensor",
+      "required": true,
+      "schema": {
+       "title": "Sensor",
+       "type": "string"
+      }
+     },
+     {
+      "in": "header",
+      "name": "authorization",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": true,
+        "title": "Body",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Restaurar Calibracion"
+   }
+  },
+  "/cycle": {
+   "get": {
+    "operationId": "get_selected_cycle_cycle_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Get Selected Cycle"
+   }
+  },
+  "/cycle/abort": {
+   "post": {
+    "description": "Solicita el aborto del ciclo en curso.\nActiva la flag CICLO_CANCELADO; el CicloState ejecutará el\nprotocolo de fallo en el siguiente tick del control loop.\nFC-12 (tanda 21): como /cycle/start (O1, tanda 3), acepta un token de\nsesión opcional en la cabecera `Authorization: Bearer <token>`. Si es\nválido, su usuario queda como `cancelado_por` (estado, bitácora y\nticket). No es requisito: sin token o con uno vencido la cancelación\nfunciona igual (plan §10) y queda sin usuario identificado.",
+    "operationId": "abort_cycle_cycle_abort_post",
+    "parameters": [
+     {
+      "in": "header",
+      "name": "authorization",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Abort Cycle"
+   }
+  },
+  "/cycle/acknowledge": {
+   "post": {
+    "description": "El operador confirmó que vio el resultado del ciclo.\nActiva CICLO_CONFIRMADO para que CicloState libere la transición.\nSolo tiene efecto mientras el estado sea CICLO (esperando confirmación).",
+    "operationId": "acknowledge_cycle_cycle_acknowledge_post",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Acknowledge Cycle"
+   }
+  },
+  "/cycle/current/graph": {
+   "get": {
+    "description": "Serie de la gráfica del ciclo en curso (~1 s, t_s monotónico, con\ntemp_ref). Sin desde_id devuelve el histórico completo (al entrar o tras\nreiniciar la UI); con desde_id solo las lecturas posteriores a ese id.",
+    "operationId": "get_current_cycle_graph_cycle_current_graph_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "desde_id",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Desde Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Get Current Cycle Graph"
+   }
+  },
+  "/cycle/current/progress": {
+   "get": {
+    "description": "Progreso del ciclo en curso para la pantalla QML (fases que aplican,\nfase activa, duración por fase, transcurrido y restante en segundos\nmonotónicos). Separado de /status para no cargar su sondeo de 200 ms.\nSigue respondiendo con el ciclo terminado mientras la máquina espera la\nconfirmación del operador. Sin ciclo: {\"activo\": false}.",
+    "operationId": "get_current_cycle_progress_cycle_current_progress_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Get Current Cycle Progress"
+   }
+  },
+  "/cycle/current/readings": {
+   "get": {
+    "description": "Retorna todas las lecturas del ciclo activo (para la gráfica en vivo).\nSi no hay ciclo activo retorna lista vacía.",
+    "operationId": "get_current_cycle_readings_cycle_current_readings_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Get Current Cycle Readings"
+   }
+  },
+  "/cycle/display-inputs": {
+   "get": {
+    "description": "Entradas mostradas del programa (1 a 3), las AI habilitadas del equipo y\nlas que ofrece el selector (O11, D11-7.1: sin los sensores No en uso).",
+    "operationId": "get_entradas_mostradas_cycle_display_inputs_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "programa",
+      "required": true,
+      "schema": {
+       "title": "Programa",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Get Entradas Mostradas"
+   },
+   "put": {
+    "operationId": "put_entradas_mostradas_cycle_display_inputs_put",
+    "parameters": [
+     {
+      "in": "header",
+      "name": "authorization",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/_EntradasBody"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Put Entradas Mostradas"
+   }
+  },
+  "/cycle/history": {
+   "get": {
+    "description": "Lista de ciclos registrados (más recientes primero).",
+    "operationId": "get_cycle_history_cycle_history_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "limite",
+      "required": false,
+      "schema": {
+       "default": 50,
+       "title": "Limite",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Get Cycle History"
+   }
+  },
+  "/cycle/history/print": {
+   "post": {
+    "description": "Reimprime en la impresora térmica el ticket de cada ciclo pedido, en ese\norden (404 y nada impreso si alguno no existe; 409/503: _encolar_en_impresora).",
+    "operationId": "print_cycle_history_cycle_history_print_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/_ImprimirCiclosBody"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Print Cycle History"
+   }
+  },
+  "/cycle/history/{ciclo_id}/graph": {
+   "get": {
+    "description": "Serie de la gráfica (lecturas_grafica, ~1 s, t_s monotónico) de un ciclo\ndel historial, con el mismo formato que /cycle/current/graph. Solo lectura;\nla usa la ventana flotante de Último ciclo del Menú Principal (D-21).",
+    "operationId": "get_cycle_history_graph_cycle_history__ciclo_id__graph_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "ciclo_id",
+      "required": true,
+      "schema": {
+       "title": "Ciclo Id",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Get Cycle History Graph"
+   }
+  },
+  "/cycle/history/{ciclo_id}/readings": {
+   "get": {
+    "description": "Todas las lecturas de un ciclo histórico.",
+    "operationId": "get_cycle_readings_cycle_history__ciclo_id__readings_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "ciclo_id",
+      "required": true,
+      "schema": {
+       "title": "Ciclo Id",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Get Cycle Readings"
+   }
+  },
+  "/cycle/history/{ciclo_id}/ticket": {
+   "get": {
+    "description": "Lecturas marcadas para_imprimir (formato ticket).",
+    "operationId": "get_cycle_ticket_cycle_history__ciclo_id__ticket_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "ciclo_id",
+      "required": true,
+      "schema": {
+       "title": "Ciclo Id",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Get Cycle Ticket"
+   }
+  },
+  "/cycle/list": {
+   "get": {
+    "description": "Ciclos del periodo de calendario que contiene `fecha` (por defecto hoy), más\nrecientes primero; solo lectura. Lo usan la ventana de Ciclos hoy (periodo=dia,\nterminados=true: los mismos que cuenta /cycle/summary) y la de Historial (por\nfecha de inicio, con los interrumpidos). truncado = había más de `limite`;\ndesde/hasta = primer y último día del periodo, para rotularlo.",
+    "operationId": "get_cycle_list_cycle_list_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "periodo",
+      "required": false,
+      "schema": {
+       "default": "dia",
+       "enum": [
+        "dia",
+        "semana",
+        "mes"
+       ],
+       "title": "Periodo",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "fecha",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "format": "date",
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Fecha"
+      }
+     },
+     {
+      "in": "query",
+      "name": "terminados",
+      "required": false,
+      "schema": {
+       "default": false,
+       "title": "Terminados",
+       "type": "boolean"
+      }
+     },
+     {
+      "in": "query",
+      "name": "limite",
+      "required": false,
+      "schema": {
+       "default": 500,
+       "title": "Limite",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Get Cycle List"
+   }
+  },
+  "/cycle/parameter": {
+   "patch": {
+    "operationId": "update_cycle_parameter_cycle_parameter_patch",
+    "parameters": [
+     {
+      "in": "header",
+      "name": "authorization",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/_CycleParamValueBody"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Update Cycle Parameter"
+   }
+  },
+  "/cycle/select": {
+   "post": {
+    "description": "Cambia el programa activo. Sin sesión y permitido en FALLA (decisión 2\nde Cristian, 19-oct: ningún fallo exige técnico). Rechazado con un ciclo\nen curso en sentido amplio (ControlLoop._motivo_no_cambiar_ciclo), con un\nprograma dañado (RB-04.4) y con un programa de líquidos en un equipo sin\nesa capacidad (T11). El cambio y todos sus rechazos quedan en audit_log\ncon el origen DECLARADO (no autenticado), el cliente HTTP y el estado (S2).\nLectura del programa anterior, cambio en el lazo y en el CycleManager van\njuntos bajo el lock de la máquina; la bitácora se escribe al soltarlo.",
+    "operationId": "select_cycle_cycle_select_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/_SelectCycleBody"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Select Cycle"
+   }
+  },
+  "/cycle/sensor-roles": {
+   "put": {
+    "description": "Asigna los roles de los sensores de un programa: todo o nada, con\ncontrol de concurrencia por asignacion_anterior_esperada y auditoría\nROLES_SENSOR (RS-02). Técnico fuera de CICLO; ingeniero también en CICLO\n(el ciclo en curso conserva su instantánea, RS-03.4). Solo programas de\nusuario.",
+    "operationId": "put_sensor_roles_cycle_sensor_roles_put",
+    "parameters": [
+     {
+      "in": "header",
+      "name": "authorization",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/_SensorRolesBody"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Put Sensor Roles"
+   }
+  },
+  "/cycle/sensors": {
+   "get": {
+    "description": "Sensores del programa N: id, nombre (ubicación), tipo, estado\n(disponible / sin_senal / no_instalado), lectura y rol. Un sensor\nno_instalado solo se lista si el programa le asigna un rol activo.",
+    "operationId": "get_cycle_sensors_cycle_sensors_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "programa",
+      "required": true,
+      "schema": {
+       "title": "Programa",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Get Cycle Sensors"
+   }
+  },
+  "/cycle/start": {
+   "post": {
+    "description": "Solicita el inicio del ciclo de esterilización.\nSólo tiene efecto cuando el sistema está en estado PREPARADO y\nla flag LISTO_PARA_CICLO es True.  La máquina de estados gestiona\nla transición real.\nSin base de datos (T8, §7.6) exige {\"confirmar_sin_registro\": true} en\ncada ciclo: queda sin operador y sin registro en la base (respaldo y ticket).\nO1 (tanda 3): si la petición trae un token de sesión válido, ese usuario es\nel operador del ciclo (se guarda en la base, el respaldo y el ticket). El\ninicio sigue sin exigir sesión: sin token (o con uno vencido) el ciclo queda\nsin operador identificado; el token no se valida como requisito.",
+    "operationId": "start_cycle_cycle_start_post",
+    "parameters": [
+     {
+      "in": "header",
+      "name": "authorization",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "anyOf": [
+         {
+          "additionalProperties": true,
+          "type": "object"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Body"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Start Cycle"
+   }
+  },
+  "/cycle/summary": {
+   "get": {
+    "description": "Resumen de solo lectura para el Resumen del Sistema del Menú Principal\n(planeacion_menu_principal_ui_qml.md, D-14).",
+    "operationId": "get_cycle_summary_cycle_summary_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Get Cycle Summary"
+   }
+  },
+  "/cycles": {
+   "get": {
+    "operationId": "list_cycles_cycles_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "List Cycles"
+   }
+  },
+  "/db/estado": {
+   "get": {
+    "description": "T8 (§7.1): \"OK\" o \"DEGRADADA\" (sin base de datos: alarma\nOPERANDO_SIN_BD; los ciclos van al respaldo y al ticket).",
+    "operationId": "get_db_estado_db_estado_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Get Db Estado"
+   }
+  },
+  "/doors/{door_name}/close": {
+   "post": {
+    "operationId": "close_door_doors__door_name__close_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "door_name",
+      "required": true,
+      "schema": {
+       "title": "Door Name",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": true,
+        "title": "Body",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Close Door"
+   }
+  },
+  "/doors/{door_name}/open": {
+   "post": {
+    "operationId": "open_door_doors__door_name__open_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "door_name",
+      "required": true,
+      "schema": {
+       "title": "Door Name",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": true,
+        "title": "Body",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Open Door"
+   }
+  },
+  "/email/config": {
+   "get": {
+    "operationId": "get_email_config_email_config_get",
+    "parameters": [
+     {
+      "in": "header",
+      "name": "authorization",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Get Email Config"
+   },
+   "put": {
+    "operationId": "put_email_config_email_config_put",
+    "parameters": [
+     {
+      "in": "header",
+      "name": "authorization",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/_CorreoConfigBody"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Put Email Config"
+   }
+  },
+  "/email/sent": {
+   "post": {
+    "operationId": "post_email_sent_email_sent_post",
+    "parameters": [
+     {
+      "in": "header",
+      "name": "authorization",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": true,
+        "title": "Body",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Post Email Sent"
+   }
+  },
+  "/email/test": {
+   "post": {
+    "description": "Correo de prueba a cada destinatario GUARDADO (nunca a uno escrito a mano).",
+    "operationId": "post_email_test_email_test_post",
+    "parameters": [
+     {
+      "in": "header",
+      "name": "authorization",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Post Email Test"
+   }
+  },
+  "/fault/reset": {
+   "post": {
+    "description": "Reconoce el estado de falla y solicita retornar a PREPARACION. Sin\nidentificación (decisión 16). Con el paro de emergencia activo, 409 y no\nse guarda RESET_FALLA: tras soltarlo hay que reconocer de nuevo (§5.9).",
+    "operationId": "reset_fault_fault_reset_post",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Reset Fault"
+   }
+  },
+  "/global_params": {
+   "get": {
+    "operationId": "get_global_params_global_params_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Get Global Params"
+   }
+  },
+  "/global_params/{clave}": {
+   "get": {
+    "operationId": "get_global_param_global_params__clave__get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "clave",
+      "required": true,
+      "schema": {
+       "title": "Clave",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Get Global Param"
+   },
+   "patch": {
+    "operationId": "patch_global_param_global_params__clave__patch",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "clave",
+      "required": true,
+      "schema": {
+       "title": "Clave",
+       "type": "string"
+      }
+     },
+     {
+      "in": "header",
+      "name": "authorization",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/_ParametroSistemaBody"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Patch Global Param"
+   }
+  },
+  "/global_params/{clave}/reset": {
+   "post": {
+    "operationId": "reset_global_param_global_params__clave__reset_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "clave",
+      "required": true,
+      "schema": {
+       "title": "Clave",
+       "type": "string"
+      }
+     },
+     {
+      "in": "header",
+      "name": "authorization",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Reset Global Param"
+   }
+  },
+  "/io/assignment": {
+   "get": {
+    "operationId": "get_io_assignment_io_assignment_get",
+    "parameters": [
+     {
+      "in": "header",
+      "name": "authorization",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Get Io Assignment"
+   },
+   "post": {
+    "operationId": "post_io_assignment_io_assignment_post",
+    "parameters": [
+     {
+      "in": "header",
+      "name": "authorization",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/_AplicarBody"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Post Io Assignment"
+   }
+  },
+  "/io/assignment/factory": {
+   "post": {
+    "operationId": "post_io_assignment_factory_io_assignment_factory_post",
+    "parameters": [
+     {
+      "in": "header",
+      "name": "authorization",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/_FabricaBody"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Post Io Assignment Factory"
+   }
+  },
+  "/io/assignment/verify": {
+   "post": {
+    "operationId": "post_io_assignment_verify_io_assignment_verify_post",
+    "parameters": [
+     {
+      "in": "header",
+      "name": "authorization",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/_VerificarBody"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Post Io Assignment Verify"
+   }
+  },
+  "/io/channels": {
+   "get": {
+    "description": "B-ES-2: canales de Entradas / Salidas del equipo (io_enabled) con id\nfísico, clave i18n y si la salida es momentánea (D-ES-02, D-ES-03, D-ES-09).\nD8-3.17: solo los canales que declara el perfil de instalación.",
+    "operationId": "io_channels_io_channels_get",
+    "parameters": [
+     {
+      "in": "header",
+      "name": "authorization",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Io Channels"
+   }
+  },
+  "/io/test/enter": {
+   "post": {
+    "description": "Activa el modo prueba: pausa la máquina de estados (sin importar la\nfase — PREPARACION, PREPARADO o FALLA) y apaga todas las salidas para\npermitir control manual. Rechazado en CICLO o con\nel paro de emergencia activo. Recuerda la sesión que entró (§5.4).\n\nEl ALL_OFF de enter_test_mode corre con _sm_lock tomado (espera el ACK\nhasta 1 s); es aceptable porque el guard excluye CICLO.",
+    "operationId": "io_test_enter_io_test_enter_post",
+    "parameters": [
+     {
+      "in": "header",
+      "name": "authorization",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Io Test Enter"
+   }
+  },
+  "/io/test/exit": {
+   "post": {
+    "description": "Sale del modo prueba: apaga todas las salidas y reanuda la máquina de\nestados. 409 si no se estaba en modo prueba o si lo pide otra sesión.\nComprobación y salida bajo _sm_lock: ninguna orden de encendido ya\nvalidada puede llegar después del apagado.",
+    "operationId": "io_test_exit_io_test_exit_post",
+    "parameters": [
+     {
+      "in": "header",
+      "name": "authorization",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "anyOf": [
+         {
+          "additionalProperties": true,
+          "type": "object"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Body"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Io Test Exit"
+   }
+  },
+  "/io/test/force-exit": {
+   "post": {
+    "description": "B8 (tanda 4): salida forzada del modo prueba HUÉRFANO. Solo el dueño\npuede dejar el modo prueba; si ese usuario ya no tiene sesión (token vencido\npor inactividad, cierre de sesión, cambio de turno), un INGENIERO con sesión\npuede terminarlo con confirmación explícita (`confirmar: true`). Un técnico\nsolo puede si es el mismo usuario dueño (SAF-03 de la revisión: salir es la\ndirección segura); otro técnico, 403. Con el dueño aún en sesión, 409: debe salir él (o esperar a\nque su sesión caduque). Misma salida que la normal: todas las salidas a\nseguro y se reanuda la máquina; un estado seguro en curso sigue su camino.\nQueda en audit_log quién fuerza, a quién se le sacó y por qué.",
+    "operationId": "io_test_force_exit_io_test_force_exit_post",
+    "parameters": [
+     {
+      "in": "header",
+      "name": "authorization",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/_SalidaForzadaBody"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Io Test Force Exit"
+   }
+  },
+  "/io/test/keepalive": {
+   "post": {
+    "description": "P-ES-4: la sesión dueña avisa que sigue ahí; sin avisos (ni órdenes) el\nbackend sale solo del modo prueba.",
+    "operationId": "io_test_keepalive_io_test_keepalive_post",
+    "parameters": [
+     {
+      "in": "header",
+      "name": "authorization",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Io Test Keepalive"
+   }
+  },
+  "/io/test/output/{name}": {
+   "patch": {
+    "description": "Acciona una salida en modo prueba. Apagar siempre se permite dentro del\nmodo prueba; encender exige además ser la sesión dueña y R-02 (§5.4).",
+    "operationId": "io_test_set_output_io_test_output__name__patch",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "name",
+      "required": true,
+      "schema": {
+       "title": "Name",
+       "type": "string"
+      }
+     },
+     {
+      "in": "header",
+      "name": "authorization",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/_OutputSetBody"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Io Test Set Output"
+   }
+  },
+  "/language": {
+   "get": {
+    "operationId": "get_language_language_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Get Language"
+   },
+   "put": {
+    "description": "Decisión 1.9 (tanda 6): admin e ingeniero; también en ciclo.",
+    "operationId": "put_language_language_put",
+    "parameters": [
+     {
+      "in": "header",
+      "name": "authorization",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/_IdiomaBody"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Put Language"
+   }
+  },
+  "/maintenance": {
+   "get": {
+    "description": "Próximo vencimiento, último mantenimiento, ciclos restantes y los\nintervalos configurados (por defecto 365 días y 1000 ciclos).",
+    "operationId": "get_maintenance_maintenance_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Get Maintenance"
+   }
+  },
+  "/maintenance/atm-calibration": {
+   "get": {
+    "operationId": "get_atm_calibration_maintenance_atm_calibration_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Get Atm Calibration"
+   }
+  },
+  "/maintenance/atm-calibration/cancel": {
+   "post": {
+    "operationId": "cancel_atm_calibration_maintenance_atm_calibration_cancel_post",
+    "parameters": [
+     {
+      "in": "header",
+      "name": "authorization",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Cancel Atm Calibration"
+   }
+  },
+  "/maintenance/atm-calibration/confirm": {
+   "post": {
+    "operationId": "confirm_atm_calibration_maintenance_atm_calibration_confirm_post",
+    "parameters": [
+     {
+      "in": "header",
+      "name": "authorization",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Confirm Atm Calibration"
+   }
+  },
+  "/maintenance/atm-calibration/discard": {
+   "post": {
+    "operationId": "discard_atm_calibration_maintenance_atm_calibration_discard_post",
+    "parameters": [
+     {
+      "in": "header",
+      "name": "authorization",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Discard Atm Calibration"
+   }
+  },
+  "/maintenance/atm-calibration/start": {
+   "post": {
+    "operationId": "start_atm_calibration_maintenance_atm_calibration_start_post",
+    "parameters": [
+     {
+      "in": "header",
+      "name": "authorization",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Start Atm Calibration"
+   }
+  },
+  "/maintenance/config": {
+   "put": {
+    "operationId": "put_maintenance_config_maintenance_config_put",
+    "parameters": [
+     {
+      "in": "header",
+      "name": "authorization",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/_MantenimientoConfigBody"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Put Maintenance Config"
+   }
+  },
+  "/maintenance/print/calibration": {
+   "post": {
+    "description": "Imprime ganancias y compensaciones (de usuario) de todos los sensores\ny la presión atmosférica de referencia.",
+    "operationId": "print_calibration_maintenance_print_calibration_post",
+    "parameters": [
+     {
+      "in": "header",
+      "name": "authorization",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Print Calibration"
+   }
+  },
+  "/maintenance/records": {
+   "get": {
+    "operationId": "get_maintenance_records_maintenance_records_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "limite",
+      "required": false,
+      "schema": {
+       "default": 50,
+       "title": "Limite",
+       "type": "integer"
+      }
+     },
+     {
+      "in": "header",
+      "name": "authorization",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Get Maintenance Records"
+   },
+   "post": {
+    "description": "\"Registrar mantenimiento realizado\": desde ese momento la base del\ncálculo pasa a ser hoy y el contador de ciclos actual.",
+    "operationId": "post_maintenance_record_maintenance_records_post",
+    "parameters": [
+     {
+      "in": "header",
+      "name": "authorization",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/_MantenimientoRegistroBody"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Post Maintenance Record"
+   }
+  },
+  "/network/status": {
+   "get": {
+    "operationId": "get_network_status_network_status_get",
+    "parameters": [
+     {
+      "in": "header",
+      "name": "authorization",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Get Network Status"
+   }
+  },
+  "/operadores": {
+   "get": {
+    "description": "Operadores (nombre, sin contraseña). Lectura libre: se eligen al iniciar\nciclo, que no exige sesión.",
+    "operationId": "listar_operadores_operadores_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "activos",
+      "required": false,
+      "schema": {
+       "default": false,
+       "title": "Activos",
+       "type": "boolean"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Listar Operadores"
+   },
+   "post": {
+    "operationId": "crear_operador_operadores_post",
+    "parameters": [
+     {
+      "in": "header",
+      "name": "authorization",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/_OperadorBody"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Crear Operador"
+   }
+  },
+  "/operadores/{id_}/activo": {
+   "put": {
+    "operationId": "fijar_activo_operador_operadores__id___activo_put",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "id_",
+      "required": true,
+      "schema": {
+       "title": "Id ",
+       "type": "integer"
+      }
+     },
+     {
+      "in": "header",
+      "name": "authorization",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/_ActivoBody"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Fijar Activo Operador"
+   }
+  },
+  "/outputs/reset": {
+   "post": {
+    "description": "Apaga todas las salidas digitales y detiene el control loop.\nLlamar antes de cerrar la aplicación o ante cualquier apagado seguro.\n409 en CICLO: para detener un ciclo existe /cycle/abort.",
+    "operationId": "reset_outputs_outputs_reset_post",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Reset Outputs"
+   }
+  },
+  "/printer/config": {
+   "get": {
+    "operationId": "get_printer_config_printer_config_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Get Printer Config"
+   },
+   "put": {
+    "operationId": "put_printer_config_printer_config_put",
+    "parameters": [
+     {
+      "in": "header",
+      "name": "authorization",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/_ImpresoraConfigBody"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Put Printer Config"
+   }
+  },
+  "/printer/test-page": {
+   "post": {
+    "description": "Página de prueba de la impresora térmica (409 en ciclo; 503 sin impresora).",
+    "operationId": "print_test_page_printer_test_page_post",
+    "parameters": [
+     {
+      "in": "header",
+      "name": "authorization",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Print Test Page"
+   }
+  },
+  "/programas": {
+   "get": {
+    "description": "Programas para Opciones (§6): número, nombre, origen, estado y sus\nsecciones con la marca \"No se ejecuta\". Sin lectura de disco en la UI.",
+    "operationId": "get_programas_programas_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Get Programas"
+   }
+  },
+  "/programas/seleccionables": {
+   "get": {
+    "description": "Programas que el operador puede elegir en Preciclo (B6, tanda 4), ya\nordenados: primero los 3 con más ciclos terminados en el historial (de mayor\na menor; el empate lo decide el orden predefinido, por número) marcados\n`mas_usado`, después el resto por número. Sin historial, o sin base de datos,\ntodo en el orden predefinido y sin marcas. `seleccionable` y `motivo` dicen\nsi hoy se puede cambiar de programa (la misma regla que /cycle/select). Solo\nlectura, sin sesión (como /cycle/select).",
+    "operationId": "get_programas_seleccionables_programas_seleccionables_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Get Programas Seleccionables"
+   }
+  },
+  "/programas/{numero}": {
+   "delete": {
+    "operationId": "delete_programa_programas__numero__delete",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "numero",
+      "required": true,
+      "schema": {
+       "title": "Numero",
+       "type": "integer"
+      }
+     },
+     {
+      "in": "header",
+      "name": "authorization",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Delete Programa"
+   }
+  },
+  "/programas/{numero}/duplicar": {
+   "post": {
+    "operationId": "post_programa_duplicar_programas__numero__duplicar_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "numero",
+      "required": true,
+      "schema": {
+       "title": "Numero",
+       "type": "integer"
+      }
+     },
+     {
+      "in": "header",
+      "name": "authorization",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/_DuplicarBody"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Post Programa Duplicar"
+   }
+  },
+  "/programas/{numero}/habilitado": {
+   "put": {
+    "operationId": "put_programa_habilitado_programas__numero__habilitado_put",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "numero",
+      "required": true,
+      "schema": {
+       "title": "Numero",
+       "type": "integer"
+      }
+     },
+     {
+      "in": "header",
+      "name": "authorization",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/_HabilitadoBody"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Put Programa Habilitado"
+   }
+  },
+  "/programas/{numero}/seccion/{seccion}": {
+   "get": {
+    "description": "Parámetros de una sección (§5.2, §6): valor, por defecto (perfil de\nfábrica del mismo número; \"—\" si no lo hay, Q-4), rango efectivo (catálogo\n∩ JSON, RB-05.2), tipo, unidad, opciones, `modificado` y última\nmodificación.",
+    "operationId": "get_programa_seccion_programas__numero__seccion__seccion__get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "numero",
+      "required": true,
+      "schema": {
+       "title": "Numero",
+       "type": "integer"
+      }
+     },
+     {
+      "in": "path",
+      "name": "seccion",
+      "required": true,
+      "schema": {
+       "title": "Seccion",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Get Programa Seccion"
+   }
+  },
+  "/report/failures": {
+   "get": {
+    "description": "D8-5.6: ciclos del periodo (por fecha de inicio, como /report/summary)\nque cerraron con el fallo `causa` (una de sus causas_fallo), más recientes\nprimero y paginados; una página fuera de rango da la última. Cada ciclo con\nla forma de /cycle/list, para abrir su detalle como desde el Historial.\nSolo lectura.",
+    "operationId": "get_report_failures_report_failures_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "causa",
+      "required": true,
+      "schema": {
+       "minLength": 1,
+       "title": "Causa",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "periodo",
+      "required": false,
+      "schema": {
+       "default": "dia",
+       "enum": [
+        "dia",
+        "semana",
+        "mes"
+       ],
+       "title": "Periodo",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "fecha",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "format": "date",
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Fecha"
+      }
+     },
+     {
+      "in": "query",
+      "name": "pagina",
+      "required": false,
+      "schema": {
+       "default": 1,
+       "minimum": 1,
+       "title": "Pagina",
+       "type": "integer"
+      }
+     },
+     {
+      "in": "query",
+      "name": "por_pagina",
+      "required": false,
+      "schema": {
+       "default": 20,
+       "maximum": 100,
+       "minimum": 1,
+       "title": "Por Pagina",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Get Report Failures"
+   }
+  },
+  "/report/summary": {
+   "get": {
+    "description": "Resumen de los ciclos iniciados en el periodo de calendario que contiene\n`fecha` (por defecto hoy): totales por resultado, por programa y causas de\nfallo (services/domain/reportes/resumen_periodo.py). Solo lectura.",
+    "operationId": "get_report_summary_report_summary_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "periodo",
+      "required": false,
+      "schema": {
+       "default": "dia",
+       "enum": [
+        "dia",
+        "semana",
+        "mes"
+       ],
+       "title": "Periodo",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "fecha",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "format": "date",
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Fecha"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Get Report Summary"
+   }
+  },
+  "/report/summary/print": {
+   "post": {
+    "description": "Imprime el resumen del periodo en la impresora térmica (409/503:\n_encolar_en_impresora).",
+    "operationId": "print_report_summary_report_summary_print_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/_ImprimirResumenBody"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Print Report Summary"
+   }
+  },
+  "/safe-state/confirm": {
+   "post": {
+    "description": "\"Confirmar y llevar a estado seguro\" (fin de ciclo §15.2): tras soltar\nel paro, el protocolo de estado seguro no avanza hasta esta confirmación.\nCualquier operador, sin rol. 409 con el paro activo o si no hace falta.",
+    "operationId": "confirm_safe_state_safe_state_confirm_post",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Confirm Safe State"
+   }
+  },
+  "/status": {
+   "get": {
+    "operationId": "get_status_status_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Get Status"
+   }
+  },
+  "/system/info": {
+   "get": {
+    "operationId": "get_system_info_system_info_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Get System Info"
+   }
+  },
+  "/system/shutdown": {
+   "post": {
+    "description": "\"Apagar equipo\" / dejar fuera de servicio (§16, A1 de la tanda 3).\nPermitido en cualquier estado salvo ciclo en curso y salvo un apagado ya\nen marcha (S9, D9-1.3: también con el estado seguro actuando; el apagado\ndeja todas las salidas en cero): con FALLA, EMERGENCIA, paro,\nsin módulo E/S o con la cámara NO segura también se apaga (sin UPS, el\npersonal técnico puede pedir dejar el equipo fuera de servicio). Solo desde\nla ventana principal (la UI de la puerta 1 envía ventana=\"principal\").\nConfirmación: la de la propia UI; la cámara no segura solo se avisa allí.",
+    "operationId": "shutdown_system_system_shutdown_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": true,
+        "default": {},
+        "title": "Body",
+        "type": "object"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Shutdown System"
+   }
+  },
+  "/system/shutdown/estado": {
+   "get": {
+    "description": "D8-3.21: estado del apagado para la pantalla (sin sesión, como el\npropio apagado). `windows_rechazado`: Windows no permitió apagar.",
+    "operationId": "shutdown_estado_system_shutdown_estado_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Shutdown Estado"
+   }
+  },
+  "/system/time": {
+   "get": {
+    "operationId": "get_system_time_system_time_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Get System Time"
+   }
+  },
+  "/system_params": {
+   "get": {
+    "description": "Lista para la pantalla: valor vigente, defecto, rango, unidad, clase,\nsubmenú y último cambio (usuario y fecha). D9-3 (tanda 9): `grupos` son\nlos submenús que se muestran según el perfil (sin Puerta ni Empaque en un\nequipo de puertas simples), y solo van los parámetros de esos submenús.",
+    "operationId": "get_system_params_system_params_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Get System Params"
+   }
+  },
+  "/ui/activity": {
+   "post": {
+    "description": "Una pantalla QML informa un toque/tecla del operador. Reinicia el\ncontador de inactividad común a ambas pantallas (standby simultáneo).",
+    "operationId": "registrar_actividad_ui_ui_activity_post",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Registrar Actividad Ui"
+   }
+  },
+  "/ui/standby": {
+   "post": {
+    "description": "O2e: una pantalla QML informa que entró o salió de suspensión (no\ncambia nada del equipo). D9-6 (tanda 9): solo log de desarrollo.",
+    "operationId": "registrar_suspension_ui_standby_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/_SuspensionBody"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Registrar Suspension"
+   }
+  },
+  "/units": {
+   "get": {
+    "operationId": "get_units_units_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Get Units"
+   },
+   "put": {
+    "description": "Decisión 1.9 (tanda 6): solo el ingeniero, y solo fuera de ciclo (también el ingeniero: un\ncambio de unidades a mitad de ciclo se presta a leer mal un valor).",
+    "operationId": "put_units_units_put",
+    "parameters": [
+     {
+      "in": "header",
+      "name": "authorization",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/_UnidadesBody"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Put Units"
+   }
+  },
+  "/usuarios": {
+   "get": {
+    "description": "Lista sin hashes. `gestionables`: roles que la sesión puede modificar.",
+    "operationId": "listar_usuarios_usuarios_get",
+    "parameters": [
+     {
+      "in": "header",
+      "name": "authorization",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Listar Usuarios"
+   },
+   "post": {
+    "description": "Decisión 26: ingeniero crea admin, técnico e ingeniero; admin crea admin\ny técnico. 403 si el rol no puede crear el rol pedido, 409 si el usuario ya\nexiste (sin distinguir mayúsculas), 422 con la lista {campo, codigo} si no\nvalida (campos del cuerpo: nombre, usuario, clave, confirmacion, rol).",
+    "operationId": "crear_usuario_usuarios_post",
+    "parameters": [
+     {
+      "in": "header",
+      "name": "authorization",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/_NuevoUsuarioBody"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Crear Usuario"
+   }
+  },
+  "/usuarios/{usuario}": {
+   "delete": {
+    "operationId": "borrar_usuario_usuarios__usuario__delete",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "usuario",
+      "required": true,
+      "schema": {
+       "title": "Usuario",
+       "type": "string"
+      }
+     },
+     {
+      "in": "header",
+      "name": "authorization",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Borrar Usuario"
+   },
+   "patch": {
+    "operationId": "modificar_usuario_usuarios__usuario__patch",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "usuario",
+      "required": true,
+      "schema": {
+       "title": "Usuario",
+       "type": "string"
+      }
+     },
+     {
+      "in": "header",
+      "name": "authorization",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/_ModificarUsuarioBody"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Modificar Usuario"
+   }
+  },
+  "/usuarios/{usuario}/activo": {
+   "put": {
+    "operationId": "fijar_activo_usuario_usuarios__usuario__activo_put",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "usuario",
+      "required": true,
+      "schema": {
+       "title": "Usuario",
+       "type": "string"
+      }
+     },
+     {
+      "in": "header",
+      "name": "authorization",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/_ActivoBody"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Fijar Activo Usuario"
+   }
+  },
+  "/usuarios/{usuario}/restablecer_clave": {
+   "post": {
+    "description": "Contraseña temporal con cambio obligatorio en el siguiente login. La\npropia se cambia por /auth/change_password (409). 422 {campo, codigo}.",
+    "operationId": "restablecer_clave_usuarios__usuario__restablecer_clave_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "usuario",
+      "required": true,
+      "schema": {
+       "title": "Usuario",
+       "type": "string"
+      }
+     },
+     {
+      "in": "header",
+      "name": "authorization",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/_RestablecerClaveBody"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Restablecer Clave"
+   }
+  }
+ }
+}

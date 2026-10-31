@@ -15,14 +15,15 @@ from PySide6.QtWidgets import (
 )
 
 from autoclave.devices.printer.win32_printer import PRINTER_NAME, print_raw
-from autoclave.ui.service_ui.backend_client import BackendClient
+from autoclave.state_machine.alarms.catalogo import codigo_visible
+from autoclave.ui_pyside.services.backend_client import BackendClient
 
 _PRINT_OPTIONS: list[tuple[str, str, str | None]] = [
     ("📋", "Imprimir Ciclos",  "ciclos"),
     ("🚨", "Imprimir Alarmas", None),
 ]
 
-_BACKEND_URL = "http://localhost:8000"
+_BACKEND_URL = "http://127.0.0.1:8000"
 
 _BTN_OPTION = """
     QPushButton {{
@@ -48,6 +49,13 @@ _BTN_BACK = """
 """
 
 
+def _hora_ticket(iso: str | None) -> str:
+    try:
+        return datetime.fromisoformat(iso).strftime("%H:%M:%S %d/%m/%Y")
+    except (TypeError, ValueError):
+        return "--:--:--"
+
+
 def _build_alarms_ticket_lines(alarms: list[dict]) -> list[str]:
     now = datetime.now()
     lines: list[str] = [
@@ -58,8 +66,17 @@ def _build_alarms_ticket_lines(alarms: list[dict]) -> list[str]:
         "------------------------",
     ]
     for alarma in alarms:
+        # Tanda 23 (MES-04): el código tal como se muestra (TARJETA_<x> -> MODULO_ES_<x>)
+        codigo, titulo = codigo_visible(alarma.get("codigo")), alarma.get("titulo")
+        if codigo and titulo:
+            lines += [
+                f"{codigo} - {titulo}",
+                f"{_hora_ticket(alarma.get('aparecida'))} - {alarma.get('origen') or '-'}",
+                "------------------------",
+            ]
+            continue
         lines += [
-            f"ID: {alarma.get('id', '')}",
+            f"ID: {codigo_visible(alarma.get('id', ''))}",
             f"Nivel: {alarma.get('level', '')}",
             f"Origen: {alarma.get('source_state', '')}",
             alarma.get("description") or "",

@@ -9,6 +9,7 @@ class FakeDb:
     def __init__(self):
         self._next_id = 1
         self.cerrados = []
+        self.codigos = []
 
     def siguiente_numero_ciclo(self):
         return 7
@@ -21,8 +22,20 @@ class FakeDb:
     def insertar_lectura(self, **kwargs):
         pass
 
-    def cerrar_ciclo(self, ciclo_id, resultado, motivo_fallo=None):
+    def cerrar_ciclo(self, ciclo_id, resultado, motivo_fallo=None, codigo_fallo=None,
+                     f0_final=None):
         self.cerrados.append((ciclo_id, resultado, motivo_fallo))
+        self.codigos.append(codigo_fallo)
+
+    # Pantalla de ciclo en curso (gráfica y tramos de fase): no se verifican aquí
+    def insertar_lectura_grafica(self, *args):
+        pass
+
+    def abrir_fase(self, *args):
+        pass
+
+    def cerrar_fase_abierta(self, *args):
+        pass
 
 
 class FakeCycle:
@@ -75,6 +88,7 @@ class FakeEstado:
         self.fase_ciclo = "PRECALENTAMIENTO"
         self.sub_estado_ciclo = ""
         self.motivo_fallo = ""
+        self.codigo_fallo = ""
         self.sensores_temp = {"temp_camara": 25.0}
         self.sensores_pres = {"pres_camara": 74.5}
         self.f0_acumulado = 0.0
@@ -175,8 +189,11 @@ def test_intervalo_cumplido_encola_fila_periodica(monkeypatch):
     cl = _build_logger(printer, config=FakeConfig(intervalo=1))
     cl.estado.fase_ciclo = "CALENTAMIENTO"   # código "H" -> usa intervalo_impresion
 
+    # El intervalo se mide con el reloj monotónico (auditoría T1); el reloj de
+    # pared retrocede una hora y no debe frenar el registro.
     tiempo_actual = [1000.0]
-    monkeypatch.setattr(time_module, "time", lambda: tiempo_actual[0])
+    cl._reloj_mono = lambda: tiempo_actual[0]
+    monkeypatch.setattr(time_module, "time", lambda: 1000.0 - 3600.0 * (tiempo_actual[0] > 1001))
 
     cl.update()   # header
     cl.update()   # cambio de fase None -> "H" -> fila 1
@@ -218,6 +235,9 @@ def test_fin_de_ciclo_sin_f0_activo_no_incluye_f0_total_en_el_pie():
 def test_fin_de_ciclo_con_f0_activo_incluye_f0_total_en_el_pie():
     printer = FakePrinter()
     cl = _build_logger(printer, cycle_manager=FakeCycleManager(f0_activo=True))
+    # F0 solo en equipos de laboratorio (tanda 2026-10-14 §1.1)
+    from autoclave.installation.equipment import EquipmentClass
+    cl.profile.equipment_class = EquipmentClass.PISO_LAB
     cl.estado.f0_acumulado = 15.3
 
     cl.update()   # header
@@ -226,6 +246,35 @@ def test_fin_de_ciclo_con_f0_activo_incluye_f0_total_en_el_pie():
     cl.update()   # _on_fin: fila "E" + pie
 
     assert "F0 total: 15.3 min" in printer.calls[3]
+
+
+def test_fin_de_ciclo_con_f0_en_equipo_no_lab_no_imprime_f0():
+    from autoclave.installation.equipment import EquipmentClass
+    printer = FakePrinter()
+    cl = _build_logger(printer, cycle_manager=FakeCycleManager(f0_activo=True))
+    cl.profile.equipment_class = EquipmentClass.PISO
+    cl.estado.f0_acumulado = 15.3
+    cl.update()
+    cl.update()
+    cl.estado.machine_state = GlobalState.PREPARADO
+    cl.update()
+    assert "F0 total" not in printer.calls[3]
+
+
+def test_fin_de_ciclo_con_fallo_guarda_codigo_y_imprime_codigo_y_titulo():
+    printer = FakePrinter()
+    cl = _build_logger(printer)
+    cl.estado.codigo_fallo = "CIC-03"
+    cl.estado.motivo_fallo = "CIC-03 · Fallo en calentamiento: x"
+
+    cl.update()   # header
+    cl.update()   # fila por cambio de fase
+    cl.estado.machine_state = GlobalState.PREPARADO
+    cl.update()   # _on_fin
+
+    assert cl.db.codigos == ["CIC-03"]
+    assert "Motivo: CIC-03 - Fallo en calentamiento" in printer.calls[3]
+    assert "calentamiento: x" not in printer.calls[3]
 
 
 def test_sin_printer_no_falla():

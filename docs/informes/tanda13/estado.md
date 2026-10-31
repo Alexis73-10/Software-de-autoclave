@@ -1,0 +1,18 @@
+# Tanda 13: estado
+
+Rama `tanda-13`, creada desde `dev` (d22a67f: contiene `tanda-12` cerrada y `licencia-l0`) en A0. Sesión principal arrancada por el lanzador el 24-oct a las 23:01 (hora de Bogotá). Sin subagentes ni revisor.
+
+Precondición A0: `tanda12/estado.md` tiene `| Z | Hecha |` y `dev` contiene `tanda-12`: cumplida.
+
+| Etapa | Estado | Commit | Nota |
+|---|---|---|---|
+| A0 | Hecha | d054632 | Línea base: la suite final de la tanda 12 (7531 passed). Ojo: `dev` incluye además L0 (licencia), unida después de la H. |
+| S13 | Hecha | b84e758 (código) + docs | `S13_saturacion_if97.md`. IF97 región 4; 226 pruebas nuevas; 11 tests recalculados; suite 7808 + 9 en serie = **7817 passed** (2 ajenas de `test_config_correo`, como en L0). DECISIÓN SIN CONFIRMAR: `_psat` en `catalogo_parametros.py` (programa corrupto seguía DAÑADO). |
+| K13 | Hecha: compilación **I** (`inst-2026-10-24-i` → 1abcf28, `entrega/2026-10-24_i/`, Setup 1.0.0-i compilado y no ejecutado) | (commit de cierre) | `K13_compilacion_i.md`. Humo OK (2 pantallas, asistente de 9 pasos por L0). Ensayos H → I y G → I OK: consigna mostrada a 134 °C 304.2; chaqueta 328.2. SHA-256 verificado. |
+| Z | Hecha | (cierre) | Suite en verde (7817 passed, b84e758; después solo documentación; 2 ajenas de `test_config_correo` como en L0). `tanda-13` unida a `dev` (--no-ff), push de `dev`, `tanda-13` e `inst-2026-10-24-i`. Índice: `docs/informes/informe_tanda_2026-10-24_t13.md` (**hay compilación I y se instala el lunes en lugar de la H**). |
+
+## Sesión 01 (23:01)
+- A0: rama `tanda-13`, commit de documentos.
+- S13: pruebas rojas (24/212) → `steam.py` IF97 → suite (15 rojas: 8 de valores viejos + 1 regresión de carga) → `_psat` en catálogo + tests recalculados → suite 7817 passed. CLAUDE.md, hoja de banco e informe.
+- K13: unión a `dev` (1abcf28), etiqueta I, PyInstaller (Autoclave y generador), verificador neutro, humo, ensayos H → I y G → I, ISCC, empaquetado y SHA-256. LEEME con «Cambios respecto a la H» y 8h.
+- Z: índice, unión final y push.

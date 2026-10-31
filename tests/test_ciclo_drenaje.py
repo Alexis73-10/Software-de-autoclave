@@ -1,4 +1,6 @@
 from unittest.mock import MagicMock
+from tests.helpers.alarmas_helpers import ultima_activacion, codigos_resueltos, ids_viejos_activados
+from autoclave.state_machine.alarms.catalogo import PRE_06
 from autoclave.state_machine.states.ciclo import CicloState
 
 
@@ -9,6 +11,7 @@ def _make_ciclo(temp_drenaje=25.0, temp_segura=40.0):
     estado.get_flag.return_value = False
     set_do = MagicMock()
     cycle = MagicMock()
+    cycle.copia.return_value = cycle   # copia de T-17 con los mismos valores
     cycle.get_param.return_value = None
     config = MagicMock()
     config.get.return_value = temp_segura
@@ -22,7 +25,7 @@ def test_temp_alta_no_activa_agua_antes_de_3_lecturas():
     ciclo._mantener_drenaje()
     ciclo._mantener_drenaje()
     set_do.agua_intercambiador_on.assert_not_called()
-    alarm_manager.report.assert_not_called()
+    alarm_manager.activar.assert_not_called()
 
 
 def test_temp_alta_activa_agua_al_llegar_a_3_lecturas():
@@ -31,9 +34,7 @@ def test_temp_alta_activa_agua_al_llegar_a_3_lecturas():
     ciclo._mantener_drenaje()
     ciclo._mantener_drenaje()
     set_do.agua_intercambiador_on.assert_called_once()
-    alarma = alarm_manager.report.call_args.args[0]
-    assert alarma.id == "TEMP_DRENAJE_ALTA"
-    assert alarma.blocks_operation is False
+    assert ultima_activacion(alarm_manager)[0] == PRE_06
 
 
 def test_temp_segura_apaga_agua_al_llegar_a_3_lecturas():
@@ -49,7 +50,7 @@ def test_temp_segura_apaga_agua_al_llegar_a_3_lecturas():
     set_do.agua_intercambiador_off.assert_not_called()
     ciclo._mantener_drenaje()
     set_do.agua_intercambiador_off.assert_called_once()
-    alarm_manager.clear.assert_any_call("TEMP_DRENAJE_ALTA")
+    assert PRE_06 in codigos_resueltos(alarm_manager)
 
 
 def test_oscilacion_resetea_contador_sin_falso_positivo():
@@ -65,25 +66,29 @@ def test_oscilacion_resetea_contador_sin_falso_positivo():
     set_do.agua_intercambiador_off.assert_not_called()
 
 
-def test_temp_drenaje_ausente_no_hace_nada():
+def test_temp_drenaje_ausente_fuerza_intercambiador():
+    # Adenda A-4 (SAF-02): sin lectura se enfría siempre (antes: no hacía nada).
+    # No se generan ni se limpian alarmas por la falta de dato.
     ciclo, set_do, alarm_manager, estado = _make_ciclo(temp_segura=40.0)
     estado.sensores_temp = {}
     ciclo._mantener_drenaje()
-    set_do.agua_intercambiador_on.assert_not_called()
+    set_do.agua_intercambiador_on.assert_called_once()
     set_do.agua_intercambiador_off.assert_not_called()
-    alarm_manager.report.assert_not_called()
-    alarm_manager.clear.assert_not_called()
+    alarm_manager.activar.assert_not_called()
+    alarm_manager.resolver.assert_not_called()
 
 
-def test_sensor_ausente_no_reinicia_contador_en_progreso():
+def test_sensor_ausente_no_reinicia_contador_alto_en_progreso():
     ciclo, set_do, alarm_manager, estado = _make_ciclo(temp_drenaje=45.0, temp_segura=40.0)
     ciclo._mantener_drenaje()  # alta (1)
     ciclo._mantener_drenaje()  # alta (2)
     estado.sensores_temp = {}
-    ciclo._mantener_drenaje()  # sensor ausente, no toca contadores
+    ciclo._mantener_drenaje()  # sensor ausente: intercambiador ON (A-4), contador alto intacto
     estado.sensores_temp = {"temp_drenaje": 45.0}
     ciclo._mantener_drenaje()  # alta (3) -- debe disparar, no reiniciarse a 1
-    set_do.agua_intercambiador_on.assert_called_once()
+    assert ciclo._contador_drenaje_alta == 3
+    assert set_do.agua_intercambiador_on.call_count == 2
+    assert "TEMP_DRENAJE_ALTA" in ids_viejos_activados(alarm_manager)
 
 
 def test_se_llama_en_run_sin_importar_la_fase_activa():
@@ -102,9 +107,9 @@ def test_se_llama_en_run_sin_importar_la_fase_activa():
     ciclo.cap.has_vacuum = False
     for fase in ciclo._fases:
         fase.cap = ciclo.cap
-    # PrevacioFase está en índice 2 del pipeline (PRECALENTAMIENTO, PURGA, PRE_VACIO, ...)
+    # PrevacioFase está en índice 1 del pipeline (PRECALENTAMIENTO, PRE_VACIO, ...)
     ciclo.reset()
-    ciclo._fase_idx = 2
+    ciclo._fase_idx = 1
     ciclo.run()
     ciclo.run()
     ciclo.run()

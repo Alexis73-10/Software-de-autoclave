@@ -1,7 +1,7 @@
 import json
 import pytest
 from unittest.mock import MagicMock, patch
-from autoclave.ui.service_ui.backend_client import BackendClient
+from autoclave.cliente.backend_client import BackendClient
 from autoclave.core.managers.cycle_manager import CycleManager
 
 

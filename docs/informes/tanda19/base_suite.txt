@@ -1,0 +1,10 @@
+Línea base de la tanda 19 (rama tanda-19 en 875d6e2 = tanda-18 1dd3e94 + docs de la tanda; 27-oct):
+python -m pytest tests -n auto (PYTEST_XDIST_AUTO_NUM_WORKERS=6)
+Recolectadas: 8521 (8508 passed + 1 failed + 10 skipped + 3 xfailed)
+1 failed, 8507 passed, 10 skipped, 3 xfailed, 12 warnings in 605.18s (0:10:05)
+Falla solo en paralelo: tests/test_home_view.py::test_home_view_tarjeta_impresion_general_navega_a_impresion_menu
+  -> repetida en serie: 1 passed (cuenta como verde, regla de la instrucción).
+Resultado: verde (8508 passed, 10 skipped, 3 xfailed).
+Nota: es la primera suite completa de la tanda 18 (la de R18 la detuvo el sistema por memoria).
+Nota: durante la corrida se editaron archivos de F1/F2 en el árbol (pymodbus instalado, enlace nuevo);
+los módulos ya estaban importados por los trabajadores; F2 se verificó aparte con sus pruebas.

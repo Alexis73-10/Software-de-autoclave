@@ -65,10 +65,15 @@ def test_create_door_advanced():
     assert isinstance(door, AdvancedDoor)
 
 
+# T20-03: build_hardware construye ModbusLink (import diferido en
+# factory.build_modbus); se parchea la clase en su módulo para no arrancar
+# nunca un enlace real contra 192.168.3.7 (antes factory.SerialLink).
+
+
 def test_build_hardware_advanced_dos_puertas():
     profile = _make_profile(door_type=DoorType.ADVANCED, door_count=2)
     with patch("autoclave.devices.factory.factory.Units"), \
-         patch("autoclave.devices.factory.factory.SerialLink"):
+         patch("autoclave.protocols.modbus_link.ModbusLink"):
         _, _, doors_cfg = build_hardware(profile)
     assert len(doors_cfg) == 2
     assert all(cfg["type"] == DoorType.ADVANCED for cfg in doors_cfg)
@@ -78,7 +83,7 @@ def test_build_hardware_simple_una_puerta():
     profile = _make_profile(door_type=DoorType.SIMPLE, door_count=1,
                              equipment_class=EquipmentClass.MESA_N)
     with patch("autoclave.devices.factory.factory.Units"), \
-         patch("autoclave.devices.factory.factory.SerialLink"):
+         patch("autoclave.protocols.modbus_link.ModbusLink"):
         _, _, doors_cfg = build_hardware(profile)
     assert len(doors_cfg) == 1
     assert doors_cfg[0]["type"] == DoorType.SIMPLE
@@ -90,7 +95,7 @@ def test_build_hardware_motorized_tiene_do_abrir_cerrar():
     profile = _make_profile(door_type=DoorType.MOTORIZED, door_count=1,
                              equipment_class=EquipmentClass.MESA_B)
     with patch("autoclave.devices.factory.factory.Units"), \
-         patch("autoclave.devices.factory.factory.SerialLink"):
+         patch("autoclave.protocols.modbus_link.ModbusLink"):
         _, _, doors_cfg = build_hardware(profile)
     assert "do" in doors_cfg[0]
     assert "abrir" in doors_cfg[0]["do"]
@@ -102,7 +107,7 @@ def test_build_hardware_locking_tiene_do_bloquear_desbloquear():
     profile = _make_profile(door_type=DoorType.LOCKING, door_count=1,
                              equipment_class=EquipmentClass.MESA_B)
     with patch("autoclave.devices.factory.factory.Units"), \
-         patch("autoclave.devices.factory.factory.SerialLink"):
+         patch("autoclave.protocols.modbus_link.ModbusLink"):
         _, _, doors_cfg = build_hardware(profile)
     assert "do" in doors_cfg[0]
     assert "bloquear" in doors_cfg[0]["do"]
@@ -114,7 +119,7 @@ def test_build_hardware_advanced_tiene_ai_y_atrapamiento():
     profile = _make_profile(door_type=DoorType.ADVANCED, door_count=1,
                              equipment_class=EquipmentClass.MESA_B)
     with patch("autoclave.devices.factory.factory.Units"), \
-         patch("autoclave.devices.factory.factory.SerialLink"):
+         patch("autoclave.protocols.modbus_link.ModbusLink"):
         _, _, doors_cfg = build_hardware(profile)
     cfg = doors_cfg[0]
     assert "ai" in cfg

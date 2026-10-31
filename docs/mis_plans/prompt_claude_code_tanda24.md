@@ -1,0 +1,62 @@
+# Prompt para Claude Code — tanda 24: reasignación sin bloqueos por sensores ni paro, verificación sin calibrar, motivo del rechazo en pantalla y tipo «RTD» en Reasignación (sin supervisión)
+
+Lo envía `powershell -ExecutionPolicy Bypass -File tools\tandas\lanzar_prompt.ps1 -Nombre tanda24` y lo reenvía si la sesión se corta.
+
+---
+
+Eres Claude Code en el repositorio del Software de Autoclave (Especifika). Cristian NO está presente: trabaja de forma autónoma, sin detenerte a preguntar. Todo en español (código, comentarios, commits, informe). Código Clase C (NTC-IEC 62304): velocidad sin sacrificar seguridad.
+
+## Reglas
+
+1. **Antes de nada:** si NO existe `docs/informes/tanda23/CERRADO.txt`, o su primera línea empieza por `BLOQUEADO:`, no hagas nada más: escribe `docs/informes/tanda24/CERRADO.txt` con `BLOQUEADO: la tanda 23 no ha cerrado (o cerró bloqueada); relanzar la 24 cuando cierre` y termina. Si cerró bien, comprueba que `dev` contiene su merge.
+2. Si existe `docs/informes/tanda24/estado.md` con pasos hechos, REANUDA desde el primero pendiente. Si no, créalo y empieza por A0.
+3. Este prompt es la spec (RSB-01 a RSB-08). Ante ambigüedad, lo más seguro y reversible que no contradiga una decisión de Cristian, marcado «DECISIÓN SIN CONFIRMAR» en el informe.
+4. Rama `tanda-24` desde `dev`. Nunca `main`, `--force`, `git add -A`, `git push` ni `git branch -D`. No toques módulos reales, red, registro de Windows, `.ps1` ni el Setup. No leas el archivo de secretos.
+5. **Subagentes: 2 a la vez como máximo.** Ningún subagente corre la suite completa; la sesión principal corre `pytest tests -n auto`.
+6. Después de cada commit, actualiza `estado.md` (paso → Hecho/Pendiente, último commit).
+
+## Contexto (29-oct, equipo de pruebas, 1.0.0-alpha.11)
+
+En el equipo de pruebas se dañó la entrada del sensor de presión de cámara y no hay ningún sensor conectado. Al reasignar la presión de cámara a otro puerto, la pantalla dice «No se pudo aplicar la reasignación» sin motivo. Hay dos causas:
+- **Backend:** ESS-07/SAF-01 (`_motivo_sensor_seguridad` en `src/autoclave/backend/server_reasignacion.py`) solo deja mover la presión de cámara si el único motivo de cámara no segura es `sin_presion_camara` y otra sonda lee fría. Sin ningún sensor, los motivos son `{sin_presion_camara, sin_temp_camara}` → 409 `sensor_camara_no_segura`.
+- **UI:** `ui_qml/sesion_backend.interpretar` solo deja pasar los códigos de `_CLAVES`; casi todos los de `/io/assignment` caen en `ERROR_GENERICO`, y `reasignacion_controller.mensaje_de` muestra el texto genérico.
+
+Decisión de Cristian (29-oct), riesgo reconocido y aceptado por él: en una falla o en el peor escenario (sensores dañados, Principal dañada, paro de emergencia activado para que el equipo no haga nada raro) la reasignación no puede quedar bloqueada.
+
+## Decisiones (RSB)
+
+- **RSB-01 Se eliminan** de `_motivo_bloqueo()`:
+  - toda la regla de sensores `_motivo_sensor_seguridad` (SAF-01 de ESS-07: presión de cámara, Principal, sondas calientes, límite de temperatura); la función se borra y `diferencias` deja de usarse para decidir el bloqueo;
+  - toda `_motivo_estado_seguro`: paro de emergencia activo y confirmación «Confirmar y llevar a estado seguro» pendiente (SAF-03, `estado_seguro_confirmar`), estado seguro sobre carga líquida o sellada (H1, `estado_seguro_liquido`) y el rechazo por excepción `estado_seguro`.
+- **RSB-02 Se conservan**, en este orden: `ciclo` (CICLO), `estado` (fuera de PREPARACION/PREPARADO/FALLA), `modo_prueba`, `apagando`. También se conservan sin cambios: solo el INGENIERO, `confirmar` (428), nombre escrito de las funciones reforzadas, reautenticación, conflictos/puertos inexistentes/puerto sin calibración (422), el guardado con relectura del estado bajo `_sm_lock` y deshacer ante error (`_guardar_y_reiniciar`), el reinicio que apaga todas las salidas, y la verificación con evidencia: la función reasignada queda «sin verificar» (SEN-09) y bloquea el inicio de ciclo hasta verificarla. `POST /io/assignment/verify` y `/factory` siguen las mismas reglas.
+- **RSB-03 Aviso no bloqueante.** `GET /io/assignment` agrega `aviso_camara: bool`: True si la cámara no está confirmada como segura (`camara_segura.motivos(...)` no vacío, con los mismos argumentos que usaba SAF-01) o si el paro de emergencia está activo; ante cualquier excepción, True (falla hacia mostrar el aviso). La pantalla (`Pantallas/OpcionesReasignacion.qml`, diálogos de reinicio de Aplicar y de Restaurar fábrica) agrega, cuando `aviso_camara` es True, el texto i18n nuevo `reasignacion.aviso_camara` (es: «La cámara no está confirmada como segura o el paro de emergencia está activo: verifique en el manómetro que la cámara está a presión atmosférica antes de continuar.»; en: equivalente). Solo informa: no cambia botones ni pasos. Registrar `aviso_camara` en el `detalle` de la fila de auditoría `reinicio_control` de la reasignación.
+- **RSB-04 Motivo real en pantalla.** Todos los códigos que pueden emitir `POST /io/assignment`, `/io/assignment/factory`, `/io/assignment/verify` y `GET /io/assignment` (inventariar con grep en `server_reasignacion.py`, `core/runtime/asignacion_io.py` y `dependencias.py`: p. ej. `conflicto`, `puerto_inexistente`, `funcion_desconocida`, `fabrica_invalida`, `asignacion_invalida`, `sin_cambios`, `confirmacion_requerida`, `confirmacion_reforzada`, `nombre_no_coincide`, `puerto_sin_calibracion`, `no_se_pudo_guardar`, `reinicio_en_curso`, `reinicio_pendiente`, `no_pendiente`, `sin_cambio_observado`, `sin_prueba_de_salida`, `sin_lectura`, `calibracion_requerida`) deben llegar al controlador: agrégalos a `sesion_backend._CLAVES` (o una vía equivalente y documentada) y cada uno con su texto en `reasignacion_controller._MENSAJES` y en es/en. Los que falten en el catálogo (p. ej. `confirmacion_requerida`, `fabrica_invalida`, `asignacion_invalida`, `reinicio_pendiente`) reciben texto propio. El genérico queda solo para lo realmente desconocido.
+- **RSB-05 Prueba de regla:** un test que extraiga con AST/regex todos los códigos que emiten esas rutas y falle si alguno no está en `_CODIGOS_CONOCIDOS` y en `_MENSAJES`.
+- **RSB-06 Limpieza y documentación:** retirar del controlador y del catálogo i18n los motivos/códigos que ya no se emiten (`estado_seguro`, `estado_seguro_confirmar`, `estado_seguro_liquido`, `sensor_camara_no_segura`), salvo que algo los siga usando (verifica con grep; si una prueba de i18n exige conservar claves, consérvalas y anótalo). Actualizar el comentario de cabecera de `server_reasignacion.py` (bloque «Reglas»), `CLAUDE.md` y `docs/riesgos/registro_riesgos.md`: HAZ-IO-05 pasa a «riesgo aceptado por Cristian (29-oct): la reasignación se permite con sensores sin lectura, Principal dañada, cámara no segura, paro activo o estado seguro actuando, incluida carga líquida/sellada; mitigaciones: aviso RSB-03 con verificación en manómetro, reinicio con todas las salidas apagadas, protocolo de arranque S9, función sin verificar que bloquea el ciclo, auditoría». Agrega la nota sobre el paro: con el paro activo el protocolo de arranque no mueve válvulas («Protocolo fallo: paro de emergencia — salidas apagadas, sin válvulas»); verifica en el código que sigue siendo así y descríbelo en el informe.
+
+- **RSB-07 Verificación de una analógica sin calibrar de nuevo** (decisión de Cristian, 30-oct). En `_evidencia_que_falta` (tipo AI) se elimina el requisito `calibracion_requerida`: la calibración a dos puntos en este arranque ya no es necesaria. Para verificar una analógica basta con que tenga **lectura válida** en su puerto nuevo (`aio.responde(...)`, si no `sin_lectura`) y que ese puerto tenga calibración vigente (la nominal de `calibration_modbus.yaml` cuenta; sin calibración sigue rigiendo `puerto_sin_calibracion` al reasignar). Se conservan: contraseña, nombre escrito de las reforzadas, `no_pendiente`, `reinicio_pendiente` y la relectura bajo `_lock_escritura`/`_lock_archivos`. Los ganchos `evidencia_ai`, `anular_evidencia_ai` y `anular_evidencias_ai` dejan de usarse para las analógicas: retíralos con sus llamadas en `rutas/io.py` y `rutas/respaldo.py` si ya nada los usa (las salidas DO siguen usando `_evidencias()` con `evidencia_do`). La pantalla de Verificar de una analógica muestra la lectura actual del canal, para que el ingeniero compruebe que es la esperada antes de confirmar; quita el texto que pide calibrar (`reasignacion.verificar_texto_ai`, `falta_calibracion_requerida`) y ajusta el catálogo es/en. Riesgo: anótalo en HAZ-IO-05 como aceptado por Cristian (no hay prueba automática de que el sensor conectado sea el correcto; mitigación: lectura visible, nombre escrito, contraseña y auditoría `reasignacion_io_verificada` con `metodo: "lectura"` y el valor leído en `detalle`).
+
+- **RSB-08 Tipo «RTD» en Reasignación** (decisión de Cristian, 30-oct; corrige la decisión sin confirmar 4 del informe R23). En `Pantallas/OpcionesReasignacion.qml` y `ui_qml/controllers/reasignacion_controller.py`, la columna **Tipo** (y cualquier filtro, encabezado, diálogo o resumen de la misma pantalla que muestre el tipo) dice «RTD» para las funciones del grupo de temperatura y «AI» para las de presión; DI y DO sin cambio. Solo presentación: el tipo interno sigue siendo `"AI"` con los grupos `AI_TEMP`/`AI_PRES` (AIN-02), sin tocar `asignacion_io.json`, la API, la bitácora ni la auditoría. El texto sale de una sola función o rol del controlador (p. ej. `tipoVisible`), no de comparaciones repetidas en QML. Revisa con grep si otra pantalla (Entradas/Salidas, Calibración de sensor, Información del equipo) muestra «AI» como tipo de una sonda de temperatura y aplícale lo mismo; anota la lista en el informe. Ajusta las pruebas de Reasignación de la tanda 23 que fijen «AI» para temperatura y agrega una que compruebe «RTD» para `temp_camara` y «AI» para `pres_camara`.
+
+## Etapas
+
+**A0 (principal).** Regla 1. Crea la rama; commit de este prompt. Inventario RSB-04 en `estado.md`.
+
+**P1 backend (subagente, worktree `tanda-24-backend`)**: RSB-01, 02, 03 (parte backend), RSB-06 (backend, riesgos), RSB-07 (backend: verificación sin calibración, auditoría, retiro de ganchos). Reescribe `tests/test_ess07_reasignacion_reinicio.py` para el comportamiento nuevo: se acepta (200 o 428/422 según el cuerpo, nunca 409 por sensores/paro/estado seguro) con presión sin lectura, Principal sin lectura, ninguna sonda, sonda caliente, paro activo, confirmación pendiente, estado seguro sobre carga líquida y sellada; se sigue rechazando con 409 en CICLO, modo prueba y apagando; `aviso_camara` True/False/excepción. Ajusta `test_r8_reasignacion_api.py` donde aplique. RSB-07: una analógica con lectura válida se verifica sin calibrar; sin lectura → 409 `sin_lectura`; ya nunca `calibracion_requerida`; DI y DO sin cambios.
+
+**P2 UI (subagente, worktree `tanda-24-ui`)**: RSB-03 (parte UI), RSB-04, RSB-05, RSB-06 (UI e i18n), con pruebas: cada código de RSB-04 muestra su texto, `aviso_camara` aparece/desaparece en los dos diálogos; RSB-07: el diálogo de Verificar de una analógica muestra la lectura actual y no pide calibrar; RSB-08 completo (es presentación pura, va en P2).
+
+Une P1 y P2 a `tanda-24`.
+
+**R revisión (1 subagente, solo lectura)** sobre el diff contra `dev`: que se conserven exactamente RSB-02 y la verificación con evidencia; que el inicio de ciclo siga bloqueado con funciones sin verificar; que una analógica sin lectura no se pueda verificar (RSB-07); que el reinicio siga apagando las salidas; que nada fuera de la reasignación haya cambiado (estado seguro, modo prueba, puertas); que RSB-08 no haya tocado el tipo interno `"AI"` ni los grupos. Corrige y anota.
+
+**Suite.** `pytest tests -n auto` verde.
+
+**K merge a `dev` (sin compilar).** Merge sin fast-forward. No compiles la entrega.
+
+**Z cierre.**
+1. `docs/informes/tanda24/R24_informe.md`: qué cambió por RSB, archivos y pruebas; decisiones sin confirmar; comportamiento con el paro activo tras el reinicio; qué verificar en el equipo (reasignar la presión de cámara sin sensores, con paro activo, ver el aviso y los mensajes de rechazo; verificarla sin calibrar, con el transductor conectado y leyendo; columna Tipo con «RTD» en las temperaturas); y explícitamente: «No se compiló la entrega. Para compilarla: `python tools/entrega/compilar_entrega.py --con-generador` desde `dev` limpio».
+2. Fila `| Z | Hecha | ... |` en `estado.md`.
+3. Último acto: `docs/informes/tanda24/CERRADO.txt` con fecha, commit del merge y resultado de la suite.
+
+Empieza por la regla 1.

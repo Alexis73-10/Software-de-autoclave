@@ -1,0 +1,204 @@
+# Registro de revisión de traducciones (es → en)
+
+Software de Autoclave — Especifika S.A.S.
+Catálogo: `src/autoclave/i18n/en.json` (borrador de F1, 14/10/2026), traducido desde `src/autoclave/i18n/es.json`.
+Procedimiento: `planeacion_i18n.md` §6 (borrador → revisión técnica → revisión lingüística → registro → compuerta de liberación).
+
+**Estado global: borrador sin revisar.** Ninguna cadena de alarma o de seguridad puede pasar a producción sin la revisión registrada aquí (§6.5, criterio de aceptación 7). El inglés tampoco se habilita en campo hasta cerrar la voz (R-06).
+
+Conteo: textos hoja del catálogo (cada elemento de `fecha.meses` y cada campo de `sensores[]` cuenta como uno). Total: 408.
+
+## Por grupo
+
+| Grupo | Nº de claves | Estado | Revisor técnico | Revisor lingüístico | Fecha | Observaciones |
+|---|---:|---|---|---|---|---|
+| Alarmas y seguridad (transversal, ver lista abajo) | 20 | Borrador sin revisar — **requiere revisión explícita** | | | | Ver términos dudosos T-01 a T-04. Las alarmas del dominio (`Alarm.description`, motivos de puerta, `motivo_fallo`) aún no están en el catálogo: entran en F2 |
+| Ciclo y fases (`ciclo`, `fases`, `estados`, `unidades`, `sensores`, `arranque`) | 66 | Borrador sin revisar | | | | Términos de ISO 17665. Ver T-05 a T-08 |
+| Opciones (`opciones`) | 16 | Borrador sin revisar | | | | |
+| Reportes y correo (`exportacion`, `reportes`) | 67 | Borrador sin revisar | | | | Ver T-09 y T-10 |
+| Menú (`menu`, `modulos`, `notificaciones`) | 63 | Borrador sin revisar | | | | Ver T-11 |
+| Resto (`instalacion`, `app`, `fecha`, `acciones`, `teclado`, `prueba_teclado`, `equipo`, `formulario`, `sistema`, `sesion`, `usuarios`, `validacion`) | 196 | Borrador sin revisar | | | | `prueba_teclado` es de pantallas de prueba. Ver T-12 a T-14 |
+
+## Claves de alarma y seguridad (requieren revisión explícita)
+
+Las 20 que el inventario F0 marca como `alarma-seguridad` (`inventario_cadenas_i18n.csv`):
+
+| Clave | Español | Borrador en inglés |
+|---|---|---|
+| `menu.sin_conexion` | Sin conexión con el equipo | No connection with the equipment |
+| `menu.resultado_fallo` | Fallo | Failed |
+| `ciclo.cancelar` | CANCELAR CICLO | CANCEL CYCLE |
+| `ciclo.cancelar_pregunta` | El ciclo en curso se cancelará. ¿Desea continuar? | The cycle in progress will be cancelled. Do you want to continue? |
+| `ciclo.cancelar_error` | No se pudo cancelar el ciclo. Verifique la conexión… | The cycle could not be cancelled. Check the connection… |
+| `ciclo.confirmar` | CONFIRMAR | CONFIRM |
+| `ciclo.confirmar_error` | No se pudo confirmar el fin del ciclo… | The end of the cycle could not be confirmed… |
+| `ciclo.aviso_titulo` | AVISO | NOTICE |
+| `ciclo.alarmas_titulo` | ALARMAS Y AVISOS | ALARMS AND NOTICES |
+| `ciclo.sin_alarmas` | Sin alarmas ni avisos activos | No active alarms or notices |
+| `ciclo.abrir_puerta` | ABRIR PUERTA | OPEN DOOR |
+| `ciclo.cerrar_puerta` | CERRAR PUERTA | CLOSE DOOR |
+| `estados.fallo` | Fallo | Failed |
+| `acciones.reconocer` | Reconocer | Acknowledge |
+| `notificaciones.titulo` | NOTIFICACIONES | NOTIFICATIONS |
+| `notificaciones.alertas_avisos` | Alertas y avisos | Alerts and notices |
+| `sistema.sin_conexion` | Sin conexión con el controlador. Los valores mostrados no están actualizados. | No connection with the controller. The values shown are not up to date. |
+| `sistema.modo_prueba` | MODO PRUEBA ACTIVO — los ciclos no son válidos para carga estéril | TEST MODE ACTIVE — cycles are not valid for sterile loads |
+| `sesion.sin_conexion_escrituras` | Sin conexión con el equipo: no se pueden guardar cambios | No connection with the equipment: changes cannot be saved |
+| `sesion.sin_conexion_cierre` | La sesión se cerrará en {tiempo} si no vuelve la conexión | The session will close in {tiempo} if the connection is not restored |
+
+Propuesta para que el revisor decida si se agregan a esta lista (no están marcadas en F0): `modulos.reconocer_falla` (RECONOCER FALLA → ACKNOWLEDGE FAULT), `arranque.fallo_titulo`, `arranque.fallo_bloqueante`, `arranque.sin_progreso`, `ciclo.temp_camara`, `ciclo.presion`.
+
+## Términos dudosos
+
+| # | Clave(s) | Español | Borrador | Duda |
+|---|---|---|---|---|
+| T-01 | `ciclo.alarmas_titulo`, `ciclo.sin_alarmas`, `ciclo.aviso_titulo`, `notificaciones.alertas_avisos` | Avisos | Notices | IEC 60601-1-8 distingue *alarm signal* e *information signal*; "advisory"/"notice" no son términos de la norma. Decidir un término único para "aviso" |
+| T-02 | `acciones.reconocer`, `modulos.reconocer_falla` | Reconocer (falla) | Acknowledge (fault) | IEC 60601-1-8 usa *acknowledged* para la alarma; confirmar "fault" frente a "failure"/"alarm" |
+| T-03 | `estados.fallo`, `menu.resultado_fallo`, `reportes.fallos`, `reportes.col_fallos` | Fallo | Failed | Como resultado de ciclo; en ISO 17665 sería un ciclo *not successful* / *failed*. Confirmar término del registro |
+| T-04 | `sistema.modo_prueba` | carga estéril | sterile loads | Confirmar redacción con el responsable técnico (es un aviso de seguridad) |
+| T-05 | `fases.descompresion` | Descompresión | Exhaust | EN 285 / ISO 17665 suelen usar *exhaust* o *depressurization*; elegir uno |
+| T-06 | `fases.vacio`, `instalacion.cap_vacio` | Vacío | Vacuum | La fase es el prevacío (pulsos); quizá *Pre-vacuum* / *Air removal* |
+| T-07 | `ciclo.temp_ester`, `ciclo.tiempo_est`, `ciclo.tiempo_sec` y `sensores[1..2].etiqueta` | Temp. Ester. / Tiempo Est. / Tiempo Sec. | Ster. Temp. / Ster. Time / Dry. Time | Abreviaturas; verificar que caben en el diseño y que se entienden |
+| T-08 | `fases.esterilizacion` | Esterilización | Sterilization | ISO 17665 habla de *holding time* / *plateau period*; se dejó el nombre de fase |
+| T-09 | `exportacion.consigna_temp`, `exportacion.consigna_pres` | Consigna | Setpoint | Confirmar |
+| T-10 | `exportacion.ticket` | Registro del ciclo | Cycle record | Confirmar frente a *cycle printout* |
+| T-11 | `menu.realizados`, `equipo.ciclos_realizados` | Realizados | Performed | Se evitó "Completed" porque choca con `resultado_completado`: "realizados" incluye ciclos con fallo. Confirmar *Performed* frente a *Run* |
+| T-12 | `instalacion.clase_mesa_*`, `instalacion.clase_piso*` | Mesa / Piso | Tabletop / Floor-standing | Confirmar nombres comerciales en inglés |
+| T-13 | `instalacion.cap_chaqueta`, `equipo.*` | Chaqueta | Jacket | Término habitual (*jacketed chamber*); confirmar |
+| T-14 | `instalacion.puerta_locking`, `instalacion.puerta_motorized_locking` | Con bloqueo | With lock | Confirmar frente a *interlocked* |
+
+## Altas posteriores a F1 (sin revisar)
+
+Cada fila es una traducción nueva al inglés agregada después del borrador de F1. Estado: **sin revisar**.
+
+| Fecha | Etapa | Clave(s) | Grupo | Estado |
+|---|---|---|---|---|
+| 2026-10-14 | Tanda E-0 | `arranque.verificando_instalacion`, `arranque.liberando_procesos`, `arranque.cargando_configuracion`, `arranque.verificando_calibracion`, `arranque.conectando_modulos_es`, `arranque.preparando_interfaz` | Ciclo y fases (arranque) | sin revisar |
+| 2026-10-14 | Tanda E-0 | `alarmas.<ID>.titulo` y `alarmas.<ID>.accion` para los 9 ids de la tarjeta de E/S (`TARJETA_SIN_TRAMA_VALIDA`, `TARJETA_VERSION_INCOMPATIBLE`, `TARJETA_SIN_ACK`, `TARJETA_ALL_OFF_SIN_CONFIRMAR`, `TARJETA_SALIDAS_NO_APAGADAS`, `TARJETA_EXPANSOR_FUERA_DE_LINEA`, `TARJETA_WATCHDOG`, `TARJETA_REINICIO`, `DISCREPANCIA_SALIDAS`) | Alarmas y seguridad — **requiere revisión explícita** | sin revisar |
+
+| 2026-10-14 | Tanda T3 | `sensores_ciclo.*` (nombres de ubicación Cámara 1/2 y Referencia, roles y estados de los sensores) y `validacion.ASIGNACION_INVALIDA`, `validacion.SENSOR_NO_DISPONIBLE`, `validacion.ASIGNACION_SENSORES_INVALIDA` | Ciclo y fases | sin revisar |
+| 2026-10-15 | Tanda T7 | `sistema.no_abrir`, `sistema.paro_no_abrir`, `sistema.paro_liberado`, `sistema.confirmar_estado_seguro`, `sistema.estado_seguro_en_curso`, `equipo.apagar`, `equipo.apagar_pregunta`, `equipo.apagar_rechazado` | Alarmas y seguridad — **requiere revisión explícita** | sin revisar |
+| 2026-10-16 | Tanda T12 | `opciones.secciones_programa.*`, `opciones.no_se_ejecuta`, `opciones.programa_no_editable`, `opciones.sensores_*`, `opciones.sensor_sin_senal`, `opciones.leyenda_defecto`, `opciones.actual`, `opciones.por_defecto`, `opciones.minimo`, `opciones.maximo`, `opciones.ultima_modificacion`, `opciones.sin_cambios`, `opciones.toque_nuevo_valor`, `opciones.rango_permitido`, `opciones.si`, `opciones.no`, `opciones.valor_solido`, `opciones.valor_liquido`, `opciones.err_*` | Opciones (los `opciones.err_*` de bloqueo y valor: **requieren revisión explícita**) | sin revisar |
+| 2026-10-16 | Tanda T9 | `instalacion.resumen_cerrojo`, `instalacion.resumen_con_cerrojo`, `instalacion.resumen_sin_cerrojo`, `instalacion.resumen_empaque`, `instalacion.resumen_con_empaque`, `instalacion.resumen_sin_empaque`, `instalacion.confirmar_sin_cerrojo` | Alarmas y seguridad — **requiere revisión explícita** | sin revisar |
+| 2026-10-16 | Tanda T8 | `ciclo.sin_bd_pregunta`, `ciclo.sin_bd_continuar`, `sesion.sin_bd`, `sesion.continuar_sin_operador` | Alarmas y seguridad — **requiere revisión explícita** | sin revisar |
+| 2026-10-19 | Tanda 2 U1 | `sistema.estado_seguro_pendiente`, `sistema.paro_suelte`, `sistema.confirmar_sin_sesion`, `sistema.estado_seguro_en_curso_boton`, `sistema.no_abrir_hasta_segura`, `sistema.seguridad_desconocida` | Alarmas y seguridad — **requiere revisión explícita** | sin revisar |
+| 2026-10-19 | Tanda 2 S1 | `instalacion.vapor_generator_desc` (texto cambiado) | Instalación | sin revisar |
+| 2026-10-20 | Tanda 3 A1 | `equipo.apagar_camara_no_segura` | Alarmas y seguridad — **requiere revisión explícita** | sin revisar |
+| 2026-10-20 | Tanda 3 S4 | `sistema.estado_seguro_detenido_accion`, `sistema.asignar_sonda_principal` | Alarmas y seguridad — **requiere revisión explícita** | sin revisar |
+| 2026-10-20 | Tanda 3 M1 | `menu.vencido`, `menu.proximo_vencimiento`, `equipo.ciclos_restantes`, `opciones.mant_*` | Mantenimiento | sin revisar |
+| 2026-10-20 | Tanda 4 B3 | `opciones.mant_intervalos`, `mant_intervalo_dias`, `mant_intervalo_ciclos`, `mant_unidad_*`, `mant_no_aplica`, `mant_intervalos_ayuda`, `mant_guardar_intervalos`, `mant_err_reloj_adelantado`; texto cambiado de `mant_sin_dato` | Mantenimiento | sin revisar |
+| 2026-10-20 | Tanda 4 B4 | `opciones.secciones.parametros_sistema` ("Parámetros del equipo" / "Equipment parameters") | Opciones | sin revisar |
+| 2026-10-20 | Tanda 4 B5 | `alarmas.SIS-05.{titulo,descripcion,accion}` (Impresora no conectada / Printer not connected) | Alarmas y seguridad — **requiere revisión explícita** | sin revisar |
+| 2026-10-20 | Tanda 4 B6 | `selector_ciclo.*` (titulo, ayuda "Tap to change cycle", mas_usado "Most used", sin_conexion) | Ciclo | sin revisar |
+| 2026-10-22 | Tanda 7 M1 | `instalacion.paso_camara`, `instalacion.camara_*`, `instalacion.carga_V`, `instalacion.carga_H`, `instalacion.unidad_litros`, `instalacion.litros`, `instalacion.error_capacidad`, `instalacion.error_tipo_carga`, `instalacion.error_clase_fuera_alcance`, `instalacion.resumen_capacidad`, `instalacion.resumen_carga`, `info_sistema.rotulo_capacidad`, `info_sistema.rotulo_tipo_carga`, `info_sistema.carga_V`, `info_sistema.carga_H` (el nombre del modelo `SPK-SAT ...` no se traduce) | Instalación | sin revisar |
+| 2026-10-22 | Tanda 7 C2 | `correo_c2.*` (direccion_invalida, rechazados_todos, rechazados_parcial, solo_manual, manual_y_guardados, todos_guardados, corregir, enviar_a_manual, aviso_invalida, no_se_guarda), `bitacora.ev.correo_enviado`, `bitacora.tipo.correo_enviado` | Correo / bitácora | sin revisar |
+| 2026-10-22 | Tanda 7 M2 | `opciones.mant_tipo_calibracion` (texto cambiado: "Calibración (histórico)" / "Calibration (historical)") | Mantenimiento | sin revisar |
+| 2026-10-22 | Tanda 7 Q1 (R1-P3) | `parametros_desc.calentamiento.rango_calentamiento_temp`, `parametros_desc.calentamiento.rango_calentamiento_pres` (reemplazan a `rango_calentamiento`) | Parámetros del ciclo | sin revisar |
+| 2026-10-22 | Tanda 7 Q1 (R1-P5) | `ciclo.cancelacion_en_espera_datos` | Ciclo — **requiere revisión explícita** | sin revisar |
+| 2026-10-22 | Tanda 7 Q1 (T2-b) | `notificaciones.despejar_sin_enlace` | Alarmas y seguridad — **requiere revisión explícita** | sin revisar |
+| 2026-10-22 | Tanda 8 V8b | `parametros.<sección>.<clave>` (95 nombres visibles de los parámetros de programa, sección nueva), `estado_seguro_motivos.{sonda_temperatura,sonda_enfriamiento,liquido_caliente}` (motivos de CIC-10, sección nueva) | Parámetros del ciclo; Alarmas y seguridad — **`estado_seguro_motivos` requiere revisión explícita** | sin revisar |
+| 2026-10-23 | Tanda 8 M8 | `menu.ultimo_mantenimiento` ("Date of last preventive maintenance"), `equipo.ultimo_mantenimiento` ("Last preventive maintenance"), `opciones.mant_intervalos_ayuda`, `opciones.mant_tipo_otro` ("Other (historical)") (textos cambiados) | Mantenimiento | sin revisar |
+| 2026-10-23 | Tanda 8 V8b (unión) | `estado_seguro_motivos.sonda_liquido_sellada` (motivo de CIC-10 nuevo de S2: carga líquida sellada sin sonda Principal); `parametros_desc.globals.tipo_carga` (texto de D8-5.7 con los nombres visibles de V8b) | Alarmas y seguridad — **requiere revisión explícita** | sin revisar |
+
+## Revisión V8b (tanda 8, 22-oct-2026): abreviaturas, anglicismos y mezcla de idiomas
+
+D8-5.4 (ningún texto abreviado ni recortado) y D8-5.5 (sin mezclar idiomas). Las pruebas
+`tests/test_v8b_textos.py` recorren TODO el catálogo con listas de abreviaturas conocidas,
+de anglicismos prohibidos en `es.json` y de palabras en español prohibidas en `en.json`.
+Estado: **sin revisar** (cambios de texto hechos por Claude Code sin Cristian).
+
+Resuelve el término dudoso **T-07** (abreviaturas `Temp. Ester.` / `Tiempo Est.` / `Tiempo Sec.`):
+ahora van completas en ambos idiomas.
+
+Excepciones admitidas (DECISIÓN SIN CONFIRMAR): nombres propios y marcas (SPK-SAT, F0,
+Bowie & Dick, Especifika), unidades, siglas técnicas (USB, PDF, CSV, PWM, SMTP, IP, PC, E/S),
+"software"/"firmware"/"hardware" (sin equivalente de uso común en español) y el nombre de
+cada idioma en su propia lengua ("Español" en `en.json`).
+
+### Textos cambiados
+
+| Idioma | Clave | Antes | Ahora |
+|---|---|---|---|
+| es | `ciclo.entrada_corta_temp_camara` | Temp. cámara | Temperatura de cámara |
+| es | `ciclo.entrada_corta_temp_2_camara` | Temp. cámara 2 | Temperatura de cámara 2 |
+| es | `ciclo.entrada_corta_temp_referencia` | Temp. referencia | Temperatura de referencia |
+| es | `ciclo.entrada_corta_temp_drenaje` | Temp. drenaje | Temperatura de drenaje |
+| es | `ciclo.entrada_corta_temp_drenaje_camara` | Temp. dren. cámara | Temperatura de drenaje de cámara |
+| es | `ciclo.entrada_corta_pres_chaqueta` | Pres. chaqueta | Presión de chaqueta |
+| es | `ciclo.entrada_corta_pres_empaque_1` | Pres. empaque 1 | Presión de empaque 1 |
+| es | `ciclo.entrada_corta_pres_empaque_2` | Pres. empaque 2 | Presión de empaque 2 |
+| es | `ciclo.serie_temp_camara` | Temp. cámara | Temperatura de cámara |
+| es | `ciclo.serie_temp_ref` | Temp. ref. | Temperatura de referencia |
+| es | `ciclo.temp_ester` | Temp. ester. | Temperatura de esterilización |
+| es | `ciclo.tiempo_est` | Tiempo est. | Tiempo de esterilización |
+| es | `ciclo.tiempo_sec` | Tiempo sec. | Tiempo de secado |
+| es | `ciclo.temp_camara` | Temp. cámara | Temperatura de cámara |
+| es | `ciclo.temp_referencia` | Temp. referencia | Temperatura de referencia |
+| es | `sensores[1].etiqueta` | Tiempo est. | Tiempo de esterilización |
+| es | `sensores[2].etiqueta` | Tiempo sec. | Tiempo de secado |
+| es | `sensores[3].etiqueta` | Temp. 1 | Temperatura 1 |
+| es | `exportacion.titulo` | Ciclo N.º {numero} · {programa} | Ciclo número {numero} · {programa} |
+| es | `exportacion.consigna_temp` | Consigna temp. | Consigna de temperatura |
+| es | `exportacion.consigna_pres` | Consigna presión | Consigna de presión |
+| es | `reportes.col_pagina` | Pág. | Página |
+| es | `reportes.col_completados` | Compl. | Completados |
+| es | `reportes.col_cancelados` | Cancel. | Cancelados |
+| es | `sesion.titulo_login` | LOGIN | INICIO DE SESIÓN |
+| es | `io.ui.on` | ON | ENCENDIDA |
+| es | `io.ui.off` | OFF | APAGADA |
+| es | `io.ui.offset` | Offset | Desplazamiento |
+| en | `ciclo.entrada_corta_temp_camara` | Chamber temp. | Chamber temperature |
+| en | `ciclo.entrada_corta_temp_2_camara` | Chamber temp. 2 | Chamber temperature 2 |
+| en | `ciclo.entrada_corta_temp_referencia` | Reference temp. | Reference temperature |
+| en | `ciclo.entrada_corta_temp_drenaje` | Drain temp. | Drain temperature |
+| en | `ciclo.entrada_corta_temp_drenaje_camara` | Chamber drain temp. | Chamber drain temperature |
+| en | `ciclo.entrada_corta_pres_chaqueta` | Jacket pres. | Jacket pressure |
+| en | `ciclo.entrada_corta_pres_empaque_1` | Gasket pres. 1 | Gasket pressure 1 |
+| en | `ciclo.entrada_corta_pres_empaque_2` | Gasket pres. 2 | Gasket pressure 2 |
+| en | `ciclo.serie_temp_camara` | Chamber Temp | Chamber temperature |
+| en | `ciclo.serie_temp_ref` | Ref Temp | Reference temperature |
+| en | `ciclo.temp_ester` | Ster. Temp. | Sterilization temperature |
+| en | `ciclo.tiempo_est` | Ster. Time | Sterilization time |
+| en | `ciclo.tiempo_sec` | Dry. Time | Drying time |
+| en | `ciclo.temp_camara` | Chamber temp | Chamber temperature |
+| en | `ciclo.temp_referencia` | Reference temp | Reference temperature |
+| en | `sensores[1].etiqueta` | Ster. Time | Sterilization time |
+| en | `sensores[2].etiqueta` | Dry. Time | Drying time |
+| en | `sensores[3].etiqueta` | Temp 1 | Temperature 1 |
+| en | `exportacion.titulo` | Cycle No. {numero} · {programa} | Cycle number {numero} · {programa} |
+| en | `exportacion.consigna_temp` | Temp. setpoint | Temperature setpoint |
+| en | `reportes.col_completados` | Compl. | Completed |
+| en | `reportes.col_cancelados` | Cancel. | Cancelled |
+
+### Descripciones de parámetros (`parametros_desc.*`, `descompresion_modos.*`, solo es)
+
+39 descripciones y 3 descripciones de modos de descompresión cambian por lo mismo:
+- las referencias entre comillas «…» citaban la clave del parámetro ("«Presion add calentamiento»",
+  "«Timeout pulso»"); ahora citan el nombre visible nuevo ("«Presión adicional de calentamiento»",
+  "«Tiempo límite por pulso»"). Una prueba exige que toda cita «…» sea un nombre de `parametros.*`;
+- "timeout" → "tiempo límite"; "duty" → "ciclo de trabajo"; "T ref. 121,1" →
+  "temperatura de referencia 121,1"; "kPa abs." → "kPa absolutos".
+
+### Nombres visibles de parámetros (sección nueva `parametros`)
+
+Antes, OPCIONES › Parámetros del ciclo mostraba la clave convertida ("Presion add ester",
+"Escape lento on ester", "Timeout bajo"), en español también con la interfaz en inglés.
+Ahora cada parámetro de los perfiles tiene nombre en es y en (p. ej. `esterilizacion.presion_add_esterilizacion`
+= "Presión adicional de esterilización" / "Additional sterilization pressure";
+`esterilizacion.brecha_segura_presion` = "Margen de recuperación por presión" / "Pressure recovery margin").
+Lista completa en `src/autoclave/i18n/{es,en}.json` → `parametros`. Pendiente de revisión técnica
+de Cristian, en especial los "Margen de falla…" / "Margen de recuperación…" de Esterilización.
+
+### Textos que Python arma fuera del catálogo y que se cambiaron
+
+| Archivo | Antes | Ahora |
+|---|---|---|
+| `state_machine/cycle_phases/calentamiento.py` (motivo de fallo) | Timeout de calentamiento: … | Tiempo límite de calentamiento: … |
+| `state_machine/cycle_phases/descompresion.py` (motivo de fallo) | Timeout de {etapa} del modo {n} | Tiempo límite de {etapa} del modo {n} |
+| `state_machine/cycle_phases/protocolo_fallo.py` (motivo de CIC-10) | Timeout de descompresión con carga líquida caliente: no se usa la rápida | Tiempo límite de descompresión con carga líquida caliente: no se usa el escape rápido |
+
+## Registro de revisiones
+
+| Clave o grupo | Revisor | Rol (técnico / lingüístico) | Fecha | Resultado | Observaciones |
+|---|---|---|---|---|---|
+| | | | | | |

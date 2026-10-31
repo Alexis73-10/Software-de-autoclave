@@ -1,0 +1,5 @@
+=========================== short test summary info ===========================
+FAILED tests/test_arquitectura_capas.py::test_capa_no_importa_la_ui[backend]
+FAILED tests/test_arquitectura_capas.py::test_capa_no_importa_la_ui[simulador]
+FAILED tests/test_arquitectura_capas.py::test_auth_existe_y_no_importa_pyside6
+3 failed, 8 passed in 2.01s

@@ -1,0 +1,10 @@
+{
+    "_nota": "PROVISIONAL: remitente, servidor y destinos del envío de ciclos por correo (Historial del Menú Principal) hasta que exista la pantalla de Configuración. La contraseña de aplicación del remitente NO va aquí: se guarda en el almacén de credenciales de Windows con  python -m autoclave.ui_qml.exportacion.config_correo",
+    "remitente": "tecnico01.especifika@gmail.com",
+    "servidor_smtp": "smtp.gmail.com",
+    "puerto": 587,
+    "destinos": [
+        {"nombre": "Administrativo", "correo": "ventasmantenimiento.especifika@gmail.com"},
+        {"nombre": "Mantenimiento", "correo": "ingenieria.ccubides@gmail.com"}
+    ]
+}

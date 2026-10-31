@@ -1,7 +1,5 @@
 from unittest.mock import MagicMock, patch
 
-import serial
-
 from tests.test_control_loop_connectivity_ticket import _make_loop
 
 
@@ -24,16 +22,15 @@ def _run_two_ticks(loop):
 
 
 def test_excepcion_en_door_update_no_mata_el_hilo_control_loop():
-    """Reproduce el bug: la tarjeta se desconecta/reconecta y una escritura
-    serial en curso (p.ej. door.update() -> cerrar_on()) lanza
-    SerialTimeoutException. El hilo ControlLoop no debe morir por eso: debe
+    """Reproduce el bug: el módulo E/S se desconecta/reconecta y una escritura
+    en curso (p.ej. door.update() -> cerrar_on()) lanza una excepción de
+    E/S (antes SerialTimeoutException de pyserial; desde la tanda 20, T20-03,
+    una excepción genérica: el enlace serial se retiró). El hilo ControlLoop no debe morir por eso: debe
     registrar el error y seguir iterando en el siguiente tick."""
     loop = _make_loop()
 
     door_falla = MagicMock()
-    door_falla.update.side_effect = serial.serialutil.SerialTimeoutException(
-        "Write timeout"
-    )
+    door_falla.update.side_effect = TimeoutError("Write timeout")
     loop.doors = [door_falla]
 
     ticks = _run_two_ticks(loop)

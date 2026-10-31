@@ -1,0 +1,1178 @@
+[
+ {
+  "path": "/openapi.json",
+  "methods": [
+   "GET",
+   "HEAD"
+  ],
+  "name": "openapi",
+  "dependencias": [],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/docs",
+  "methods": [
+   "GET",
+   "HEAD"
+  ],
+  "name": "swagger_ui_html",
+  "dependencias": [],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/docs/oauth2-redirect",
+  "methods": [
+   "GET",
+   "HEAD"
+  ],
+  "name": "swagger_ui_redirect",
+  "dependencias": [],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/redoc",
+  "methods": [
+   "GET",
+   "HEAD"
+  ],
+  "name": "redoc_html",
+  "dependencias": [],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/arranque",
+  "methods": [
+   "GET"
+  ],
+  "name": "get_arranque",
+  "dependencias": [],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/auth/login",
+  "methods": [
+   "POST"
+  ],
+  "name": "login",
+  "dependencias": [],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/auth/logout",
+  "methods": [
+   "POST"
+  ],
+  "name": "logout",
+  "dependencias": [
+   "requiere_rol.<locals>.dependencia(permitir_cambio_pendiente=True, roles=[])"
+  ],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/auth/sesion",
+  "methods": [
+   "GET"
+  ],
+  "name": "sesion_actual",
+  "dependencias": [
+   "requiere_rol.<locals>.dependencia(permitir_cambio_pendiente=True, roles=[])"
+  ],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/auth/change_password",
+  "methods": [
+   "POST"
+  ],
+  "name": "change_password",
+  "dependencias": [
+   "requiere_rol.<locals>.dependencia(permitir_cambio_pendiente=True, roles=[])"
+  ],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/usuarios",
+  "methods": [
+   "POST"
+  ],
+  "name": "crear_usuario",
+  "dependencias": [
+   "requiere_rol.<locals>.dependencia(permitir_cambio_pendiente=False, roles=['admin', 'ingeniero'])"
+  ],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/usuarios",
+  "methods": [
+   "GET"
+  ],
+  "name": "listar_usuarios",
+  "dependencias": [
+   "requiere_rol.<locals>.dependencia(permitir_cambio_pendiente=False, roles=['admin', 'tecnico', 'ingeniero'])"
+  ],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/usuarios/{usuario}/activo",
+  "methods": [
+   "PUT"
+  ],
+  "name": "fijar_activo_usuario",
+  "dependencias": [
+   "requiere_rol.<locals>.dependencia(permitir_cambio_pendiente=False, roles=['admin', 'ingeniero'])"
+  ],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/usuarios/{usuario}/restablecer_clave",
+  "methods": [
+   "POST"
+  ],
+  "name": "restablecer_clave",
+  "dependencias": [
+   "requiere_rol.<locals>.dependencia(permitir_cambio_pendiente=False, roles=['admin', 'ingeniero'])"
+  ],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/usuarios/{usuario}",
+  "methods": [
+   "DELETE"
+  ],
+  "name": "borrar_usuario",
+  "dependencias": [
+   "requiere_rol.<locals>.dependencia(permitir_cambio_pendiente=False, roles=['admin', 'ingeniero'])"
+  ],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/usuarios/{usuario}",
+  "methods": [
+   "PATCH"
+  ],
+  "name": "modificar_usuario",
+  "dependencias": [
+   "requiere_rol.<locals>.dependencia(permitir_cambio_pendiente=False, roles=['admin', 'ingeniero'])"
+  ],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/operadores",
+  "methods": [
+   "GET"
+  ],
+  "name": "listar_operadores",
+  "dependencias": [],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/operadores",
+  "methods": [
+   "POST"
+  ],
+  "name": "crear_operador",
+  "dependencias": [
+   "requiere_rol.<locals>.dependencia(permitir_cambio_pendiente=False, roles=['admin', 'ingeniero'])"
+  ],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/operadores/{id_}/activo",
+  "methods": [
+   "PUT"
+  ],
+  "name": "fijar_activo_operador",
+  "dependencias": [
+   "requiere_rol.<locals>.dependencia(permitir_cambio_pendiente=False, roles=['admin', 'ingeniero'])"
+  ],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/system/time",
+  "methods": [
+   "GET"
+  ],
+  "name": "get_system_time",
+  "dependencias": [],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/system/info",
+  "methods": [
+   "GET"
+  ],
+  "name": "get_system_info",
+  "dependencias": [],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/audit_log",
+  "methods": [
+   "GET"
+  ],
+  "name": "get_audit_log",
+  "dependencias": [
+   "requiere_rol.<locals>.dependencia(permitir_cambio_pendiente=False, roles=['admin', 'tecnico', 'ingeniero'])"
+  ],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/ui/standby",
+  "methods": [
+   "POST"
+  ],
+  "name": "registrar_suspension",
+  "dependencias": [],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/calibration/{tipo}/{sensor}",
+  "methods": [
+   "GET"
+  ],
+  "name": "get_calibration",
+  "dependencias": [],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/calibration/{tipo}/{sensor}",
+  "methods": [
+   "PATCH"
+  ],
+  "name": "update_calibration",
+  "dependencias": [
+   "requiere_rol.<locals>.dependencia(permitir_cambio_pendiente=False, roles=['tecnico', 'ingeniero'])"
+  ],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/calibration/{tipo}/{sensor}/restaurar",
+  "methods": [
+   "POST"
+  ],
+  "name": "restaurar_calibracion",
+  "dependencias": [
+   "requiere_rol.<locals>.dependencia(permitir_cambio_pendiente=False, roles=['tecnico', 'ingeniero'])"
+  ],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/status",
+  "methods": [
+   "GET"
+  ],
+  "name": "get_status",
+  "dependencias": [],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/ui/activity",
+  "methods": [
+   "POST"
+  ],
+  "name": "registrar_actividad_ui",
+  "dependencias": [],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/global_params",
+  "methods": [
+   "GET"
+  ],
+  "name": "get_global_params",
+  "dependencias": [],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/system_params",
+  "methods": [
+   "GET"
+  ],
+  "name": "get_system_params",
+  "dependencias": [],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/global_params/{clave}",
+  "methods": [
+   "GET"
+  ],
+  "name": "get_global_param",
+  "dependencias": [],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/global_params/{clave}",
+  "methods": [
+   "PATCH"
+  ],
+  "name": "patch_global_param",
+  "dependencias": [
+   "requiere_rol.<locals>.dependencia(permitir_cambio_pendiente=False, roles=['tecnico', 'ingeniero'])"
+  ],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/global_params/{clave}/reset",
+  "methods": [
+   "POST"
+  ],
+  "name": "reset_global_param",
+  "dependencias": [
+   "requiere_rol.<locals>.dependencia(permitir_cambio_pendiente=False, roles=['tecnico', 'ingeniero'])"
+  ],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/cycle",
+  "methods": [
+   "GET"
+  ],
+  "name": "get_selected_cycle",
+  "dependencias": [],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/cycles",
+  "methods": [
+   "GET"
+  ],
+  "name": "list_cycles",
+  "dependencias": [],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/cycle/select",
+  "methods": [
+   "POST"
+  ],
+  "name": "select_cycle",
+  "dependencias": [],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/cycle/current/readings",
+  "methods": [
+   "GET"
+  ],
+  "name": "get_current_cycle_readings",
+  "dependencias": [],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/cycle/current/progress",
+  "methods": [
+   "GET"
+  ],
+  "name": "get_current_cycle_progress",
+  "dependencias": [],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/cycle/current/graph",
+  "methods": [
+   "GET"
+  ],
+  "name": "get_current_cycle_graph",
+  "dependencias": [],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/maintenance",
+  "methods": [
+   "GET"
+  ],
+  "name": "get_maintenance",
+  "dependencias": [],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/maintenance/records",
+  "methods": [
+   "GET"
+  ],
+  "name": "get_maintenance_records",
+  "dependencias": [
+   "requiere_rol.<locals>.dependencia(permitir_cambio_pendiente=False, roles=['tecnico', 'ingeniero', 'admin'])"
+  ],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/maintenance/config",
+  "methods": [
+   "PUT"
+  ],
+  "name": "put_maintenance_config",
+  "dependencias": [
+   "requiere_rol.<locals>.dependencia(permitir_cambio_pendiente=False, roles=['tecnico', 'ingeniero'])"
+  ],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/maintenance/records",
+  "methods": [
+   "POST"
+  ],
+  "name": "post_maintenance_record",
+  "dependencias": [
+   "requiere_rol.<locals>.dependencia(permitir_cambio_pendiente=False, roles=['tecnico', 'ingeniero'])"
+  ],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/language",
+  "methods": [
+   "GET"
+  ],
+  "name": "get_language",
+  "dependencias": [],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/language",
+  "methods": [
+   "PUT"
+  ],
+  "name": "put_language",
+  "dependencias": [
+   "requiere_rol.<locals>.dependencia(permitir_cambio_pendiente=False, roles=['admin', 'ingeniero'])"
+  ],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/units",
+  "methods": [
+   "GET"
+  ],
+  "name": "get_units",
+  "dependencias": [],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/units",
+  "methods": [
+   "PUT"
+  ],
+  "name": "put_units",
+  "dependencias": [
+   "requiere_rol.<locals>.dependencia(permitir_cambio_pendiente=False, roles=['ingeniero'])"
+  ],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/printer/config",
+  "methods": [
+   "GET"
+  ],
+  "name": "get_printer_config",
+  "dependencias": [],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/printer/config",
+  "methods": [
+   "PUT"
+  ],
+  "name": "put_printer_config",
+  "dependencias": [
+   "requiere_rol.<locals>.dependencia(permitir_cambio_pendiente=False, roles=['tecnico', 'ingeniero'])"
+  ],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/maintenance/atm-calibration",
+  "methods": [
+   "GET"
+  ],
+  "name": "get_atm_calibration",
+  "dependencias": [],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/maintenance/atm-calibration/start",
+  "methods": [
+   "POST"
+  ],
+  "name": "start_atm_calibration",
+  "dependencias": [
+   "requiere_rol.<locals>.dependencia(permitir_cambio_pendiente=False, roles=['tecnico', 'ingeniero'])"
+  ],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/maintenance/atm-calibration/cancel",
+  "methods": [
+   "POST"
+  ],
+  "name": "cancel_atm_calibration",
+  "dependencias": [
+   "requiere_rol.<locals>.dependencia(permitir_cambio_pendiente=False, roles=['tecnico', 'ingeniero'])"
+  ],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/maintenance/atm-calibration/confirm",
+  "methods": [
+   "POST"
+  ],
+  "name": "confirm_atm_calibration",
+  "dependencias": [
+   "requiere_rol.<locals>.dependencia(permitir_cambio_pendiente=False, roles=['tecnico', 'ingeniero'])"
+  ],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/maintenance/atm-calibration/discard",
+  "methods": [
+   "POST"
+  ],
+  "name": "discard_atm_calibration",
+  "dependencias": [
+   "requiere_rol.<locals>.dependencia(permitir_cambio_pendiente=False, roles=['tecnico', 'ingeniero'])"
+  ],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/printer/test-page",
+  "methods": [
+   "POST"
+  ],
+  "name": "print_test_page",
+  "dependencias": [
+   "requiere_rol.<locals>.dependencia(permitir_cambio_pendiente=False, roles=['tecnico', 'ingeniero'])"
+  ],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/maintenance/print/calibration",
+  "methods": [
+   "POST"
+  ],
+  "name": "print_calibration",
+  "dependencias": [
+   "requiere_rol.<locals>.dependencia(permitir_cambio_pendiente=False, roles=['tecnico', 'ingeniero'])"
+  ],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/email/sent",
+  "methods": [
+   "POST"
+  ],
+  "name": "post_email_sent",
+  "dependencias": [],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/network/status",
+  "methods": [
+   "GET"
+  ],
+  "name": "get_network_status",
+  "dependencias": [
+   "requiere_rol.<locals>.dependencia(permitir_cambio_pendiente=False, roles=['admin', 'tecnico', 'ingeniero'])"
+  ],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/email/config",
+  "methods": [
+   "GET"
+  ],
+  "name": "get_email_config",
+  "dependencias": [
+   "requiere_rol.<locals>.dependencia(permitir_cambio_pendiente=False, roles=['admin', 'tecnico', 'ingeniero'])"
+  ],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/email/config",
+  "methods": [
+   "PUT"
+  ],
+  "name": "put_email_config",
+  "dependencias": [
+   "requiere_rol.<locals>.dependencia(permitir_cambio_pendiente=False, roles=['admin', 'ingeniero'])"
+  ],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/email/test",
+  "methods": [
+   "POST"
+  ],
+  "name": "post_email_test",
+  "dependencias": [
+   "requiere_rol.<locals>.dependencia(permitir_cambio_pendiente=False, roles=['admin', 'ingeniero'])"
+  ],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/backup/usb",
+  "methods": [
+   "GET"
+  ],
+  "name": "get_backup_usb",
+  "dependencias": [
+   "requiere_rol.<locals>.dependencia(permitir_cambio_pendiente=False, roles=['tecnico', 'ingeniero'])"
+  ],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/backup/export",
+  "methods": [
+   "POST"
+  ],
+  "name": "post_backup_export",
+  "dependencias": [
+   "requiere_rol.<locals>.dependencia(permitir_cambio_pendiente=False, roles=['tecnico', 'ingeniero'])"
+  ],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/backup/restore",
+  "methods": [
+   "POST"
+  ],
+  "name": "post_backup_restore",
+  "dependencias": [
+   "requiere_rol.<locals>.dependencia(permitir_cambio_pendiente=False, roles=['tecnico', 'ingeniero'])"
+  ],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/cycle/summary",
+  "methods": [
+   "GET"
+  ],
+  "name": "get_cycle_summary",
+  "dependencias": [],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/cycle/list",
+  "methods": [
+   "GET"
+  ],
+  "name": "get_cycle_list",
+  "dependencias": [],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/cycle/history/print",
+  "methods": [
+   "POST"
+  ],
+  "name": "print_cycle_history",
+  "dependencias": [],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/report/summary",
+  "methods": [
+   "GET"
+  ],
+  "name": "get_report_summary",
+  "dependencias": [],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/report/failures",
+  "methods": [
+   "GET"
+  ],
+  "name": "get_report_failures",
+  "dependencias": [],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/report/summary/print",
+  "methods": [
+   "POST"
+  ],
+  "name": "print_report_summary",
+  "dependencias": [],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/cycle/history/{ciclo_id}/graph",
+  "methods": [
+   "GET"
+  ],
+  "name": "get_cycle_history_graph",
+  "dependencias": [],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/cycle/history",
+  "methods": [
+   "GET"
+  ],
+  "name": "get_cycle_history",
+  "dependencias": [],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/cycle/history/{ciclo_id}/readings",
+  "methods": [
+   "GET"
+  ],
+  "name": "get_cycle_readings",
+  "dependencias": [],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/cycle/history/{ciclo_id}/ticket",
+  "methods": [
+   "GET"
+  ],
+  "name": "get_cycle_ticket",
+  "dependencias": [],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/db/estado",
+  "methods": [
+   "GET"
+  ],
+  "name": "get_db_estado",
+  "dependencias": [],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/cycle/start",
+  "methods": [
+   "POST"
+  ],
+  "name": "start_cycle",
+  "dependencias": [],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/cycle/abort",
+  "methods": [
+   "POST"
+  ],
+  "name": "abort_cycle",
+  "dependencias": [],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/fault/reset",
+  "methods": [
+   "POST"
+  ],
+  "name": "reset_fault",
+  "dependencias": [],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/system/shutdown",
+  "methods": [
+   "POST"
+  ],
+  "name": "shutdown_system",
+  "dependencias": [],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/system/shutdown/estado",
+  "methods": [
+   "GET"
+  ],
+  "name": "shutdown_estado",
+  "dependencias": [],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/safe-state/confirm",
+  "methods": [
+   "POST"
+  ],
+  "name": "confirm_safe_state",
+  "dependencias": [],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/outputs/reset",
+  "methods": [
+   "POST"
+  ],
+  "name": "reset_outputs",
+  "dependencias": [],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/cycle/acknowledge",
+  "methods": [
+   "POST"
+  ],
+  "name": "acknowledge_cycle",
+  "dependencias": [],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/alarms/{clave}/acknowledge",
+  "methods": [
+   "POST"
+  ],
+  "name": "acknowledge_alarm",
+  "dependencias": [],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/alarms/history",
+  "methods": [
+   "GET"
+  ],
+  "name": "alarm_history",
+  "dependencias": [],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/doors/{door_name}/open",
+  "methods": [
+   "POST"
+  ],
+  "name": "open_door",
+  "dependencias": [],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/doors/{door_name}/close",
+  "methods": [
+   "POST"
+  ],
+  "name": "close_door",
+  "dependencias": [],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/cycle/parameter",
+  "methods": [
+   "PATCH"
+  ],
+  "name": "update_cycle_parameter",
+  "dependencias": [
+   "requiere_rol.<locals>.dependencia(permitir_cambio_pendiente=False, roles=['tecnico', 'ingeniero'])"
+  ],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/programas",
+  "methods": [
+   "GET"
+  ],
+  "name": "get_programas",
+  "dependencias": [],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/programas/seleccionables",
+  "methods": [
+   "GET"
+  ],
+  "name": "get_programas_seleccionables",
+  "dependencias": [],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/programas/{numero}/seccion/{seccion}",
+  "methods": [
+   "GET"
+  ],
+  "name": "get_programa_seccion",
+  "dependencias": [],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/programas/{numero}/habilitado",
+  "methods": [
+   "PUT"
+  ],
+  "name": "put_programa_habilitado",
+  "dependencias": [
+   "requiere_rol.<locals>.dependencia(permitir_cambio_pendiente=False, roles=['tecnico', 'ingeniero'])"
+  ],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/programas/{numero}/duplicar",
+  "methods": [
+   "POST"
+  ],
+  "name": "post_programa_duplicar",
+  "dependencias": [
+   "requiere_rol.<locals>.dependencia(permitir_cambio_pendiente=False, roles=['tecnico', 'ingeniero'])"
+  ],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/programas/{numero}",
+  "methods": [
+   "DELETE"
+  ],
+  "name": "delete_programa",
+  "dependencias": [
+   "requiere_rol.<locals>.dependencia(permitir_cambio_pendiente=False, roles=['tecnico', 'ingeniero'])"
+  ],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/cycle/display-inputs",
+  "methods": [
+   "GET"
+  ],
+  "name": "get_entradas_mostradas",
+  "dependencias": [],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/cycle/display-inputs",
+  "methods": [
+   "PUT"
+  ],
+  "name": "put_entradas_mostradas",
+  "dependencias": [
+   "requiere_rol.<locals>.dependencia(permitir_cambio_pendiente=False, roles=['tecnico', 'ingeniero'])"
+  ],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/cycle/sensors",
+  "methods": [
+   "GET"
+  ],
+  "name": "get_cycle_sensors",
+  "dependencias": [],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/cycle/sensor-roles",
+  "methods": [
+   "PUT"
+  ],
+  "name": "put_sensor_roles",
+  "dependencias": [
+   "requiere_rol.<locals>.dependencia(permitir_cambio_pendiente=False, roles=['tecnico', 'ingeniero'])"
+  ],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/io/channels",
+  "methods": [
+   "GET"
+  ],
+  "name": "io_channels",
+  "dependencias": [
+   "requiere_rol.<locals>.dependencia(permitir_cambio_pendiente=False, roles=['tecnico', 'ingeniero'])"
+  ],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/io/test/enter",
+  "methods": [
+   "POST"
+  ],
+  "name": "io_test_enter",
+  "dependencias": [
+   "requiere_rol.<locals>.dependencia(permitir_cambio_pendiente=False, roles=['tecnico', 'ingeniero'])"
+  ],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/io/test/exit",
+  "methods": [
+   "POST"
+  ],
+  "name": "io_test_exit",
+  "dependencias": [
+   "requiere_rol.<locals>.dependencia(permitir_cambio_pendiente=False, roles=['tecnico', 'ingeniero'])"
+  ],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/io/test/output/{name}",
+  "methods": [
+   "PATCH"
+  ],
+  "name": "io_test_set_output",
+  "dependencias": [
+   "requiere_rol.<locals>.dependencia(permitir_cambio_pendiente=False, roles=['tecnico', 'ingeniero'])"
+  ],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/io/test/keepalive",
+  "methods": [
+   "POST"
+  ],
+  "name": "io_test_keepalive",
+  "dependencias": [
+   "requiere_rol.<locals>.dependencia(permitir_cambio_pendiente=False, roles=['tecnico', 'ingeniero'])"
+  ],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/io/test/force-exit",
+  "methods": [
+   "POST"
+  ],
+  "name": "io_test_force_exit",
+  "dependencias": [
+   "requiere_rol.<locals>.dependencia(permitir_cambio_pendiente=False, roles=['tecnico', 'ingeniero'])"
+  ],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/io/assignment",
+  "methods": [
+   "GET"
+  ],
+  "name": "get_io_assignment",
+  "dependencias": [
+   "requiere_rol.<locals>.dependencia(permitir_cambio_pendiente=False, roles=['ingeniero'])"
+  ],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/io/assignment",
+  "methods": [
+   "POST"
+  ],
+  "name": "post_io_assignment",
+  "dependencias": [
+   "requiere_rol.<locals>.dependencia(permitir_cambio_pendiente=False, roles=['ingeniero'])"
+  ],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/io/assignment/factory",
+  "methods": [
+   "POST"
+  ],
+  "name": "post_io_assignment_factory",
+  "dependencias": [
+   "requiere_rol.<locals>.dependencia(permitir_cambio_pendiente=False, roles=['ingeniero'])"
+  ],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/io/assignment/verify",
+  "methods": [
+   "POST"
+  ],
+  "name": "post_io_assignment_verify",
+  "dependencias": [
+   "requiere_rol.<locals>.dependencia(permitir_cambio_pendiente=False, roles=['ingeniero'])"
+  ],
+  "status_code": null,
+  "response_model": null
+ }
+]

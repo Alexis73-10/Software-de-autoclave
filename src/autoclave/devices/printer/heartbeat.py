@@ -3,18 +3,17 @@ import logging
 import threading
 from datetime import datetime
 from pathlib import Path
+from autoclave.utils.archivos import escribir_texto_atomico
+from autoclave.utils.paths import app_root
 
 logger = logging.getLogger(__name__)
 
-_DEFAULT_FILE = Path(__file__).resolve().parents[4] / "data" / "last_shutdown.json"
+_DEFAULT_FILE = app_root() / "data" / "last_shutdown.json"
 
 
 def write_timestamp(path: Path = _DEFAULT_FILE) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        json.dumps({"timestamp": datetime.now().isoformat()}),
-        encoding="utf-8",
-    )
+    # A2: atómica; un corte a mitad de escritura no deja un JSON truncado
+    escribir_texto_atomico(path, json.dumps({"timestamp": datetime.now().isoformat()}))
 
 
 def read_last_shutdown(path: Path = _DEFAULT_FILE) -> datetime | None:

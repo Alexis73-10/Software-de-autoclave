@@ -1,17 +1,27 @@
 import time
 import logging
 
+from autoclave.core.runtime import motivos_fase
+from autoclave.core.runtime import vigencia_ai
 from autoclave.state_machine.cycle_phases.base_fase import BaseFase, FaseResult
 from autoclave.state_machine.cycle_phases.valvula_reposo import abrir_valvula_modo
+from autoclave.core.runtime.lectura import carga_enfriada
 
 logger = logging.getLogger(__name__)
+
+# TMG-02 de T11: lecturas consecutivas del Principal en o bajo la temperatura
+# de enfriamiento antes de abrir la rápida (modos 4/5), como en el protocolo
+# de fallo (SAF-06 de T5)
+_DEBOUNCE_LECTURAS = 3
 
 
 class DescompresionFase(BaseFase):
     name = "DESCOMPRESION"
 
     def reset(self):
-        self._modo             = self.cycle.get_param("descompresion", "modo", default=0)
+        # el modo se lee al iniciar la fase, no al iniciar el ciclo: un cambio
+        # con la fase pendiente (T-17, §5.8) debe regir la fase completa
+        self._modo             = None
         self._etapa            = None
         self._sub_etapa        = None
         self._t_inicio         = None
@@ -19,14 +29,29 @@ class DescompresionFase(BaseFase):
         self._t_pulso_chaqueta = None
         self._chaqueta_abierta = False
         self._t_aire_comprimido = None
+        self._lecturas_enfriada = 0
+
+    @property
+    def chaqueta_en_enfriamiento(self) -> bool:
+        """Modos 4/5 enfriando o despresurizando: la chaqueta se ventea y se
+        enfría con agua; su vapor debe quedar apagado (TMG-01 de T11)."""
+        return self._sub_etapa in ("enfriamiento", "descompresion")
+
+    @property
+    def en_enfriamiento_con_contrapresion(self) -> bool:
+        """D8-2.10 (tanda 8): modos 4/5 en la sub-etapa de enfriamiento (aire
+        comprimido de contrapresión y agua de chaqueta). CicloState lo pasa al
+        protocolo de fallo si se pierde el Principal."""
+        return self._modo in (4, 5) and self._sub_etapa == "enfriamiento"
 
     def update(self) -> FaseResult:
         if self._etapa is None:
+            self._modo = self.cycle.get_param("descompresion", "modo", default=0)
             self._apagar_todo()
             t_pre = self.cycle.get_param("descompresion", "tiempo_pre_despresurizacion", default=0)
             if t_pre and t_pre > 0:
                 self._etapa    = "pre_espera"
-                self._t_inicio = time.time()
+                self._t_inicio = time.monotonic()
             else:
                 self._etapa = "modo"
                 self._iniciar_modo()
@@ -34,7 +59,7 @@ class DescompresionFase(BaseFase):
 
         if self._etapa == "pre_espera":
             t_pre = self.cycle.get_param("descompresion", "tiempo_pre_despresurizacion", default=0)
-            if time.time() - self._t_inicio >= t_pre:
+            if time.monotonic() - self._t_inicio >= t_pre:
                 self._etapa = "modo"
                 self._iniciar_modo()
             return FaseResult.EN_CURSO
@@ -42,7 +67,7 @@ class DescompresionFase(BaseFase):
         return self._tick_modo()
 
     def _iniciar_modo(self):
-        self._t_inicio = time.time()
+        self._t_inicio = time.monotonic()
         if self._modo > 0:
             timeout_min     = self.cycle.get_param("descompresion", f"modo_{self._modo}", "timeout", default=60)
             self._t_timeout = self._t_inicio + (timeout_min or 60) * 60
@@ -55,9 +80,19 @@ class DescompresionFase(BaseFase):
             self._t_aire_comprimido = None
 
     def _tick_modo(self) -> FaseResult:
-        if self._modo > 0 and self._t_timeout and time.time() > self._t_timeout:
+        if self._modo > 0 and self._t_timeout and time.monotonic() > self._t_timeout:
             self._apagar_todo()
             logger.error("DescompresionFase: timeout en modo %d", self._modo)
+            # TMG-06 de T11: motivo específico para el ticket y el registro
+            t = self._temp_principal()
+            p = self._pres_camara()
+            # X9 (D9-13.4): clave + parámetros (sin lectura: "—")
+            etapa = (self._sub_etapa
+                     if self._sub_etapa in ("enfriamiento", "descompresion", "lenta", "rapida")
+                     else "general")
+            self.estado.motivo_fallo = motivos_fase.motivo(
+                "desc_tiempo_limite", clave_etapa=f"motivos_fase.etapa.{etapa}",
+                modo=self._modo, temp=t, pres=p)
             return FaseResult.FALLO
 
         _dispatch = {
@@ -92,7 +127,12 @@ class DescompresionFase(BaseFase):
             self.set_do.aire_admosferico_camara_on()
         else:
             self.set_do.aire_admosferico_camara_off()
-            abrir_valvula_modo(self.set_do, self._modo)
+            liquido = self.cycle.get_param("globals", "tipo_carga", default="solido") == "liquido"
+            temp_obj = self.cycle.get_param("descompresion", f"modo_{self._modo or 2}",
+                                            "temperatura_enfriamiento", default=80.0)
+            t = self._temp_principal()
+            enfriada = carga_enfriada(t, temp_obj)
+            abrir_valvula_modo(self.set_do, self._modo, liquido=liquido, enfriada=enfriada)
         return FaseResult.COMPLETADO
 
     def _tick_modo_0(self) -> FaseResult:
@@ -138,11 +178,15 @@ class DescompresionFase(BaseFase):
         return self._tick_sub_descompresion()
 
     def _tick_sub_enfriamiento(self, modo_key: str, use_lenta: bool) -> FaseResult:
-        now = time.time()
+        now = time.monotonic()
 
         presion_obj = self.cycle.get_param("descompresion", modo_key, "presion_camara_enfriamiento", default=200)
         p = self._pres_camara()
-        if p is not None and p < presion_obj:
+        # S9 (tanda 9), revisión ★ pasada 2 (R2-A1): con la trama AI vencida
+        # la presión puede estar congelada bajo el objetivo: sin aire
+        # comprimido (sin realimentación habría sobrepresión)
+        ai_vigente, _ = vigencia_ai.leer(self.estado)
+        if ai_vigente and p is not None and p < presion_obj:
             if self._t_aire_comprimido is None or now >= self._t_aire_comprimido:
                 self.set_do.aire_comprimido_camara_on()
                 self._t_aire_comprimido = now + 3.0
@@ -177,8 +221,11 @@ class DescompresionFase(BaseFase):
             self.set_do.descompresion_lenta_on()
 
         temp_obj = self.cycle.get_param("descompresion", modo_key, "temperatura_enfriamiento", default=80.0)
-        t = self._temp_camara()
-        if t is not None and t <= temp_obj:
+        # Enfriamiento (modos 4/5) medido con el Principal (tanda §1.1)
+        t = self._temp_principal()
+        # SAF-01 de T11: sin lectura o con 0 (sin señal) no cuenta como enfriada
+        self._lecturas_enfriada = self._lecturas_enfriada + 1 if carga_enfriada(t, temp_obj) else 0
+        if self._lecturas_enfriada >= _DEBOUNCE_LECTURAS:
             self.set_do.aire_comprimido_camara_off()
             self.set_do.agua_chaqueta_off()
             if use_lenta:

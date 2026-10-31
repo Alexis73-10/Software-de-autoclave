@@ -7,16 +7,18 @@ from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
+    QMessageBox,
     QPushButton,
     QVBoxLayout,
     QWidget,
 )
 
 from autoclave.hal.measures.calibration_tools import invert_user_calibration, fit_two_point
-from autoclave.ui.service_ui.backend_client import BackendClient
-from autoclave.ui_pyside.services.session_manager import SessionManager
+from autoclave.ui_pyside.services.backend_client import BackendClient
+from autoclave.cliente.session_manager import SessionManager
+from autoclave.ui_pyside.services import renovacion_sesion
 
-_BACKEND_URL = "http://localhost:8000"
+_BACKEND_URL = "http://127.0.0.1:8000"
 
 _BTN_BACK = """
     QPushButton {
@@ -34,7 +36,7 @@ _BTN_GUARDAR = """
     QPushButton:disabled { background: #93c5fd; }
 """
 
-_ROLES_PERMITIDOS = ("admin", "tecnico")
+_ROLES_PERMITIDOS = ("tecnico", "ingeniero")   # tanda 2026-10-14 §1.1 (C-5)
 
 
 class CalibracionSensorView(QWidget):
@@ -117,6 +119,9 @@ class CalibracionSensorView(QWidget):
         root.addWidget(self._btn_guardar)
 
         root.addStretch()
+        # C1a (tanda 6): teclado en pantalla al tocar cada campo (equipo táctil)
+        from autoclave.ui_pyside.views._teclado_pantalla import conectar_todos
+        conectar_todos(self)
 
     # ── Contexto / carga ─────────────────────────────────────────────
 
@@ -218,6 +223,53 @@ class CalibracionSensorView(QWidget):
 
     # ── Guardar ──────────────────────────────────────────────────────
 
+    @staticmethod
+    def _rechazo_http(exc) -> tuple[int | None, str, str]:
+        """(estado, código, detalle) de un HTTPError del backend; (None, "", "")
+        si no es una respuesta HTTP (backend caído)."""
+        resp = getattr(exc, "response", None)
+        if resp is None:
+            return None, "", ""
+        try:
+            datos = resp.json()
+        except Exception:
+            datos = {}
+        return resp.status_code, str(datos.get("codigo", "")), str(datos.get("detail", ""))
+
+    def _resolver_rechazo(self, exc, body: dict):
+        """S3a (tanda 2): el backend rechaza una calibración no plausible (422)
+        o pide confirmar una corrección grande (409). Devuelve el resultado si
+        el técnico confirmó y se guardó; None si no se guardó (el motivo queda
+        en la etiqueta)."""
+        estado, codigo, detalle = self._rechazo_http(exc)
+        if estado in (401, 403):
+            self._lbl_info.setText("Sesión vencida o sin permiso para calibrar: "
+                                   "salga e inicie sesión de nuevo (técnico o ingeniero).")
+            return None
+        if codigo == "CALIBRACION_IMPLAUSIBLE":
+            self._lbl_info.setText(f"Calibración rechazada: {detalle}")
+            return None
+        if codigo == "CALIBRACION_REQUIERE_CONFIRMACION":
+            respuesta = QMessageBox.question(
+                self, "Corrección grande",
+                f"{detalle}\n\nEl cambio queda registrado. ¿Guardar de todos modos?")
+            if respuesta != QMessageBox.StandardButton.Yes:
+                self._lbl_info.setText("Calibración no guardada: falta confirmar la corrección grande.")
+                return None
+            try:
+                return self._client.save_calibration(
+                    self._tipo, self._sensor, {**body, "confirmar_fuera_de_rango": True})
+            except Exception as exc2:
+                estado2, codigo2, detalle2 = self._rechazo_http(exc2)
+                self._lbl_info.setText(f"Calibración rechazada: {detalle2}" if detalle2
+                                       else "No se pudo guardar la calibración — inténtalo de nuevo.")
+                return None
+        if estado in (409, 503) and detalle:
+            self._lbl_info.setText(f"No se guardó la calibración: {detalle}")
+            return None
+        self._lbl_info.setText("No se pudo guardar la calibración — inténtalo de nuevo.")
+        return None
+
     def _on_guardar(self) -> None:
         if self._preview_gain is None or self._tipo is None or self._sensor is None:
             return
@@ -236,10 +288,21 @@ class CalibracionSensorView(QWidget):
             "usuario": usuario,
         }
         try:
-            result = self._client.save_calibration(self._tipo, self._sensor, body)
-        except Exception:
-            self._lbl_info.setText("No se pudo guardar la calibración — inténtalo de nuevo.")
-            return
+            # P3 (tanda 5): ante un 401 pide login y reintenta con los mismos datos
+            guardado = renovacion_sesion.guardar_con_reintento(
+                lambda: self._client.save_calibration(self._tipo, self._sensor, body),
+                lambda: renovacion_sesion.pedir_credenciales_dialogo(self))
+        except Exception as exc:
+            result = self._resolver_rechazo(exc, body)
+            if result is None:
+                return
+        else:
+            if guardado.estado != renovacion_sesion.GUARDADO:
+                self._lbl_info.setText(renovacion_sesion.mensaje_de(guardado))
+                return
+            result = guardado.valor
+            # revisión P3 (SAF-02): el nombre visible es el de la sesión que guardó
+            usuario = (SessionManager.current_user() or {}).get("nombre", usuario)
 
         self._current_gain = result["gain"]
         self._current_offset = result["offset"]

@@ -1,0 +1,8 @@
+{
+  "es": {
+    "arranque.version_software": "Software v{version}"
+  },
+  "en": {
+    "arranque.version_software": "Software v{version}"
+  }
+}

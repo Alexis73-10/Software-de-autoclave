@@ -1,0 +1,60 @@
+{
+ "ROL_*": {
+  "ROL_ADMIN": "admin",
+  "ROL_INGENIERO": "ingeniero",
+  "ROL_TECNICO": "tecnico"
+ },
+ "ROLES": [
+  [
+   "admin",
+   "Admin"
+  ],
+  [
+   "tecnico",
+   "Técnico"
+  ],
+  [
+   "ingeniero",
+   "Ingeniero"
+  ]
+ ],
+ "VALORES_ROL": [
+  "admin",
+  "ingeniero",
+  "tecnico"
+ ],
+ "ROLES_CREABLES": {
+  "admin": [
+   "admin",
+   "tecnico"
+  ],
+  "ingeniero": [
+   "admin",
+   "ingeniero",
+   "tecnico"
+  ]
+ },
+ "validacion_usuario": [
+  "COD_CORTA",
+  "COD_EXISTE",
+  "COD_FORMATO",
+  "COD_IGUAL_ACTUAL",
+  "COD_LARGA",
+  "COD_NO_COINCIDEN",
+  "COD_OBLIGATORIO",
+  "COD_RESERVADO",
+  "COD_ROL_INVALIDO",
+  "NOMBRE_MAX",
+  "PASSWORD_MAX",
+  "PASSWORD_MIN",
+  "USUARIO_EXISTE",
+  "USUARIO_MAX",
+  "USUARIO_MIN",
+  "VALORES_ROL",
+  "campo_pantalla",
+  "codigo_clave",
+  "codigo_confirmacion",
+  "codigos_nuevo_usuario",
+  "error_ui"
+ ]
+}

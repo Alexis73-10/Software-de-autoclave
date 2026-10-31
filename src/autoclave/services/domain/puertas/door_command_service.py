@@ -1,6 +1,14 @@
 import requests
 
 
+def _error_comunicacion() -> str:
+    try:
+        from autoclave import i18n
+        return i18n.t("puerta.error_comunicacion")
+    except Exception:
+        return "Error de comunicación"
+
+
 class DoorCommandService:
     def __init__(self, backend_client, source_door: int):
         self.backend = backend_client
@@ -21,7 +29,7 @@ class DoorCommandService:
         except requests.exceptions.HTTPError as e:
             return False, self._extract_detail(e)
         except Exception:
-            return False, "Error de comunicación"
+            return False, _error_comunicacion()
 
     def close(self, door_name: str) -> tuple:
         """
@@ -38,13 +46,20 @@ class DoorCommandService:
         except requests.exceptions.HTTPError as e:
             return False, self._extract_detail(e)
         except Exception:
-            return False, "Error de comunicación"
+            return False, _error_comunicacion()
 
     @staticmethod
     def _extract_detail(e: requests.exceptions.HTTPError) -> str:
         """Extrae el campo 'detail' del cuerpo JSON de una respuesta de error HTTP."""
         try:
             body = e.response.json()
+            # I4 (tanda 6): el motivo en el idioma vigente si el backend lo trae
+            textos = body.get("motivo_textos")
+            if isinstance(textos, dict):
+                from autoclave import i18n
+                texto = textos.get(i18n.idioma())
+                if isinstance(texto, str) and texto:
+                    return texto
             return body.get("detail", str(e))
         except Exception:
             return str(e)

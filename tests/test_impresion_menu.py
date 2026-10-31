@@ -181,3 +181,16 @@ def test_print_alarms_falla_impresion_muestra_aviso():
 
         mock_print.assert_called_once()
         mock_box.warning.assert_called_once()
+
+
+def test_ticket_alarmas_formato_nuevo():
+    from autoclave.ui_pyside.views.impresion_menu import _build_alarms_ticket_lines
+    texto = "\n".join(_build_alarms_ticket_lines([{
+        "codigo": "PUE-02", "titulo": "Puerta abierta durante el ciclo",
+        "aparecida": "2026-10-07T09:30:05", "origen": "Puerta 1",
+        "id": "PUE-02|Puerta 1", "level": "FALLA", "description": "largo",
+        "source_state": "Puerta 1",
+    }]))
+    assert "PUE-02 - Puerta abierta durante el ciclo" in texto
+    assert "09:30:05 07/10/2026 - Puerta 1" in texto
+    assert "largo" not in texto and "Nivel:" not in texto

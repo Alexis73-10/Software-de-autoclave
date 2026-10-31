@@ -10,5 +10,5 @@ def test_converters_realistic():
     print("\n🌡️  Temperaturas:", temps)
     print("⛽  Presiones:", press)
     assert len(temps) == 8
-    assert len(press) == 8
+    assert len(press) == 16     # tanda 23 (AIN-03): AI 1-16
 

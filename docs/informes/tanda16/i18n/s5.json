@@ -1,0 +1,28 @@
+{
+  "es": {
+    "ciclo.no_conforme_franja": "CICLO NO CONFORME — carga no liberable: punto de referencia sin verificar",
+    "ciclo.no_conforme_reconocer": "Reconozco que la carga no es liberable",
+    "ciclo.no_conforme_reconocido": "Reconocido: la carga no es liberable",
+    "ciclo.no_conforme_reconocer_error": "No se pudo registrar el reconocimiento de la carga no liberable. Revise la conexión e inténtelo de nuevo.",
+    "menu.resultado_no_conforme": "NO CONFORME",
+    "ticket_ciclo.no_conforme_marca": "*** NO CONFORME ***",
+    "exportacion.no_conforme_resultado": "NO CONFORME — {resultado}",
+    "exportacion.asunto_no_conforme": "[NO CONFORME] {asunto}",
+    "exportacion.cuerpo_no_conforme": "ATENCIÓN: ciclos NO CONFORMES (carga no liberable: punto de referencia sin verificar): {ciclos}.",
+    "bitacora.ev.ciclo_no_conforme_reconocido": "reconoció que la carga del ciclo NO CONFORME no es liberable",
+    "bitacora.tipo.ciclo_no_conforme_reconocido": "Carga no liberable reconocida"
+  },
+  "en": {
+    "ciclo.no_conforme_franja": "NONCONFORMING CYCLE — load not releasable: reference point not verified",
+    "ciclo.no_conforme_reconocer": "I acknowledge the load is not releasable",
+    "ciclo.no_conforme_reconocido": "Acknowledged: the load is not releasable",
+    "ciclo.no_conforme_reconocer_error": "The acknowledgment of the non-releasable load could not be recorded. Check the connection and try again.",
+    "menu.resultado_no_conforme": "NONCONFORMING",
+    "ticket_ciclo.no_conforme_marca": "*** NONCONFORMING ***",
+    "exportacion.no_conforme_resultado": "NONCONFORMING — {resultado}",
+    "exportacion.asunto_no_conforme": "[NONCONFORMING] {asunto}",
+    "exportacion.cuerpo_no_conforme": "ATTENTION: NONCONFORMING cycles (load not releasable: reference point not verified): {ciclos}.",
+    "bitacora.ev.ciclo_no_conforme_reconocido": "acknowledged that the NONCONFORMING cycle load is not releasable",
+    "bitacora.tipo.ciclo_no_conforme_reconocido": "Non-releasable load acknowledged"
+  }
+}

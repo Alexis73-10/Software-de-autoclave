@@ -1,5 +1,5 @@
 import pytest
-from autoclave.ui_pyside.services.session_manager import SessionManager, hash_password
+from autoclave.cliente.session_manager import SessionManager, hash_password
 
 
 @pytest.fixture(autouse=True)
@@ -63,3 +63,24 @@ def test_hash_password_es_sha256_hex():
     import hashlib
     expected = hashlib.sha256("test".encode()).hexdigest()
     assert hash_password("test") == expected
+
+
+# ── T-8: token aparte del dict de sesión y cambio obligatorio ────────────────
+
+def test_token_fuera_del_dict_y_id_opcional():
+    SessionManager.login({"nombre": "N", "usuario": "u", "rol": "admin"}, token="tok-x")
+    usuario = SessionManager.current_user()
+    assert usuario["id"] is None and "token" not in usuario
+    assert "tok-x" not in repr(usuario)
+    assert SessionManager.token() == "tok-x"
+    SessionManager.logout()
+    assert SessionManager.token() is None
+
+
+def test_bandera_de_cambio_obligatorio():
+    SessionManager.login({"nombre": "N", "usuario": "u", "rol": "admin",
+                          "debe_cambiar_clave": True}, token="t")
+    assert SessionManager.debe_cambiar_clave()
+    SessionManager.clave_cambiada()
+    assert not SessionManager.debe_cambiar_clave()
+    assert SessionManager.token() == "t"

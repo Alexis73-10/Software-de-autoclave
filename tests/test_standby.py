@@ -1,0 +1,386 @@
+# tests/test_standby.py
+#
+# Standby simultáneo de las pantallas QML (ui_qml/bridge/standby.py).
+# UIServiceBackend simulado, reloj monotónico inyectado y envío síncrono.
+
+import os
+import sys
+from unittest.mock import MagicMock
+
+import pytest
+
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+pytest.importorskip("PySide6")
+from PySide6.QtCore import QCoreApplication, QEvent
+from PySide6.QtTest import QSignalSpy
+
+from autoclave.cliente.ui_service_backend import UIServiceBackend
+from autoclave.ui_qml.bridge.standby import (
+    MINUTOS_DEFECTO, Standby, debe_estar_en_standby, minutos_standby,
+)
+
+
+@pytest.fixture(scope="session", autouse=True)
+def qt_app():
+    return QCoreApplication.instance() or QCoreApplication(sys.argv)
+
+
+class _Reloj:
+    def __init__(self):
+        self.t = 5000.0
+
+    def __call__(self):
+        return self.t
+
+
+def _ui(connected=True, estado="PREPARADO", inactividad=None, minutos=5, alarmas=None,
+        paro=False, estado_seguro=None):
+    ui = MagicMock(spec=UIServiceBackend)
+    ui.connected = connected
+    ui.get_estado_flag.side_effect = lambda f: paro if f in ("PARO_EMERGENCIA", "PARO_REAL") else False  # U4: paro real
+    ui.get_campo.side_effect = lambda c, d=None: (estado_seguro or {}) if c == "estado_seguro" else d
+    ui.get_estado_global.return_value = estado
+    ui.get_inactividad_ui.return_value = inactividad
+    ui.get_config_param.side_effect = lambda n: minutos if n == "tiempo_standby" else None
+    ui.get_alarmas.return_value = alarmas or []
+    return ui
+
+
+def _standby(ui, reloj=None, **kw):
+    backend = MagicMock()
+    s = Standby(ui, backend, reloj=reloj or _Reloj(), ejecutar=lambda t: t(), iniciar=False, **kw)
+    return s, backend
+
+
+# ── regla pura ────────────────────────────────────────────────────────────
+
+@pytest.mark.parametrize("valor, esperado", [
+    (5, 5.0), (1, 1.0), (2.5, 2.5), (0, 0.0), (-3, MINUTOS_DEFECTO),
+    (None, MINUTOS_DEFECTO), (True, MINUTOS_DEFECTO), ("5", MINUTOS_DEFECTO),
+])
+def test_minutos_standby(valor, esperado):
+    assert minutos_standby(valor) == esperado
+
+
+def test_regla_usa_la_menor_inactividad():
+    assert debe_estar_en_standby(True, 301, 400, 5, "PREPARADO") is True
+    assert debe_estar_en_standby(True, 299, 400, 5, "PREPARADO") is False   # la otra pantalla tocó
+    assert debe_estar_en_standby(True, 400, 10, 5, "PREPARADO") is False    # esta pantalla tocó
+    assert debe_estar_en_standby(True, None, None, 5, "PREPARADO") is True  # nadie ha tocado
+
+
+@pytest.mark.parametrize("estado", ["CICLO", "FALLA"])   # P-8: EMERGENCIA retirado
+def test_nunca_en_standby_con_ciclo_falla_o_emergencia(estado):
+    assert debe_estar_en_standby(True, 10_000, 10_000, 5, estado) is False
+
+
+def test_sin_conexion_solo_cuenta_la_inactividad_local():
+    assert debe_estar_en_standby(False, 0, 301, 5, None) is True
+    assert debe_estar_en_standby(False, 10_000, 10, 5, None) is False
+
+
+# ── comportamiento ────────────────────────────────────────────────────────
+
+def test_arranca_en_standby_hasta_el_primer_toque():
+    s, _ = _standby(_ui())
+    s.evaluar()
+    assert s.activo is True
+
+
+def test_toque_local_despierta_y_avisa_al_backend():
+    s, backend = _standby(_ui())
+    s.evaluar()
+    espia = QSignalSpy(s.activoChanged)
+    s.registrarActividad()
+    assert s.activo is False
+    assert espia.count() == 1
+    backend.post.assert_called_once_with("/ui/activity")
+
+
+def test_toque_en_la_otra_pantalla_despierta_esta():
+    reloj = _Reloj()
+    ui = _ui(inactividad=None)
+    s, _ = _standby(ui, reloj)
+    s.evaluar()
+    assert s.activo is True
+    reloj.t += 2
+    ui.get_inactividad_ui.return_value = 0.3     # la otra pantalla informó un toque
+    s.evaluar()
+    assert s.activo is False
+
+
+def test_cinco_minutos_sin_actividad_en_ninguna_pantalla():
+    reloj = _Reloj()
+    ui = _ui(inactividad=0.0)
+    s, _ = _standby(ui, reloj)
+    s.registrarActividad()
+    assert s.activo is False
+
+    reloj.t += 299
+    ui.get_inactividad_ui.return_value = 299
+    s.evaluar()
+    assert s.activo is False
+
+    reloj.t += 1
+    ui.get_inactividad_ui.return_value = 300
+    s.evaluar()
+    assert s.activo is True
+
+
+def test_tiempo_standby_se_lee_de_los_parametros_globales():
+    reloj = _Reloj()
+    ui = _ui(inactividad=0.0, minutos=1)
+    s, _ = _standby(ui, reloj)
+    s.registrarActividad()
+    reloj.t += 60
+    ui.get_inactividad_ui.return_value = 60
+    s.evaluar()
+    assert s.activo is True
+
+
+def test_envio_limitado_a_uno_por_segundo_mientras_esta_despierto():
+    reloj = _Reloj()
+    s, backend = _standby(_ui(), reloj)
+    s.registrarActividad()           # despierta: envía
+    s.registrarActividad()           # < 1 s: no reenvía
+    reloj.t += 1.0
+    s.registrarActividad()           # >= 1 s: envía
+    assert backend.post.call_count == 2
+
+
+def test_cambio_de_estado_del_equipo_despierta_ambas():
+    reloj = _Reloj()
+    ui = _ui(estado="PREPARACION", inactividad=None)
+    s, backend = _standby(ui, reloj)
+    s.evaluar()                      # primera lectura: no es evento
+    assert s.activo is True
+    backend.post.assert_not_called()
+
+    reloj.t += 10                    # pasada la gracia de arranque
+    ui.get_estado_global.return_value = "PREPARADO"
+    s.evaluar()
+    assert s.activo is False
+    backend.post.assert_called_with("/ui/activity")
+
+
+def test_alarma_nueva_despierta_pero_la_misma_no():
+    reloj = _Reloj()
+    ui = _ui(inactividad=None, alarmas=[{"id": "A"}])
+    s, backend = _standby(ui, reloj)
+    s.evaluar()
+    s.evaluar()
+    assert s.activo is True
+    backend.post.assert_not_called()
+
+    reloj.t += 10                    # pasada la gracia de arranque
+
+    ui.get_alarmas.return_value = [{"id": "A"}, {"id": "B"}]
+    s.evaluar()
+    assert s.activo is False
+
+
+def test_menu_de_configuracion_abierto_mantiene_despierto():
+    reloj = _Reloj()
+    abierto = {"v": True}
+    ui = _ui(inactividad=None)
+    s, _ = _standby(ui, reloj, mantener_despierto=lambda: abierto["v"])
+    s.evaluar()
+    assert s.activo is False
+    abierto["v"] = False
+    reloj.t += 301
+    ui.get_inactividad_ui.return_value = 301
+    s.evaluar()
+    assert s.activo is True
+
+
+def test_sin_backend_el_envio_fallido_no_rompe():
+    s, backend = _standby(_ui(connected=False))
+    backend.post.side_effect = ConnectionError("sin backend")
+    s.registrarActividad()
+    assert s.activo is False
+
+
+@pytest.mark.parametrize("tipo", [
+    QEvent.Type.MouseButtonPress, QEvent.Type.TouchBegin, QEvent.Type.KeyPress,
+])
+def test_filtro_de_eventos_registra_toques_y_teclas_sin_consumirlos(tipo):
+    s, _ = _standby(_ui())
+    assert s.eventFilter(None, QEvent(tipo)) is False
+    assert s.activo is False
+
+
+def test_filtro_ignora_otros_eventos():
+    s, _ = _standby(_ui())
+    s.evaluar()
+    assert s.eventFilter(None, QEvent(QEvent.Type.MouseMove)) is False
+    assert s.activo is True
+
+
+# ── arranque: no salir solo de la pantalla de arranque ───────────────────
+
+def test_actividad_del_backend_anterior_al_arranque_no_despierta():
+    # el backend ya corría y alguien tocó hace 60 s: esta UI recién abierta
+    # no debe arrancar en la pantalla principal
+    reloj = _Reloj()
+    ui = _ui(inactividad=60.0)
+    s, _ = _standby(ui, reloj)
+    s.evaluar()
+    assert s.activo is True
+    reloj.t += 5
+    ui.get_inactividad_ui.return_value = 65.0
+    s.evaluar()
+    assert s.activo is True
+
+
+def test_actividad_del_backend_posterior_al_arranque_si_despierta():
+    reloj = _Reloj()
+    ui = _ui(inactividad=60.0)
+    s, _ = _standby(ui, reloj)
+    s.evaluar()
+    reloj.t += 5
+    ui.get_inactividad_ui.return_value = 1.0     # la otra pantalla tocó después
+    s.evaluar()
+    assert s.activo is False
+
+
+def test_cambios_de_estado_y_alarmas_durante_la_gracia_no_despiertan():
+    reloj = _Reloj()
+    ui = _ui(estado="INICIO", inactividad=None)
+    s, backend = _standby(ui, reloj)
+    s.evaluar()
+    reloj.t += 3
+    ui.get_estado_global.return_value = "PREPARACION"
+    ui.get_alarmas.return_value = [{"id": "CHAQUETA_FRIA"}]
+    s.evaluar()
+    reloj.t += 6
+    ui.get_estado_global.return_value = "PREPARADO"
+    s.evaluar()
+    assert s.activo is True
+    backend.post.assert_not_called()
+
+    reloj.t += 1                     # 10 s: termina la gracia
+    ui.get_estado_global.return_value = "FALLA_PREVIA"
+    s.evaluar()
+    assert s.activo is False
+
+
+def test_toque_durante_la_gracia_si_despierta():
+    s, _ = _standby(_ui())
+    s.evaluar()
+    s.registrarActividad()
+    assert s.activo is False
+
+
+# ── U1 (tanda 2): sin franja superior, el paro y el estado seguro deben verse ──
+
+@pytest.mark.parametrize("pendiente", [True])
+def test_regla_nunca_en_standby_con_seguridad_pendiente(pendiente):
+    assert debe_estar_en_standby(True, 9999, 9999, 5, "PREPARADO",
+                                 seguridad_pendiente=pendiente) is False
+    assert debe_estar_en_standby(True, 9999, 9999, 5, "PREPARADO") is True
+
+
+@pytest.mark.parametrize("paro, es", [
+    (True, None),
+    (False, {"activo": True, "requiere_confirmacion": True}),
+    (False, {"activo": True, "requiere_confirmacion": False}),
+])
+def test_paro_o_estado_seguro_sacan_del_standby_incluso_en_la_gracia(paro, es):
+    reloj = _Reloj()
+    ui = _ui(estado="PREPARADO", inactividad=None, paro=paro, estado_seguro=es)
+    s, _ = _standby(ui, reloj)
+    s.evaluar()
+    assert s.activo is False
+
+
+def test_paro_que_aparece_despierta_ambas_y_avisa_al_backend():
+    reloj = _Reloj()
+    estado = {"paro": False}
+    ui = _ui(estado="PREPARADO", inactividad=None)
+    ui.get_estado_flag.side_effect = lambda f: estado["paro"] if f in ("PARO_EMERGENCIA", "PARO_REAL") else False  # U4
+    s, backend = _standby(ui, reloj)
+    s.evaluar()
+    assert s.activo is True
+    reloj.t += 10
+    estado["paro"] = True
+    s.evaluar()
+    assert s.activo is False
+    backend.post.assert_called_with("/ui/activity")
+
+
+def test_sin_conexion_no_lee_la_seguridad():
+    ui = _ui(connected=False, paro=True)
+    s, _ = _standby(ui)
+    s.evaluar()
+    assert s.activo is True
+
+
+def test_fin_del_paro_cuenta_como_actividad():
+    reloj = _Reloj()
+    estado = {"paro": True}
+    ui = _ui(estado="PREPARADO", inactividad=None)
+    ui.get_estado_flag.side_effect = lambda f: estado["paro"] if f in ("PARO_EMERGENCIA", "PARO_REAL") else False  # U4
+    s, backend = _standby(ui, reloj)
+    s.evaluar()
+    reloj.t += 10
+    backend.post.reset_mock()
+    estado["paro"] = False
+    s.evaluar()
+    backend.post.assert_called_with("/ui/activity")
+    assert s.activo is False
+
+
+# ── 19-oct (observación de Cristian: "cambia de la pantalla de preciclo solo") ──
+
+def test_modulo_es_sin_datos_no_saca_del_standby_ni_lo_hace_oscilar():
+    # U4: PARO_EMERGENCIA solo (sin PARO_REAL) = módulo E/S sin datos, no un paro.
+    # Antes: con el módulo E/S aún sin conectar el standby se desactivaba (pasaba a
+    # Preciclo) y al conectar se reactivaba solo (volvía al reposo).
+    reloj = _Reloj()
+    flags = {"PARO_EMERGENCIA": True, "PARO_REAL": False}
+    ui = _ui(estado="PREPARACION", inactividad=None)
+    ui.get_estado_flag.side_effect = lambda f: flags.get(f, False)
+    s, _ = _standby(ui, reloj)
+    cambios = []
+    s.activoChanged.connect(lambda: cambios.append(s.activo))
+    for _ in range(3):
+        s.evaluar()
+        reloj.t += 0.5
+    flags["PARO_EMERGENCIA"] = False          # el módulo E/S conecta
+    s.evaluar()
+    reloj.t += 30
+    s.evaluar()
+    assert s.activo is True and cambios == []
+
+
+def test_paro_real_saca_del_standby():
+    reloj = _Reloj()
+    ui = _ui(estado="PREPARADO", inactividad=None)
+    ui.get_estado_flag.side_effect = lambda f: f in ("PARO_EMERGENCIA", "PARO_REAL")
+    s, _ = _standby(ui, reloj)
+    s.evaluar()
+    assert s.activo is False
+
+
+def test_gracia_de_arranque_cuenta_desde_que_responde_el_backend():
+    # backend lento: la UI abre mucho antes; los cambios del encendido del
+    # backend no deben despertar la pantalla
+    reloj = _Reloj()
+    ui = _ui(connected=False, estado=None, inactividad=None)
+    s, backend = _standby(ui, reloj)
+    s.evaluar()
+    reloj.t += 30                              # 30 s sin backend
+    s.evaluar()
+    ui.connected = True
+    ui.get_estado_global.return_value = "INICIO"
+    s.evaluar()                                # primera lectura con backend
+    reloj.t += 5
+    ui.get_estado_global.return_value = "PREPARACION"
+    ui.get_alarmas.return_value = [{"id": "COM-01"}]
+    s.evaluar()
+    assert s.activo is True
+    backend.post.assert_not_called()
+    reloj.t += 6                               # pasada la gracia desde la conexión
+    ui.get_estado_global.return_value = "PREPARADO"
+    s.evaluar()
+    assert s.activo is False

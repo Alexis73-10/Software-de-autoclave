@@ -1,7 +1,10 @@
 """
 autoclave.config.calibration_writer
 ------------------------------------
-Escribe de vuelta a calibration.yaml usando ruamel.yaml en modo round-trip,
+Escribe de vuelta al archivo de calibración que se le pasa
+(`utils/paths.calibration_path()`: calibration_modbus.yaml; tanda 19, MOD-04;
+enlace único desde la tanda 20, T20-03) usando
+ruamel.yaml en modo round-trip,
 preservando comentarios y formato existentes. Reemplaza por completo la
 entrada del sensor calibrado (descarta poly/adc_min/etc previos) por un
 mapping simple {gain, offset}.
@@ -15,9 +18,11 @@ from pathlib import Path
 from ruamel.yaml import YAML
 from ruamel.yaml.comments import CommentedMap
 
+from autoclave.utils.archivos import escribir_texto_atomico
+
 _SECCION_POR_TIPO = {"temperature": "temperature", "pressure": "pressure"}
 
-# Estilo de indentacion del archivo real calibration.yaml (verificado empiricamente):
+# Estilo de indentacion del archivo real de calibracion (verificado empiricamente):
 #   calibration:
 #     user:
 #       temperature:
@@ -110,6 +115,7 @@ def write_user_calibration(
     real_low: float,
     shown_high: float,
     real_high: float,
+    nota: str | None = None,
 ) -> None:
     seccion = _SECCION_POR_TIPO[tipo]
 
@@ -124,22 +130,35 @@ def write_user_calibration(
 
     yaml = YAML(typ="rt")
     yaml.preserve_quotes = True
-    # Debe coincidir con el estilo real de calibration.yaml (ver constantes
+    # Debe coincidir con el estilo real del archivo de calibracion (ver constantes
     # arriba) para no reformatear secciones que este escritor no toca.
     yaml.indent(mapping=_INDENT_MAPPING, sequence=_INDENT_SEQUENCE, offset=_INDENT_OFFSET)
 
     data = yaml.load(io.StringIO(texto_limpio))
 
+    # Tanda 23 (AIN-04): un archivo con 8 entradas de presión se completa a 16
+    # (canales 8-15 nominales, 0-7 sin tocar) antes de escribir: así se puede
+    # calibrar AI 09-16 y el archivo queda con las 16
+    from autoclave.config.completar_presion import completar_presion
+    completar_presion(data, str(yaml_path))
+
     seq = data["calibration"]["user"][seccion]
 
     _reemplazar_entrada_sensor(seq, index, gain, offset)
 
-    comentario = (
-        f"{_MARCADOR_AUTO} Sensor {tipo}[{index}] -- recalibrado {date.today().isoformat()} "
-        f"con 2 puntos contra equipo patron: bajo {shown_low}->{real_low}, "
-        f"alto {shown_high}->{real_high}."
-    )
+    if nota is not None:
+        comentario = (f"{_MARCADOR_AUTO} Sensor {tipo}[{index}] -- {nota} "
+                      f"{date.today().isoformat()}.")
+    else:
+        comentario = (
+            f"{_MARCADOR_AUTO} Sensor {tipo}[{index}] -- recalibrado {date.today().isoformat()} "
+            f"con 2 puntos contra equipo patron: bajo {shown_low}->{real_low}, "
+            f"alto {shown_high}->{real_high}."
+        )
     seq.yaml_set_comment_before_after_key(index, before=comentario, indent=_COMENTARIO_INDENT)
 
-    with open(yaml_path, "w", encoding="utf-8") as f:
-        yaml.dump(data, f)
+    # A2 (tanda 3): sin UPS, un corte a mitad de la escritura dejaba un YAML
+    # truncado y el equipo sin arrancar (ARR_CALIBRACION). Atómica + .bak.
+    salida = io.StringIO()
+    yaml.dump(data, salida)
+    escribir_texto_atomico(yaml_path, salida.getvalue(), respaldo=True)

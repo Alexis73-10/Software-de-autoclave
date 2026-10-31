@@ -1,11 +1,16 @@
 
 import logging
 
+from autoclave.installation.profile import entrada_requerida
+
 logger = logging.getLogger(__name__)
 
 class VacuumPump:
-    def __init__(self, estado):
+    def __init__(self, estado, profile=None):
         self.estado = estado
+        # Perfil de instalación: con agua_bomba declarada "no aplica" no se
+        # exige su DI (adenda E0/E1, A-1). None = se exige, como antes.
+        self.profile = profile
         
     def agua_bomba (self):
         return self.estado.sensores_di.get("agua_bomba")
@@ -18,11 +23,13 @@ class VacuumPump:
             logger.warning("Bomba bloqueada: fallo de suministro eléctrico.")
             return False
 
-        if not self.agua_bomba():
+        # Sin DI de agua de sello cableado, la protección es solo por hardware
+        # (flotador en la bobina del contactor): el software no la exige.
+        if entrada_requerida(self.profile, "agua_bomba") and not self.agua_bomba():
             logger.warning("Advertencia: No hay agua en la bomba de vacío.")
             return False
 
-        if not self.bomba_vacio() and self.agua_bomba():
+        if not self.bomba_vacio():
             logger.info("Activando bomba de vacío.")
             return True
         else:

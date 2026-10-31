@@ -24,7 +24,7 @@ def select_client():
     mock_ctx.control_loop.set_active_cycle.return_value = (True, "")
 
     for key in list(sys.modules):
-        if "autoclave.backend.server" in key:
+        if "autoclave.backend.server" in key or key.startswith(("autoclave.backend.dependencias", "autoclave.backend.rutas")):
             del sys.modules[key]
 
     with patch("autoclave.backend.context.BackendContext", return_value=mock_ctx):
@@ -38,7 +38,9 @@ def test_list_cycles_incluye_todos_con_source(select_client):
     client, *_ = select_client
     resp = client.get("/cycles")
     assert resp.status_code == 200
-    body = resp.json()
+    # I4 (tanda 6): cada ciclo trae además `nombres` {es, en}
+    body = [{k: c[k] for k in ("id", "name", "source")} for c in resp.json()]
+    assert all("nombres" in c for c in resp.json())
     assert {"id": "bowe_dick", "name": "Bowe & Dick", "source": "user"} in body
     assert {"id": "fabrica_x", "name": "Fábrica X", "source": "factory"} in body
 

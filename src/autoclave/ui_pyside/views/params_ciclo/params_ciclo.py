@@ -27,9 +27,9 @@ from PySide6.QtWidgets import (
 import requests
 
 from autoclave.services.domain.logging.cycle_params_audit import CycleParamsAuditDB
-from autoclave.ui.service_ui.backend_client import BackendClient
+from autoclave.ui_pyside.services.backend_client import BackendClient
 
-_BACKEND_URL = "http://localhost:8000"
+_BACKEND_URL = "http://127.0.0.1:8000"
 
 _BTN_BACK = """
     QPushButton {
@@ -53,7 +53,6 @@ _CARD_READONLY = (
 # (label visible, clave interna usada en _build_tab_grid)
 _TABS = [
     ("Pre-calentamiento", "precalentamiento"),
-    ("Purga",             "purga"),
     ("Crear pulso",       "prevacio"),
     ("Calentamiento",     "calentamiento_main"),
     ("Estabilización",    "calentamiento_estab"),
@@ -68,7 +67,8 @@ _TABS = [
 _CAL_MAIN_KEYS  = {
     "temperatura_calentamiento", "tasa_calentamiento",
     "timeout_calentamiento", "factor_calentamiento",
-    "rango_calentamiento", "tasa_presion", "intervalo_segmentos_calor",
+    "rango_calentamiento_temp", "rango_calentamiento_pres",   # R1-P3 (tanda 7)
+    "tasa_presion", "intervalo_segmentos_calor",
     "escape_lento_on", "escape_lento_off",
     "escape_rapido_on", "escape_rapido_off",
 }
@@ -299,6 +299,9 @@ class _ParamEditDialog(QDialog):
         btns.addSpacing(8)
         btns.addWidget(self._btn_save)
         lay.addLayout(btns)
+        # C1a (tanda 6): teclado en pantalla al tocar cada campo (equipo táctil)
+        from autoclave.ui_pyside.views._teclado_pantalla import conectar_todos
+        conectar_todos(self)
 
     # ── Guardar ──────────────────────────────────────────────────────────
 
@@ -313,13 +316,23 @@ class _ParamEditDialog(QDialog):
 
         # 1. Sincronizar con el backend (memoria en vivo del ControlLoop + persistencia
         #    en disco) — sin esto, el cambio no se aplicaba hasta reiniciar el software.
+        # P3 (tanda 5): ante un 401 pide login y
+        # reintenta con el mismo valor (sin perder lo editado)
+        from autoclave.cliente.session_manager import SessionManager
+        from autoclave.ui_pyside.services import renovacion_sesion
+        cliente = BackendClient(_BACKEND_URL)
         try:
-            BackendClient(_BACKEND_URL).patch("/cycle/parameter", {
-                "cycle_id": self._cycle.id,
-                "fase":     self._fase,
-                "path":     self._path,
-                "value":    new_val,
-            })
+            guardado = renovacion_sesion.guardar_con_reintento(
+                lambda: cliente.patch("/cycle/parameter", {
+                    "cycle_id": self._cycle.id,
+                    "fase":     self._fase,
+                    "path":     self._path,
+                    "value":    new_val,
+                }),
+                lambda: renovacion_sesion.pedir_credenciales_dialogo(self))
+            if guardado.estado != renovacion_sesion.GUARDADO:
+                QMessageBox.warning(self, "Sesión vencida", renovacion_sesion.mensaje_de(guardado))
+                return
         except requests.HTTPError as e:
             try:
                 detail = e.response.json().get("detail", str(e))
@@ -343,7 +356,7 @@ class _ParamEditDialog(QDialog):
 
         # 3. Registrar auditoría
         try:
-            from autoclave.ui_pyside.services.session_manager import SessionManager
+            from autoclave.cliente.session_manager import SessionManager
             user = (
                 SessionManager.current_user().get("nombre", "Desconocido")
                 if SessionManager.is_authenticated()
@@ -459,8 +472,10 @@ class ParametrosCicloView(QWidget):
 
     def _load_cycle(self, cycle) -> None:
         factory_params = _load_factory_params(cycle._path)
+        tiene_actuador = _puerta_tiene_actuador()
         for tab_idx, (_, tab_key) in enumerate(_TABS):
-            gw = _build_tab_grid(cycle, factory_params, tab_key, self._audit_db)
+            gw = _build_tab_grid(cycle, factory_params, tab_key, self._audit_db,
+                                 tiene_actuador)
             scroll: QScrollArea = self._tabs.widget(tab_idx)
             scroll.setWidget(gw)
 
@@ -476,13 +491,40 @@ def _load_factory_params(user_cycle_path: str) -> dict:
     factory_p = user_p.parent.parent / "factory" / user_p.name
     if factory_p.exists():
         with open(factory_p, "r", encoding="utf-8") as f:
-            return json.load(f).get("parameters", {})
+            params = json.load(f).get("parameters", {})
+        # SEN-07b (revisión Q1): mismo formato que el programa del usuario,
+        # que ya pasa por la migración al construir el Cycle (R1-P3)
+        from autoclave.core.managers.cycle_manager import migrar_parametros
+        migrar_parametros(params)
+        return params
     return {}
 
 
-def _iter_section(section: dict, filter_keys=None):
+def _claves_ocultas(fase: str, tiene_actuador: bool) -> set:
+    """Parámetros que no se muestran según el equipo: con puerta sin
+    actuador la apertura automática no aplica (E1-4, D-11)."""
+    if fase == "finalizacion" and not tiene_actuador:
+        return {"apertura_automatica"}
+    return set()
+
+
+def _puerta_tiene_actuador() -> bool:
+    """Según el tipo de puerta del perfil de instalación local. Si no se
+    puede leer, se muestra todo (el ciclo ignora el valor de todos modos)."""
+    try:
+        from autoclave.installation.storage import load
+        from autoclave.devices.puertas.door_factory import tipo_tiene_actuador
+        return tipo_tiene_actuador(load().door_type)
+    except Exception:
+        _logger.warning("No se pudo leer el tipo de puerta del perfil de instalación")
+        return True
+
+
+def _iter_section(section: dict, filter_keys=None, ocultas=frozenset()):
     """Yield (flat_name, param_meta) para todos los parámetros hoja de una sección."""
     for key, val in section.items():
+        if key in ocultas:
+            continue
         if isinstance(val, dict) and "value" in val:
             if filter_keys is None or key in filter_keys:
                 yield key, val
@@ -510,7 +552,8 @@ def _format_param_name(raw: str) -> str:
     return raw.replace("_", " ").replace(" — ", " / ").capitalize()
 
 
-def _build_tab_grid(cycle, factory_params: dict, tab_key: str, audit_db) -> QWidget:
+def _build_tab_grid(cycle, factory_params: dict, tab_key: str, audit_db,
+                    tiene_actuador: bool = True) -> QWidget:
     if tab_key == "calentamiento_main":
         fase, filter_keys = "calentamiento", _CAL_MAIN_KEYS
     elif tab_key == "calentamiento_estab":
@@ -531,7 +574,8 @@ def _build_tab_grid(cycle, factory_params: dict, tab_key: str, audit_db) -> QWid
     grid.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
 
     cards = []
-    for flat_name, param_meta in _iter_section(section, filter_keys):
+    ocultas = _claves_ocultas(fase, tiene_actuador)
+    for flat_name, param_meta in _iter_section(section, filter_keys, ocultas):
         path = flat_name.split(" — ") if " — " in flat_name else [flat_name]
         factory_val = _get_factory_value(factory_section, flat_name)
         card = _ParamCard(

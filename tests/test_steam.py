@@ -13,7 +13,7 @@ def test_p_saturacion_121():
 
 def test_p_saturacion_134():
     result = p_saturacion_kpa(134)
-    assert abs(result - 302.9) < 1.0, f"Esperado ~302.9 kPa, obtenido {result:.1f} kPa"
+    assert abs(result - 304.2) < 1.0, f"Esperado ~304.2 kPa, obtenido {result:.1f} kPa"
 
 
 def test_p_saturacion_monotonica():
@@ -47,17 +47,17 @@ def _make_base_fase():
 
 def test_verificar_vapor_saturado_dentro_tolerancia():
     fase = _make_base_fase()
-    # P_sat(134°C) ≈ 302.2 kPa — dentro de ±10 kPa → True
-    assert fase._verificar_vapor_saturado(134.0, 302.2, 10.0) is True
+    # P_sat(134°C) ≈ 304.2 kPa (IAPWS-IF97) — dentro de ±10 kPa → True
+    assert fase._verificar_vapor_saturado(134.0, 304.2, 10.0) is True
 
 
 def test_verificar_vapor_saturado_fuera_tolerancia_alta():
     fase = _make_base_fase()
-    # P_real = 320 kPa, P_sat ≈ 302.2 → delta = 17.8 > 10 → False
+    # P_real = 320 kPa, P_sat ≈ 304.2 → delta = 15.8 > 10 → False
     assert fase._verificar_vapor_saturado(134.0, 320.0, 10.0) is False
 
 
 def test_verificar_vapor_saturado_fuera_tolerancia_baja():
     fase = _make_base_fase()
-    # P_real = 285 kPa, P_sat ≈ 302.2 → delta = 17.2 > 10 → False
+    # P_real = 285 kPa, P_sat ≈ 304.2 → delta = 19.2 > 10 → False
     assert fase._verificar_vapor_saturado(134.0, 285.0, 10.0) is False

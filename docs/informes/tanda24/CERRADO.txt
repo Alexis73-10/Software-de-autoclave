@@ -1,0 +1,3 @@
+Tanda 24 cerrada 2026-10-30.
+Merge a dev: 60a338cb (rama tanda-24); después, en dev, el commit de informe y cierre. Sin push. Entrega NO compilada.
+Suite (pytest tests -n auto, sobre tanda-24 tras la revisión R): 9275 passed, 11 skipped, 7 xfailed, 2 failed (test_home_view y test_impresion_menu, caídas conocidas de trabajador xdist; en serie: 13 passed).

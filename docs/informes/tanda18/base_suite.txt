@@ -1,0 +1,3 @@
+Línea base de la tanda 18 (dev ddb4978, worktree limpio, 27-oct):
+python -m pytest tests -n auto (PYTEST_XDIST_AUTO_NUM_WORKERS=6)
+8488 passed, 10 skipped, 3 xfailed, 12 warnings in 634.93s (0:10:34)

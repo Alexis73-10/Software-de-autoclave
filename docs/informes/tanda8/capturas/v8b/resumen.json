@@ -1,0 +1,178 @@
+{
+ "es/IntroArranque": {
+  "malos": [],
+  "textos_vistos": 0
+ },
+ "es/Login": {
+  "malos": [],
+  "textos_vistos": 10
+ },
+ "es/CambioClave": {
+  "malos": [],
+  "textos_vistos": 9
+ },
+ "es/NuevoUsuario": {
+  "malos": [],
+  "textos_vistos": 16
+ },
+ "es/MenuPrincipal": {
+  "malos": [],
+  "textos_vistos": 27
+ },
+ "es/PantallaPreciclo": {
+  "malos": [],
+  "textos_vistos": 27
+ },
+ "es/PantallaCicloEnCurso": {
+  "malos": [],
+  "textos_vistos": 58
+ },
+ "es/Instalacion": {
+  "malos": [],
+  "textos_vistos": 19
+ },
+ "es/Reposo": {
+  "malos": [],
+  "textos_vistos": 2
+ },
+ "es/Opciones": {
+  "malos": [],
+  "textos_vistos": 10
+ },
+ "es/OpcionesParametrosCiclo": {
+  "malos": [],
+  "textos_vistos": 6
+ },
+ "es/OpcionesParametrosEquipo": {
+  "malos": [],
+  "textos_vistos": 23
+ },
+ "es/OpcionesUsuarios": {
+  "malos": [],
+  "textos_vistos": 8
+ },
+ "es/OpcionesFechaHora": {
+  "malos": [],
+  "textos_vistos": 11
+ },
+ "es/OpcionesInfoSistema": {
+  "malos": [],
+  "textos_vistos": 36
+ },
+ "es/OpcionesBitacora": {
+  "malos": [],
+  "textos_vistos": 10
+ },
+ "es/OpcionesCalibracionAtm": {
+  "malos": [],
+  "textos_vistos": 21
+ },
+ "es/OpcionesCalibracionSensor": {
+  "malos": [],
+  "textos_vistos": 28
+ },
+ "es/OpcionesConectividad": {
+  "malos": [],
+  "textos_vistos": 18
+ },
+ "es/OpcionesRespaldo": {
+  "malos": [],
+  "textos_vistos": 12
+ },
+ "es/OpcionesEntradasSalidas": {
+  "malos": [],
+  "textos_vistos": 5
+ },
+ "es/OpcionesMantenimiento": {
+  "malos": [],
+  "textos_vistos": 24
+ },
+ "en/IntroArranque": {
+  "malos": [],
+  "textos_vistos": 0
+ },
+ "en/Login": {
+  "malos": [],
+  "textos_vistos": 10
+ },
+ "en/CambioClave": {
+  "malos": [],
+  "textos_vistos": 9
+ },
+ "en/NuevoUsuario": {
+  "malos": [],
+  "textos_vistos": 16
+ },
+ "en/MenuPrincipal": {
+  "malos": [],
+  "textos_vistos": 27
+ },
+ "en/PantallaPreciclo": {
+  "malos": [],
+  "textos_vistos": 27
+ },
+ "en/PantallaCicloEnCurso": {
+  "malos": [],
+  "textos_vistos": 58
+ },
+ "en/Instalacion": {
+  "malos": [],
+  "textos_vistos": 19
+ },
+ "en/Reposo": {
+  "malos": [],
+  "textos_vistos": 2
+ },
+ "en/Opciones": {
+  "malos": [],
+  "textos_vistos": 10
+ },
+ "en/OpcionesParametrosCiclo": {
+  "malos": [],
+  "textos_vistos": 6
+ },
+ "en/OpcionesParametrosEquipo": {
+  "malos": [],
+  "textos_vistos": 23
+ },
+ "en/OpcionesUsuarios": {
+  "malos": [],
+  "textos_vistos": 8
+ },
+ "en/OpcionesFechaHora": {
+  "malos": [],
+  "textos_vistos": 11
+ },
+ "en/OpcionesInfoSistema": {
+  "malos": [],
+  "textos_vistos": 36
+ },
+ "en/OpcionesBitacora": {
+  "malos": [],
+  "textos_vistos": 10
+ },
+ "en/OpcionesCalibracionAtm": {
+  "malos": [],
+  "textos_vistos": 21
+ },
+ "en/OpcionesCalibracionSensor": {
+  "malos": [],
+  "textos_vistos": 28
+ },
+ "en/OpcionesConectividad": {
+  "malos": [],
+  "textos_vistos": 18
+ },
+ "en/OpcionesRespaldo": {
+  "malos": [],
+  "textos_vistos": 12
+ },
+ "en/OpcionesEntradasSalidas": {
+  "malos": [],
+  "textos_vistos": 5
+ },
+ "en/OpcionesMantenimiento": {
+  "malos": [],
+  "textos_vistos": 24
+ }
+}

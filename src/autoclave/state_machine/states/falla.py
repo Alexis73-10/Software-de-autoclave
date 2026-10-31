@@ -1,6 +1,5 @@
 import logging
-from autoclave.state_machine.alarms.alarm import Alarm
-from autoclave.state_machine.alarms.alarm_types import AlarmType
+from autoclave.state_machine.alarms.catalogo import SIS_01
 
 logger = logging.getLogger(__name__)
 
@@ -12,25 +11,28 @@ class FallaState:
         self.set_do = set_do
         self.alarm_manager = alarm_manager
 
-    def run(self) -> bool:
+    def run(self, puede_salir: bool = True) -> bool:
         """
         Llamar en cada tick mientras el estado sea FALLA.
         Retorna True cuando el operador reconoció la falla y la máquina
         debe transicionar a PREPARACION.
         """
         if self.estado.get_flag("PARO_EMERGENCIA"):
-            self.set_do.reset_all_outputs()
-            self.alarm_manager.report(Alarm(
-                alarm_id="PARO_EMERGENCIA",
-                alarm_type=AlarmType.EMERGENCIA,
-                source_state="FALLA",
-                description="Paro de emergencia activado en estado FALLA.",
-                recoverable=False,
-            ))
+            # §5.9 (OPC-23): un reconocimiento con el paro activo se descarta;
+            # tras soltar el paro hay que reconocer de nuevo
+            if self.estado.get_flag("RESET_FALLA"):
+                self.estado.set_flag("RESET_FALLA", False)
+                logger.warning("FallaState: RESET_FALLA descartado con el paro de emergencia activo")
+            # ALL_OFF limitado: no esperar el ACK en cada tick (A-7)
+            self.set_do.apagar_por_paro()
+            if self.estado.get_flag("PARO_REAL"):      # U4: sin datos no es SIS-01
+                self.alarm_manager.activar(SIS_01, estado="Falla")
             self.set_do.buzer_emergencia()
             return False
 
-        if self.estado.get_flag("RESET_FALLA"):
+        # Fin de ciclo §15.4: se sale a PREPARACION solo con el estado seguro
+        # alcanzado; el reconocimiento queda guardado mientras tanto.
+        if self.estado.get_flag("RESET_FALLA") and puede_salir:
             self.estado.set_flag("RESET_FALLA", False)
             logger.info("FallaState: reset solicitado → transicionando a PREPARACION")
             return True

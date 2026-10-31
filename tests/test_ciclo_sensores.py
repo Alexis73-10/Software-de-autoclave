@@ -1,18 +1,22 @@
 # tests/test_ciclo_sensores.py
 from unittest.mock import MagicMock, patch
+from tests.helpers.alarmas_helpers import ultima_activacion
 from autoclave.state_machine.states.ciclo import CicloState, CicloResultado
 
 
 def _make_ciclo():
     estado = MagicMock()
     estado.sensores_temp = {"temp_camara": 100.0}
-    estado.sensores_pres = {"pres_camara": 200.0, "pres_chaqueta": 300.0}
+    estado.sensores_pres = {"pres_camara": 200.0, "pres_chaqueta": 300.0,
+                            # S1: empaque sin lectura falla el ciclo (SEN-08)
+                            "pres_empaque_1": 300.0, "pres_empaque_2": 300.0}
     estado.sensores_di = {"puerta_1_cerrada": 1, "puerta_2_cerrada": 1,
                           "vapor_suministro": 1}
     estado.get_flag.return_value = False
 
     set_do = MagicMock()
     cycle = MagicMock()
+    cycle.copia.return_value = cycle   # copia de T-17 con los mismos valores
     cycle.get_param.return_value = None
     config = MagicMock()
     config.get.return_value = None
@@ -31,7 +35,8 @@ def test_fallo_si_temp_camara_ausente():
 
     assert result == CicloResultado.ESPERANDO_CONFIRMACION
     assert estado.fase_ciclo == "SENSOR_AUSENTE"
-    ciclo.alarm_manager.report.assert_called_once()
+    ciclo.alarm_manager.activar.assert_called_once()
+    assert ultima_activacion(ciclo.alarm_manager)[0] == "SEN-02"
 
 
 def test_fallo_si_pres_camara_ausente():

@@ -1,9 +1,11 @@
+import time as time_module
 from unittest.mock import MagicMock
 
 from autoclave.state_machine.cycle_phases.prevacio import (
     PrevacioFase,
     _STAGGER_APAGADO_VACIO,
 )
+from autoclave.state_machine.cycle_phases.base_fase import FaseResult
 
 
 def _make_fase(params_override=None):
@@ -65,7 +67,7 @@ def test_apagando_vacio_no_apaga_camara_antes_del_stagger(monkeypatch):
 
     t0 = fase._t_apagado_vacio
     monkeypatch.setattr(
-        "autoclave.state_machine.cycle_phases.prevacio.time.time",
+        "autoclave.state_machine.cycle_phases.prevacio.time.monotonic",
         lambda: t0 + (_STAGGER_APAGADO_VACIO / 2),
     )
     fase.update()
@@ -81,10 +83,27 @@ def test_apagando_vacio_apaga_camara_y_avanza_tras_el_stagger(monkeypatch):
 
     t0 = fase._t_apagado_vacio
     monkeypatch.setattr(
-        "autoclave.state_machine.cycle_phases.prevacio.time.time",
+        "autoclave.state_machine.cycle_phases.prevacio.time.monotonic",
         lambda: t0 + _STAGGER_APAGADO_VACIO + 0.01,
     )
     fase.update()
 
     set_do.vacio_camara_off.assert_called_once()
     assert fase._paso == "VAPOR_ALTO"
+
+
+def test_timeout_bajo_inmune_a_salto_de_reloj_de_pared(monkeypatch):
+    fake_monotonic = [1000.0]
+    monkeypatch.setattr(time_module, "monotonic", lambda: fake_monotonic[0])
+    monkeypatch.setattr(time_module, "time", lambda: 10.0)
+
+    fase, set_do, estado = _make_fase(params_override={"timeout_bajo": 1})  # 60s
+    fase.update()  # DECOMPRESION -> VACIO_BAJO (ya en presión atmosférica), arma _timeout_bajo_fin con monotonic=1000.0
+    assert fase._paso == "VACIO_BAJO"
+
+    fake_monotonic[0] += 61  # reloj monótono avanza 61s (timeout cumplido)
+
+    result = fase.update()
+    assert result == FaseResult.FALLO
+    set_do.bomba_vacio_off.assert_called()
+    set_do.vacio_camara_off.assert_called()

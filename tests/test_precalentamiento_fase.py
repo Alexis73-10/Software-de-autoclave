@@ -1,4 +1,5 @@
 # tests/test_precalentamiento_fase.py
+import time as time_module
 from unittest.mock import MagicMock, patch
 
 from autoclave.state_machine.cycle_phases.precalentamiento import PrecalentamientoFase
@@ -107,3 +108,36 @@ def test_valvula_cierra_cuando_presion_ok_en_sostenimiento():
     assert result == FaseResult.EN_CURSO
     set_do.vapor_chaqueta_off.assert_called()
     set_do.vapor_chaqueta_on.assert_not_called()
+
+
+def test_timeout_inmune_a_salto_de_reloj_de_pared(monkeypatch):
+    fake_monotonic = [1000.0]
+    monkeypatch.setattr(time_module, "monotonic", lambda: fake_monotonic[0])
+    monkeypatch.setattr(time_module, "time", lambda: 10.0)
+
+    fase, estado, set_do = _make_fase(tiempo_min=5, presion_obj=200.0, timeout_min=1)  # 60s
+    estado.sensores_pres["pres_chaqueta"] = 50.0
+    fase.update()                          # inicializa _timer_timeout_fin con monotonic=1000.0
+
+    fake_monotonic[0] += 61                 # reloj monótono avanza 61s (timeout cumplido)
+
+    result = fase.update()
+    assert result == FaseResult.FALLO
+    set_do.vapor_chaqueta_off.assert_called()
+
+
+def test_sostenimiento_inmune_a_salto_de_reloj_de_pared(monkeypatch):
+    fake_monotonic = [1000.0]
+    monkeypatch.setattr(time_module, "monotonic", lambda: fake_monotonic[0])
+    monkeypatch.setattr(time_module, "time", lambda: 10.0)
+
+    fase, estado, set_do = _make_fase(tiempo_min=1, presion_obj=200.0)  # sostenimiento 60s
+    estado.sensores_pres["pres_chaqueta"] = 250.0
+    fase.update()                          # arranca sostenimiento con monotonic=1000.0
+    assert fase._timer_sostenimiento is not None
+
+    fake_monotonic[0] += 61                 # reloj monótono avanza 61s (sostenimiento cumplido)
+
+    result = fase.update()
+    assert result == FaseResult.COMPLETADO
+    set_do.vapor_chaqueta_off.assert_called()

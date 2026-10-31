@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Registro de pruebas de banco</title>
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<header id="barra">
+  <span id="titulo">Registro de pruebas</span>
+  <span id="pendientes" class="oculto" role="status"></span>
+  <button id="btn-copia" class="chico oculto" type="button">Descargar copia (JSON)</button>
+  <button id="btn-salir" class="chico oculto" type="button">Salir</button>
+</header>
+<div id="aviso-red" class="oculto" role="alert"></div>
+<main id="vista"></main>
+<div id="modal" class="oculto" role="dialog" aria-modal="true"></div>
+<script src="/static/cola.js"></script>
+<script src="/static/app.js"></script>
+</body>
+</html>
