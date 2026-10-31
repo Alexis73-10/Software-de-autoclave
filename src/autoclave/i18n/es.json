@@ -377,6 +377,8 @@
   },
   "modulos": {
     "iniciar_ciclo": "INICIAR CICLO",
+    "iniciar_deslizar": "INICIAR",
+    "iniciando_deslizar": "INICIANDO",
     "reconocer_falla": "RECONOCER FALLA",
     "historial": "HISTORIAL",
     "programas": "PROGRAMAS",

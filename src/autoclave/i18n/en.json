@@ -377,6 +377,8 @@
   },
   "modulos": {
     "iniciar_ciclo": "START CYCLE",
+    "iniciar_deslizar": "START",
+    "iniciando_deslizar": "STARTING",
     "reconocer_falla": "ACKNOWLEDGE FAULT",
     "historial": "HISTORY",
     "programas": "PROGRAMS",

@@ -6,6 +6,9 @@ import Tema
 // con título y botón de cierre arriba a la derecha, y el contenido debajo.
 // DISEÑO PROVISIONAL: el mockup v3 no la tiene; la valida el diseñador.
 // Medidas en px del mockup escaladas con `escala` (convención m(), D-18).
+// Transición (cambios de movimiento, 31-oct): la tarjeta tocada (la que registró
+// Movimiento.registrarOrigen) se expande hasta la ventana y vuelve a ella al
+// cerrar (ElementoCompartido); sin tarjeta, solo aparece con un fundido.
 // No reutiliza PanelModal.qml: ese usa Escala.px y un botón CERRAR fijo abajo
 // que le quita alto a la gráfica de Último ciclo.
 Item {
@@ -27,14 +30,24 @@ Item {
     function m(v) { return v * escala }
     function fuente(v) { return Math.max(1, Math.round(m(v))) }
 
+    property bool _cerrando: false
+    property bool _abriendo: false
+    // visible puesto a true sin abrir() (p. ej. en pruebas): se muestra completa
+    onVisibleChanged: if (visible && !_abriendo && !_cerrando && compartido.progreso === 0) compartido.abrir(null)
+
     function abrir() {
-        if (visible) return
+        if (visible && !_cerrando) return
+        _cerrando = false
+        _abriendo = true
         visible = true
+        compartido.abrir(Movimiento.tomarOrigen())
+        _abriendo = false
         mostrada()
     }
     function cerrar() {
-        if (!visible) return
-        visible = false
+        if (!visible || _cerrando) return
+        _cerrando = true
+        compartido.cerrar()
         cerrada()
     }
 
@@ -46,7 +59,18 @@ Item {
         objectName: "fondoVentana"
         anchors.fill: parent
         color: "#99000000"
-        MouseArea { anchors.fill: parent; onClicked: raiz.cerrar() }
+        opacity: compartido.opacidadFondo
+        MouseArea { anchors.fill: parent; enabled: !raiz._cerrando; onClicked: raiz.cerrar() }
+    }
+
+    ElementoCompartido {
+        id: compartido
+        objectName: "elementoCompartidoVentana"
+        anchors.fill: parent
+        destino: tarjeta
+        radioOrigen: raiz.m(26)
+        radioDestino: raiz.m(26)
+        onCerrado: { raiz.visible = false; raiz._cerrando = false }
     }
 
     Rectangle {
@@ -58,6 +82,7 @@ Item {
         anchors.verticalCenter: parent.verticalCenter
         radius: raiz.m(26)
         color: Colores.fondoTarjeta
+        opacity: compartido.opacidadContenido
         MouseArea { anchors.fill: parent }   // no dejar pasar el toque al fondo
 
         Text {

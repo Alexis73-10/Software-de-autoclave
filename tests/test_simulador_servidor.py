@@ -57,6 +57,7 @@ def test_reposo_listo_y_modulo_es_conectado(sim):
     s = client.get("/status").json()
     assert s["machine_state"] == "PREPARADO"
     assert s["card_connected"] is True
+    assert s["estado_modulo_es"] == "ok"
     assert s["sensors"]["flags"]["LISTO_PARA_CICLO"] is True
     assert s["sensors"]["temperature"]["camara"] == 30.0
     assert s["alarms"] == []

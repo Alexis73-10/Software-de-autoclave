@@ -85,7 +85,7 @@ def test_textos_en_es_y_en():
 
 def test_opciones_carga_la_pantalla_en_parametros_del_equipo():
     texto = (_RAIZ / "src/autoclave/ui_qml/qml/Pantallas/Opciones.qml").read_text(encoding="utf-8")
-    assert 'active: raiz.seccionActiva === "parametros_sistema"' in texto
+    assert 'seleccionada: raiz.seccionActiva === "parametros_sistema"' in texto
     assert "OpcionesParametrosEquipo {" in texto
 
 

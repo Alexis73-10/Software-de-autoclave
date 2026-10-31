@@ -28,7 +28,7 @@ Item {
         objectName: "areaFilaAlarma"
         anchors.fill: parent
         enabled: raiz.tocable
-        onClicked: raiz.pulsada()
+        onClicked: { Movimiento.registrarOrigen(raiz); raiz.pulsada() }
     }
     Rectangle {
         x: 0; y: Escala.px(12)

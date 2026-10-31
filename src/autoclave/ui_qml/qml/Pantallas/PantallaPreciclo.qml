@@ -144,6 +144,8 @@ Item {
         readonly property string abrirPuerta: I18n.t("ciclo.abrir_puerta", I18n.lang)
         readonly property string cerrarPuerta: I18n.t("ciclo.cerrar_puerta", I18n.lang)   // PC-05: sin mockup
         readonly property string iniciarCiclo: I18n.t("modulos.iniciar_ciclo", I18n.lang)
+        readonly property string iniciar: I18n.t("modulos.iniciar_deslizar", I18n.lang)
+        readonly property string iniciando: I18n.t("modulos.iniciando_deslizar", I18n.lang)
         readonly property string reconocerFalla: I18n.t("modulos.reconocer_falla", I18n.lang)
         readonly property string modelo: I18n.t("ciclo.modelo", I18n.lang)
         readonly property string serie: I18n.t("ciclo.serie", I18n.lang)
@@ -770,18 +772,16 @@ Item {
         numeroPuerta: raiz.puerta
     }
 
-    BotonAccion {
-        caja: [845, 1616, 302, 110]
-        colorArriba: Qt.rgba(8/255, 170/255, 65/255, 1)
-        colorAbajo: Qt.rgba(1/255, 80/255, 30/255, 1)
-        texto: raiz.textos.iniciarCiclo
-        textoX: 980
-        circuloX: 866
+    DeslizadorInicio {
+        objectName: "deslizadorIniciarCiclo"
+        x: raiz.m(845); y: raiz.m(1616); width: raiz.m(302); height: raiz.m(110)
+        texto: raiz.textos.iniciar
+        textoCompletado: raiz.textos.iniciando
         // Como tkinter (_upd_listo) pero oculto en vez de inactivo cuando el equipo
-        // no está listo; mientras se envía la orden no acepta otro toque.
+        // no está listo; mientras se envía la orden no acepta otro arrastre.
         visible: raiz.listoParaCiclo && raiz.datosVigentes && !raiz.enFalla
-        enabled: !raiz.cicloOcupado
-        onPulsado: {
+        enabled: raiz.datosVigentes && !raiz.cicloOcupado
+        onCompletado: {
             if (raiz.puente?.sinBaseDatos ?? false)
                 confirmarSinRegistro.abrir()
             else

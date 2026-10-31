@@ -15,13 +15,40 @@ Item {
     property real altoTarjeta: Escala.px(1300)
     default property alias contenido: zona.data
 
-    function abrir() { visible = true }
-    function cerrar() { visible = false }
+    // Transición (movimiento, 31-oct): la tarjeta tocada se expande hasta el
+    // panel (ElementoCompartido); sin tarjeta de origen, solo un fundido.
+    property bool _cerrando: false
+    property bool _abriendo: false
+    // visible puesto a true sin abrir() (p. ej. en pruebas): se muestra completa
+    onVisibleChanged: if (visible && !_abriendo && !_cerrando && compartido.progreso === 0) compartido.abrir(null)
+    function abrir() {
+        if (visible && !_cerrando) return
+        _cerrando = false
+        _abriendo = true
+        visible = true
+        compartido.abrir(Movimiento.tomarOrigen())
+        _abriendo = false
+    }
+    function cerrar() {
+        if (!visible || _cerrando) return
+        _cerrando = true
+        compartido.cerrar()
+    }
 
     Rectangle {
         anchors.fill: parent
         color: "#99000000"
-        MouseArea { anchors.fill: parent; onClicked: raiz.cerrar() }
+        opacity: compartido.opacidadFondo
+        MouseArea { anchors.fill: parent; enabled: !raiz._cerrando; onClicked: raiz.cerrar() }
+    }
+
+    ElementoCompartido {
+        id: compartido
+        anchors.fill: parent
+        destino: tarjeta
+        radioOrigen: Escala.px(26)
+        radioDestino: Escala.px(28)
+        onCerrado: { raiz.visible = false; raiz._cerrando = false }
     }
 
     Rectangle {
@@ -31,6 +58,7 @@ Item {
         anchors.centerIn: parent
         radius: Escala.px(28)
         color: Colores.fondoTarjeta
+        opacity: compartido.opacidadContenido
         MouseArea { anchors.fill: parent }   // no dejar pasar el toque al fondo
 
         Text {

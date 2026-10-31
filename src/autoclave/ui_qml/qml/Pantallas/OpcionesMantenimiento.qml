@@ -37,7 +37,7 @@ Item {
     // `navegacionBloqueada` deja activo solo Cancelar (Opciones.qml lo aplica).
     property string vista: ""          // "" = principal, "calibracion_atm"
     readonly property bool navegacionBloqueada: vista === "calibracion_atm"
-                                                && (calibracionAtm.item?.bloqueada ?? false)
+                                                && (calibracionAtm.itemActivo?.bloqueada ?? false)
     // Atrás: de la calibración vuelve a Mantenimiento (no durante la medición)
     function retroceder() {
         if (vista === "")
@@ -157,17 +157,45 @@ Item {
         MouseArea { anchors.fill: parent; onClicked: control.limpiarMensaje() }
     }
 
-    Loader {
+    // Movimiento (31-oct): el botón Calibrar se expande hasta la subpantalla de
+    // calibración y vuelve a él; Mantenimiento y la calibración se funden
+    ElementoCompartido {
+        id: compartidoCalibracion
+        objectName: "elementoCompartidoCalibracion"
+        anchors.fill: parent
+        destino: areaVistaCalibracion
+        colorOrigen: Colores.fondoSutil
+        radioOrigen: Escala.px(12)
+        radioDestino: 0
+    }
+    Item {
+        id: areaVistaCalibracion
+        anchors.fill: parent
+    }
+    onVistaChanged: {
+        if (vista === "calibracion_atm")
+            compartidoCalibracion.abrir(Movimiento.tomarOrigen())
+        else
+            compartidoCalibracion.cerrar()
+    }
+
+    CargadorSeccion {
         id: calibracionAtm
         objectName: "cargadorCalibracionAtm"
-        active: raiz.vista === "calibracion_atm"
+        seleccionada: raiz.vista === "calibracion_atm"
         anchors.fill: parent
         z: 2
         sourceComponent: OpcionesCalibracionAtm { edicionPermitida: raiz.edicionPermitida }
     }
 
     Flickable {
-        visible: raiz.vista === ""
+        opacity: raiz.vista === "" ? 1 : 0
+        visible: opacity > 0
+        enabled: raiz.vista === ""
+        Behavior on opacity {
+            enabled: !Movimiento.instantaneo
+            NumberAnimation { duration: Movimiento.crossfadeMs; easing.type: Easing.InOutQuad }
+        }
         anchors.top: bandaError.bottom; anchors.topMargin: Escala.px(8)
         anchors.bottom: parent.bottom
         width: parent.width
@@ -241,6 +269,7 @@ Item {
                     anchors.fill: parent
                     enabled: accion.habilitado
                     onClicked: {
+                        Movimiento.registrarOrigen(accion)
                         if (accion.modelData.clave === "calibrar")
                             raiz.vista = "calibracion_atm"
                         else if (accion.modelData.clave === "prueba")
