@@ -113,7 +113,8 @@ def test_progreso_con_ciclo():
     assert p["activo"] is True
     assert p["fase_ciclo"] == "CALENTAMIENTO"
     assert p["transcurrido_s"] == 710.4 and p["restante_s"] is None
-    assert p["fases"][1] == {"fase": "calentamiento", "estado": "activa", "duracion_s": 60.4}
+    assert p["fases"][1] == {"fase": "calentamiento", "estado": "activa", "duracion_s": 60.4,
+                             "fraccion": None, "referencia_s": None}
     assert p["aplicables"] == ["vacio", "calentamiento", "secado"]
 
 
@@ -126,8 +127,10 @@ def test_progreso_descarta_fases_desconocidas_y_estados_invalidos():
     ]})
     assert p["transcurrido_s"] is None
     assert p["fases"] == [
-        {"fase": "vacio", "estado": "pendiente", "duracion_s": 1.0},
-        {"fase": "secado", "estado": "pendiente", "duracion_s": None},
+        {"fase": "vacio", "estado": "pendiente", "duracion_s": 1.0,
+         "fraccion": 0.0, "referencia_s": None},
+        {"fase": "secado", "estado": "pendiente", "duracion_s": None,
+         "fraccion": 0.0, "referencia_s": None},
     ]
 
 

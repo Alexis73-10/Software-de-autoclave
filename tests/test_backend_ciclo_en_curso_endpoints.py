@@ -101,6 +101,36 @@ def test_progreso_con_ciclo_y_referencia(entorno):
     assert body["fases"][0]["duracion_s"] == 650.0
     assert body["fases"][1]["duracion_s"] == 60.0
     assert body["restante_s"] == (180.0 - 60.0) + 420.0 + 120.0 + 900.0
+    # LLF A-2: fracción de llenado y referencia por fase
+    assert [f["fraccion"] for f in body["fases"]] == [1.0, 0.3333, 0.0, 0.0, 0.0]
+    assert [f["referencia_s"] for f in body["fases"]] == [600.0, 180.0, 420.0, 120.0, 900.0]
+
+
+@pytest.mark.req("REQ-36")
+def test_progreso_esterilizacion_usa_el_total_de_exposicion(entorno):
+    client, ctx, db = entorno
+    _crear_ciclo(db, "COMPLETADO", [("PRE_VACIO", 600.0), ("CALENTAMIENTO", 180.0),
+                                    ("ESTERILIZACION", 500.0), ("DESCOMPRESION", 120.0),
+                                    ("SECADO", 900.0)])
+    cid = _crear_ciclo(db, None, [("PRE_VACIO", 650.0), ("CALENTAMIENTO", 60.0),
+                                  ("ESTERILIZACION", None)])
+    ctx.estado.fase_ciclo = "ESTERILIZACION"
+    ctx.estado.exposicion_total_s = 420.0
+    ctx.estado.exposicion_restante_s = 320.0
+    ctx.cycle_logger.ciclo_id_pantalla = cid
+    ctx.cycle_logger.transcurrido_s.return_value = 810.0
+    body = client.get("/cycle/current/progress").json()
+    ester = body["fases"][2]
+    assert ester["estado"] == "activa"
+    assert ester["fraccion"] == 0.2381          # 1 - 320/420
+    assert ester["referencia_s"] == 420.0       # el total de la fase, no el historial (500)
+    assert body["restante_s"] == 320.0 + 120.0 + 900.0
+    # un total no numérico se descarta: fracción 0 y referencia del historial
+    ctx.estado.exposicion_total_s = True
+    body = client.get("/cycle/current/progress").json()
+    assert body["fases"][2]["fraccion"] == 0.0
+    assert body["fases"][2]["referencia_s"] == 500.0
+    assert body["restante_s"] == 320.0 + 120.0 + 900.0
 
 
 def test_progreso_sin_ciclo_de_referencia_restante_nulo(entorno):
@@ -142,3 +172,24 @@ def test_grafica_completa_e_incremental(entorno):
     desde = todo["lecturas"][1]["id"]
     nuevo = client.get(f"/cycle/current/graph?desde_id={desde}").json()
     assert [l["t_s"] for l in nuevo["lecturas"]] == [2.0, 3.0]
+
+
+@pytest.mark.req("REQ-36")
+def test_progreso_estado_mock_sin_total_no_falla_y_fraccion_cero(entorno):
+    """context.estado es un MagicMock real: exposicion_total_s/restante_s son MagicMock
+    (no numéricos); el endpoint no falla y la esterilización activa queda en 0.0."""
+    client, ctx, db = entorno
+    _crear_ciclo(db, "COMPLETADO", [("PRE_VACIO", 600.0), ("CALENTAMIENTO", 180.0),
+                                    ("ESTERILIZACION", 420.0), ("DESCOMPRESION", 120.0),
+                                    ("SECADO", 900.0)])
+    cid = _crear_ciclo(db, None, [("PRE_VACIO", 650.0), ("CALENTAMIENTO", 60.0),
+                                  ("ESTERILIZACION", None)])
+    ctx.estado.fase_ciclo = "ESTERILIZACION"
+    ctx.cycle_logger.ciclo_id_pantalla = cid
+    ctx.cycle_logger.transcurrido_s.return_value = 810.0
+    assert isinstance(ctx.estado.exposicion_total_s, MagicMock)
+    resp = client.get("/cycle/current/progress")
+    assert resp.status_code == 200
+    ester = next(f for f in resp.json()["fases"] if f["fase"] == "esterilizacion")
+    assert ester["estado"] == "activa"
+    assert ester["fraccion"] == 0.0

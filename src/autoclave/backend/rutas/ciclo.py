@@ -213,8 +213,13 @@ def get_current_cycle_progress():
     restante_exp = getattr(context.estado, "exposicion_restante_s", None)
     if not isinstance(restante_exp, (int, float)) or isinstance(restante_exp, bool):
         restante_exp = None
+    # LLF A-1: total del conteo de exposición (referencia_s de la esterilización activa)
+    total_exp = getattr(context.estado, "exposicion_total_s", None)
+    if not isinstance(total_exp, (int, float)) or isinstance(total_exp, bool):
+        total_exp = None
     progreso = progreso_ciclo.armar_progreso(aplicables, filas, fase_ciclo, transcurrido,
-                                             referencias, restante_exp)
+                                             referencias, restante_exp,
+                                             total_exposicion_s=total_exp)
     # FC-06/FC-13 (tanda 21): con el ciclo terminado, la fase en que terminó,
     # cómo terminó y las alarmas del ciclo. P4 (NO CONFORME) se retiró (FC-08).
     if progreso.get("resultado") is not None:

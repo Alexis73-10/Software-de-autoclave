@@ -241,3 +241,7 @@ Ver `docs/mis_plans/decisiones_tanda_12.md` e informes `docs/informes/tanda12/E1
 
 ### Pendiente compartido con CALENTAMIENTO
 Sensor de líquido secundario (`temp_camara_2`/`has_liquid_sensor`) para configuraciones de dos puertas — aplazado en ambas fases hasta un levantamiento aparte.
+
+## Llenado líquido de la barra de fases (31-oct)
+
+Ver `docs/mis_plans/planeacion_llenado_fases.md` y `docs/informes/llenado_fases/R_informe.md`. Riesgo HAZ-LLF-01, REQ-36. `GET /cycle/current/progress` publica por fase `fraccion` (0..1|null) y `referencia_s` (`progreso_ciclo.fraccion_fase`); tope `TOPE_FRACCION_ACTIVA` = 0,90 mientras la fase está activa, repetido en `ui_qml/domain/ciclo_en_curso.py` y `Componentes/CirculoFaseLiquido.qml`. `EsterilizacionFase` publica `estado.exposicion_total_s` (solo publicación). La UI solo dibuja: `BarraFases.qml` (duraciones en `tiempos`), `CirculoFaseLiquido.qml`, `ConectorFase.qml`; demostración con `python tests/banco/llf_capturas_barra_fases.py --demo`. En un worktree, pytest/QML necesitan `PYTHONPATH=<worktree>\src`.

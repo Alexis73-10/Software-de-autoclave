@@ -255,7 +255,7 @@ BLOQUEANTES (deben resolverse antes de la Fase 1):
 
 14.7 Nombres: se propone `PantallaPreciclo` para la pantalla actual previa al inicio y `PantallaCicloEnCurso` para la nueva. Confirmar antes de renombrar.
 
-14.8 Apariencia de la fase completada en la barra de fases: pendiente de definición. Mientras tanto, el componente expone un estado "completada" separado, con apariencia provisional igual a la activa y marcado con comentario `TODO-DISEÑO`.
+14.8 Apariencia de la fase completada: resuelta en la tanda de llenado de fases (31-oct): círculo lleno con degradado; ver `planeacion_llenado_fases_decisiones.md`.
 
 Decisiones delegadas a Claude (a validar visualmente por Cristian): polling de `/status` a 200 ms (igual al cliente existente), `/cycle/current/progress` y lecturas incrementales a 1 s; técnica de la gráfica (sección 8); auto-ocultar del cursor a 5 s; ejes con mínimo 0 y 5 divisiones; paso de marcas del eje X; fases pendientes como "—" en el desplegable "Tiempos".
 

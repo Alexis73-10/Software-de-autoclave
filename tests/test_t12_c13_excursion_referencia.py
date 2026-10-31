@@ -245,6 +245,98 @@ def test_restante_de_exposicion_refleja_la_detencion_y_el_reinicio(monkeypatch):
     assert estado.exposicion_restante_s == 45.0
 
 
+# ── LLF A-1: total del conteo de exposición ─────────────────────────────────
+
+class _Orden:
+    """Envuelve el estado y anota el orden en que se escriben los dos campos
+    de exposición (el lector HTTP está en otro hilo)."""
+
+    _CAMPOS = ("exposicion_total_s", "exposicion_restante_s")
+
+    def __init__(self, estado):
+        object.__setattr__(self, "_estado", estado)
+        object.__setattr__(self, "escrituras", [])
+
+    def __getattr__(self, nombre):
+        return getattr(object.__getattribute__(self, "_estado"), nombre)
+
+    def __setattr__(self, nombre, valor):
+        if nombre in self._CAMPOS:
+            self.escrituras.append((nombre, valor))
+        setattr(self._estado, nombre, valor)
+
+
+def test_total_de_exposicion_durante_la_fase_y_detenida(monkeypatch):
+    f, estado, _, reloj = _fase(monkeypatch)
+    f.update()
+    _ticks(f, reloj, 20)
+    assert estado.exposicion_total_s == 60.0
+    assert estado.exposicion_restante_s == 40.0
+    estado.sensores_temp["temp_ref"] = 119.0
+    f.update()
+    _ticks(f, reloj, 10)                                  # confirmada
+    assert f.exposicion_detenida is True
+    assert estado.exposicion_total_s == 60.0
+    assert estado.exposicion_restante_s == 60.0
+
+
+def test_total_de_exposicion_none_tras_completado(monkeypatch):
+    f, estado, _, reloj = _fase(monkeypatch)
+    f.update()
+    reloj.avanzar(60.0)
+    assert f.update() == FaseResult.COMPLETADO
+    assert estado.exposicion_restante_s is None
+    assert estado.exposicion_total_s is None
+
+
+def test_total_de_exposicion_none_tras_fallo(monkeypatch):
+    f, estado, _, reloj = _fase(monkeypatch)
+    f.update()
+    assert estado.exposicion_total_s == 60.0
+    ap.poner(estado, 120.5, ap.psat(120.5))               # Principal bajo la banda
+    f.update()
+    reloj.avanzar(5.0)
+    assert f.update() == FaseResult.FALLO
+    assert estado.exposicion_restante_s is None
+    assert estado.exposicion_total_s is None
+
+
+def test_total_de_exposicion_none_tras_reset(monkeypatch):
+    f, estado, _, reloj = _fase(monkeypatch)
+    f.update()
+    assert estado.exposicion_total_s == 60.0
+    f.reset()
+    assert estado.exposicion_restante_s is None
+    assert estado.exposicion_total_s is None
+
+
+def test_orden_total_antes_que_restante_al_publicar_y_al_revés_al_limpiar(monkeypatch):
+    f, estado, _, reloj = _fase(monkeypatch)
+    envuelto = _Orden(estado)
+    f.estado = envuelto
+    f.update()
+    reloj.avanzar(1.0)
+    f.update()
+    publicadas = list(envuelto.escrituras)
+    assert publicadas, "la fase no publicó la exposición"
+    for i in range(0, len(publicadas), 2):
+        assert publicadas[i][0] == "exposicion_total_s"
+        assert publicadas[i + 1][0] == "exposicion_restante_s"
+    envuelto.escrituras.clear()
+    reloj.avanzar(60.0)
+    assert f.update() == FaseResult.COMPLETADO
+    # el último par es la limpieza: primero el restante, luego el total
+    assert envuelto.escrituras[-2:] == [("exposicion_restante_s", None),
+                                        ("exposicion_total_s", None)]
+
+
+def test_estado_autoclave_declara_los_campos_de_exposicion():
+    from autoclave.core.runtime.status import EstadoAutoclave
+    e = EstadoAutoclave()
+    assert e.exposicion_restante_s is None
+    assert e.exposicion_total_s is None
+
+
 def test_progreso_usa_el_restante_de_la_exposicion():
     aplicables = ["calentamiento", "esterilizacion", "descompresion"]
     filas = [{"fase": "CALENTAMIENTO", "inicio_s": 0.0, "fin_s": 100.0, "duracion_s": 100.0},

@@ -155,6 +155,11 @@ class EstadoAutoclave:
         # CALENTAMIENTO/ESTABILIZACION/ESTERILIZACION; se limpia al iniciar
         # cada ciclo nuevo (CicloState.reset())
         self.f0_acumulado: float = 0.0
+        # C-13.7 / LLF A-1: restante y total del conteo de exposición que
+        # publica ESTERILIZACION para la pantalla (None fuera de la fase).
+        # Nada de control los lee.
+        self.exposicion_restante_s = None
+        self.exposicion_total_s = None
         # O1 (tanda 3): usuario autenticado que pidió el inicio (POST /cycle/start).
         # Lo fija el backend junto con START_CICLO y lo toma el CycleLogger al
         # crear el ciclo. "" = sin sesión.

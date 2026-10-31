@@ -23,6 +23,11 @@ _FASE_BACKEND_A_UI = {
 EXTENSION_MIN = 5
 _EXTENSION_S = EXTENSION_MIN * 60.0
 
+# LLF (llenado de la barra de fases, HAZ-LLF-01 / REQ-36): una fase que no está
+# "completada" nunca publica una fracción mayor que este tope, para que su
+# círculo no se lea como fase cumplida (primera de las tres capas del tope).
+TOPE_FRACCION_ACTIVA = 0.90
+
 # Mismos tipos de pulso que PrevacioFase (_TIPOS en prevacio.py).
 _TIPOS_PULSO = ("a", "b", "c", "d")
 
@@ -124,6 +129,55 @@ def _segundos_validos(valor) -> bool:
             and valor == valor and valor not in (float("inf"), float("-inf")) and valor >= 0)
 
 
+def _segundos_llf(valor) -> float | None:
+    """LLF: `valor` como float finito >= 0, o None si no es un número de segundos
+    convertible (p. ej. un int gigante que desborda float). Solo para el LLF."""
+    if not _segundos_validos(valor):
+        return None
+    try:
+        v = float(valor)
+    except (OverflowError, ValueError, TypeError):
+        return None
+    return v if v == v and v not in (float("inf"), float("-inf")) else None
+
+
+def _acotar(x: float) -> float:
+    return round(min(max(x, 0.0), TOPE_FRACCION_ACTIVA), 4)
+
+
+def fraccion_fase(estado, e_s, referencia_s, restante_propio_s=None, total_propio_s=None,
+                  *, conteo_propio: bool = False) -> float | None:
+    """LLF A-2: fracción de llenado (0..1) del círculo de una fase.
+
+    - completada → 1.0; pendiente → 0.0; fallida, interrumpida o desconocido → None.
+    - activa con `conteo_propio` (solo esterilización): 1 - restante/total
+      acotado a [0, TOPE_FRACCION_ACTIVA]; si falta el restante o el total
+      (o el total no es > 0) → 0.0.
+    - activa sin conteo propio: e/(e + restante_fase(e, ref)) acotado a
+      [0, TOPE_FRACCION_ACTIVA]; sin referencia válida > 0 → None.
+    Una fase no completada nunca pasa de TOPE_FRACCION_ACTIVA."""
+    if estado == "completada":
+        return 1.0
+    if estado == "pendiente":
+        return 0.0
+    if estado != "activa":
+        return None
+    if conteo_propio:
+        rp, tp = _segundos_llf(restante_propio_s), _segundos_llf(total_propio_s)
+        if rp is not None and tp is not None and tp > 0:
+            q = rp / tp
+            return _acotar(1.0 - q) if q == q and q != float("inf") else 0.0
+        return 0.0
+    ref = _segundos_llf(referencia_s)
+    if ref is None or ref <= 0:
+        return None
+    e = _segundos_llf(e_s) or 0.0
+    r = restante_fase(e, ref)
+    if e + r <= 0:
+        return 0.0
+    return _acotar(e / (e + r))
+
+
 def tiempo_restante(aplicables, fase_activa, e_activa: float, referencias,
                     restante_activa: float | None = None) -> float | None:
     """Restante total en segundos, o None si no se puede estimar (sin referencia
@@ -150,7 +204,8 @@ def tiempo_restante(aplicables, fase_activa, e_activa: float, referencias,
 
 
 def armar_progreso(aplicables, filas_fases, fase_ciclo, transcurrido_s: float, referencias,
-                   restante_exposicion_s: float | None = None) -> dict:
+                   restante_exposicion_s: float | None = None, *,
+                   total_exposicion_s: float | None = None) -> dict:
     """Cuerpo de GET /cycle/current/progress.
 
     filas_fases: registros de ciclo_fases del ciclo actual (fase backend,
@@ -158,6 +213,9 @@ def armar_progreso(aplicables, filas_fases, fase_ciclo, transcurrido_s: float, r
     restante_exposicion_s (E12, tanda 12, C-13.7): estado.exposicion_restante_s
     que publica ESTERILIZACION; con la esterilización activa reemplaza la
     estimación por historial de esa fase.
+    total_exposicion_s (LLF A-1, solo por palabra clave): estado.exposicion_total_s;
+    con el restante da la fracción y la referencia_s de la esterilización activa.
+    Cada fase lleva además `fraccion` (fraccion_fase) y `referencia_s`.
     """
     activa = fase_ui(fase_ciclo)
     duraciones: dict[str, float] = {}
@@ -202,6 +260,26 @@ def armar_progreso(aplicables, filas_fases, fase_ciclo, transcurrido_s: float, r
                 else:
                     item["estado"] = "pendiente"
                     item["duracion_s"] = None
+
+    # LLF A-2: fracción de llenado y referencia por fase, con el estado
+    # definitivo (después de FC-06). No cambia restante_s ni los demás campos.
+    for item in fases:
+        f, est = item["fase"], item["estado"]
+        conteo_propio = (f == "esterilizacion" and est == "activa")
+        try:
+            ref = referencias.get(f) if isinstance(referencias, dict) else None
+            ref_valida = _segundos_llf(ref)
+            tot = _segundos_llf(total_exposicion_s)
+            propio_valido = (conteo_propio and _segundos_llf(restante_exposicion_s) is not None
+                             and tot is not None and tot > 0)
+            item["fraccion"] = fraccion_fase(est, item["duracion_s"], ref_valida,
+                                             restante_exposicion_s if conteo_propio else None,
+                                             total_exposicion_s if conteo_propio else None,
+                                             conteo_propio=conteo_propio)
+            item["referencia_s"] = tot if propio_valido else ref_valida
+        except Exception:   # el LLF nunca debe tumbar el endpoint
+            item["fraccion"] = None
+            item["referencia_s"] = None
 
     if activa is not None:
         propio = restante_exposicion_s if activa == "esterilizacion" else None
