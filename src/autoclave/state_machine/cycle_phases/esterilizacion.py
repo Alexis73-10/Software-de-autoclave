@@ -182,6 +182,8 @@ class EsterilizacionFase(BaseFase):
         self.estado.fase_en_sostenimiento = False
         # C-13.7: restante de exposición para la pantalla (None fuera de la fase)
         self.estado.exposicion_restante_s = None
+        # LLF A-1: total del conteo de exposición (None fuera de la fase)
+        self.estado.exposicion_total_s = None
 
     # ------------------------------------------------------------------
     # Parámetros
@@ -291,6 +293,11 @@ class EsterilizacionFase(BaseFase):
                 restante = float(self._tiempo_seg)
             else:
                 restante = max(0.0, self._timer_fin - now)
+            # LLF A-1: total del conteo (el mismo _tiempo_seg que fija
+            # _timer_fin). ORDEN: el total se publica ANTES que el restante
+            # (el lector HTTP está en otro hilo).
+            total = float(self._tiempo_seg) if restante is not None else None
+            self.estado.exposicion_total_s = total
             self.estado.exposicion_restante_s = restante
         except Exception:
             logger.debug("Esterilización: no se pudo publicar el restante", exc_info=True)
@@ -321,7 +328,9 @@ class EsterilizacionFase(BaseFase):
         except Exception:
             logger.exception("Esterilización: no se pudieron anotar las excursiones abiertas")
         self.estado.motivo_fallo = mensaje
+        # LLF A-1: primero el restante, luego el total
         self.estado.exposicion_restante_s = None
+        self.estado.exposicion_total_s = None
         return FaseResult.FALLO
 
     def _fallo_propio(self, codigo_alarma, valores: dict, motivo) -> FaseResult:
@@ -848,6 +857,7 @@ class EsterilizacionFase(BaseFase):
                 logger.info("Esterilización: COMPLETADO — %.0f seg completados", tiempo_seg)
                 self._apagar_salidas()
                 self.estado.exposicion_restante_s = None
+                self.estado.exposicion_total_s = None   # LLF A-1: después del restante
                 return FaseResult.COMPLETADO
             return FaseResult.EN_CURSO
 
@@ -859,6 +869,7 @@ class EsterilizacionFase(BaseFase):
             )
             self._apagar_salidas()
             self.estado.exposicion_restante_s = None
+            self.estado.exposicion_total_s = None   # LLF A-1: después del restante
             return FaseResult.COMPLETADO
 
         if now >= self._timer_timeout_max:

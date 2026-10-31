@@ -31,3 +31,41 @@ def test_sin_dato_de_la_fase_usa_el_historial(entorno):  # noqa: F811
     ctx.estado.exposicion_restante_s = None
     body = client.get("/cycle/current/progress").json()
     assert body["restante_s"] == (420.0 - 100.0) + 120.0 + 900.0
+
+
+# ── LLF A-1/A-2: fracción de la esterilización con el total publicado ───────
+
+def _fraccion_ester(client):
+    body = client.get("/cycle/current/progress").json()
+    return next(f for f in body["fases"] if f["fase"] == "esterilizacion"), body
+
+
+def test_fraccion_con_total_y_restante_completos_es_cero(entorno):  # noqa: F811
+    client, ctx, db = entorno
+    _en_esterilizacion(ctx, db)
+    ctx.estado.exposicion_total_s = 420.0
+    ctx.estado.exposicion_restante_s = 420.0
+    ester, body = _fraccion_ester(client)
+    assert ester["fraccion"] == 0.0
+    assert ester["referencia_s"] == 420.0
+    assert body["restante_s"] == 420.0 + 120.0 + 900.0
+
+
+def test_fraccion_con_restante_320_de_420(entorno):  # noqa: F811
+    client, ctx, db = entorno
+    _en_esterilizacion(ctx, db)
+    ctx.estado.exposicion_total_s = 420.0
+    ctx.estado.exposicion_restante_s = 320.0
+    ester, _ = _fraccion_ester(client)
+    assert ester["fraccion"] == 0.2381
+
+
+def test_fraccion_sin_total_es_cero(entorno):  # noqa: F811
+    client, ctx, db = entorno
+    _en_esterilizacion(ctx, db)
+    ctx.estado.exposicion_total_s = None
+    ctx.estado.exposicion_restante_s = 320.0
+    ester, body = _fraccion_ester(client)
+    assert ester["fraccion"] == 0.0
+    assert ester["referencia_s"] == 420.0          # la del historial
+    assert body["restante_s"] == 320.0 + 120.0 + 900.0

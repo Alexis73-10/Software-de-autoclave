@@ -15,7 +15,10 @@ import threading
 from PySide6.QtCore import Property, QObject, QTimer, Signal, Slot
 
 from autoclave.ui_qml.domain import fin_de_ciclo
-from autoclave.ui_qml.domain.ciclo_en_curso import AcumuladorGrafica, normalizar_progreso
+from autoclave.ui_qml.domain.ciclo_en_curso import (
+    NIVEL_INDETERMINADO, AcumuladorGrafica, normalizar_progreso,
+)
+from autoclave.core.runtime.progreso_ciclo import TOPE_FRACCION_ACTIVA
 
 logger = logging.getLogger(__name__)
 
@@ -164,6 +167,21 @@ class ProgresoCiclo(QObject):
                 return fin_de_ciclo.armar(None, [], idioma)
             return {"modo": "fallo", "horaFin": "", "causa": {}, "alarmas": [],
                     "cantidad": 1, "notaObservaciones": ""}
+
+    # LLF: id del ciclo en curso (-1 sin ciclo); lo usa la barra de fases para
+    # distinguir un ciclo nuevo (primera carga sin animación)
+    @Property(int, notify=progresoChanged)
+    def cicloDbId(self) -> int:
+        ciclo = self._progreso["ciclo_db_id"]
+        return ciclo if ciclo is not None else -1
+
+    @Property(float, constant=True)
+    def topeFraccion(self) -> float:
+        return TOPE_FRACCION_ACTIVA
+
+    @Property(float, constant=True)
+    def nivelIndeterminado(self) -> float:
+        return NIVEL_INDETERMINADO
 
     @Property("QVariantList", notify=progresoChanged)
     def fases(self) -> list:

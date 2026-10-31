@@ -201,11 +201,17 @@ def test_armar_progreso_estados_y_duraciones():
     assert p["fase_activa"] == "calentamiento"
     assert p["transcurrido_s"] == 760.0
     assert p["fases"] == [
-        {"fase": "vacio", "estado": "completada", "duracion_s": 700.0},
-        {"fase": "calentamiento", "estado": "activa", "duracion_s": 60.0},
-        {"fase": "esterilizacion", "estado": "pendiente", "duracion_s": None},
-        {"fase": "descompresion", "estado": "pendiente", "duracion_s": None},
-        {"fase": "secado", "estado": "pendiente", "duracion_s": None},
+        # LLF A-2: fraccion y referencia_s por fase
+        {"fase": "vacio", "estado": "completada", "duracion_s": 700.0,
+         "fraccion": 1.0, "referencia_s": 12 * MIN},
+        {"fase": "calentamiento", "estado": "activa", "duracion_s": 60.0,
+         "fraccion": 0.3333, "referencia_s": 3 * MIN},
+        {"fase": "esterilizacion", "estado": "pendiente", "duracion_s": None,
+         "fraccion": 0.0, "referencia_s": 15 * MIN},
+        {"fase": "descompresion", "estado": "pendiente", "duracion_s": None,
+         "fraccion": 0.0, "referencia_s": 2 * MIN},
+        {"fase": "secado", "estado": "pendiente", "duracion_s": None,
+         "fraccion": 0.0, "referencia_s": 13 * MIN},
     ]
     assert p["restante_s"] == (3 * MIN - 60.0) + 15 * MIN + 2 * MIN + 13 * MIN
 
@@ -225,7 +231,8 @@ def test_armar_progreso_ciclo_cancelado_sin_restante():
     assert p["fase_activa"] is None
     assert p["restante_s"] is None
     # FC-06 (tanda 21): la fase cortada queda "interrumpida" (antes "completada")
-    assert p["fases"][0] == {"fase": "vacio", "estado": "interrumpida", "duracion_s": 30.0}
+    assert p["fases"][0] == {"fase": "vacio", "estado": "interrumpida", "duracion_s": 30.0,
+                             "fraccion": None, "referencia_s": 12 * MIN}
     assert p["fase_terminacion"] == "vacio"
     assert p["fases"][1]["estado"] == "pendiente"
 

@@ -12,7 +12,7 @@
 
 import math
 
-from autoclave.core.runtime.progreso_ciclo import FASES_UI
+from autoclave.core.runtime.progreso_ciclo import FASES_UI, TOPE_FRACCION_ACTIVA
 from autoclave.ui_qml.domain import fin_de_ciclo
 
 # FC-06 (tanda 21): fallida (fallo, emergencia) e interrumpida (cancelación)
@@ -20,6 +20,29 @@ _ESTADOS_FASE = {"completada", "activa", "pendiente", "fallida", "interrumpida"}
 _RESULTADOS = {"exitoso", "cancelado", "fallo"}
 # Tanda 17 (SON-01): también temp_2_camara (sonda de Cámara 2, en uso o de monitoreo)
 _SERIES = ("temp_camara", "temp_ref", "pres_camara", "temp_2_camara")
+
+
+# LLF: nivel solo visual de una fase activa sin fracción (indeterminada)
+NIVEL_INDETERMINADO = 0.25
+
+
+def _fraccion(estado: str, valor) -> float | None:
+    """Fracción de llenado de una fase según su estado (contrato LLF A-2)."""
+    if estado == "completada":
+        return 1.0
+    if estado in ("fallida", "interrumpida"):
+        return None
+    if estado != "activa":
+        return 0.0
+    v = _numero(valor)
+    if v is None or v < 0 or v > 1:
+        return None
+    return min(v, TOPE_FRACCION_ACTIVA)
+
+
+def _referencia(valor) -> float | None:
+    v = _numero(valor)
+    return v if v is not None and v >= 0 else None
 
 
 def _numero(valor) -> float | None:
@@ -106,10 +129,13 @@ def normalizar_progreso(respuesta) -> dict:
         if not isinstance(f, dict) or f.get("fase") not in FASES_UI:
             continue
         estado = f.get("estado")
+        estado = estado if estado in _ESTADOS_FASE else "pendiente"
         fases.append({
             "fase": f["fase"],
-            "estado": estado if estado in _ESTADOS_FASE else "pendiente",
+            "estado": estado,
             "duracion_s": _numero(f.get("duracion_s")),
+            "fraccion": _fraccion(estado, f.get("fraccion")),
+            "referencia_s": _referencia(f.get("referencia_s")),
         })
 
     # Un resultado desconocido se descarta (None) como antes: tratarlo como

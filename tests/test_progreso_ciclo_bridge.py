@@ -175,3 +175,22 @@ def test_publica_el_resultado_del_ciclo():
     p.activo = True
     p.refrescar(); ejecutor.correr()
     assert p.resultado == "cancelado"
+
+
+def test_publica_ciclo_db_id_y_constantes():
+    from autoclave.core.runtime.progreso_ciclo import TOPE_FRACCION_ACTIVA
+    from autoclave.ui_qml.domain.ciclo_en_curso import NIVEL_INDETERMINADO
+    backend = _Backend()
+    backend.progreso = _progreso_activo()
+    backend.ciclo = 7
+    backend.lecturas = [_lectura(1, 0.0)]
+    p, ejecutor = _nuevo(backend)
+    assert p.cicloDbId == -1
+    p.activo = True
+    p.refrescar(); ejecutor.correr()
+    assert p.cicloDbId == 7
+    backend.progreso = {"activo": False}
+    p.refrescar(); ejecutor.correr()
+    assert p.cicloDbId == -1
+    assert p.topeFraccion == TOPE_FRACCION_ACTIVA
+    assert p.nivelIndeterminado == NIVEL_INDETERMINADO == 0.25
