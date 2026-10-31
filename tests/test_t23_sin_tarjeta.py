@@ -55,6 +55,8 @@ RECUADROS = {
     "tarjetaHistorial", "tarjetaDetalleAlarma", "tarjetaDesplegable", "tarjetaDeshabilitada",
     "tarjetaCicloEnCurso", "tarjetaCambioClave", "tarjetaCalendario", "relleno_tarjeta",
     "tarjeta_titulo", "tarjeta_descripcion", "tarjeta_",
+    # movimiento de la UI (31-oct): destino del elemento compartido y arnés de prueba
+    "tarjetaAjuste", "tarjetaPrueba",
 }
 
 # Frases de autoclave.iss donde «tarjeta» no es el módulo E/S.
