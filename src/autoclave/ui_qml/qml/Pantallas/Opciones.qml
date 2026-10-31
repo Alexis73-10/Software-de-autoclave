@@ -34,9 +34,9 @@ Item {
     property QtObject teclado: null     // PanelTeclado de la ventana (T12: ajuste de parámetros)
     // Cambios sin guardar de la sección activa (U-13, U-19): roles de sensor
     // sin guardar en Parámetros del ciclo (T12)
-    property bool cambiosPendientes: (parametrosCiclo.item?.cambiosPendientes ?? false)
-                                     || (parametrosEquipo.item?.cambiosPendientes ?? false)
-                                     || (avanzadas.item?.cambiosPendientes ?? false)
+    property bool cambiosPendientes: (parametrosCiclo.itemActivo?.cambiosPendientes ?? false)
+                                     || (parametrosEquipo.itemActivo?.cambiosPendientes ?? false)
+                                     || (avanzadas.itemActivo?.cambiosPendientes ?? false)
 
     signal inicioPulsado()     // salir de OPCIONES conservando la sesión (U-5)
     // U2 (tanda 2): Atrás vuelve a la pantalla anterior conservando la sesión;
@@ -48,7 +48,7 @@ Item {
 
     readonly property bool usaToken: true
     // O2f (tanda 6): durante la calibración atmosférica solo Cancelar está activo
-    readonly property bool navegacionBloqueada: mantenimiento.item?.navegacionBloqueada ?? false
+    readonly property bool navegacionBloqueada: mantenimiento.itemActivo?.navegacionBloqueada ?? false
 
     // Nombre de la sección en una línea (cajón y título, §5.0)
     function nombreSeccion(clave) {
@@ -229,7 +229,7 @@ Item {
         if (navegacionBloqueada)
             return
         // salir de OPCIONES cierra el modo prueba de Entradas / Salidas (D-ES-08)
-        entradasSalidas.item?.cerrarModoPrueba("abandono de la sección")
+        entradasSalidas.itemActivo?.cerrarModoPrueba("abandono de la sección")
         if (cambiosPendientes) {
             _salidaPendiente = senal
             dialogoSalir.abrir()
@@ -244,13 +244,13 @@ Item {
     // a la pantalla desde la que se entró (Main.qml).
     function atras() {
         cerrarCajon()
-        if (parametrosCiclo.item?.retroceder())
+        if (parametrosCiclo.itemActivo?.retroceder())
             return
-        if (parametrosEquipo.item?.retroceder())      // O2a: submenú -> entrada
+        if (parametrosEquipo.itemActivo?.retroceder())      // O2a: submenú -> entrada
             return
-        if (mantenimiento.item?.retroceder())         // O2f: calibración -> Mantenimiento
+        if (mantenimiento.itemActivo?.retroceder())         // O2f: calibración -> Mantenimiento
             return
-        if (entradasSalidas.item?.subirNivel())
+        if (entradasSalidas.itemActivo?.subirNivel())
             return
         if (navegacionBloqueada)
             return
@@ -325,11 +325,105 @@ Item {
     }
 
     // ======================= contenido (todo el ancho, U-19) =======================
+    // Riel lateral único (31-oct): barra deslizable que siempre deja a la vista los
+    // iconos de las secciones; la hamburguesa lo expande sobre el contenido para
+    // mostrar también los nombres (antes era un cajón aparte), y se repliega al
+    // tocar fuera, al elegir una sección o con la hamburguesa. El contenido cede
+    // solo el ancho del riel plegado.
+    readonly property real anchoRiel: m(96)
+    readonly property real anchoRielAbierto: m(560)
+    Rectangle {
+        x: raiz.m(54) + raiz.anchoRiel + raiz.m(14); y: raiz.m(330)
+        width: raiz.m(2); height: contenido.height
+        color: Colores.bordeDivisor
+    }
+    Rectangle {
+        id: marcoRiel
+        objectName: "cajonOpciones"
+        x: raiz.m(54); y: raiz.m(330)
+        z: 10
+        width: raiz.cajonAbierto ? raiz.anchoRielAbierto : raiz.anchoRiel
+        height: contenido.height
+        radius: raiz.m(18)
+        color: raiz.cajonAbierto ? Colores.fondoTarjeta : "transparent"
+        border.width: raiz.cajonAbierto ? raiz.m(2) : 0
+        border.color: Colores.bordeDivisor
+        Behavior on width { NumberAnimation { duration: Movimiento.instantaneo ? 0 : 180; easing.type: Easing.OutCubic } }
+
+        Flickable {
+            id: riel
+            objectName: "rielOpciones"
+            anchors.fill: parent
+            contentHeight: columnaRiel.height
+            clip: true
+            interactive: contentHeight > height
+            boundsBehavior: Flickable.StopAtBounds
+            enabled: !raiz.navegacionBloqueada
+            opacity: enabled ? 1 : 0.4
+
+            Column {
+                id: columnaRiel
+                objectName: "navegacionOpciones"
+                width: parent.width
+                spacing: raiz.m(14)
+                Repeater {
+                    model: raiz.secciones
+                    delegate: Item {
+                        id: icono
+                        required property var modelData
+                        readonly property bool activa: modelData.clave === raiz.seccionActiva
+                        objectName: "entrada_" + modelData.clave
+                        width: columnaRiel.width
+                        height: Math.max(raiz.m(88), textoRiel.visible ? textoRiel.contentHeight + raiz.m(28) : 0)
+
+                        Rectangle {
+                            anchors.fill: parent
+                            radius: raiz.m(18)
+                            color: icono.activa ? Colores.accionFondoTenue : "transparent"
+                            Behavior on color { ColorAnimation { duration: Movimiento.fondoMs } }
+                        }
+                        Rectangle {
+                            visible: icono.activa
+                            width: raiz.m(6); height: parent.height
+                            radius: width / 2
+                            color: Colores.accionPrimario
+                        }
+                        IconoColor {
+                            x: raiz.anchoRiel / 2 - width / 2
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: raiz.m(54); height: width
+                            source: raiz.iconosMono + icono.modelData.icono
+                            color: icono.activa ? Colores.accionPrimario : Colores.textoPrimario
+                        }
+                        Text {
+                            id: textoRiel
+                            objectName: "textoEntrada"
+                            visible: marcoRiel.width > raiz.anchoRiel + raiz.m(120)
+                            x: raiz.anchoRiel
+                            width: parent.width - x - raiz.m(12)
+                            anchors.verticalCenter: parent.verticalCenter
+                            wrapMode: Text.WordWrap
+                            text: raiz.nombreSeccion(icono.modelData.clave)
+                            color: icono.activa ? Colores.accionPrimarioTexto : Colores.textoPrimario
+                            font.family: Tipografia.familia
+                            font.weight: icono.activa ? Tipografia.pesoBold : Tipografia.pesoSemiBold
+                            font.pixelSize: raiz.fuente(27)
+                        }
+                        MouseArea {
+                            anchors.fill: parent
+                            onClicked: raiz.elegirSeccion(icono.modelData.clave)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     Item {
         id: contenido
         objectName: "contenidoOpciones"
-        x: raiz.m(54); y: raiz.m(330)
-        width: raiz.m(1088)
+        x: raiz.m(54) + raiz.anchoRiel + raiz.m(30); y: raiz.m(330)
+        width: raiz.m(1088) - raiz.anchoRiel - raiz.m(30)
         height: barra.y - y - raiz.m(30)
 
         // Solo lectura fuera de PREPARACION / PREPARADO (U-8): aviso fijo
@@ -357,10 +451,10 @@ Item {
 
         // Usuarios (O2b, tanda 6): pestañas Usuarios / Operadores; "+ Nuevo
         // usuario" sigue abriendo la pantalla existente (R2-5)
-        Loader {
+        CargadorSeccion {
             id: usuarios
             objectName: "cargadorUsuarios"
-            active: raiz.seccionActiva === "usuarios"
+            seleccionada: raiz.seccionActiva === "usuarios"
             anchors.fill: parent
             sourceComponent: OpcionesUsuarios {
                 teclado: raiz.teclado
@@ -371,10 +465,10 @@ Item {
         }
 
         // Parámetros del ciclo, Fases 2 a 4 (T12): debajo del aviso de bloqueo
-        Loader {
+        CargadorSeccion {
             id: parametrosCiclo
             objectName: "cargadorParametrosCiclo"
-            active: raiz.seccionActiva === "parametros_ciclo"
+            seleccionada: raiz.seccionActiva === "parametros_ciclo"
             anchors.fill: parent
             anchors.topMargin: raiz.edicionPermitida ? 0 : raiz.m(84)
             sourceComponent: OpcionesParametrosCiclo {
@@ -384,10 +478,10 @@ Item {
         }
 
         // Parámetros del equipo (O2a, tanda 6): 7 submenús
-        Loader {
+        CargadorSeccion {
             id: parametrosEquipo
             objectName: "cargadorParametrosEquipo"
-            active: raiz.seccionActiva === "parametros_sistema"
+            seleccionada: raiz.seccionActiva === "parametros_sistema"
             anchors.fill: parent
             anchors.topMargin: raiz.edicionPermitida ? 0 : raiz.m(84)
             sourceComponent: OpcionesParametrosEquipo {
@@ -399,37 +493,37 @@ Item {
         }
 
         // Fecha y hora (O2c, tanda 6): solo lectura
-        Loader {
+        CargadorSeccion {
             id: fechaHora
             objectName: "cargadorFechaHora"
-            active: raiz.seccionActiva === "fecha_hora"
+            seleccionada: raiz.seccionActiva === "fecha_hora"
             anchors.fill: parent
             sourceComponent: OpcionesFechaHora {}
         }
 
         // Información del sistema (O2d, tanda 6): solo lectura
-        Loader {
+        CargadorSeccion {
             id: infoSistema
             objectName: "cargadorInfoSistema"
-            active: raiz.seccionActiva === "info_sistema"
+            seleccionada: raiz.seccionActiva === "info_sistema"
             anchors.fill: parent
             sourceComponent: OpcionesInfoSistema {}
         }
 
         // Bitácora de auditoría (O2e, tanda 6): solo lectura
-        Loader {
+        CargadorSeccion {
             id: bitacora
             objectName: "cargadorBitacora"
-            active: raiz.seccionActiva === "bitacora"
+            seleccionada: raiz.seccionActiva === "bitacora"
             anchors.fill: parent
             sourceComponent: OpcionesBitacora { teclado: raiz.teclado }
         }
 
         // Mantenimiento (M1, tanda 3): próximo vencimiento y registro
-        Loader {
+        CargadorSeccion {
             id: mantenimiento
             objectName: "cargadorMantenimiento"
-            active: raiz.seccionActiva === "mantenimiento"
+            seleccionada: raiz.seccionActiva === "mantenimiento"
             anchors.fill: parent
             anchors.topMargin: raiz.edicionPermitida ? 0 : raiz.m(84)
             sourceComponent: OpcionesMantenimiento {
@@ -439,10 +533,10 @@ Item {
         }
 
         // Conectividad (O2g, tanda 6): red en lectura y correo de ciclos
-        Loader {
+        CargadorSeccion {
             id: conectividad
             objectName: "cargadorConectividad"
-            active: raiz.seccionActiva === "conectividad"
+            seleccionada: raiz.seccionActiva === "conectividad"
             anchors.fill: parent
             anchors.topMargin: raiz.edicionPermitida ? 0 : raiz.m(84)
             sourceComponent: OpcionesConectividad {
@@ -453,10 +547,10 @@ Item {
         }
 
         // Respaldo (O2h, tanda 6): exportar y restaurar por USB
-        Loader {
+        CargadorSeccion {
             id: respaldo
             objectName: "cargadorRespaldo"
-            active: raiz.seccionActiva === "respaldo"
+            seleccionada: raiz.seccionActiva === "respaldo"
             anchors.fill: parent
             anchors.topMargin: raiz.edicionPermitida ? 0 : raiz.m(84)
             sourceComponent: OpcionesRespaldo {
@@ -466,10 +560,10 @@ Item {
         }
 
         // Entradas / Salidas (planeacion_opciones_entradas_salidas.md)
-        Loader {
+        CargadorSeccion {
             id: entradasSalidas
             objectName: "cargadorEntradasSalidas"
-            active: raiz.seccionActiva === "entradas_salidas"
+            seleccionada: raiz.seccionActiva === "entradas_salidas"
             anchors.fill: parent
             sourceComponent: OpcionesEntradasSalidas {
                 teclado: raiz.teclado
@@ -479,10 +573,10 @@ Item {
         // Opciones avanzadas (C9, tanda 9, D9-10): Manejo de ciclos para técnico
         // e ingeniero y, solo para el ingeniero, la reasignación de E/S (R8,
         // tanda 8, D8-5.12). El backend es la autoridad (rol, ciclo, confirmaciones)
-        Loader {
+        CargadorSeccion {
             id: avanzadas
             objectName: "cargadorOpcionesAvanzadas"
-            active: raiz.seccionActiva === "opciones_avanzadas"
+            seleccionada: raiz.seccionActiva === "opciones_avanzadas"
             anchors.fill: parent
             anchors.topMargin: raiz.edicionPermitida ? 0 : raiz.m(84)
             sourceComponent: OpcionesAvanzadas {
@@ -550,106 +644,13 @@ Item {
     // Fondo atenuado: tocar fuera cierra; no deja pasar el toque al contenido
     Rectangle {
         objectName: "fondoCajon"
+        z: 5
         anchors.fill: parent
         color: "#99000000"   // PROVISIONAL: misma atenuación que DialogoConfirmacion
         opacity: raiz.cajonAbierto ? 1 : 0
         visible: opacity > 0
         Behavior on opacity { NumberAnimation { duration: 180 } }
         MouseArea { anchors.fill: parent; onClicked: raiz.cerrarCajon() }
-    }
-
-    Rectangle {
-        id: cajon
-        objectName: "cajonOpciones"
-        width: raiz.m(627)   // ~ la mitad del ancho (U-19)
-        height: parent.height
-        x: raiz.cajonAbierto ? -radius : -width - radius
-        visible: x > -width - radius
-        Behavior on x { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
-        radius: raiz.m(39)   // esquinas derechas redondeadas; las izquierdas quedan fuera de pantalla
-        color: Colores.fondoTarjeta
-        MouseArea { anchors.fill: parent }   // el toque dentro del cajón no lo cierra
-
-        // contenido del cajón, en coordenadas de pantalla (el cajón empieza en -radius)
-        Item {
-            x: cajon.radius
-            width: cajon.width - cajon.radius
-            height: parent.height
-
-            Text {
-                objectName: "tituloCajon"
-                x: raiz.m(60)
-                y: raiz.m(160) - baselineOffset
-                text: I18n.t("opciones.titulo", I18n.lang)
-                color: Colores.textoPrimario
-                font.family: Tipografia.familia
-                font.weight: Tipografia.pesoBold
-                font.pixelSize: raiz.fuente(36)
-                font.letterSpacing: raiz.m(36 * 0.05)
-            }
-            Rectangle {
-                x: raiz.m(60); y: raiz.m(199)
-                width: raiz.m(571 - 60); height: raiz.m(2)
-                color: Colores.bordeDivisor
-            }
-
-            Column {
-                objectName: "navegacionOpciones"
-                x: raiz.m(25); y: raiz.m(247)
-                spacing: raiz.m(118 - 97)
-
-                Repeater {
-                    model: raiz.secciones
-                    delegate: Item {
-                        id: entrada
-                        required property var modelData
-                        readonly property bool activa: modelData.clave === raiz.seccionActiva
-                        objectName: "entrada_" + modelData.clave
-                        // mismo margen a ambos lados, dentro del borde del cajón
-                        width: cajon.width - cajon.radius - 2 * raiz.m(25)
-                        // > 64 px de área táctil (U-14); si el nombre no cabe en una
-                        // línea, la fila crece y pasa a dos (U-2, rev. 3.1)
-                        height: Math.max(raiz.m(97), textoEntrada.contentHeight + raiz.m(36))
-
-                        Rectangle {
-                            anchors.fill: parent
-                            radius: raiz.m(18)
-                            color: entrada.activa ? Colores.accionFondoTenue : "transparent"
-                        }
-                        Rectangle {
-                            visible: entrada.activa
-                            width: raiz.m(6); height: parent.height
-                            radius: width / 2
-                            color: Colores.accionPrimario
-                        }
-                        IconoColor {
-                            x: raiz.m(89 - 25) - width / 2
-                            anchors.verticalCenter: parent.verticalCenter
-                            width: raiz.m(54); height: width
-                            source: raiz.iconosMono + entrada.modelData.icono
-                            color: entrada.activa ? Colores.accionPrimario : Colores.textoPrimario
-                        }
-                        Text {
-                            id: textoEntrada
-                            objectName: "textoEntrada"
-                            x: raiz.m(160 - 25)
-                            width: parent.width - x - raiz.m(12)
-                            anchors.verticalCenter: parent.verticalCenter
-                            wrapMode: Text.WordWrap
-                            text: raiz.nombreSeccion(entrada.modelData.clave)
-                            color: entrada.activa ? Colores.accionPrimarioTexto : Colores.textoPrimario
-                            font.family: Tipografia.familia
-                            font.weight: entrada.activa ? Tipografia.pesoBold : Tipografia.pesoSemiBold
-                            font.pixelSize: raiz.fuente(27)
-                        }
-                        MouseArea {
-                            anchors.fill: parent
-                            onClicked: raiz.elegirSeccion(entrada.modelData.clave)
-                        }
-                    }
-                }
-            }
-        }
     }
 
     // ======================= ventanas =======================

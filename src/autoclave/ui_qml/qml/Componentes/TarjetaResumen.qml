@@ -136,6 +136,6 @@ Item {
         id: zona
         anchors.fill: parent
         enabled: raiz.interactiva
-        onClicked: raiz.pulsada()
+        onClicked: { Movimiento.registrarOrigen(raiz); raiz.pulsada() }
     }
 }

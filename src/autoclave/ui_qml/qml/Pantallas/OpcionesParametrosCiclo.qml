@@ -29,7 +29,7 @@ Item {
     // está en la lista de programas (la pantalla Opciones entonces sale)
     function retroceder() {
         // primero cierra la ventana de ajuste; con el valor editado pregunta
-        if (ajuste.visible) {
+        if (ajuste.abierto) {
             if (ajuste.cambiado && ajuste.editable)
                 dialogoGuardarAjuste.abrir()
             else
@@ -224,7 +224,7 @@ Item {
             width: parent.width; height: 1
             color: Colores.bordeDivisor
         }
-        MouseArea { anchors.fill: parent; onClicked: fila.pulsada() }
+        MouseArea { anchors.fill: parent; onClicked: { Movimiento.registrarOrigen(fila); fila.pulsada() } }
     }
 
     // Mensaje del último error (§5.4)
@@ -286,10 +286,39 @@ Item {
         }
     }
 
+    // Movimiento (31-oct): la fila tocada (sección, sensores, entradas) se expande
+    // hasta la zona de contenido y vuelve a ella; las vistas se funden entre sí
+    Item {
+        id: areaVistas
+        anchors.top: bandaAviso.bottom; anchors.topMargin: Escala.px(8)
+        anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom
+    }
+    ElementoCompartido {
+        id: compartidoVista
+        objectName: "elementoCompartidoVistaCiclo"
+        anchors.fill: parent
+        destino: areaVistas
+        colorOrigen: Colores.fondoSutil
+        radioOrigen: Escala.px(12)
+        radioDestino: 0
+    }
+    onVistaChanged: {
+        if (vista !== "programa")
+            compartidoVista.abrir(Movimiento.tomarOrigen())
+        else
+            compartidoVista.cerrar()
+    }
+
     // ======================= vista: programa (§5.1) =======================
     Flickable {
         objectName: "vistaPrograma"
-        visible: raiz.vista === "programa"
+        opacity: raiz.vista === "programa" ? 1 : 0
+        visible: opacity > 0
+        enabled: raiz.vista === "programa"
+        Behavior on opacity {
+            enabled: !Movimiento.instantaneo
+            NumberAnimation { duration: Movimiento.crossfadeMs; easing.type: Easing.InOutQuad }
+        }
         anchors.top: bandaAviso.bottom; anchors.topMargin: Escala.px(8)
         anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom
         contentHeight: columnaPrograma.height
@@ -371,7 +400,13 @@ Item {
     // ======================= vista: sección (§5.2) =======================
     Item {
         objectName: "vistaSeccion"
-        visible: raiz.vista === "seccion"
+        opacity: raiz.vista === "seccion" ? 1 : 0
+        visible: opacity > 0
+        enabled: raiz.vista === "seccion"
+        Behavior on opacity {
+            enabled: !Movimiento.instantaneo
+            NumberAnimation { duration: Movimiento.crossfadeMs; easing.type: Easing.InOutQuad }
+        }
         anchors.top: bandaAviso.bottom; anchors.topMargin: Escala.px(8)
         anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom
         Row {
@@ -454,7 +489,13 @@ Item {
 
     Item {
         objectName: "vistaSensores"
-        visible: raiz.vista === "sensores"
+        opacity: raiz.vista === "sensores" ? 1 : 0
+        visible: opacity > 0
+        enabled: raiz.vista === "sensores"
+        Behavior on opacity {
+            enabled: !Movimiento.instantaneo
+            NumberAnimation { duration: Movimiento.crossfadeMs; easing.type: Easing.InOutQuad }
+        }
         anchors.top: bandaAviso.bottom; anchors.topMargin: Escala.px(8)
         anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom
         Row {
@@ -596,7 +637,13 @@ Item {
     }
     Item {
         objectName: "vistaEntradas"
-        visible: raiz.vista === "entradas"
+        opacity: raiz.vista === "entradas" ? 1 : 0
+        visible: opacity > 0
+        enabled: raiz.vista === "entradas"
+        Behavior on opacity {
+            enabled: !Movimiento.instantaneo
+            NumberAnimation { duration: Movimiento.crossfadeMs; easing.type: Easing.InOutQuad }
+        }
         anchors.top: bandaAviso.bottom; anchors.topMargin: Escala.px(8)
         anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom
         Flickable {
@@ -697,11 +744,11 @@ Item {
         Connections {
             target: Unidades
             function onCambiado() {
-                if (ajuste.visible && ajuste.nuevo !== null && raiz.convertible(ajuste.param)) {
+                if (ajuste.abierto && ajuste.nuevo !== null && raiz.convertible(ajuste.param)) {
                     ajuste.nuevo = null
                     ajuste.errorIngreso = I18n.t("opciones.err_unidades_cambiaron", I18n.lang)
                 }
-                if (ajuste.visible && ajuste.param)
+                if (ajuste.abierto && ajuste.param)
                     ajuste.unidadIngreso = Unidades.unidadIngreso(ajuste.param.unidad || "", ajuste.param.clave, ajuste.param.clase || "")
             }
         }
@@ -715,7 +762,7 @@ Item {
         readonly property bool defectoValido: param !== null && param.defecto !== null && param.defecto !== undefined
                                               && (!esModo || modos.indexOf(param.defecto) >= 0)
         readonly property var valorEnEdicion: nuevo !== null ? nuevo : (param ? param.valor : null)
-        readonly property bool cambiado: visible && nuevo !== null && param !== null && nuevo !== param.valor
+        readonly property bool cambiado: abierto && nuevo !== null && param !== null && nuevo !== param.valor
         function guardar() {
             if (cambiado && control.guardar(param.clave, nuevo))
                 cerrar()
@@ -725,7 +772,8 @@ Item {
             unidadIngreso = raiz.convertible(p) ? Unidades.unidadIngreso(p.unidad || "", p.clave, p.clase || "") : ""
             if (ingresosPsi.length > 0 && ingresosPsi.indexOf(unidadIngreso) < 0)
                 unidadIngreso = ingresosPsi[0]
-            visible = true
+            abierto = true
+            compartidoAjuste.abrir(Movimiento.tomarOrigen())
         }
         // valor tecleado en la unidad mostrada -> interna, redondeado y validado
         function recibir(v) {
@@ -748,12 +796,36 @@ Item {
             }
             nuevo = interno
         }
-        function cerrar() { visible = false; if (raiz.teclado) raiz.teclado.cerrar() }
-        visible: false
+        function cerrar() {
+            if (abierto) {
+                abierto = false
+                compartidoAjuste.cerrar()
+            }
+            if (raiz.teclado) raiz.teclado.cerrar()
+        }
+        // Movimiento (31-oct): la fila tocada se expande hasta la ventana de ajuste
+        property bool abierto: false
+        visible: abierto || compartidoAjuste.enCurso
         anchors.fill: parent
-        color: "#80000000"
-        MouseArea { anchors.fill: parent }            // modal
+        color: "transparent"
+        MouseArea { anchors.fill: parent; enabled: ajuste.abierto }            // modal
         Rectangle {
+            anchors.fill: parent
+            color: "#80000000"
+            opacity: compartidoAjuste.opacidadFondo
+        }
+        ElementoCompartido {
+            id: compartidoAjuste
+            objectName: "elementoCompartidoAjuste"
+            anchors.fill: parent
+            destino: tarjetaAjuste
+            colorOrigen: Colores.fondoTarjeta
+            radioOrigen: 0
+            radioDestino: Escala.px(20)
+        }
+        Rectangle {
+            id: tarjetaAjuste
+            opacity: compartidoAjuste.opacidadContenido
             anchors.horizontalCenter: parent.horizontalCenter
             y: Escala.px(97 + 32 + 16)      // bajo la franja de botones
             width: parent.width - Escala.px(40)
@@ -1033,7 +1105,7 @@ Item {
     Rectangle {
         id: accionesAjuste
         objectName: "accionesAjuste"
-        visible: ajuste.visible
+        visible: ajuste.abierto
         z: 5
         anchors.left: parent.left; anchors.right: parent.right
         anchors.top: parent.top

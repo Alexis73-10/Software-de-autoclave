@@ -41,7 +41,7 @@ Item {
 
     // Atrás: cierra la ventana de ajuste, luego sube del submenú a la entrada
     function retroceder() {
-        if (ajuste.visible) {
+        if (ajuste.abierto) {
             if (ajuste.cambiado && ajuste.editable)
                 dialogoGuardarAjuste.abrir()
             else
@@ -150,13 +150,48 @@ Item {
             color: Colores.textoGuia
             font.pixelSize: Escala.fuente(44)
         }
-        MouseArea { anchors.fill: parent; onClicked: control.abrirGrupo(tarjeta.grupo) }
+        MouseArea {
+            anchors.fill: parent
+            onClicked: { Movimiento.registrarOrigen(tarjeta); control.abrirGrupo(tarjeta.grupo) }
+        }
+    }
+
+    // Movimiento (31-oct): la tarjeta tocada se expande hasta la zona de contenido
+    // y vuelve a ella; las tres vistas se funden entre sí
+    Item {
+        id: areaVistas
+        anchors.top: bandaError.bottom; anchors.topMargin: Escala.px(8)
+        anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom
+    }
+    ElementoCompartido {
+        id: compartidoGrupo
+        objectName: "elementoCompartidoGrupoEquipo"
+        anchors.fill: parent
+        destino: areaVistas
+        colorOrigen: Colores.fondoSutil
+        radioOrigen: Escala.px(18)
+        radioDestino: 0
+    }
+    Connections {
+        target: control
+        function onGrupoChanged() {
+            if (control.grupo !== "")
+                compartidoGrupo.abrir(Movimiento.tomarOrigen())
+            else
+                compartidoGrupo.cerrar()
+        }
     }
 
     Item {
         id: vistaEntrada
         objectName: "vistaEntradaEquipo"
-        visible: control.grupo === ""
+        opacity: control.grupo === "" ? 1 : 0
+        visible: opacity > 0
+        enabled: control.grupo === ""
+        Behavior on opacity {
+            enabled: !Movimiento.instantaneo
+            NumberAnimation { duration: Movimiento.crossfadeMs; easing.type: Easing.InOutQuad }
+        }
         anchors.top: bandaError.bottom; anchors.topMargin: Escala.px(8)
         anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom
         Column {
@@ -263,7 +298,13 @@ Item {
     Item {
         id: vistaGrupo
         objectName: "vistaGrupoEquipo"
-        visible: control.grupo !== "" && control.grupo !== "maquina"
+        opacity: control.grupo !== "" && control.grupo !== "maquina" ? 1 : 0
+        visible: opacity > 0
+        enabled: opacity > 0.99
+        Behavior on opacity {
+            enabled: !Movimiento.instantaneo
+            NumberAnimation { duration: Movimiento.crossfadeMs; easing.type: Easing.InOutQuad }
+        }
         anchors.top: bandaError.bottom; anchors.topMargin: Escala.px(8)
         anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom
 
@@ -390,7 +431,7 @@ Item {
                                  + " · " + I18n.t("opciones.equipo_atm_ayuda", I18n.lang)
                     valor: Unidades.version >= 0 ? raiz.textoP(modelData.valor, modelData) : ""
                     chevron: !modelData.solo_lectura && control.motivoParametro !== "rol"
-                    onPulsada: ajuste.abrir(modelData)
+                    onPulsada: { Movimiento.registrarOrigen(filaParametro); ajuste.abrir(modelData) }
                 }
             }
         }
@@ -506,7 +547,13 @@ Item {
     Flickable {
         id: vistaMaquina
         objectName: "vistaMaquinaEquipo"
-        visible: control.grupo === "maquina"
+        opacity: control.grupo === "maquina" ? 1 : 0
+        visible: opacity > 0
+        enabled: control.grupo === "maquina"
+        Behavior on opacity {
+            enabled: !Movimiento.instantaneo
+            NumberAnimation { duration: Movimiento.crossfadeMs; easing.type: Easing.InOutQuad }
+        }
         anchors.top: bandaError.bottom; anchors.topMargin: Escala.px(8)
         anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom
         contentHeight: columnaMaquina.height
@@ -563,6 +610,12 @@ Item {
                     rotulo: I18n.t("opciones.equipo_modelo", I18n.lang)
                     valor: control.modelo
                 }
+                FilaLectura {
+                    objectName: "serialEspecifikaEquipo"
+                    visible: control.serialEspecifika !== ""
+                    rotulo: I18n.t("equipo.serial_especifika", I18n.lang)
+                    valor: control.serialEspecifika
+                }
                 Text {
                     width: parent.width
                     topPadding: Escala.px(8)
@@ -610,12 +663,6 @@ Item {
         visible: control.reiniciando
         anchors.fill: parent
         z: 200
-                FilaLectura {
-                    objectName: "serialEspecifikaEquipo"
-                    visible: control.serialEspecifika !== ""
-                    rotulo: I18n.t("equipo.serial_especifika", I18n.lang)
-                    valor: control.serialEspecifika
-                }
         color: "#CC000000"
         MouseArea { anchors.fill: parent }
         Column {
@@ -658,17 +705,17 @@ Item {
         Connections {
             target: Unidades
             function onCambiado() {
-                if (ajuste.visible && ajuste.nuevo !== null && raiz.convertible(ajuste.param)) {
+                if (ajuste.abierto && ajuste.nuevo !== null && raiz.convertible(ajuste.param)) {
                     ajuste.nuevo = null
                     ajuste.errorIngreso = I18n.t("opciones.err_unidades_cambiaron", I18n.lang)
                 }
-                if (ajuste.visible && ajuste.param)
+                if (ajuste.abierto && ajuste.param)
                     ajuste.unidadIngreso = Unidades.unidadIngreso(ajuste.param.unidad || "", ajuste.param.clave, ajuste.param.clase || "")
             }
         }
         readonly property bool editable: raiz.editable && param !== null && !param.solo_lectura
         readonly property var valorEnEdicion: nuevo !== null ? nuevo : (param ? param.valor : null)
-        readonly property bool cambiado: visible && nuevo !== null && param !== null && nuevo !== param.valor
+        readonly property bool cambiado: abierto && nuevo !== null && param !== null && nuevo !== param.valor
         function guardar() {
             if (!cambiado)
                 return
@@ -682,7 +729,8 @@ Item {
             unidadIngreso = raiz.convertible(p) ? Unidades.unidadIngreso(p.unidad || "", p.clave, p.clase || "") : ""
             if (ingresosPsi.length > 0 && ingresosPsi.indexOf(unidadIngreso) < 0)
                 unidadIngreso = ingresosPsi[0]
-            visible = true
+            abierto = true
+            compartidoAjuste.abrir(Movimiento.tomarOrigen())
         }
         function recibir(v) {
             errorIngreso = ""
@@ -705,12 +753,36 @@ Item {
             }
             nuevo = interno
         }
-        function cerrar() { visible = false; if (raiz.teclado) raiz.teclado.cerrar() }
-        visible: false
+        function cerrar() {
+            if (abierto) {
+                abierto = false
+                compartidoAjuste.cerrar()
+            }
+            if (raiz.teclado) raiz.teclado.cerrar()
+        }
+        // Movimiento (31-oct): la fila tocada se expande hasta la ventana de ajuste
+        property bool abierto: false
+        visible: abierto || compartidoAjuste.enCurso
         anchors.fill: parent
-        color: "#80000000"
-        MouseArea { anchors.fill: parent }            // modal
+        color: "transparent"
+        MouseArea { anchors.fill: parent; enabled: ajuste.abierto }            // modal
         Rectangle {
+            anchors.fill: parent
+            color: "#80000000"
+            opacity: compartidoAjuste.opacidadFondo
+        }
+        ElementoCompartido {
+            id: compartidoAjuste
+            objectName: "elementoCompartidoAjusteEquipo"
+            anchors.fill: parent
+            destino: tarjetaAjuste
+            colorOrigen: Colores.fondoTarjeta
+            radioOrigen: 0
+            radioDestino: Escala.px(20)
+        }
+        Rectangle {
+            id: tarjetaAjuste
+            opacity: compartidoAjuste.opacidadContenido
             anchors.horizontalCenter: parent.horizontalCenter
             y: Escala.px(97 + 32 + 16)
             width: parent.width - Escala.px(40)
@@ -874,7 +946,7 @@ Item {
     Rectangle {
         id: accionesAjuste
         objectName: "accionesAjusteEquipo"
-        visible: ajuste.visible
+        visible: ajuste.abierto
         z: 5
         anchors.left: parent.left; anchors.right: parent.right
         anchors.top: parent.top

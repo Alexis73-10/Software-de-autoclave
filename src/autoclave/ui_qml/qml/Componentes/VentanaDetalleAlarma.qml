@@ -44,10 +44,13 @@ Item {
     anchors.fill: parent
     z: 300
 
+    // Movimiento (31-oct): la fila tocada (FilaAlarma registra Movimiento.origen)
+    // se expande hasta esta ventana y vuelve a ella al cerrar
     function abrir(fila) {
         datos = fila ?? ({})
         vigente = true
         abierta = true
+        compartido.abrir(Movimiento.tomarOrigen())
     }
     // Abre con la fila de un delegado (`model`): la del modelo vigente si
     // expone detalle(id) (AlarmListModel); si no, copia los roles conocidos
@@ -74,6 +77,7 @@ Item {
     function cerrar() {
         if (!abierta) return
         abierta = false
+        compartido.cerrar()
         cerrada()
     }
     function _releer() {
@@ -127,17 +131,29 @@ Item {
         id: capa
         objectName: "capaDetalleAlarma"
         readonly property Item destino: raiz.Window.window ? raiz.Window.window.contentItem : null
-        parent: raiz.abierta && destino !== null ? destino : raiz
+        readonly property bool mostrando: raiz.abierta || compartido.enCurso
+        parent: mostrando && destino !== null ? destino : raiz
         x: 0; y: 0
         width: parent ? parent.width : 0
         height: parent ? parent.height : 0
-        visible: raiz.abierta
+        visible: mostrando
         z: 1000
 
         Rectangle {
             anchors.fill: parent
             color: "#99000000"
-            MouseArea { anchors.fill: parent; onClicked: raiz.cerrar() }
+            opacity: compartido.opacidadFondo
+            MouseArea { anchors.fill: parent; enabled: raiz.abierta; onClicked: raiz.cerrar() }
+        }
+
+        ElementoCompartido {
+            id: compartido
+            objectName: "elementoCompartidoAlarma"
+            anchors.fill: parent
+            destino: tarjeta
+            radioOrigen: Escala.px(4)
+            radioDestino: Escala.px(24)
+            colorOrigen: Colores.fondoTarjeta
         }
 
         Rectangle {
@@ -149,6 +165,7 @@ Item {
                              cabecera.height + contenido.contentHeight + botones.height + Escala.px(120))
             radius: Escala.px(24)
             color: Colores.fondoTarjeta
+            opacity: compartido.opacidadContenido
             MouseArea { anchors.fill: parent }   // no dejar pasar el toque al fondo
 
             Item {
