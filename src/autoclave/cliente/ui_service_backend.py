@@ -2,9 +2,26 @@
 
 import threading
 import logging
+import time
 import requests
 
 logger = logging.getLogger(__name__)
+
+# Servicio del proceso (el último creado; app.py crea uno por ventana). Lo
+# leen los controladores QML que se crean desde QML y no reciben el servicio
+# por constructor (Opciones › Entradas/Salidas, AJUSTES 2026-11-02).
+_servicio_activo = None
+
+
+def servicio_activo():
+    """UIServiceBackend del proceso, o None si aún no hay ninguno."""
+    return _servicio_activo
+
+
+def instalar_servicio(servicio) -> None:
+    """Fija el servicio del proceso (pruebas); None lo quita."""
+    global _servicio_activo
+    _servicio_activo = servicio
 
 # D8-2.15 (tanda 8): rechazo de DESPEJAR (POST /alarms/{clave}/acknowledge)
 # por código HTTP → clave del catálogo i18n. 409: el enlace con el módulo E/S no
@@ -38,6 +55,8 @@ class UIServiceBackend:
         self._config   = {}
         self._cycle    = {}
         self.connected = False
+        self._t_status = None        # monotonic de llegada del último /status
+        self._t_envio_status = None  # monotonic de envío de la petición de ese /status
 
         # Hilo de actualización en segundo plano
         self._stop   = threading.Event()
@@ -47,6 +66,7 @@ class UIServiceBackend:
         self._force_static = threading.Event()
         self._thread = threading.Thread(target=self._loop, daemon=True)
         self._thread.start()
+        instalar_servicio(self)
 
     # ==============================
     # HILO DE FONDO
@@ -64,11 +84,16 @@ class UIServiceBackend:
 
     def _fetch_status(self):
         """Obtiene /status (sensores, estado, fases) — alta frecuencia."""
+        # Instante de ENVÍO: un /status pedido antes de una orden (modo prueba,
+        # salida) no la refleja aunque llegue después (AJUSTES 2026-11-02)
+        t_envio = time.monotonic()
         try:
             cache = self.backend.get_status()
             with self._lock:
                 self._cache    = cache
                 self.connected = True
+                self._t_status = time.monotonic()
+                self._t_envio_status = t_envio
         except Exception as e:
             with self._lock:
                 self.connected = False
@@ -92,6 +117,8 @@ class UIServiceBackend:
     def stop(self):
         """Detiene el hilo de fondo. Llamar al cerrar la aplicación."""
         self._stop.set()
+        if servicio_activo() is self:
+            instalar_servicio(None)
 
     # ==============================
     # LECTURA THREAD-SAFE DEL CACHE
@@ -100,6 +127,16 @@ class UIServiceBackend:
     def _snapshot(self):
         with self._lock:
             return self._cache, self._config, self._cycle, self.connected
+
+    def status_vigente(self):
+        """(último /status, conectado, segundos desde que llegó o None,
+        monotonic del envío de su petición o None). Solo lectura del caché, sin
+        red; el dict no se modifica en sitio (cada consulta lo reemplaza
+        entero), así que no debe mutarse."""
+        with self._lock:
+            t = self._t_status
+            return (self._cache, self.connected,
+                    None if t is None else time.monotonic() - t, self._t_envio_status)
 
     # ==============================
     # SENSORES

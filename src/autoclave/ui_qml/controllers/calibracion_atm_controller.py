@@ -8,14 +8,33 @@
 # /maintenance/atm-calibration[...]) y valida. Esta clase sondea el estado
 # cada segundo mientras la pantalla está abierta y expone lo necesario para
 # la vista. `midiendo` bloquea la navegación (todo salvo Cancelar).
+#
+# AJUSTES 2026-11-02: el estado de la ventana no está en /status, así que el
+# sondeo (GET RUTA) sigue, pero en un hilo de trabajo y no en el de la GUI; el
+# resultado vuelve por señal y datosChanged solo se emite si cambió. Una
+# respuesta de sondeo que llega después de una orden (start/cancel/...) se
+# descarta (contador de generación) para no pisar el estado confirmado por la
+# orden. Las órdenes siguen síncronas y confirmadas por el backend.
+# Corrección tras revisión (mismo día): en el hilo solo va la petición HTTP;
+# el 401 / 429 usuario_bloqueado se trata en la GUI (tratar_rechazo_sesion).
+
+import threading
+import weakref
+
+import shiboken6
 
 from PySide6.QtCore import Property, QObject, QTimer, Signal, Slot
 from PySide6.QtQml import qmlRegisterType
 
+from autoclave.cliente.session_manager import SessionManager
 from autoclave.ui_qml import sesion_backend
 
 RUTA = "/maintenance/atm-calibration"
 SONDEO_MS = 1000
+
+
+def _en_hilo(tarea) -> None:
+    threading.Thread(target=tarea, daemon=True, name="calibracion-atm").start()
 
 CONDICIONES = ("puerta_abierta", "temp_baja", "fuera_de_ciclo", "lecturas_validas")
 
@@ -45,12 +64,18 @@ def _num(v):
 class CalibracionAtmController(QObject):
     datosChanged = Signal()
     mensajeChanged = Signal()
+    _recibido = Signal(int, object, str)   # (generación, Resultado, usuario) desde el hilo de trabajo
 
-    def __init__(self, parent=None, sesion=None):
+    def __init__(self, parent=None, sesion=None, ejecutar=_en_hilo):
         super().__init__(parent)
         self._sesion = sesion
+        self._ejecutar = ejecutar
         self._d: dict = {}
         self._mensaje = ""
+        self._gen = 0              # sube con cada orden: invalida sondeos en vuelo
+        self._en_vuelo = False     # un solo GET de sondeo a la vez
+        self._pendiente = False    # se pidió otro mientras había uno en vuelo
+        self._recibido.connect(self._al_recibir)
         self._timer = QTimer(self)
         self._timer.setInterval(SONDEO_MS)
         self._timer.timeout.connect(self.cargar)
@@ -62,6 +87,11 @@ class CalibracionAtmController(QObject):
         if clave != self._mensaje:
             self._mensaje = clave
             self.mensajeChanged.emit()
+
+    def _fijar_datos(self, datos: dict) -> None:
+        if datos != self._d:
+            self._d = datos
+            self.datosChanged.emit()
 
     # ── sondeo ─────────────────────────────────────────────────────────
     @Slot()
@@ -75,17 +105,65 @@ class CalibracionAtmController(QObject):
 
     @Slot()
     def cargar(self) -> None:
-        r = self._s().enviar("GET", RUTA)
-        if r.ok and isinstance(r.datos, dict):
-            self._d = r.datos
-        self.datosChanged.emit()
+        """Pide el estado en un hilo de trabajo; sin respuesta se conserva lo
+        último recibido (como antes). En el hilo solo va la petición HTTP: el
+        token se toma aquí (hilo de la GUI) y un 401 / 429 usuario_bloqueado se
+        trata al volver el resultado, también en la GUI (cerrar la sesión toca
+        temporizadores y señales que no pueden usarse desde otro hilo)."""
+        if self._en_vuelo:
+            self._pendiente = True   # se repite al llegar la respuesta en vuelo
+            return
+        sesion = self._s()
+        if sesion.sinConexion:
+            return                   # como `enviar` sin conexión: sin red, se conserva lo último
+        token = SessionManager.token()
+        if not token:
+            return                   # como `enviar` sin token (sesion_invalida, sin cerrar nada)
+        usuario = (SessionManager.current_user() or {}).get("usuario", "")
+        peticion = sesion._peticion("GET", RUTA, None, token)
+        self._en_vuelo, self._pendiente = True, False
+        gen, ref = self._gen, weakref.ref(self)
+        del sesion                   # la tarea no retiene QObjects (ver SesionVentana._peticion)
+
+        def trabajo():
+            try:
+                r = peticion()
+            except Exception:
+                r = None
+            obj = ref()
+            if obj is None or not shiboken6.isValid(obj):
+                return               # la pantalla ya se destruyó
+            try:
+                obj._recibido.emit(gen, r, usuario)
+            except RuntimeError:     # destruida entre la comprobación y la emisión
+                pass
+
+        try:
+            self._ejecutar(trabajo)
+        except Exception:            # el sondeo no queda detenido
+            self._en_vuelo = False
+
+    @Slot(int, object, str)
+    def _al_recibir(self, gen: int, r, usuario: str) -> None:
+        self._en_vuelo = False
+        if r is not None:
+            # 401 / 429 usuario_bloqueado: mismo tratamiento que `enviar`, aquí
+            # en el hilo de la GUI
+            self._s().tratar_rechazo_sesion(r, "GET", RUTA, usuario)
+        if gen == self._gen and r is not None and r.ok and isinstance(r.datos, dict):
+            self._fijar_datos(r.datos)   # si no, obsoleto (llegó tras una orden) o sin respuesta
+        if self._pendiente:
+            self._pendiente = False
+            if self._timer.isActive():   # tras desactivar() no se relanza
+                self.cargar()
 
     def _orden(self, accion: str) -> bool:
+        self._gen += 1
         r = self._s().enviar("POST", f"{RUTA}/{accion}")
+        self._gen += 1               # un sondeo pedido durante la orden también queda obsoleto
         if r.ok and isinstance(r.datos, dict):
-            self._d = r.datos
+            self._fijar_datos(r.datos)
             self._fijar_mensaje("")
-            self.datosChanged.emit()
             return True
         self.cargar()
         self._fijar_mensaje(mensaje_de(r.causa))

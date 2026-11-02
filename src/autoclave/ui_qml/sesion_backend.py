@@ -45,6 +45,9 @@ PLAZO_AVISO_CIERRE_S = 0.5
 
 logger = logging.getLogger(__name__)
 
+# Umbral (s) a partir del cual una llamada síncrona se registra como espera lenta.
+_UMBRAL_ESPERA_LENTA_S = 0.1
+
 PLAZO_S = 5.0                 # plazo total de login, logout y cambio de contraseña
 PLAZO_SALIDA_S = 1.0          # logout al cerrar la aplicación: no retrasar el cierre
 SIN_CONEXION_CIERRE_S = 15    # sin conexión continua con token en uso -> cerrar sesión
@@ -629,18 +632,28 @@ class SesionVentana(QObject):
             return Resultado("sesion_invalida")
         usuario = (SessionManager.current_user() or {}).get("usuario", "")
         r = self._llamar_con_plazo(metodo, ruta, cuerpo, token)
-        if r.causa in ("sesion_invalida", "usuario_bloqueado"):
-            if r.causa == "usuario_bloqueado":
-                logger.warning("Usuario bloqueado en %s %s: sesión cerrada en esta ventana",
-                               metodo, ruta)
-                self.cerrar_local(("sesion.usuario_bloqueado",
-                                   r.datos.get("segundos_restantes"), usuario))
-            else:
-                self.cerrar_local(("sesion.sesion_invalida", None))
-            # en diferido: la pantalla que llamó aún espera este valor de retorno;
-            # con este objeto como contexto, Qt lo cancela si se destruye antes
-            QTimer.singleShot(0, self, self.sesionInvalida.emit)
+        self.tratar_rechazo_sesion(r, metodo, ruta, usuario)
         return r
+
+    def tratar_rechazo_sesion(self, r: Resultado, metodo: str, ruta: str,
+                              usuario: str = "") -> None:
+        """Tratamiento de `enviar` ante 401 o 429 usuario_bloqueado: cierra la
+        sesión local y avisa. Solo en el hilo de la GUI; lo usan también los
+        sondeos que hacen la petición en un hilo de trabajo y entregan el
+        resultado a la GUI (AJUSTES 2026-11-02)."""
+        if r.causa not in ("sesion_invalida", "usuario_bloqueado"):
+            return
+        if r.causa == "usuario_bloqueado":
+            logger.warning("Usuario bloqueado en %s %s: sesión cerrada en esta ventana",
+                           metodo, ruta)
+            datos = r.datos if isinstance(r.datos, dict) else {}
+            self.cerrar_local(("sesion.usuario_bloqueado",
+                               datos.get("segundos_restantes"), usuario))
+        else:
+            self.cerrar_local(("sesion.sesion_invalida", None))
+        # en diferido: la pantalla que llamó aún espera este valor de retorno;
+        # con este objeto como contexto, Qt lo cancela si se destruye antes
+        QTimer.singleShot(0, self, self.sesionInvalida.emit)
 
     def enviar_al_cerrar(self, metodo: str, ruta: str, cuerpo: dict | None = None) -> Resultado:
         """Escritura de un aviso previo al cierre de sesión (P1, revisión
@@ -661,8 +674,16 @@ class SesionVentana(QObject):
         hilo = threading.Thread(daemon=True, name="sesion-escritura",
                                 target=lambda: resultado.append(peticion()))
         plazo_s = self._plazo_s if plazo_s is None else plazo_s
+        t0 = time.monotonic()
         hilo.start()
         hilo.join(plazo_s)
+        espera_s = time.monotonic() - t0
+        if (espera_s > _UMBRAL_ESPERA_LENTA_S
+                and threading.current_thread() is threading.main_thread()):
+            # Diagnóstico de lag: esta espera congela la interfaz entera (en
+            # otro hilo no afecta a la GUI y no se registra).
+            logger.warning("Espera lenta en la GUI: %.0f ms en %s %s",
+                           espera_s * 1000, metodo, ruta)
         if not resultado:
             logger.warning("Escritura sin respuesta en %.1f s: %s %s", plazo_s, metodo, ruta)
             return Resultado(BACKEND_NO_RESPONDE)

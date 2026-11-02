@@ -1,16 +1,24 @@
 # ui_qml/controllers/entradas_salidas_controller.py
 #
 # OPCIONES > Entradas / Salidas (planeacion_opciones_entradas_salidas.md): una
-# sola consulta a GET /status por tick (D-ES-12) compartida por los cuatro
+# sola lectura de /status por tick (D-ES-12) compartida por los cuatro
 # segmentos, modo prueba de salidas y calibracion de un sensor. No decide nada
 # de seguridad: el backend es la autoridad (D-ES-07, D-ES-15, D-ES-16) y la UI
 # solo refleja y muestra el motivo de un rechazo.
+#
+# AJUSTES 2026-11-02: el tick ya no hace GET /status síncrono en el hilo de la
+# GUI; lee el caché de UIServiceBackend (hilo de fondo, 5 Hz). Un caché sin
+# conexión o con más de ANTIGUEDAD_MAX_S equivale al fallo de /status de antes
+# ("Sin datos"). La señal cambioDatos solo se emite si algo cambió. Las
+# escrituras siguen síncronas y confirmadas por el backend.
 
 import logging
+import time
 
 from PySide6.QtCore import Property, QObject, Signal, Slot
 from PySide6.QtQml import qmlRegisterType
 
+from autoclave.cliente import ui_service_backend
 from autoclave.cliente.session_manager import SessionManager
 from autoclave.ui_qml import sesion_backend
 from autoclave.ui_qml.domain import entradas_salidas as dominio
@@ -37,6 +45,33 @@ _CAUSAS_SOLO_CATALOGO = frozenset({"aire_atmosferico_con_presion",
 
 # D-ES-08: sin actividad del usuario en la seccion el modo prueba se cierra
 INACTIVIDAD_UI_S = 5 * 60
+
+# Un /status del caché más viejo que esto no se muestra como vigente (el
+# sondeo es de 0,2 s con plazos de 0,8 s por petición)
+ANTIGUEDAD_MAX_S = 3.0
+
+
+def status_del_cache(fuente):
+    """(/status vigente del caché de UIServiceBackend o None, monotonic del
+    envío de su petición o None). None: sin servicio, sin conexión, sin datos,
+    vencido o error al leer, el mismo trato que un GET /status sin respuesta.
+    Un doble que no da el instante de envío (3 valores) da None en él."""
+    if fuente is None:
+        return None, None
+    try:
+        lectura = tuple(fuente.status_vigente())
+        status, conectado, edad = lectura[:3]
+        t_envio = lectura[3] if len(lectura) > 3 else None
+    except Exception:
+        logger.exception("Lectura del caché de /status fallida")
+        return None, None
+    if conectado is not True or not isinstance(status, dict) or not status:
+        return None, None
+    if not isinstance(edad, (int, float)) or edad < 0 or edad > ANTIGUEDAD_MAX_S:
+        return None, None
+    if not isinstance(t_envio, (int, float)):
+        t_envio = None
+    return status, t_envio
 
 
 def mensaje_de(causa: str) -> str:
@@ -94,9 +129,14 @@ class EntradasSalidasController(QObject):
     mensajeChanged = Signal()
     calibracionChanged = Signal()
 
-    def __init__(self, parent=None, sesion=None):
+    def __init__(self, parent=None, sesion=None, fuente_estado=None):
         super().__init__(parent)
         self._sesion = sesion
+        self._fuente_estado = fuente_estado   # UIServiceBackend (o doble); None = el del proceso
+        self._ultimo = None                   # lo último publicado (para emitir solo si cambia)
+        # monotonic de la respuesta a la última orden (modo prueba, salida): un
+        # /status pedido antes no la refleja y se descarta (AJUSTES 2026-11-02)
+        self._t_orden = None
         self._canales = {"DI": [], "DO": [], "temperature": [], "pressure": []}
         self._status = None
         self._entradas, self._salidas = [], []
@@ -154,11 +194,19 @@ class EntradasSalidasController(QObject):
             self._fallo(r)
         self._reconstruir()
 
+    def _fuente(self):
+        return self._fuente_estado or ui_service_backend.servicio_activo()
+
     @Slot()
     def actualizar(self) -> None:
-        """Un tick de 1 s. Sin respuesta, todo pasa a "Sin datos"."""
-        r = self._s().enviar("GET", "/status")
-        self._status = r.datos if r.ok else None
+        """Un tick de 1 s, sin red: lee el caché de /status. Sin datos
+        vigentes, todo pasa a "Sin datos". Un /status vigente pedido antes de
+        la última orden aún no la refleja: se conserva lo ya mostrado."""
+        status, t_envio = status_del_cache(self._fuente())
+        if (status is not None and self._t_orden is not None
+                and t_envio is not None and t_envio <= self._t_orden):
+            return                               # aún sin dato nuevo
+        self._status = status
         if self._status is not None:
             self._estado_maquina = str(self._status.get("machine_state") or "")
             activo = bool(self._status.get("test_mode_active"))
@@ -175,7 +223,14 @@ class EntradasSalidasController(QObject):
                                                        _CLAVE_CORTA_TEMP)
         self._presion = dominio.presentar_sensores(c["pressure"], "pressure", st,
                                                    _CLAVE_CORTA_PRES)
-        self.cambioDatos.emit()
+        # Solo si cambió algo de lo que cuelga de cambioDatos: reemplazar las
+        # listas cada segundo hacía que los Repeater recrearan los delegados
+        visible = (self._entradas, self._salidas, self._temperatura, self._presion,
+                   presion_camara(st), avisos_corte(st), dominio.enlace_ok(st),
+                   self._estado_maquina, self._rol())
+        if visible != self._ultimo:
+            self._ultimo = visible
+            self.cambioDatos.emit()
 
     @Property("QVariantList", notify=cambioDatos)
     def entradas(self) -> list:
@@ -224,6 +279,13 @@ class EntradasSalidasController(QObject):
 
     # -- modo prueba ----------------------------------------------------
 
+    def _marcar_orden(self) -> None:
+        """Tras la respuesta del backend a una orden: todo /status pedido antes
+        de este instante queda viejo para la pantalla. Se toma al volver la
+        respuesta (no al enviarla) porque un /status pedido mientras la orden
+        está en curso tampoco la refleja con certeza."""
+        self._t_orden = time.monotonic()
+
     @Property(bool, notify=modoPruebaChanged)
     def modoPrueba(self) -> bool:
         return self._modo_prueba
@@ -231,6 +293,7 @@ class EntradasSalidasController(QObject):
     @Slot(result=bool)
     def entrarModoPrueba(self) -> bool:
         r = self._s().enviar("POST", "/io/test/enter")
+        self._marcar_orden()
         if not r.ok:
             self._fallo(r)
             return False
@@ -248,6 +311,7 @@ class EntradasSalidasController(QObject):
         enviar = getattr(s, "enviar_al_cerrar", s.enviar)
         if self._modo_prueba:
             r = enviar("POST", "/io/test/exit", {"motivo": "cierre de sesión"})
+            self._marcar_orden()
             if not (r.ok or r.causa == "modo_prueba_inactivo"):
                 logger.warning("Salida del modo prueba al cerrar sesión sin confirmar (%s)", r.causa)
         self._modo_prueba = False
@@ -266,6 +330,7 @@ class EntradasSalidasController(QObject):
         if not self._modo_prueba:
             return True
         r = self._s().enviar("POST", "/io/test/exit", {"motivo": causa})
+        self._marcar_orden()
         # sesion_invalida: el backend ya lo cierra por la sesión dueña (SAF-01)
         if r.ok or r.causa in ("modo_prueba_inactivo", "sesion_invalida"):
             self._modo_prueba = False
@@ -291,6 +356,7 @@ class EntradasSalidasController(QObject):
         if momentanea and encender:
             cuerpo["momentanea"] = True
         r = self._s().enviar("PATCH", f"/io/test/output/{nombre}", cuerpo)
+        self._marcar_orden()
         if not r.ok:
             self._fallo(r)
             return False

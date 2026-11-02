@@ -1,5 +1,5 @@
 """P1 (tanda 7): OPCIONES > Entradas/Salidas, modo prueba. La lista de salidas
-se refresca cada 1 s (GET /status). Con un Repeater sobre la lista entera, cada
+se refresca cada 1 s (caché de /status de UIServiceBackend desde 2026-11-02). Con un Repeater sobre la lista entera, cada
 refresco destruía y recreaba todas las tarjetas: la pulsación sostenida de una
 salida momentánea (abrir/cerrar puerta, bomba de vacío) perdía su temporizador
 de renovación y el backend la apagaba a los 1,5 s; un toque podía perderse.
@@ -54,6 +54,13 @@ app = QGuiApplication([])
 sesion = sesion_backend.SesionVentana(transporte=transporte, ejecutar=lambda t: t(),
                                       cierre_s=30, intervalo_ms=50)
 sesion_backend.instalar(sesion)
+
+class FuenteStatus:   # caché de /status de UIServiceBackend (AJUSTES 2026-11-02)
+    def status_vigente(self):
+        return transporte("GET", "/status", None, None, None)[1], True, 0.0
+
+from autoclave.cliente import ui_service_backend
+ui_service_backend.instalar_servicio(FuenteStatus())
 from autoclave.cliente.session_manager import SessionManager
 SessionManager.login({"usuario": "tec1", "nombre": "Tec", "rol": "tecnico",
                       "debe_cambiar_clave": False}, token="t")
