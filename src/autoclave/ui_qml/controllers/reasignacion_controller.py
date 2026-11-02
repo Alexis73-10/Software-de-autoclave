@@ -158,11 +158,16 @@ def conflictos(ocupados: dict, filas: list, pendientes: dict) -> list:
     return salida
 
 
+def _cancelar_al_destruir(sesion, ident):
+    return lambda *_: sesion_backend.cancelar_envios(sesion, ident)
+
+
 class ReasignacionController(QObject):
     datosChanged = Signal()
     pendientesChanged = Signal()
     mensajeChanged = Signal()
     reiniciandoChanged = Signal()
+    cargandoChanged = Signal()
 
     def __init__(self, parent=None, sesion=None):
         super().__init__(parent)
@@ -172,6 +177,20 @@ class ReasignacionController(QObject):
         self._nombres: dict[str, str] = {}
         self._mensaje = ""
         self._reiniciando = False
+        self._gen = 0
+        self._cargando = False
+        self.destroyed.connect(_cancelar_al_destruir(sesion, id(self)))
+
+    @Property(bool, notify=cargandoChanged)
+    def cargando(self) -> bool:
+        """Lectura de /io/assignment en vuelo (fase 5: solo el GET es
+        asíncrono; aplicar, verificar y restaurar fábrica siguen síncronos)."""
+        return self._cargando
+
+    def _fijar_cargando(self, v: bool) -> None:
+        if v != self._cargando:
+            self._cargando = v
+            self.cargandoChanged.emit()
 
     def _s(self):
         return self._sesion or sesion_backend.ventana()
@@ -184,7 +203,16 @@ class ReasignacionController(QObject):
     # ── carga ─────────────────────────────────────────────────────────
     @Slot()
     def cargar(self) -> None:
-        r = self._s().enviar("GET", "/io/assignment")
+        self._gen += 1
+        gen = self._gen
+        self._fijar_cargando(True)
+        sesion_backend.enviar_async(self._s(), "GET", "/io/assignment", None,
+                                    lambda r: self._al_cargar(r, gen), dueno=self)
+
+    def _al_cargar(self, r, gen: int) -> None:
+        if gen != self._gen:
+            return                         # una lectura posterior manda
+        self._fijar_cargando(False)
         if r.ok and isinstance(r.datos, dict):
             self._d = r.datos
             if self._reiniciando:
@@ -373,6 +401,9 @@ class ReasignacionController(QObject):
 
     # ── aplicar / restaurar ───────────────────────────────────────────
     def _tras_envio(self, r) -> bool:
+        # una lectura lanzada antes de esta escritura ya no vale
+        self._gen += 1
+        self._fijar_cargando(False)
         if r.ok:
             datos = r.datos if isinstance(r.datos, dict) else {}
             self._pendientes, self._nombres = {}, {}

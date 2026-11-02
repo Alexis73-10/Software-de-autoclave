@@ -160,9 +160,41 @@ _CODIGOS_REASIGNACION = frozenset({
 _CODIGOS_USUARIOS = frozenset({
     "ultimo_ingeniero", "autodesactivacion", "cuenta_sistema", "operador_existe",
 })
+# AJUSTES 2026-11-02 (revisión de las fases 2 a 5): rechazos propios de otras
+# pantallas de Opciones que llegaban como "error_generico"; solo en su ruta.
+# El texto lo pone el controlador de cada pantalla (_MENSAJES);
+# tests/test_t25_codigos_rutas_async.py lo comprueba.
+_CODIGOS_EMAIL = frozenset({     # ConectividadController
+    "correo_invalido", "duplicado", "demasiados", "nombre_largo",
+    "sin_destinatarios", "correo_no_configurado", "envio_fallido",
+    "envio_desactivado", "ARCHIVO_NO_ESCRIBIBLE",
+})
+_CODIGOS_MANTENIMIENTO = frozenset({     # MantenimientoController
+    "reloj_invalido", "reloj_adelantado", "calibracion_en_curso",
+})
+_CODIGOS_PROGRAMAS = frozenset({     # ManejoCiclosController
+    "nombre_repetido", "programa_activo", "programa_no_encontrado",
+    "programa_existente",
+})
+_CODIGOS_GLOBAL_PARAMS = frozenset({     # ParametrosEquipoController
+    "no_existe", "solo_lectura", "tipo_invalido", "fuera_de_rango",
+    "incoherente", "calibracion_en_curso",
+})
+_CODIGOS_ARCHIVO = frozenset({"ARCHIVO_NO_ESCRIBIBLE"})     # /language, /units
+_CODIGOS_IMPRESORA = frozenset({     # ParametrosEquipoController
+    "ARCHIVO_NO_ESCRIBIBLE", "reinicio_no_disponible", "estado_seguro_activo",
+    "confirmacion_pendiente", "modo_prueba_activo",
+})
 _CODIGOS_POR_RUTA = (("/io/assignment", _CODIGOS_REASIGNACION),
                      ("/usuarios", _CODIGOS_USUARIOS),
-                     ("/operadores", _CODIGOS_USUARIOS))
+                     ("/operadores", _CODIGOS_USUARIOS),
+                     ("/email", _CODIGOS_EMAIL),
+                     ("/maintenance", _CODIGOS_MANTENIMIENTO),
+                     ("/programas", _CODIGOS_PROGRAMAS),
+                     ("/global_params", _CODIGOS_GLOBAL_PARAMS),
+                     ("/language", _CODIGOS_ARCHIVO),
+                     ("/units", _CODIGOS_ARCHIVO),
+                     ("/printer/config", _CODIGOS_IMPRESORA))
 
 
 def codigos_conocidos(ruta: str = "") -> frozenset:

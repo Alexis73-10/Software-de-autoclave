@@ -147,12 +147,14 @@ Item {
         id: error
         objectName: "errorBitacora"
         anchors.top: filtros.bottom; anchors.topMargin: Escala.px(8)
-        visible: control.mensaje !== ""
+        // «Cargando…» sin tapar las filas ya mostradas (fase 5)
+        visible: control.mensaje !== "" || control.cargando
         width: parent.width
-        height: visible ? implicitHeight : 0
+        height: visible ? contentHeight : 0
         wrapMode: Text.WordWrap
-        text: control.mensaje !== "" ? I18n.t(control.mensaje, I18n.lang) : ""
-        color: Colores.peligroTexto
+        text: control.mensaje !== "" ? I18n.t(control.mensaje, I18n.lang)
+              : (control.cargando ? I18n.t("opciones.cargando", I18n.lang) : "")
+        color: control.mensaje !== "" ? Colores.peligroTexto : Colores.textoGuia
         font.family: Tipografia.familia
         font.pixelSize: Escala.fuente(22)
     }
@@ -204,7 +206,7 @@ Item {
         }
     }
     Text {
-        visible: control.filas.length === 0 && control.mensaje === ""
+        visible: control.filas.length === 0 && control.mensaje === "" && !control.cargando
         anchors.centerIn: lista
         text: I18n.t("bitacora.vacia", I18n.lang)
         color: Colores.textoGuia

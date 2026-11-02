@@ -28,7 +28,11 @@ Item {
 
     // Puede cambiar parámetros: la sección lo permite y el backend lo aceptaría
     readonly property bool editable: edicionPermitida && control.motivoParametro === ""
-    readonly property bool cambiosPendientes: ajuste.cambiado
+    // un valor ya enviado no es «cambio sin guardar» (lo cubre guardandoParametro)
+    readonly property bool cambiosPendientes: ajuste.cambiado && !ajuste.guardando
+    // Un parámetro del equipo se está guardando o verificando: OPCIONES no
+    // deja salir (Inicio, cajón, Cerrar sesión) hasta el desenlace
+    readonly property bool guardandoParametro: control.parametroPendiente
 
     ParametrosEquipoController {
         id: control
@@ -39,8 +43,18 @@ Item {
     readonly property alias controlador: control
     Component.onCompleted: control.cargar()
 
-    // Atrás: cierra la ventana de ajuste, luego sube del submenú a la entrada
+    // AJUSTES 2026-11-02 (paso 2, fase 2): envíos sin bloquear la pantalla.
+    // `pendientes` (clave -> "enviando"/"verificando"): "idioma", "unidades",
+    // "impresora" (optimistas) y "param:<clave>" (parámetro guardándose: se
+    // muestra el valor vigente con «Guardando…» y su edición queda bloqueada).
+    function pendiente(clave) { return control.pendientes[clave] !== undefined }
+
+    // Atrás: cierra la ventana de ajuste, luego sube del submenú a la entrada.
+    // Mientras un parámetro se guarda, Atrás no hace nada: la ventana de ajuste
+    // sigue abierta con «Guardando…» y se cierra sola al aceptarse.
     function retroceder() {
+        if (control.parametroPendiente)
+            return true
         if (ajuste.abierto) {
             if (ajuste.cambiado && ajuste.editable)
                 dialogoGuardarAjuste.abrir()
@@ -101,12 +115,49 @@ Item {
             anchors.fill: parent; anchors.margins: Escala.px(16)
             verticalAlignment: Text.AlignVCenter
             wrapMode: Text.WordWrap
-            text: control.mensaje !== "" ? I18n.t(control.mensaje, I18n.lang) : ""
+            // un cambio revertido lleva su motivo dentro de opciones.cambio_revertido
+            text: control.mensaje === "" ? ""
+                  : control.mensajeRevertido
+                    ? I18n.t("opciones.cambio_revertido", I18n.lang,
+                             { motivo: I18n.t(control.mensaje, I18n.lang) })
+                    : I18n.t(control.mensaje, I18n.lang)
             color: Colores.peligroTexto
             font.family: Tipografia.familia
             font.pixelSize: Escala.fuente(22)
         }
         MouseArea { anchors.fill: parent; onClicked: control.limpiarMensaje() }
+    }
+
+    // «Cargando…» mientras llegan las lecturas del backend
+    component IndicadorCargando: Text {
+        visible: control.cargando
+        width: parent ? parent.width : 0
+        text: I18n.t("opciones.cargando", I18n.lang)
+        color: Colores.textoGuia
+        font.family: Tipografia.familia
+        font.pixelSize: Escala.fuente(20)
+    }
+
+    // Desenlace de un parámetro guardado: aceptado cierra la ventana de
+    // ajuste; rechazado la deja abierta con el motivo
+    Connections {
+        target: control
+        // la relectura trae el parámetro nuevo: «Actual» y `cambiado` lo siguen
+        function onParametrosGrupoChanged() {
+            if (!ajuste.abierto || !ajuste.param)
+                return
+            const p = control.parametro(ajuste.param.clave)
+            if (p)
+                ajuste.param = p
+        }
+        function onCambioResuelto(clave, ok, mensaje) {
+            if (!ajuste.abierto || !ajuste.param || clave !== "param:" + ajuste.param.clave)
+                return
+            if (ok)
+                ajuste.cerrar()
+            else
+                ajuste.errorIngreso = mensaje !== "" ? I18n.t(mensaje, I18n.lang) : ""
+        }
     }
 
     // ======================= entrada: tarjetas de submenú =======================
@@ -206,6 +257,7 @@ Item {
                 font.family: Tipografia.familia
                 font.pixelSize: Escala.fuente(22)
             }
+            IndicadorCargando { objectName: "cargandoParametrosEquipo" }
             Grid {
                 id: rejilla
                 columns: 2
@@ -337,6 +389,8 @@ Item {
             anchors.topMargin: Escala.px(12)
             width: parent.width
 
+            IndicadorCargando { objectName: "cargandoGrupoEquipo" }
+
             // Impresora habilitada (P2, tanda 5): interruptor, en Impresión
             Rectangle {
                 id: filaImpresora
@@ -417,8 +471,14 @@ Item {
                     id: filaParametro
                     required property var modelData
                     objectName: "paramEquipo_" + modelData.clave
+                    // guardándose: valor vigente, «Guardando…» y sin edición
+                    readonly property bool guardando: raiz.pendiente("param:" + modelData.clave)
+                    // aceptado sin relectura: el valor anterior ya no se muestra como vigente
+                    readonly property bool sinConfirmar: control.sinConfirmar.indexOf(modelData.clave) >= 0
                     titulo: raiz.etiqueta(modelData.clave)
-                    subtitulo: Unidades.version >= 0 && !modelData.solo_lectura
+                    subtitulo: filaParametro.guardando ? I18n.t("opciones.guardando", I18n.lang)
+                             : filaParametro.sinConfirmar ? I18n.t("opciones.cambio_sin_confirmar", I18n.lang)
+                             : Unidades.version >= 0 && !modelData.solo_lectura
                                ? I18n.t("opciones.equipo_rango_defecto", I18n.lang,
                                         { min: raiz.textoP(modelData.min, modelData),
                                           max: raiz.textoP(modelData.max, modelData),
@@ -429,8 +489,9 @@ Item {
                                              usuario: modelData.ultima_modificacion.usuario })
                                   : I18n.t("opciones.equipo_atm_sin_calibrar", I18n.lang))
                                  + " · " + I18n.t("opciones.equipo_atm_ayuda", I18n.lang)
-                    valor: Unidades.version >= 0 ? raiz.textoP(modelData.valor, modelData) : ""
-                    chevron: !modelData.solo_lectura && control.motivoParametro !== "rol"
+                    valor: filaParametro.sinConfirmar ? "—"
+                         : Unidades.version >= 0 ? raiz.textoP(modelData.valor, modelData) : ""
+                    chevron: !modelData.solo_lectura && control.motivoParametro !== "rol" && !filaParametro.guardando
                     onPulsada: { Movimiento.registrarOrigen(filaParametro); ajuste.abrir(modelData) }
                 }
             }
@@ -481,6 +542,9 @@ Item {
         property string elegida: ""
         property string motivo: ""             // "" = habilitado
         property string nota: ""
+        // cambio optimista en vuelo: ya se ve el valor elegido; si el backend
+        // lo rechaza vuelve al anterior con el motivo en la banda
+        property bool guardando: false
         width: parent ? parent.width : 0
         spacing: Escala.px(8)
         Text {
@@ -506,7 +570,8 @@ Item {
             visible: text !== ""
             width: parent.width
             wrapMode: Text.WordWrap
-            text: sel.motivo !== "" ? sel.motivo : sel.nota
+            text: sel.motivo !== "" ? sel.motivo
+                  : sel.guardando ? I18n.t("opciones.guardando", I18n.lang) : sel.nota
             color: sel.motivo !== "" ? Colores.advertenciaTexto : Colores.textoGuia
             font.family: Tipografia.familia
             font.pixelSize: Escala.fuente(20)
@@ -570,12 +635,14 @@ Item {
                 font.weight: Tipografia.pesoBold
                 font.pixelSize: Escala.fuente(32)
             }
+            IndicadorCargando { objectName: "cargandoMaquinaEquipo" }
             Selector {
                 objectName: "idiomaEquipo"
                 tipo: "idioma"
                 rotulo: I18n.t("opciones.equipo_idioma", I18n.lang)
                 opciones: [{ v: "es", t: "Español" }, { v: "en", t: "English" }]
                 elegida: control.idioma
+                guardando: raiz.pendiente("idioma")
                 motivo: control.motivoIdioma === "rol" ? I18n.t("opciones.equipo_motivo_idioma_rol", I18n.lang) : ""
             }
             Selector {
@@ -584,6 +651,7 @@ Item {
                 rotulo: I18n.t("opciones.equipo_unidad_temperatura", I18n.lang)
                 opciones: [{ v: "C", t: "°C" }, { v: "F", t: "°F" }]
                 elegida: control.unidadTemperatura
+                guardando: raiz.pendiente("unidades")
                 motivo: control.motivoUnidades === "rol" ? I18n.t("opciones.equipo_motivo_unidades_rol", I18n.lang)
                         : control.motivoUnidades === "ciclo" ? I18n.t("opciones.equipo_motivo_unidades_ciclo", I18n.lang) : ""
             }
@@ -594,6 +662,7 @@ Item {
                 opciones: [{ v: "kPa", t: "kPa" }, { v: "bar", t: "bar" }, { v: "mbar", t: "mbar" },
                            { v: "psi", t: "psi" }]
                 elegida: control.unidadPresion
+                guardando: raiz.pendiente("unidades")
                 motivo: control.motivoUnidades === "rol" ? I18n.t("opciones.equipo_motivo_unidades_rol", I18n.lang)
                         : control.motivoUnidades === "ciclo" ? I18n.t("opciones.equipo_motivo_unidades_ciclo", I18n.lang) : ""
                 nota: I18n.t("opciones.equipo_presion_nota", I18n.lang)
@@ -713,16 +782,22 @@ Item {
                     ajuste.unidadIngreso = Unidades.unidadIngreso(ajuste.param.unidad || "", ajuste.param.clave, ajuste.param.clase || "")
             }
         }
-        readonly property bool editable: raiz.editable && param !== null && !param.solo_lectura
+        // el parámetro abierto se está guardando: sin edición hasta la respuesta
+        readonly property bool guardando: param !== null && raiz.pendiente("param:" + param.clave)
+        readonly property bool editable: raiz.editable && param !== null && !param.solo_lectura && !guardando
         readonly property var valorEnEdicion: nuevo !== null ? nuevo : (param ? param.valor : null)
         readonly property bool cambiado: abierto && nuevo !== null && param !== null && nuevo !== param.valor
+        // Asíncrono (paso 2, fase 2): la ventana queda abierta con «Guardando…»
+        // y valor vigente; onCambioResuelto la cierra al aceptarse o muestra el
+        // motivo del rechazo
         function guardar() {
-            if (!cambiado)
+            if (!cambiado || guardando)
                 return
-            const ok = restablecer && nuevo === param.defecto ? control.restablecer(param.clave)
-                                                               : control.guardar(param.clave, nuevo)
-            if (ok)
-                cerrar()
+            errorIngreso = ""
+            if (restablecer && nuevo === param.defecto)
+                control.restablecer(param.clave)
+            else
+                control.guardar(param.clave, nuevo)
         }
         function abrir(p) {
             param = p; nuevo = null; errorIngreso = ""; restablecer = false
@@ -960,6 +1035,7 @@ Item {
                 objectName: "cancelarAjusteEquipo"
                 width: parent.anchoBoton
                 texto: I18n.t("acciones.cancelar", I18n.lang)
+                habilitado: !ajuste.guardando
                 onPulsado: ajuste.cerrar()
             }
             BotonFormulario {
@@ -973,7 +1049,8 @@ Item {
             BotonFormulario {
                 objectName: "guardarAjusteEquipo"
                 width: parent.anchoBoton
-                texto: I18n.t("acciones.guardar", I18n.lang)
+                texto: ajuste.guardando ? I18n.t("opciones.guardando", I18n.lang)
+                                        : I18n.t("acciones.guardar", I18n.lang)
                 primario: true
                 habilitado: ajuste.editable && ajuste.cambiado
                 onPulsado: ajuste.guardar()

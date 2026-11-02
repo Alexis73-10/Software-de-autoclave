@@ -226,6 +226,8 @@
     "equipo_si": "Yes",
     "equipo_no": "No",
     "equipo_err_guardar": "The equipment settings could not be saved.",
+    "mant_err_calibracion_en_curso": "Atmospheric calibration in progress: maintenance cannot be recorded until it finishes.",
+    "equipo_err_calibracion_en_curso":"Atmospheric calibration in progress: equipment parameters cannot be changed until it finishes.",
     "nuevo_usuario": "New user",
     "sin_secciones": "Your profile has no sections available",
     "solo_lectura_rol": "Read only: your role can view this section but not change it",
@@ -1673,6 +1675,7 @@
     "err_no_configurado": "The email sender, server or password is not configured.",
     "err_envio": "The test email could not be sent. Check the network and the server settings.",
     "err_desactivado": "Email sending is disabled.",
+    "err_archivo": "The email settings could not be saved on the equipment.",
     "asunto_prueba": "Autoclave {serie}: test email",
     "cuerpo_prueba": "This is a test email from autoclave {modelo}, serial number {serie}, sent on {fecha}. If you receive it, email sending works."
   },

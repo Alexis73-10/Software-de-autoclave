@@ -129,11 +129,12 @@ Item {
         }
         Text {
             objectName: "errorFechaHora"
-            visible: control.mensaje !== ""
+            visible: control.mensaje !== "" || control.cargando
             width: parent.width
             wrapMode: Text.WordWrap
-            text: control.mensaje !== "" ? I18n.t(control.mensaje, I18n.lang) : ""
-            color: Colores.peligroTexto
+            text: control.mensaje !== "" ? I18n.t(control.mensaje, I18n.lang)
+                  : (control.cargando ? I18n.t("opciones.cargando", I18n.lang) : "")
+            color: control.mensaje !== "" ? Colores.peligroTexto : Colores.textoGuia
             font.family: Tipografia.familia
             font.pixelSize: Escala.fuente(22)
         }

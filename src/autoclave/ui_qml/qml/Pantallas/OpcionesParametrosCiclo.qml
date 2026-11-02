@@ -28,6 +28,10 @@ Item {
     // Atrás de la barra inferior: sube un nivel dentro de la sección; false si ya
     // está en la lista de programas (la pantalla Opciones entonces sale)
     function retroceder() {
+        // M1 (SAF-05): con un guardado en vuelo no se sale (se perderían su
+        // desenlace y el aviso de cambio automático del modo de descompresión)
+        if (guardandoParametro)
+            return true
         // primero cierra la ventana de ajuste; con el valor editado pregunta
         if (ajuste.abierto) {
             if (ajuste.cambiado && ajuste.editable)
@@ -43,9 +47,12 @@ Item {
     }
     // cambios sin guardar (roles de sensor): OPCIONES confirma antes de salir
     // O11: también las entradas mostradas elegidas por fila y sin guardar
+    // M1: un valor ya enviado (ajuste.pendiente) no es un cambio sin guardar
     readonly property bool cambiosPendientes: (vista === "sensores" && _sensoresModificados)
                                               || (vista === "entradas" && _entradasModificadas)
-                                              || ajuste.cambiado
+                                              || (ajuste.cambiado && !ajuste.pendiente)
+    // M1 (SAF-05): PATCH de parámetro en vuelo; OPCIONES bloquea la navegación
+    readonly property bool guardandoParametro: control.parametroPendiente
 
     ParametrosCicloController {
         id: control
@@ -161,15 +168,50 @@ Item {
                             { usuario: mod.usuario, fecha: fechaHora(mod.ts) })
                    : I18n.t("opciones.sin_cambios", I18n.lang)
     }
+    // AJUSTES 2026-11-02 (paso 2, fase 3): guardados sin bloquear la pantalla.
+    // Un parámetro NO es optimista (SAF-05): la fila y «Actual» siguen con el
+    // valor vigente del backend; mientras su guardado está pendiente se
+    // muestra «Guardando… <valor tecleado>» y su edición queda bloqueada.
+    function claveParam(clave) { return "param:" + control.numero + ":" + control.seccion + ":" + clave }
+    function paramPendiente(clave) { return control.pendientes[claveParam(clave)] !== undefined }
+    function textoGuardando(p) {
+        if (!p)
+            return ""
+        const v = control.valoresPendientes[claveParam(p.clave)]
+        return I18n.t("opciones.guardando", I18n.lang) + " "
+               + (raiz.esModo(control.seccion, p) ? raiz.textoModo(v, control.seccion) : raiz.textoP(v, p))
+    }
+    Connections {
+        target: control
+        // el valor guardado es vigente (200 y relectura): se cierra el ajuste
+        function onCambioResuelto(clave, ok, mensaje) {
+            if (ok && ajuste.abierto && ajuste.param && clave === raiz.claveParam(ajuste.param.clave))
+                ajuste.cerrar()
+        }
+    }
     function mensajeError() {
         if (control.mensaje === "")
             return ""
+        // entradas mostradas: un cambio revertido lleva su motivo
+        if (control.mensajeRevertido)
+            return I18n.t("opciones.cambio_revertido", I18n.lang,
+                          { motivo: I18n.t(control.mensaje, I18n.lang) })
         // DEU-01 (tanda 16): alivios y suministro vigentes del equipo
         return I18n.t(control.mensaje, I18n.lang,
                       { valor: control.detalleMensaje.valor ?? "—",
                         alivio_camara: control.detalleMensaje.alivio_camara ?? "—",
                         alivio_chaqueta: control.detalleMensaje.alivio_chaqueta ?? "—",
                         suministro: control.detalleMensaje.suministro ?? "—" })
+    }
+
+    // lecturas en vuelo (GET asíncronos)
+    component Cargando: Text {
+        property bool activo: false
+        visible: activo
+        text: I18n.t("opciones.cargando", I18n.lang)
+        color: Colores.textoGuia
+        font.family: Tipografia.familia
+        font.pixelSize: Escala.fuente(20)
     }
 
     component Fila: Rectangle {
@@ -340,6 +382,7 @@ Item {
                 numero: control.numero
                 onProgramaElegido: (n) => control.elegirPrograma(n)
             }
+            Cargando { objectName: "cargandoPrograma"; activo: control.cargando }
             Text {
                 objectName: "programaSoloLectura"
                 visible: control.numero > 0 && !control.programaEditable
@@ -433,6 +476,7 @@ Item {
                     font.pixelSize: Escala.fuente(22)
                     color: Colores.textoGuia
                 }
+                Cargando { objectName: "cargandoSeccion"; activo: control.cargando }
             }
         }
         ListView {
@@ -451,7 +495,9 @@ Item {
                 valor: Unidades.version < 0 ? ""
                        : deModo ? raiz.textoModo(modelData.valor, control.seccion)
                        : raiz.textoP(modelData.valor, modelData)
-                detalle: deModo || modelData.tipo === "bool" || modelData.tipo === "enum" || raiz.convertible(modelData)
+                // valor vigente; si su guardado está en vuelo, «Guardando… <tecleado>» al lado
+                detalle: raiz.paramPendiente(modelData.clave) ? raiz.textoGuardando(modelData)
+                         : deModo || modelData.tipo === "bool" || modelData.tipo === "enum" || raiz.convertible(modelData)
                          ? "" : (modelData.unidad || "")
                 marca: modelData.modificado
                 onPulsada: ajuste.abrir(modelData)
@@ -521,6 +567,7 @@ Item {
                     font.pixelSize: Escala.fuente(22)
                     color: Colores.textoGuia
                 }
+                Cargando { objectName: "cargandoSensores"; activo: control.cargando }
             }
         }
         Column {
@@ -663,6 +710,16 @@ Item {
                     font.family: Tipografia.familia
                     font.pixelSize: Escala.fuente(22)
                 }
+                Cargando { objectName: "cargandoEntradas"; activo: control.cargando }
+                // cambio de entradas en vuelo (ya se muestra la selección nueva)
+                Text {
+                    objectName: "guardandoEntradas"
+                    visible: control.pendientes["entradas:" + control.numero] !== undefined
+                    text: I18n.t("opciones.guardando", I18n.lang)
+                    color: Colores.textoGuia
+                    font.family: Tipografia.familia
+                    font.pixelSize: Escala.fuente(20)
+                }
                 Repeater {
                     model: 3
                     delegate: Column {
@@ -752,7 +809,21 @@ Item {
                     ajuste.unidadIngreso = Unidades.unidadIngreso(ajuste.param.unidad || "", ajuste.param.clave, ajuste.param.clase || "")
             }
         }
-        readonly property bool editable: control.seccionEditable && raiz.edicionPermitida
+        // B3: `param` es una copia; con cada relectura de la sección se vuelve a
+        // tomar por su clave (Actual y «cambiado» tras un rechazo o sin respuesta)
+        Connections {
+            target: control
+            function onParametrosChanged() {
+                if (!ajuste.abierto || !ajuste.param)
+                    return
+                const p = control.parametros.find(x => x.clave === ajuste.param.clave)
+                if (p)
+                    ajuste.param = p
+            }
+        }
+        // guardado de este parámetro en vuelo: edición bloqueada hasta el desenlace
+        readonly property bool pendiente: param !== null && raiz.paramPendiente(param.clave)
+        readonly property bool editable: control.seccionEditable && raiz.edicionPermitida && !pendiente
         readonly property bool esModo: param !== null && raiz.esModo(control.seccion, param)
         // D8-5.7: selector (booleano, enumerado o modo) sin mínimo ni máximo
         readonly property bool porLista: param !== null && (esModo || param.tipo === "bool" || param.tipo === "enum")
@@ -763,9 +834,10 @@ Item {
                                               && (!esModo || modos.indexOf(param.defecto) >= 0)
         readonly property var valorEnEdicion: nuevo !== null ? nuevo : (param ? param.valor : null)
         readonly property bool cambiado: abierto && nuevo !== null && param !== null && nuevo !== param.valor
+        // asíncrono: la ventana se cierra en onCambioResuelto (ok), no aquí
         function guardar() {
-            if (cambiado && control.guardar(param.clave, nuevo))
-                cerrar()
+            if (cambiado && !pendiente)
+                control.guardar(param.clave, nuevo)
         }
         function abrir(p) {
             param = p; nuevo = null; errorIngreso = ""
@@ -892,6 +964,23 @@ Item {
                                 onClicked: ajuste.nuevo = ajuste.param.defecto
                             }
                         }
+                    }
+                }
+                // Guardado en vuelo: el valor tecleado aún NO es el vigente («Actual»)
+                Rectangle {
+                    objectName: "pildoraGuardando"
+                    visible: ajuste.pendiente
+                    width: textoPildora.implicitWidth + Escala.px(40)
+                    height: visible ? Escala.px(52) : 0
+                    radius: height / 2
+                    color: Colores.advertenciaFondo
+                    Text {
+                        id: textoPildora
+                        anchors.centerIn: parent
+                        text: ajuste.pendiente ? raiz.textoGuardando(ajuste.param) : ""
+                        color: Colores.advertenciaTexto
+                        font.family: Tipografia.familia; font.weight: Tipografia.pesoSemiBold
+                        font.pixelSize: Escala.fuente(22)
                     }
                 }
                 // Nuevo valor: numérico con el teclado; booleano y enumerado con opciones (U-17)
@@ -1119,6 +1208,8 @@ Item {
                 objectName: "cancelarAjuste"
                 width: parent.anchoBoton
                 texto: I18n.t("acciones.cancelar", I18n.lang)
+                // M1: con el guardado en vuelo la ventana espera su desenlace
+                habilitado: !ajuste.pendiente
                 onPulsado: ajuste.cerrar()
             }
             BotonFormulario {

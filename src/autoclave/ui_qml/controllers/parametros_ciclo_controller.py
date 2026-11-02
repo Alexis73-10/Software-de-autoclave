@@ -10,15 +10,38 @@
 #   - roles de los sensores de temperatura (GET /cycle/sensors,
 #     PUT /cycle/sensor-roles, todo o nada con asignacion_anterior_esperada).
 #
-# No calcula reglas de seguridad: el backend valida siempre (§4.2). Las
-# peticiones son síncronas con plazo total (SesionVentana.enviar), como el
-# puente de Nuevo usuario. Un resultado sin respuesta es INCIERTO: se recarga
-# el valor antes de informar (§5.4, D-15).
+# No calcula reglas de seguridad: el backend valida siempre (§4.2). Un
+# resultado sin respuesta es INCIERTO: se recarga el valor antes de informar
+# (§5.4, D-15).
+#
+# Sin HTTP síncrono en la GUI (AJUSTES 2026-11-02, paso 2 fase 3; modelo:
+# usuarios_controller.py):
+#   - Parámetro (PATCH /cycle/parameter, SAF-05): asíncrono SIN optimismo. Lo
+#     mostrado sigue siendo el valor vigente del backend; la clave
+#     "param:<n>:<sección>:<clave>" queda en `pendientes` (píldora «Guardando…»
+#     con el valor tecleado en `valoresPendientes`, edición bloqueada) hasta
+#     el 200 y la relectura. La conciliación (arrastres, aviso del modo de
+#     descompresión, valor_anterior_esperado, relectura tras sin respuesta)
+#     es la de antes, con cada relectura asíncrona y una sola vez.
+#   - Entradas mostradas (PUT /cycle/display-inputs, solo visualización):
+#     cambio optimista con reversión (CambioOptimista, clave "entradas:<n>").
+#   - Lecturas (programas, sección, entradas, sensores): GET asíncronos con
+#     `cargando`; una respuesta anterior a la última no pisa la vista.
+#   - Roles de sensores (PUT /cycle/sensor-roles): SIGUE síncrono y
+#     confirmado por el backend, con su relectura síncrona.
+# Los slots devuelven False si falla la validación local (o la clave sigue
+# pendiente); si el resultado llegó en el acto (sesión de prueba con solo
+# `enviar`), el `ok` real; si quedó en vuelo, True («aceptado»). El desenlace
+# llega por `cambioResuelto(clave, ok, mensaje)`.
+
+import logging
 
 from PySide6.QtCore import Property, QObject, Signal, Slot
 from PySide6.QtQml import qmlRegisterType
 
 from autoclave.ui_qml import sesion_backend
+from autoclave.ui_qml.cambio_optimista import (
+    ENVIANDO, SIN_CONFIRMAR, SIN_LECTURA, VERIFICANDO, CambioOptimista)
 
 # Código del backend -> clave de es.json (opciones §5.4)
 _MENSAJES = {
@@ -62,8 +85,36 @@ _ADVERTENCIAS = {
 }
 
 
+MENSAJE_SIN_CONFIRMAR = "opciones.cambio_sin_confirmar"
+MENSAJE_ERROR_INTERNO = "opciones.err_generico"   # un callback de guardado falló
+
+logger = logging.getLogger(__name__)
+
+
+def _resguardado(al_terminar, al_fallar, ruta):
+    """Envuelve el callback de un guardado: si lanza, registra la excepción y
+    llama a `al_fallar()` para sacar la clave de los pendientes y resolverla
+    (la sesión solo la registraría y la clave quedaría pendiente sin plazo)."""
+    def envuelto(r):
+        try:
+            al_terminar(r)
+        except Exception:
+            logger.exception("Fallo en el callback de guardado (%s)", ruta)
+            al_fallar()
+    return envuelto
+
+
 def mensaje_de(causa: str) -> str:
     return _MENSAJES.get(causa, "opciones.err_generico")
+
+
+def clave_parametro(numero, seccion: str, clave: str) -> str:
+    """Clave de `pendientes` de un parámetro (la pantalla la arma igual)."""
+    return f"param:{int(numero)}:{seccion}:{clave}"
+
+
+def _cancelar_al_destruir(sesion, ident):
+    return lambda *_: sesion_backend.cancelar_envios(sesion, ident)
 
 
 # ── selector por fila de las entradas mostradas (O11, tanda 11, D11-7.2) ──
@@ -105,6 +156,10 @@ class ParametrosCicloController(QObject):
     entradasChanged = Signal()
     mensajeChanged = Signal()
     avisoChanged = Signal()
+    pendientesChanged = Signal()
+    cargandoChanged = Signal()
+    # clave del cambio, aceptado, clave i18n del mensaje ("" si aceptado)
+    cambioResuelto = Signal(str, bool, str)
 
     def __init__(self, parent=None, sesion=None):
         super().__init__(parent)
@@ -129,21 +184,90 @@ class ParametrosCicloController(QObject):
         # D8-5.7: aviso informativo de un cambio automático (clave + datos)
         self._aviso = ""
         self._detalle_aviso: dict = {}
+        self._revertido = False            # el mensaje es el motivo de una reversión
+        # parámetros en vuelo: clave -> {"estado": ..., "valor": valor tecleado}
+        self._en_vuelo: dict[str, dict] = {}
+        self._lecturas = 0                 # GET en vuelo (`cargando`)
+        self._gen = {"programas": 0, "seccion": 0, "entradas": 0, "sensores": 0}
+        self._gen_seccion_vista = 0        # última lectura de sección aplicada a la vista
+        self._resuelto = None              # desenlace síncrono del último slot
+        self._opt = CambioOptimista(self._lanzar_entradas, self._al_cambiar_entradas,
+                                    self._al_revertir_entradas, self._releer_entradas,
+                                    al_confirmar=self._al_confirmar_entradas,
+                                    al_pendientes=self.pendientesChanged.emit)
+        # sin referencia a self: el destructor de C++ ya está en marcha
+        self.destroyed.connect(_cancelar_al_destruir(sesion, id(self)))
 
     def _s(self):
         return self._sesion or sesion_backend.ventana()
 
-    def _fijar_mensaje(self, clave: str, detalle: dict | None = None) -> None:
+    def _enviar(self, metodo, ruta, cuerpo, al_terminar, al_tardio=None, al_fallar=None) -> None:
+        """`al_fallar()`: se llama si `al_terminar` lanza (ver `_resguardado`)."""
+        if al_fallar is not None:
+            al_terminar = _resguardado(al_terminar, al_fallar, ruta)
+        sesion_backend.enviar_async(self._s(), metodo, ruta, cuerpo, al_terminar,
+                                    dueno=self, al_tardio=al_tardio)
+
+    def _leer(self, ruta: str, al_terminar, al_fallar=None) -> None:
+        """GET asíncrono que cuenta para `cargando`."""
+        self._fijar_lecturas(self._lecturas + 1)
+
+        def terminar(r):
+            self._fijar_lecturas(self._lecturas - 1)
+            al_terminar(r)
+        self._enviar("GET", ruta, None, terminar, al_fallar=al_fallar)
+
+    def _fijar_lecturas(self, n: int) -> None:
+        antes = self._lecturas > 0
+        self._lecturas = max(0, n)
+        if antes != (self._lecturas > 0):
+            self.cargandoChanged.emit()
+
+    def _nueva_gen(self, tipo: str) -> int:
+        self._gen[tipo] += 1
+        return self._gen[tipo]
+
+    def _fijar_mensaje(self, clave: str, detalle: dict | None = None,
+                       revertido: bool = False) -> None:
         self._mensaje = clave
         self._detalle = dict(detalle or {})
+        self._revertido = revertido
         self.mensajeChanged.emit()
+
+    # ── estado de los envíos ─────────────────────────────────────────
+
+    @Property("QVariantMap", notify=pendientesChanged)
+    def pendientes(self) -> dict:
+        """clave -> "enviando" | "verificando" (parámetros y entradas)."""
+        return {**self._opt.pendientes(),
+                **{k: v["estado"] for k, v in self._en_vuelo.items()}}
+
+    @Property("QVariantMap", notify=pendientesChanged)
+    def valoresPendientes(self) -> dict:
+        """clave de parámetro -> valor tecleado que se está guardando (no vigente)."""
+        return {k: v["valor"] for k, v in self._en_vuelo.items()}
+
+    @Property(bool, notify=pendientesChanged)
+    def parametroPendiente(self) -> bool:
+        """M1 (SAF-05): algún PATCH de parámetro sin desenlace; la pantalla no
+        se deja abandonar mientras tanto (se perdería el aviso de arrastres)."""
+        return any(k.startswith("param:") for k in self._en_vuelo)
+
+    @Property(bool, notify=cargandoChanged)
+    def cargando(self) -> bool:
+        return self._lecturas > 0
 
     # ── programas ────────────────────────────────────────────────────
 
     @Slot()
     def cargar(self) -> None:
-        r = self._s().enviar("GET", "/programas")
-        if not r.ok:
+        gen = self._nueva_gen("programas")
+        self._leer("/programas", lambda r: self._al_cargar(r, gen))
+
+    def _al_cargar(self, r, gen) -> None:
+        if gen != self._gen["programas"]:
+            return                          # una carga posterior manda
+        if not r.ok or not isinstance(r.datos, dict):
             self._fijar_mensaje(mensaje_de(r.causa))
             return
         self._programas = list(r.datos.get("programas") or [])
@@ -201,9 +325,21 @@ class ParametrosCicloController(QObject):
 
     @Slot()
     def cargarEntradas(self) -> None:
-        r = self._s().enviar("GET", f"/cycle/display-inputs?programa={self._numero}")
+        numero, gen, marca = self._numero, self._nueva_gen("entradas"), self._opt.marca()
+        self._leer(f"/cycle/display-inputs?programa={numero}",
+                   lambda r: self._al_cargar_entradas(r, numero, gen, marca))
+
+    def _al_cargar_entradas(self, r, numero, gen, marca) -> None:
+        if gen != self._gen["entradas"] or numero != self._numero:
+            return                          # otra carga u otro programa manda
         if r.ok and isinstance(r.datos, dict):
-            self._entradas = list(r.datos.get("entradas") or [])
+            clave = f"entradas:{numero}"
+            leidas = list(r.datos.get("entradas") or [])
+            if not self._opt.confirmar_lectura(clave, leidas, marca):
+                # cambio pendiente o lectura lanzada antes del último cambio:
+                # se conserva lo que se muestra
+                leidas = list(self._opt.mostrar(clave, list(self._entradas)))
+            self._entradas = leidas
             self._entradas_habilitadas = list(r.datos.get("habilitadas") or [])
             # O11 (D11-7.1): el selector no ofrece un sensor No en uso; un
             # backend sin "disponibles" (anterior a O11): las habilitadas
@@ -214,7 +350,12 @@ class ParametrosCicloController(QObject):
             no = r.datos.get("no_en_uso")
             self._entradas_no_en_uso = [str(e) for e in no if isinstance(e, str)] if isinstance(no, list) else []
         else:
-            self._entradas, self._entradas_habilitadas, self._entradas_editable = [], [], False
+            # B1: con un cambio pendiente se conserva lo que se muestra (al
+            # confirmarse, CambioOptimista no vuelve a llamar a `al_cambiar`)
+            clave = f"entradas:{numero}"
+            self._entradas = (list(self._opt.mostrar(clave, list(self._entradas)))
+                              if self._opt.pendiente(clave) else [])
+            self._entradas_habilitadas, self._entradas_editable = [], False
             self._entradas_disponibles = []
             self._entradas_no_en_uso = []
             self._fijar_mensaje(mensaje_de(r.causa))
@@ -267,22 +408,85 @@ class ParametrosCicloController(QObject):
         if not 1 <= len(lista) <= 3:
             self._fijar_mensaje("opciones.err_entradas_cantidad")
             return False
-        r = self._s().enviar("PUT", "/cycle/display-inputs",
-                             {"programa": self._numero, "entradas": lista})
-        self.cargarEntradas()
-        if r.ok:
-            self._fijar_mensaje("")
-            return True
-        self._fijar_mensaje(mensaje_de(r.causa))
-        return False
+        # C (paso 2): optimista con reversión; solo cambia lo que se muestra
+        self._resuelto = None
+        self._opt.aplicar(f"entradas:{self._numero}", lista, list(self._entradas))
+        resuelto, self._resuelto = self._resuelto, None
+        return True if resuelto is None else resuelto
+
+    def _lanzar_entradas(self, clave, valor, al_terminar) -> None:
+        numero = int(clave.split(":", 1)[1])
+        # la respuesta tardía (tras backend_no_responde) no pasa por el cambio
+        # optimista: se relee, y la marca protege lo aún pendiente
+        self._enviar("PUT", "/cycle/display-inputs",
+                     {"programa": numero, "entradas": list(valor)}, al_terminar,
+                     al_tardio=lambda _r: self._recargar_entradas_de(numero))
+
+    def _recargar_entradas_de(self, numero) -> None:
+        if numero == self._numero:
+            self.cargarEntradas()
+
+    def _releer_entradas(self, clave, al_leer) -> None:
+        numero = int(clave.split(":", 1)[1])
+
+        def leido(r):
+            if r.ok and isinstance(r.datos, dict) and isinstance(r.datos.get("entradas"), list):
+                al_leer(list(r.datos["entradas"]))
+            else:
+                al_leer(SIN_LECTURA)
+        self._enviar("GET", f"/cycle/display-inputs?programa={numero}", None, leido)
+
+    def _al_cambiar_entradas(self, clave, valor) -> None:
+        if int(clave.split(":", 1)[1]) == self._numero and self._entradas != list(valor):
+            self._entradas = list(valor)
+            self.entradasChanged.emit()
+
+    def _al_confirmar_entradas(self, clave) -> None:
+        self._resuelto = True
+        self._fijar_mensaje("")
+        self.cambioResuelto.emit(clave, True, "")
+        # B1: una lectura fallida dejó la lista vacía: se relee lo vigente
+        if not self._entradas:
+            self._recargar_entradas_de(int(clave.split(":", 1)[1]))
+
+    def _al_revertir_entradas(self, clave, causa) -> None:
+        self._resuelto = False
+        if causa == SIN_CONFIRMAR:
+            self._fijar_mensaje(MENSAJE_SIN_CONFIRMAR)
+            self._recargar_entradas_de(int(clave.split(":", 1)[1]))   # el estado real
+        else:
+            self._fijar_mensaje(mensaje_de(causa), revertido=True)
+        self.cambioResuelto.emit(clave, False, self._mensaje)
 
     # ── parámetros de una sección ────────────────────────────────────
 
     @Slot(str)
     def abrirSeccion(self, seccion: str) -> None:
-        self._seccion = seccion
-        r = self._s().enviar("GET", f"/programas/{self._numero}/seccion/{seccion}")
-        if r.ok:
+        if seccion != self._seccion:
+            # mientras llega la lectura no se muestran los de otra sección
+            self._seccion = seccion
+            self._parametros, self._editable_seccion = [], False
+            self.parametrosChanged.emit()
+        self._leer_seccion(self._numero, seccion)
+
+    def _leer_seccion(self, numero, seccion: str, al_leer=None, al_fallar=None) -> None:
+        """GET de una sección. Se aplica a la vista solo si sigue abierta y si
+        no llegó antes una lectura posterior; `al_leer(r)` recibe siempre el
+        resultado (conciliación de un guardado); `al_fallar()`, si el callback
+        lanzó (también `_aplicar_seccion`, que corre antes de `al_leer`)."""
+        gen = self._nueva_gen("seccion")
+
+        def leido(r):
+            if (numero == self._numero and seccion == self._seccion
+                    and gen > self._gen_seccion_vista):
+                self._gen_seccion_vista = gen
+                self._aplicar_seccion(r)
+            if al_leer is not None:
+                al_leer(r)
+        self._leer(f"/programas/{numero}/seccion/{seccion}", leido, al_fallar=al_fallar)
+
+    def _aplicar_seccion(self, r) -> None:
+        if r.ok and isinstance(r.datos, dict):
             self._parametros = list(r.datos.get("parametros") or [])
             self._editable_seccion = bool(r.datos.get("editable"))
         else:
@@ -304,53 +508,147 @@ class ParametrosCicloController(QObject):
 
     @Slot(str, "QVariant", result=bool)
     def guardar(self, clave: str, valor) -> bool:
-        """PATCH del parámetro `clave` de la sección abierta. True si se guardó."""
+        """PATCH del parámetro `clave` de la sección abierta. Asíncrono y sin
+        optimismo (SAF-05): lo mostrado sigue siendo el valor vigente hasta el
+        200 y la relectura. False si no se envió (parámetro desconocido o un
+        guardado de esa clave aún pendiente); con resultado inmediato, si se
+        guardó; en vuelo, True (aceptado). Desenlace: `cambioResuelto`."""
         p = next((x for x in self._parametros if x["clave"] == clave), None)
         cycle_id = self._programa().get("cycle_id")
         if p is None or not cycle_id:
             return False
         if p.get("tipo") == "int" and isinstance(valor, float) and valor.is_integer():
             valor = int(valor)
-        cuerpo = {"cycle_id": cycle_id, "fase": self._seccion, "path": p["path"],
+        numero, seccion = self._numero, self._seccion
+        k = clave_parametro(numero, seccion, clave)
+        if k in self._en_vuelo:
+            return False                    # la edición de esa clave sigue bloqueada
+        cuerpo = {"cycle_id": cycle_id, "fase": seccion, "path": p["path"],
                   "value": valor, "valor_anterior_esperado": p["valor"]}
         self._fijar_aviso("")
+        self._en_vuelo[k] = {"estado": ENVIANDO, "valor": valor}
+        self.pendientesChanged.emit()
+        self._resuelto = None
+
+        fallar = self._guarda(k)
+
+        def enviar_patch(modo_antes):
+            self._enviar("PATCH", "/cycle/parameter", cuerpo,
+                         lambda r: self._al_guardar(k, numero, seccion, clave, valor, modo_antes, r),
+                         al_tardio=lambda rt: self._al_guardar_tardio(numero, seccion, valor, rt),
+                         al_fallar=fallar)
+
         # SAF-05 (revisión D8-5.7): el modo antes del cambio de tipo de carga,
-        # para avisar del cambio automático aunque la respuesta no llegue
-        modo_antes = self._modo_descompresion() if self._es_tipo_carga(p) else None
-        r = self._s().enviar("PATCH", "/cycle/parameter", cuerpo)
+        # para avisar del cambio automático aunque la respuesta no llegue; se
+        # lee antes de enviar el PATCH (en orden, no en paralelo)
+        if self._es_tipo_carga(p):
+            self._leer_modo(numero, enviar_patch, al_fallar=fallar)
+        else:
+            enviar_patch(None)
+        resuelto, self._resuelto = self._resuelto, None
+        return True if resuelto is None else resuelto
+
+    def _al_guardar(self, k, numero, seccion, clave, valor, modo_antes, r) -> None:
+        datos = r.datos if isinstance(r.datos, dict) else {}
         if r.ok:
             self._fijar_mensaje("")
-            self._avisar_arrastres(r.datos.get("arrastres"), valor)
-            self._avisar_advertencias(r.datos.get("advertencias"))
-            self.abrirSeccion(self._seccion)
-            self.cargar()            # "No se ejecuta" puede cambiar
-            return True
-        # Sin respuesta: resultado incierto; se recarga y se informa lo real (§5.4)
-        self.abrirSeccion(self._seccion)
+            self._avisar_arrastres(datos.get("arrastres"), valor)
+            self._avisar_advertencias(datos.get("advertencias"))
+            # relectura única: la sección (valor vigente, «*», última
+            # modificación) y los programas ("No se ejecuta" puede cambiar)
+            self._leer_seccion(numero, seccion, lambda _r: self._resolver(k, True),
+                               al_fallar=self._guarda(k))
+            self.cargar()
+            return
         if r.causa == sesion_backend.BACKEND_NO_RESPONDE:
-            ahora = next((x for x in self._parametros if x["clave"] == clave), None)
-            if ahora is not None and ahora.get("valor") == valor:
-                self._fijar_mensaje("")
-                modo_despues = self._modo_descompresion() if modo_antes is not None else None
-                if modo_despues is not None and modo_despues != modo_antes:
-                    self._avisar_arrastres([{"fase": "descompresion", "clave": "modo",
-                                             "anterior": modo_antes, "nuevo": modo_despues}], valor)
-                return True
+            # Sin respuesta: resultado incierto; se relee y se informa lo real (§5.4)
+            self._en_vuelo[k]["estado"] = VERIFICANDO
+            self.pendientesChanged.emit()
+            self._leer_seccion(numero, seccion,
+                               lambda rs: self._conciliar(k, numero, clave, valor, modo_antes, r, rs),
+                               al_fallar=self._guarda(k))
+            return
+        # rechazo: se relee una vez (p. ej. VALOR_CAMBIO trae otro vigente)
+        self._leer_seccion(numero, seccion, lambda _r: self._rechazado(k, r),
+                           al_fallar=self._guarda(k))
+
+    def _conciliar(self, k, numero, clave, valor, modo_antes, r, rs) -> None:
+        params = rs.datos.get("parametros") if rs.ok and isinstance(rs.datos, dict) else None
+        ahora = next((x for x in params or [] if isinstance(x, dict) and x.get("clave") == clave), None)
+        if ahora is None or ahora.get("valor") != valor:
+            self._rechazado(k, r)           # no se aplicó (o no se pudo releer)
+            return
+        self._fijar_mensaje("")
+        if modo_antes is None:
+            self._resolver(k, True)
+            return
+
+        def con_modo(modo_despues):
+            if modo_despues is not None and modo_despues != modo_antes:
+                self._avisar_arrastres([{"fase": "descompresion", "clave": "modo",
+                                         "anterior": modo_antes, "nuevo": modo_despues}], valor)
+            self._resolver(k, True)
+        self._leer_modo(numero, con_modo, al_fallar=self._guarda(k))
+
+    def _rechazado(self, k, r) -> None:
+        datos = r.datos if isinstance(r.datos, dict) else {}
         # tanda 12: los límites físicos traen el máximo admisible en `valor`
-        detalle = (r.datos.get("valor_actual") if "valor_actual" in r.datos
-                   else r.datos.get("valor"))
+        detalle = datos.get("valor_actual") if "valor_actual" in datos else datos.get("valor")
         # DEU-01 (tanda 16): alivios y suministro vigentes del equipo
-        limites = {k: r.datos.get(k) for k in ("alivio_camara", "alivio_chaqueta", "suministro")
-                   if r.datos.get(k) is not None}
+        limites = {x: datos.get(x) for x in ("alivio_camara", "alivio_chaqueta", "suministro")
+                   if datos.get(x) is not None}
         self._fijar_mensaje(mensaje_de(r.causa), {"valor": detalle, **limites})
-        return False
+        self._resolver(k, False)
+
+    def _guarda(self, k):
+        """Salvaguarda del guardado en vuelo de `k`: si un callback lanza, la
+        clave sale de los pendientes y se resuelve con fallo (una sola vez;
+        no toca un guardado posterior de la misma clave)."""
+        entrada = self._en_vuelo.get(k)
+
+        def fallar():
+            if entrada is not None and self._en_vuelo.get(k) is entrada:
+                self._fijar_mensaje(MENSAJE_ERROR_INTERNO)
+                self._resolver(k, False)
+        return fallar
+
+    def _resolver(self, k, ok: bool) -> None:
+        if self._en_vuelo.pop(k, None) is None:
+            return                          # ya resuelto (p. ej. por la salvaguarda)
+        self.pendientesChanged.emit()
+        self._resuelto = ok
+        self.cambioResuelto.emit(k, ok, "" if ok else self._mensaje)
+
+    def _al_guardar_tardio(self, numero, seccion, valor, rt) -> None:
+        """Respuesta que llegó tras vencer el plazo (ya se informó «sin
+        respuesta» o se está verificando): se muestra lo real releyendo."""
+        if rt.ok:
+            datos = rt.datos if isinstance(rt.datos, dict) else {}
+            self._fijar_mensaje("")
+            self._avisar_arrastres(datos.get("arrastres"), valor)
+            self._avisar_advertencias(datos.get("advertencias"))
+        self._leer_seccion(numero, seccion)
+        self.cargar()
 
     # ── sensores (pantalla 4) ────────────────────────────────────────
 
     @Slot()
     def cargarSensores(self) -> None:
-        r = self._s().enviar("GET", f"/cycle/sensors?programa={self._numero}")
-        if r.ok:
+        numero, gen = self._numero, self._nueva_gen("sensores")
+
+        def leido(r):
+            if gen == self._gen["sensores"] and numero == self._numero:
+                self._aplicar_sensores(r)
+        self._leer(f"/cycle/sensors?programa={numero}", leido)
+
+    def _cargar_sensores_sincrono(self) -> None:
+        """Relectura de guardarSensores, que sigue síncrono y confirmado por
+        el backend; descarta cualquier lectura asíncrona anterior."""
+        self._nueva_gen("sensores")
+        self._aplicar_sensores(self._s().enviar("GET", f"/cycle/sensors?programa={self._numero}"))
+
+    def _aplicar_sensores(self, r) -> None:
+        if r.ok and isinstance(r.datos, dict):
             self._sensores = list(r.datos.get("sensores") or [])
             self._asignacion = dict(r.datos.get("asignacion") or {})
             self._sensores_editable = bool(r.datos.get("editable"))
@@ -376,7 +674,7 @@ class ParametrosCicloController(QObject):
         cuerpo = {"programa": self._numero, "asignacion": dict(asignacion),
                   "asignacion_anterior_esperada": dict(self._asignacion)}
         r = self._s().enviar("PUT", "/cycle/sensor-roles", cuerpo)
-        self.cargarSensores()
+        self._cargar_sensores_sincrono()
         if r.ok:
             self._fijar_mensaje("")
             self.cargar()
@@ -397,6 +695,12 @@ class ParametrosCicloController(QObject):
     def detalleMensaje(self) -> dict:
         return self._detalle
 
+    @Property(bool, notify=mensajeChanged)
+    def mensajeRevertido(self) -> bool:
+        """El mensaje es el motivo de un cambio optimista (entradas mostradas)
+        que no se aplicó: la pantalla lo muestra dentro de opciones.cambio_revertido."""
+        return self._revertido
+
     @Slot()
     def limpiarMensaje(self) -> None:
         self._fijar_mensaje("")
@@ -412,9 +716,9 @@ class ParametrosCicloController(QObject):
     def _es_tipo_carga(self, p: dict) -> bool:
         return self._seccion == "globals" and list(p.get("path") or []) == ["tipo_carga"]
 
-    def _modo_descompresion(self):
-        """Modo de descompresión vigente del programa (int) o None."""
-        r = self._s().enviar("GET", f"/programas/{self._numero}/seccion/descompresion")
+    @staticmethod
+    def _modo_de(r):
+        """Modo de descompresión (int) de una lectura de la sección, o None."""
         if not r.ok or not isinstance(r.datos, dict):
             return None
         for x in r.datos.get("parametros") or []:
@@ -422,6 +726,11 @@ class ParametrosCicloController(QObject):
                 v = x.get("valor")
                 return v if isinstance(v, int) and not isinstance(v, bool) else None
         return None
+
+    def _leer_modo(self, numero, al_leer, al_fallar=None) -> None:
+        """Modo de descompresión vigente del programa `numero` -> al_leer(int | None)."""
+        self._enviar("GET", f"/programas/{numero}/seccion/descompresion", None,
+                     lambda r: al_leer(self._modo_de(r)), al_fallar=al_fallar)
 
     def _avisar_arrastres(self, arrastres, valor) -> None:
         """El backend cambió solo el modo de descompresión al cambiar el tipo

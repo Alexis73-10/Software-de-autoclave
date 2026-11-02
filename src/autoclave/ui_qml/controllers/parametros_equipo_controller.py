@@ -9,6 +9,35 @@
 #
 # Permisos (domain/permisos_opciones, decisión 1.9): la pantalla solo los
 # refleja; el backend es la autoridad (403/409).
+#
+# Sin HTTP síncrono en la GUI (AJUSTES 2026-11-02, paso 2 fase 2; modelo:
+# usuarios_controller):
+#   - Idioma, unidades e impresora (fijarImpresora): cambio optimista con
+#     reversión (CambioOptimista; claves "idioma", "unidades", "impresora"),
+#     SOLO en el selector de esta pantalla. El efecto global (i18n.fijar_idioma,
+#     unidades_qml.refrescar) se aplica únicamente tras el 200: al revertir no
+#     parpadean °C/°F ni kPa/psi y los sondeos globales no chocan.
+#   - Parámetros del equipo (PATCH /global_params/{clave}, POST .../reset):
+#     definen el control del proceso. Asíncronos SIN optimismo: lo mostrado es
+#     el valor vigente hasta el 200 (se relee) y la clave "param:<clave>"
+#     queda en `pendientes` («Guardando…», edición bloqueada) mientras tanto.
+#     Tras el 200 pasa a "verificando" y solo se resuelve con la relectura de
+#     /system_params (un parámetro del proceso no se da por resuelto antes);
+#     si esa relectura falla, la clave queda en `sinConfirmar` (la fila no
+#     muestra el valor viejo como vigente) hasta la próxima lectura válida.
+#     Sin respuesta (el cambio pudo aplicarse) sigue el mismo camino: la
+#     relectura con el valor enviado es éxito; con otro, rechazo con
+#     opciones.err_sin_respuesta; si falla, `sinConfirmar`. Si un callback de
+#     guardado lanza, la clave se resuelve con fallo (no queda pendiente).
+#   - Carga: GET asíncronos con `cargando`. Tras un cambio se relee solo lo
+#     afectado (/system_params, o la ruta de idioma/unidades/impresora); una
+#     lectura fallida conserva el valor mostrado.
+#   - fijarImpresoraYReiniciar sigue síncrono (reinicia el software).
+# Los slots devuelven False si falla la validación local; si el resultado
+# llegó en el acto (sesión de prueba con solo `enviar`), el `ok` real; si
+# quedó en vuelo, True («aceptado»). El desenlace llega por `cambioResuelto`.
+
+import logging
 
 from PySide6.QtCore import Property, QObject, Signal, Slot
 from PySide6.QtQml import qmlRegisterType
@@ -16,6 +45,8 @@ from PySide6.QtQml import qmlRegisterType
 from autoclave.core.managers.config_manager import GRUPOS as _GRUPOS_PARAMETROS
 from autoclave.installation.identidad import identidad_de_perfil
 from autoclave.ui_qml import sesion_backend
+from autoclave.ui_qml.cambio_optimista import (
+    ENVIANDO, SIN_CONFIRMAR, SIN_LECTURA, VERIFICANDO, CambioOptimista)
 from autoclave.ui_qml.domain import permisos_opciones as permisos
 
 # Todos los submenús posibles; los que se muestran los entrega el backend ya
@@ -33,6 +64,7 @@ _MENSAJES = {
     "incoherente": "opciones.equipo_err_empaque",
     "solo_lectura": "opciones.equipo_err_solo_lectura",
     "no_existe": "opciones.err_generico",
+    "calibracion_en_curso": "opciones.equipo_err_calibracion_en_curso",
     "apertura_automatica_no_disponible": "opciones.err_apertura_puertas_simples",
     "estado_no_permitido_unidades": "opciones.equipo_err_unidades_ciclo",
     # R11 (tanda 11, D11-1): reinicio del software al cambiar la impresora
@@ -44,10 +76,64 @@ _MENSAJES = {
     "modo_prueba_activo": "opciones.equipo_err_reinicio_modo_prueba",
     sesion_backend.BACKEND_NO_RESPONDE: "opciones.err_sin_respuesta",
 }
+MENSAJE_SIN_CONFIRMAR = "opciones.cambio_sin_confirmar"
+MENSAJE_ERROR_INTERNO = "opciones.err_generico"   # un callback de guardado falló
+
+logger = logging.getLogger(__name__)
+_SIN_VALOR = object()                   # valor esperado desconocido
+
+# Cambios optimistas: clave -> (ruta de PUT y de relectura)
+IDIOMA, UNIDADES, IMPRESORA = "idioma", "unidades", "impresora"
+_RUTAS_OPTIMISTAS = {IDIOMA: "/language", UNIDADES: "/units", IMPRESORA: "/printer/config"}
+PREFIJO_PARAMETRO = "param:"            # clave de un cambio de /global_params en vuelo
 
 
 def mensaje_de(causa: str) -> str:
     return _MENSAJES.get(causa, "opciones.err_generico")
+
+
+def _cancelar_al_destruir(sesion, ident):
+    return lambda *_: sesion_backend.cancelar_envios(sesion, ident)
+
+
+def _resguardado(al_terminar, al_fallar, ruta):
+    """Envuelve el callback de un guardado: si lanza, registra la excepción y
+    llama a `al_fallar()` para sacar la clave de los pendientes y resolverla."""
+    def envuelto(r):
+        try:
+            al_terminar(r)
+        except Exception:
+            logger.exception("Fallo en el callback de guardado (%s)", ruta)
+            al_fallar()
+    return envuelto
+
+
+def _valor_en(r, clave):
+    """Valor de `clave` en una lectura válida de /system_params, o _SIN_VALOR."""
+    datos = r.datos if r.ok and isinstance(r.datos, dict) else {}
+    for p in datos.get("parametros") or []:
+        if isinstance(p, dict) and p.get("clave") == clave:
+            return p.get("valor", _SIN_VALOR)
+    return _SIN_VALOR
+
+
+def _leer_idioma(r):
+    v = r.datos.get("idioma") if r.ok and isinstance(r.datos, dict) else None
+    return str(v) if v else None
+
+
+def _leer_unidades(r):
+    datos = r.datos if r.ok and isinstance(r.datos, dict) else {}
+    t, p = datos.get("temperatura"), datos.get("presion")
+    return (str(t), str(p)) if t and p else None
+
+
+def _leer_impresora(r):
+    v = r.datos.get("habilitada") if r.ok and isinstance(r.datos, dict) else None
+    return v if isinstance(v, bool) else None
+
+
+_LECTORES = {IDIOMA: _leer_idioma, UNIDADES: _leer_unidades, IMPRESORA: _leer_impresora}
 
 
 def _perfil():
@@ -65,6 +151,10 @@ class ParametrosEquipoController(QObject):
     permisosChanged = Signal()
     parametrosGrupoChanged = Signal()
     reiniciandoChanged = Signal()
+    pendientesChanged = Signal()
+    cargandoChanged = Signal()
+    # clave del cambio, aceptado, clave i18n del mensaje ("" si aceptado)
+    cambioResuelto = Signal(str, bool, str)
 
     def __init__(self, parent=None, sesion=None, perfil=None):
         super().__init__(parent)
@@ -83,13 +173,36 @@ class ParametrosEquipoController(QObject):
         self._modelo = ""
         self._serial_especifika = ""
         self._reiniciando = False       # R11: el backend aceptó reiniciar el software
+        self._revertido = False         # el mensaje es el motivo de una reversión
+        self._en_vuelo: dict[str, str] = {}   # cambios de parámetros pendientes
+        self._sin_confirmar: set = set()      # aceptados (200) sin relectura válida
+        self._gen_carga = 0
+        self._gen_param = 0             # lecturas de /system_params lanzadas
+        self._gen_param_aplicada = 0    # la más reciente ya aplicada
+        self._gen_opt = {IDIOMA: 0, UNIDADES: 0, IMPRESORA: 0}
+        self._cargas: set = set()
+        self._resuelto = None           # desenlace síncrono del último slot
+        self._opt = CambioOptimista(self._lanzar_optimista, self._al_cambiar, self._al_revertir,
+                                    self._releer, al_confirmar=self._al_confirmar,
+                                    al_pendientes=self.pendientesChanged.emit)
+        # sin referencia a self: el destructor de C++ ya está en marcha
+        self.destroyed.connect(_cancelar_al_destruir(sesion, id(self)))
 
     def _s(self):
         return self._sesion or sesion_backend.ventana()
 
-    def _fijar_mensaje(self, clave: str) -> None:
-        if clave != self._mensaje:
+    def _enviar(self, metodo, ruta, cuerpo, al_terminar, al_tardio=None, al_fallar=None) -> None:
+        """`al_fallar()`: se llama si `al_terminar` lanza una excepción (la
+        sesión solo la registraría y el guardado quedaría pendiente para siempre)."""
+        if al_fallar is not None:
+            al_terminar = _resguardado(al_terminar, al_fallar, ruta)
+        sesion_backend.enviar_async(self._s(), metodo, ruta, cuerpo, al_terminar,
+                                    dueno=self, al_tardio=al_tardio)
+
+    def _fijar_mensaje(self, clave: str, revertido: bool = False) -> None:
+        if clave != self._mensaje or revertido != self._revertido:
             self._mensaje = clave
+            self._revertido = revertido
             self.mensajeChanged.emit()
 
     # ── contexto (lo fija la pantalla) ───────────────────────────────────
@@ -124,31 +237,129 @@ class ParametrosEquipoController(QObject):
     def motivoUnidades(self) -> str:
         return permisos.motivo_unidades(self._rol, self._estado)
 
+    # ── estado de los envíos ─────────────────────────────────────────────
+    @Property("QVariantMap", notify=pendientesChanged)
+    def pendientes(self) -> dict:
+        """clave -> "enviando" | "verificando" ("idioma", "unidades",
+        "impresora", "param:<clave>")."""
+        return {**self._opt.pendientes(), **self._en_vuelo}
+
+    @Property(bool, notify=pendientesChanged)
+    def parametroPendiente(self) -> bool:
+        """Algún cambio de /global_params espera respuesta (la pantalla no
+        sale con Atrás mientras tanto)."""
+        return bool(self._en_vuelo)
+
+    @Property("QVariantList", notify=pendientesChanged)
+    def sinConfirmar(self) -> list:
+        """Claves de parámetros aceptadas por el backend cuya relectura falló:
+        la fila se marca «sin confirmar» en vez de mostrar el valor anterior."""
+        return sorted(self._sin_confirmar)
+
+    @Property(bool, notify=cargandoChanged)
+    def cargando(self) -> bool:
+        return bool(self._cargas)
+
+    def _fijar_cargas(self, cargas: set) -> None:
+        antes = bool(self._cargas)
+        self._cargas = cargas
+        if antes != bool(cargas):
+            self.cargandoChanged.emit()
+
     # ── carga ────────────────────────────────────────────────────────────
     @Slot()
     def cargar(self) -> None:
-        r = self._s().enviar("GET", "/system_params")
-        lista = r.datos.get("parametros") if r.ok and isinstance(r.datos, dict) else None
-        if isinstance(lista, list):
-            self._parametros = [p for p in lista if isinstance(p, dict)]
-            grupos = r.datos.get("grupos")
-            # sin la lista (backend anterior a D9-3), todos los submenús
-            self._grupos = ([g for g in GRUPOS if g in grupos and g != "maquina"] + ["maquina"]
-                            if isinstance(grupos, list) else list(GRUPOS))
-            if self._grupo and self._grupo not in self._grupos:
-                self._grupo = ""
-                self.grupoChanged.emit()
-        else:
+        self._gen_carga += 1
+        gen, marca = self._gen_carga, self._opt.marca()
+        self._fijar_cargas({"parametros", IMPRESORA, UNIDADES, IDIOMA})
+        self._leer_identidad()
+        self._leer_parametros(lambda ok, r: self._al_cargar_parametros(ok, r, gen))
+        for clave in (IMPRESORA, UNIDADES, IDIOMA):
+            self._leer_optimista(clave, marca)
+
+    def _leer_parametros(self, al_leer=None, al_fallar=None) -> None:
+        """GET /system_params; aplica la lista si es la lectura más reciente
+        de las que ya respondieron (una lanzada antes no pisa a una posterior).
+        `al_leer(ok, r)` recibe si la lectura fue válida; `al_fallar()`, si
+        el callback lanzó (ver `_enviar`)."""
+        self._gen_param += 1
+        gen = self._gen_param
+
+        def leido(r):
+            datos = r.datos if r.ok and isinstance(r.datos, dict) else {}
+            ok = isinstance(datos.get("parametros"), list)
+            if ok and gen > self._gen_param_aplicada:
+                self._gen_param_aplicada = gen
+                self._aplicar_parametros(datos)
+            if al_leer is not None:
+                al_leer(ok, r)
+        self._enviar("GET", "/system_params", None, leido, al_fallar=al_fallar)
+
+    def _aplicar_parametros(self, datos) -> None:
+        self._parametros = [p for p in datos["parametros"] if isinstance(p, dict)]
+        grupos = datos.get("grupos")
+        # sin la lista (backend anterior a D9-3), todos los submenús
+        self._grupos = ([g for g in GRUPOS if g in grupos and g != "maquina"] + ["maquina"]
+                        if isinstance(grupos, list) else list(GRUPOS))
+        if self._grupo and self._grupo not in self._grupos:
+            self._grupo = ""
+            self.grupoChanged.emit()
+        if self._sin_confirmar:            # una lectura válida dice lo vigente
+            self._sin_confirmar.clear()
+            self.pendientesChanged.emit()
+        self.datosChanged.emit()
+        self.parametrosGrupoChanged.emit()
+
+    def _al_cargar_parametros(self, ok, r, gen) -> None:
+        if gen != self._gen_carga:
+            return                         # una carga posterior manda
+        self._fijar_cargas(self._cargas - {"parametros"})
+        if not ok:
             self._fijar_mensaje(mensaje_de(r.causa))
-        r = self._s().enviar("GET", "/printer/config")
-        valor = r.datos.get("habilitada") if r.ok and isinstance(r.datos, dict) else None
-        self._impresora = valor if isinstance(valor, bool) else None
-        ru = self._s().enviar("GET", "/units")
-        datos = ru.datos if ru.ok and isinstance(ru.datos, dict) else {}
-        self._unidades = {"temperatura": str(datos.get("temperatura") or ""),
-                          "presion": str(datos.get("presion") or "")}
-        ri = self._s().enviar("GET", "/language")
-        self._idioma = str(ri.datos.get("idioma") or "") if ri.ok and isinstance(ri.datos, dict) else ""
+
+    def _leer_optimista(self, clave, marca=None) -> None:
+        """GET de idioma, unidades o impresora; solo la última lectura de esa
+        clave cuenta."""
+        self._gen_opt[clave] += 1
+        gen = self._gen_opt[clave]
+        marca = self._opt.marca() if marca is None else marca
+        self._enviar("GET", _RUTAS_OPTIMISTAS[clave], None,
+                     lambda r: self._al_cargar_optimista(r, gen, marca, clave))
+
+    def _al_cargar_optimista(self, r, gen, marca, clave) -> None:
+        if gen != self._gen_opt[clave]:
+            return                         # una lectura posterior de esa clave manda
+        self._fijar_cargas(self._cargas - {clave})
+        leido, actual = _LECTORES[clave](r), self._valor_mostrado(clave)
+        if leido is None:
+            # sin dato: se conserva lo mostrado (no se inventa ni se borra)
+            valor = actual
+        elif self._opt.confirmar_lectura(clave, leido, marca):
+            valor = leido
+        else:
+            # cambio pendiente o lectura lanzada antes del último cambio
+            valor = self._opt.mostrar(clave, actual)
+        self._fijar_mostrado(clave, valor)
+        self.datosChanged.emit()
+
+    def _valor_mostrado(self, clave):
+        if clave == IDIOMA:
+            return self._idioma or None
+        if clave == UNIDADES:
+            t, p = self._unidades["temperatura"], self._unidades["presion"]
+            return (t, p) if t and p else None
+        return self._impresora
+
+    def _fijar_mostrado(self, clave, valor) -> None:
+        if clave == IDIOMA:
+            self._idioma = str(valor or "")
+        elif clave == UNIDADES:
+            t, p = valor if valor else ("", "")
+            self._unidades = {"temperatura": str(t), "presion": str(p)}
+        else:
+            self._impresora = valor if isinstance(valor, bool) else None
+
+    def _leer_identidad(self) -> None:
         p = (self._leer_perfil or _perfil)()
         self._serie = str(getattr(p, "serial_number", "") or "") if p else ""
         self._modelo = str(getattr(p, "model_id", "") or "") if p else ""
@@ -159,7 +370,6 @@ class ParametrosEquipoController(QObject):
             self._serie, self._modelo = str(ident["serie"]), str(ident["modelo"])
             self._serial_especifika = str(ident["serial_especifika"])
         self.datosChanged.emit()
-        self.parametrosGrupoChanged.emit()
 
     # ── navegación entre submenús ────────────────────────────────────────
     @Property(str, notify=grupoChanged)
@@ -214,6 +424,7 @@ class ParametrosEquipoController(QObject):
 
     # ── cambios ──────────────────────────────────────────────────────────
     def _resultado(self, r) -> bool:
+        """Desenlace de un envío síncrono (solo fijarImpresoraYReiniciar)."""
         self.cargar()                  # sin respuesta el resultado es incierto: se relee
         if r.ok:
             self._fijar_mensaje("")
@@ -221,22 +432,161 @@ class ParametrosEquipoController(QObject):
         self._fijar_mensaje(mensaje_de(r.causa))
         return False
 
+    # ── parámetros del equipo: asíncronos, sin optimismo ─────────────────
+    def _cambio_parametro(self, clave: str, metodo: str, ruta: str, cuerpo,
+                          esperado=_SIN_VALOR) -> bool:
+        """Lo mostrado sigue siendo el valor vigente hasta que el backend
+        acepta y se relee; mientras tanto "param:<clave>" queda pendiente.
+        `esperado`: valor que debe leerse si el cambio se aplicó (concilia un
+        envío sin respuesta)."""
+        pendiente = PREFIJO_PARAMETRO + clave
+        if not clave or pendiente in self._en_vuelo:
+            return False                   # ese parámetro sigue guardándose
+        self._en_vuelo[pendiente] = ENVIANDO
+        self.pendientesChanged.emit()
+        self._resuelto = None
+        estado = {"resuelto": False}       # cambioResuelto una sola vez por guardado
+
+        def resolver(ok, mensaje):
+            if estado["resuelto"]:
+                return
+            estado["resuelto"] = True
+            self._en_vuelo.pop(pendiente, None)
+            self._resuelto = ok
+            self._fijar_mensaje(mensaje)
+            self.pendientesChanged.emit()
+            self.cambioResuelto.emit(pendiente, ok, mensaje)
+
+        def fallar():
+            # un callback lanzó: la clave no puede quedar pendiente sin plazo
+            if not estado["resuelto"]:
+                resolver(False, MENSAJE_ERROR_INTERNO)
+
+        def releido(ok, _r):
+            if ok:
+                self._sin_confirmar.discard(clave)
+                resolver(True, "")
+            else:
+                # aceptado pero sin relectura: el valor anterior ya no es el vigente
+                self._sin_confirmar.add(clave)
+                resolver(False, MENSAJE_SIN_CONFIRMAR)
+
+        def conciliado(ok, r, causa):
+            # sin respuesta: el PATCH pudo aplicarse; lo dice la relectura (M3)
+            if not ok:
+                self._sin_confirmar.add(clave)
+                resolver(False, MENSAJE_SIN_CONFIRMAR)
+                return
+            leido = _valor_en(r, clave)
+            if esperado is not _SIN_VALOR and leido is not _SIN_VALOR and leido == esperado:
+                self._sin_confirmar.discard(clave)
+                resolver(True, "")
+            else:
+                resolver(False, mensaje_de(causa))
+
+        def terminar(r):
+            if r.ok or r.causa == sesion_backend.BACKEND_NO_RESPONDE:
+                # un parámetro del proceso no se da por resuelto antes de releerlo
+                self._en_vuelo[pendiente] = VERIFICANDO
+                self.pendientesChanged.emit()
+                if r.ok:
+                    self._leer_parametros(releido, al_fallar=fallar)
+                else:
+                    self._leer_parametros(lambda ok, rs: conciliado(ok, rs, r.causa),
+                                          al_fallar=fallar)
+                return
+            self._leer_parametros()        # el valor vigente lo dice el backend
+            resolver(False, mensaje_de(r.causa))
+
+        # una respuesta tardía (tras backend_no_responde) solo relee
+        self._enviar(metodo, ruta, cuerpo, terminar, al_tardio=lambda _r: self._leer_parametros(),
+                     al_fallar=fallar)
+        resuelto, self._resuelto = self._resuelto, None
+        return True if resuelto is None else resuelto
+
     @Slot(str, "QVariant", result=bool)
     def guardar(self, clave: str, valor) -> bool:
         if isinstance(valor, float) and valor.is_integer():
             p = self.parametro(clave) or {}
             if p.get("tipo") == "int":
                 valor = int(valor)
-        return self._resultado(self._s().enviar("PATCH", f"/global_params/{clave}", {"valor": valor}))
+        return self._cambio_parametro(clave, "PATCH", f"/global_params/{clave}", {"valor": valor},
+                                      esperado=valor)
 
     @Slot(str, result=bool)
     def restablecer(self, clave: str) -> bool:
-        return self._resultado(self._s().enviar("POST", f"/global_params/{clave}/reset"))
+        p = self.parametro(clave) or {}
+        return self._cambio_parametro(clave, "POST", f"/global_params/{clave}/reset", None,
+                                      esperado=p.get("defecto", _SIN_VALOR))
+
+    # ── idioma, unidades, impresora: optimistas con reversión ────────────
+    def _lanzar_optimista(self, clave, valor, al_terminar) -> None:
+        if clave == IDIOMA:
+            cuerpo = {"idioma": valor}
+        elif clave == UNIDADES:
+            cuerpo = {"temperatura": valor[0], "presion": valor[1]}
+        else:
+            cuerpo = {"habilitada": bool(valor)}
+        # la respuesta tardía no pasa por el cambio optimista: se relee y la
+        # marca protege lo aún pendiente; el efecto global lo trae el sondeo
+        self._enviar("PUT", _RUTAS_OPTIMISTAS[clave], cuerpo, al_terminar,
+                     al_tardio=lambda _r: self._leer_optimista(clave))
+
+    def _releer(self, clave, al_leer) -> None:
+        def leido(r):
+            v = _LECTORES[clave](r)
+            al_leer(SIN_LECTURA if v is None else v)
+        self._enviar("GET", _RUTAS_OPTIMISTAS[clave], None, leido)
+
+    def _al_cambiar(self, clave, valor) -> None:
+        if self._valor_mostrado(clave) != valor:
+            self._fijar_mostrado(clave, valor)
+            self.datosChanged.emit()
+
+    def _al_confirmar(self, clave) -> None:
+        self._resuelto = True
+        self._fijar_mensaje("")
+        self._aplicar_global(clave, self._opt.confirmado(clave))
+        self.cambioResuelto.emit(clave, True, "")
+
+    @staticmethod
+    def _aplicar_global(clave, valor) -> None:
+        """Efecto en toda la interfaz, solo con el cambio ya aceptado."""
+        try:
+            if clave == IDIOMA and valor:
+                from autoclave import i18n
+                i18n.fijar_idioma(valor)                 # esta ventana cambia ya
+            elif clave == UNIDADES:
+                from autoclave.ui_qml.bridge import unidades_qml
+                unidades_qml.instancia.refrescar()       # sin esperar el sondeo
+        except Exception:
+            pass
+
+    def _al_revertir(self, clave, causa) -> None:
+        self._resuelto = False
+        self._leer_optimista(clave)        # se relee el estado real (solo esa clave)
+        if causa == SIN_CONFIRMAR:
+            self._fijar_mensaje(MENSAJE_SIN_CONFIRMAR)
+        else:
+            mensaje = mensaje_de(causa)
+            if clave == UNIDADES and causa == "estado_no_permitido":
+                mensaje = "opciones.equipo_err_unidades_ciclo"
+            self._fijar_mensaje(mensaje, revertido=True)
+        self.cambioResuelto.emit(clave, False, self._mensaje)
+
+    def _aplicar_optimista(self, clave: str, nuevo) -> bool:
+        self._resuelto = None
+        actual = self._valor_mostrado(clave)
+        if actual is None:
+            self._opt.aplicar(clave, nuevo)
+        else:
+            self._opt.aplicar(clave, nuevo, actual)
+        resuelto, self._resuelto = self._resuelto, None
+        return True if resuelto is None else resuelto
 
     @Slot(bool, result=bool)
     def fijarImpresora(self, habilitada: bool) -> bool:
-        return self._resultado(self._s().enviar("PUT", "/printer/config",
-                                                {"habilitada": bool(habilitada)}))
+        return self._aplicar_optimista(IMPRESORA, bool(habilitada))
 
     @Slot(bool, result=bool)
     def fijarImpresoraYReiniciar(self, habilitada: bool) -> bool:
@@ -266,14 +616,9 @@ class ParametrosEquipoController(QObject):
 
     @Slot(str, result=bool)
     def fijarIdioma(self, idioma: str) -> bool:
-        r = self._s().enviar("PUT", "/language", {"idioma": idioma})
-        if r.ok:
-            try:                       # esta ventana cambia ya
-                from autoclave import i18n
-                i18n.fijar_idioma(idioma)
-            except Exception:
-                pass
-        return self._resultado(r)
+        if not idioma:
+            return False
+        return self._aplicar_optimista(IDIOMA, str(idioma))
 
     @Property(str, notify=datosChanged)
     def unidadTemperatura(self) -> str:
@@ -285,16 +630,9 @@ class ParametrosEquipoController(QObject):
 
     @Slot(str, str, result=bool)
     def fijarUnidades(self, temperatura: str, presion: str) -> bool:
-        r = self._s().enviar("PUT", "/units", {"temperatura": temperatura, "presion": presion})
-        try:                           # que las pantallas cambien ya, sin esperar el sondeo
-            from autoclave.ui_qml.bridge import unidades_qml
-            unidades_qml.instancia.refrescar()
-        except Exception:
-            pass
-        ok = self._resultado(r)
-        if not ok and r.causa == "estado_no_permitido":
-            self._fijar_mensaje("opciones.equipo_err_unidades_ciclo")
-        return ok
+        if not temperatura or not presion:
+            return False
+        return self._aplicar_optimista(UNIDADES, (str(temperatura), str(presion)))
 
     @Property(str, notify=datosChanged)
     def numeroSerie(self) -> str:
@@ -320,6 +658,12 @@ class ParametrosEquipoController(QObject):
     @Property(str, notify=mensajeChanged)
     def mensaje(self) -> str:
         return self._mensaje
+
+    @Property(bool, notify=mensajeChanged)
+    def mensajeRevertido(self) -> bool:
+        """El mensaje es el motivo de un cambio que no se aplicó: la pantalla
+        lo muestra dentro de opciones.cambio_revertido."""
+        return self._revertido
 
     @Slot()
     def limpiarMensaje(self) -> None:

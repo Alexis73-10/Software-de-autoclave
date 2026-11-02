@@ -31,6 +31,16 @@ Item {
     MantenimientoController {
         id: control
         objectName: "mantenimientoController"
+        // AJUSTES 2026-11-02 (paso 2, fase 4): los intervalos se guardan sin
+        // bloquear. Aceptados, ya no hay nada pendiente de editar; rechazados,
+        // lo escrito se conserva para reintentar (la pantalla muestra lo
+        // confirmado por el backend y el motivo).
+        onCambioResuelto: (clave, ok, mensaje) => {
+            if (clave === "intervalos" && ok) {
+                if (raiz.diasNuevo === control.intervaloDias) raiz.diasNuevo = -1
+                if (raiz.ciclosNuevo === control.intervaloCiclos) raiz.ciclosNuevo = -1
+            }
+        }
     }
 
     // O2f (tanda 6): subpantalla de calibración atmosférica. Mientras mide,
@@ -149,7 +159,12 @@ Item {
             anchors.fill: parent; anchors.margins: Escala.px(16)
             verticalAlignment: Text.AlignVCenter
             wrapMode: Text.WordWrap
-            text: control.mensaje !== "" ? I18n.t(control.mensaje, I18n.lang) : ""
+            // un cambio revertido lleva su motivo dentro de opciones.cambio_revertido
+            text: control.mensaje === "" ? ""
+                  : control.mensajeRevertido
+                    ? I18n.t("opciones.cambio_revertido", I18n.lang,
+                             { motivo: I18n.t(control.mensaje, I18n.lang) })
+                    : I18n.t(control.mensaje, I18n.lang)
             color: Colores.peligroTexto
             font.family: Tipografia.familia
             font.pixelSize: Escala.fuente(22)
@@ -346,13 +361,16 @@ Item {
         Rectangle {
             objectName: "botonRegistrarMantenimiento"
             readonly property bool habilitado: raiz.edicionPermitida
+                                               && control.pendientes.registro === undefined
             width: parent.width; height: Escala.px(96)
             radius: Escala.px(12)
             color: Colores.accionPrimario
             opacity: habilitado ? 1.0 : 0.4
             Text {
                 anchors.centerIn: parent
-                text: I18n.t("opciones.mant_registrar", I18n.lang)
+                text: control.pendientes.registro !== undefined
+                      ? I18n.t("opciones.guardando", I18n.lang)
+                      : I18n.t("opciones.mant_registrar", I18n.lang)
                 color: "white"
                 font.family: Tipografia.familia
                 font.weight: Tipografia.pesoSemiBold
@@ -410,7 +428,9 @@ Item {
             opacity: habilitado ? 1.0 : 0.4
             Text {
                 anchors.centerIn: parent
-                text: I18n.t("opciones.mant_guardar_intervalos", I18n.lang)
+                text: control.pendientes.intervalos !== undefined
+                      ? I18n.t("opciones.guardando", I18n.lang)
+                      : I18n.t("opciones.mant_guardar_intervalos", I18n.lang)
                 color: "white"
                 font.family: Tipografia.familia
                 font.weight: Tipografia.pesoSemiBold
@@ -420,10 +440,8 @@ Item {
                 anchors.fill: parent
                 enabled: parent.habilitado
                 onClicked: {
-                    if (control.guardarIntervalos(raiz.diasMostrado, raiz.ciclosMostrado)) {
-                        raiz.diasNuevo = -1
-                        raiz.ciclosNuevo = -1
-                    }
+                    // el desenlace llega por onCambioResuelto (más abajo)
+                    control.guardarIntervalos(raiz.diasMostrado, raiz.ciclosMostrado)
                 }
             }
         }

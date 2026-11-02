@@ -106,22 +106,50 @@ def grupos_de(d: dict) -> list[dict]:
     ]
 
 
+def _cancelar_al_destruir(sesion, ident):
+    return lambda *_: sesion_backend.cancelar_envios(sesion, ident)
+
+
 class InfoSistemaController(QObject):
     datosChanged = Signal()
     mensajeChanged = Signal()
+    cargandoChanged = Signal()
 
     def __init__(self, parent=None, sesion=None):
         super().__init__(parent)
         self._sesion = sesion
         self._grupos = grupos_de({})
         self._mensaje = ""
+        self._gen = 0
+        self._cargando = False
+        self.destroyed.connect(_cancelar_al_destruir(sesion, id(self)))
 
     def _s(self):
         return self._sesion or sesion_backend.ventana()
 
+    @Property(bool, notify=cargandoChanged)
+    def cargando(self) -> bool:
+        return self._cargando
+
+    def _fijar_cargando(self, v: bool) -> None:
+        if v != self._cargando:
+            self._cargando = v
+            self.cargandoChanged.emit()
+
     @Slot()
     def cargar(self) -> None:
-        r = self._s().enviar("GET", "/system/info")
+        # GET asíncrono (AJUSTES 2026-11-02, fase 5): solo manda la última
+        # consulta y un error conserva los grupos ya mostrados
+        self._gen += 1
+        gen = self._gen
+        self._fijar_cargando(True)
+        sesion_backend.enviar_async(self._s(), "GET", "/system/info", None,
+                                    lambda r: self._al_cargar(r, gen), dueno=self)
+
+    def _al_cargar(self, r, gen: int) -> None:
+        if gen != self._gen:
+            return
+        self._fijar_cargando(False)
         nuevo = ""
         if r.ok and isinstance(r.datos, dict):
             self._grupos = grupos_de(r.datos)
