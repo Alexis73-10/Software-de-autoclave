@@ -30,8 +30,8 @@ def _viejo(valor=3.5):
 
 # ── perfiles JSON ───────────────────────────────────────────────────────────
 
-def test_hay_8_perfiles():
-    assert len(PERFILES) == 8
+def test_hay_10_perfiles():
+    assert len(PERFILES) == 10
 
 
 @pytest.mark.parametrize("ruta", PERFILES, ids=lambda p: f"{p.parent.name}/{p.name}")

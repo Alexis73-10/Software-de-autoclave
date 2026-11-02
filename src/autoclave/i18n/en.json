@@ -1747,6 +1747,9 @@
     },
     "liquidos": {
       "nombre": "Liquids"
+    },
+    "textiles": {
+      "nombre": "Textiles"
     }
   },
   "gestion_usuarios": {
