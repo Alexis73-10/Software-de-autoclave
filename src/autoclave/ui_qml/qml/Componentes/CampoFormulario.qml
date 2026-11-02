@@ -35,6 +35,7 @@ Item {
         y: Escala.px(43)
         width: parent.width; height: Escala.px(82)
         radius: Escala.px(6)
+        color: Colores.fondoCampo
         border.color: raiz.mensajeError !== "" ? Colores.peligroTexto
                     : raiz.activo ? Colores.accionPrimario : Colores.bordeDivisor
         border.width: raiz.activo || raiz.mensajeError !== "" ? 2 : 1

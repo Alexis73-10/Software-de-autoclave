@@ -37,10 +37,10 @@ Item {
     readonly property color colorFondo: modo === "cerrada" ? Colores.puertaCerradaFondo
                                       : modo === "abierta" ? Colores.advertenciaFondo
                                       : Colores.fondoSutil
-    readonly property color colorBorde: modo === "cerrada" ? Colores.fondoBarraSuperior
+    readonly property color colorBorde: modo === "cerrada" ? Colores.puertaCerradaBorde
                                       : modo === "abierta" ? Colores.advertencia
                                       : Colores.bordeCampo
-    readonly property color colorTexto: modo === "cerrada" ? Colores.fondoBarraSuperior
+    readonly property color colorTexto: modo === "cerrada" ? Colores.puertaCerradaBorde
                                       : modo === "abierta" ? Colores.advertenciaTexto
                                       : Colores.textoGuia
 

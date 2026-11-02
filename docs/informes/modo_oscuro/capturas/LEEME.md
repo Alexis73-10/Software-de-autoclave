@@ -17,9 +17,13 @@ Capturas de dev con el mismo arnés en un worktree limpio, comparadas con PIL (s
 
 Paleta, fondos degradados, tarjetas, bordes y acentos (verde, morado, naranja, azul) coinciden con los mockups. Diferencias:
 
-1. **Campos del Login (y recuadro de `CampoFormulario`) quedan blancos en oscuro**: son `Rectangle` sin `color` (blanco por defecto), no un literal; el claro es correcto. Lo mismo para la casilla «Recordar usuario». Falta una propiedad de Colores (fondo de campo) y asignarla. Sin corregir (fuera del alcance: solo claro).
-2. **Login: íconos de los campos** (usuario, candado, ojo) y la casilla quedan de poco contraste sobre el fondo blanco del hallazgo 1; con el candado en `bordeCampo` (OSC-18) apenas se ve. El avatar sí se ve bien.
-3. **Preciclo: botón «PUERTA CERRADA» deshabilitado** tiene texto e ícono azul muy oscuro sobre el fondo oscuro, casi ilegibles (el ícono de puerta no sigue el tinte de deshabilitado).
+1. **[CORREGIDO, OSC-21] Campos del Login (y recuadro de `CampoFormulario`) quedaban blancos en oscuro**: son `Rectangle` sin `color` (blanco por defecto), no un literal; el claro es correcto. Lo mismo para la casilla «Recordar usuario». Falta una propiedad de Colores (fondo de campo) y asignarla. Sin corregir (fuera del alcance: solo claro).
+2. **[CORREGIDO, OSC-21/OSC-18] Login: íconos de los campos** (usuario, candado, ojo) y la casilla quedan de poco contraste sobre el fondo blanco del hallazgo 1; con el candado en `bordeCampo` (OSC-18) apenas se ve. El avatar sí se ve bien.
+3. **[CORREGIDO, OSC-22] Preciclo: «PUERTA CERRADA» (IndicadorPuerta)** tiene texto e ícono azul muy oscuro sobre el fondo oscuro, casi ilegibles (el ícono de puerta no sigue el tinte de deshabilitado).
 4. **Ciclo en curso**: el chevron del selector «Tiempos» queda negro sobre fondo oscuro (ícono multicolor sin tinte, ya anotado en OSC-20); el ícono blanco de fase pendiente de `CirculoFaseLiquido` no se tiñe.
 5. Los mockups usan otro juego de íconos (más finos: calendario, check, gráfico de barras, información naranja) y contenidos distintos (#1248, 52 ciclos restantes); en la app se conservan los íconos y textos actuales. Las tarjetas del Menú no llevan el halo verde del mockup en «Iniciar sesión».
 6. Fin de ciclo fallido: coincide con la paleta (rojo, ámbar, azul de acción); el círculo de la fase fallida es rojo muy saturado frente al resto de la paleta.
+
+## Corrección de los hallazgos 1-3 (OSC-21, OSC-22)
+
+`Colores.fondoCampo` (oscuro #1E2A38) en los campos del Login, `CampoFormulario` y la casilla «Recordar usuario»; `iconoCampo` para el candado; `puertaCerradaTexto`/`puertaCerradaBorde` para «PUERTA CERRADA» (texto, borde e ícono teñido en #6EA4FF/#3B6FD8). Recapturados `login` y `preciclo_preparado` en oscuro (1080 y 1024). Claro: recaptura comparada con PIL contra las capturas claras guardadas; sin diferencias de color (las únicas diferencias >32/255 caen en el reloj, el deslizador y el borde de íconos, ya conocidos; ningún campo ni el indicador de puerta). Las capturas claras no se regeneraron.

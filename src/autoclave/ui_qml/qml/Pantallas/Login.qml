@@ -177,6 +177,7 @@ Item {
 
                         Rectangle {
                             width: parent.width; height: Escala.px(88); radius: Escala.px(6)
+                            color: Colores.fondoCampo
                             border.color: raiz.campoActivo === "usuario" ? Colores.accionPrimario
                                                                          : Colores.bordeCampo
                             border.width: raiz.campoActivo === "usuario" ? 2 : 1
@@ -219,6 +220,7 @@ Item {
 
                         Rectangle {
                             width: parent.width; height: Escala.px(88); radius: Escala.px(6)
+                            color: Colores.fondoCampo
                             border.color: raiz.campoActivo === "clave" ? Colores.accionPrimario
                                                                        : Colores.bordeCampo
                             border.width: raiz.campoActivo === "clave" ? 2 : 1
@@ -230,7 +232,7 @@ Item {
                                 anchors.verticalCenter: parent.verticalCenter
                                 width: Escala.px(24); height: Escala.px(24)
                                 source: raiz.iconos + "candado.svg"
-                                color: Colores.bordeCampo
+                                color: Colores.iconoCampo
                             }
 
                             // Alterna ver/ocultar la contraseña. Muestra "ojo_mostrar"
@@ -301,6 +303,7 @@ Item {
                                 anchors.verticalCenter: parent.verticalCenter
                                 width: Escala.px(24); height: Escala.px(24)
                                 radius: Escala.px(4)
+                                color: Colores.fondoCampo
                                 border.color: Colores.bordeCampo; border.width: 1
 
                                 Image {

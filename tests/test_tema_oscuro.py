@@ -161,6 +161,8 @@ _OSCURO_COMO = {
     "divisorParam": "bordeDivisor", "divisorPie": "bordeDivisor",
     "lineaAlarmas": "bordeDivisor", "seleccionSutil": "accionFondoTenue",
     "puertaCerradaFondo": "fondoElevado", "fondoSeccion": "fondoSutil",
+    "fondoCampo": "fondoElevado", "iconoCampo": "textoGuia",           # OSC-21 / OSC-18
+    "puertaCerradaTexto": "accionPrimarioTexto", "puertaCerradaBorde": "abrirPuertaBorde",   # OSC-22
     "naranjaTexto": "advertenciaTexto", "naranjaEstado": "advertencia",
     "iconoBarraMenu": "iconoBarraInferior",
 }
@@ -284,6 +286,9 @@ _ORIGEN_CLARO = {
     "divisorParam": (_PRE, "divisorParam"), "divisorPie": (_PRE, "divisorPie"),
     "lineaAlarmas": (_PRE, "lineaAlarmas"), "insignia": (_PRE, "insignia"),
     "textoInsignia": ("blanco",), "iconoBarraMenu": ("svg", "assets/iconos/color/back_icon.svg"),
+    "fondoCampo": ("blanco",), "iconoCampo": ("Colores", "bordeCampo"),
+    "puertaCerradaTexto": ("Colores", "fondoBarraSuperior"),
+    "puertaCerradaBorde": ("Colores", "fondoBarraSuperior"),
     "seleccionSutil": (_PRE, 1000), "puertaCerradaFondo": ("Componentes/IndicadorPuerta.qml", 37),
     "fondoSeccion": ("Componentes/SeccionEstadoSeguro.qml", 79),
     "peligroFuerte": ("Componentes/PanelEquipo.qml", 120),
@@ -447,6 +452,25 @@ def test_e_contraste_de_la_seccion_8_en_oscuro(texto, fondo, minimo):
     props = _colores()
     c = _contraste(props[texto][1], props[fondo][1])
     assert c >= minimo, f"{texto} sobre {fondo}: {c:.2f} < {minimo}"
+
+
+def test_e_campos_de_formulario_y_puerta_cerrada_tienen_claro_y_oscuro_legibles():
+    """OSC-21 / OSC-22: el fondo de campo ya no es el blanco implícito en oscuro."""
+    props = _colores()
+    for nombre in ("fondoCampo", "iconoCampo", "puertaCerradaTexto", "puertaCerradaBorde"):
+        claro, oscuro = props[nombre]
+        assert claro != oscuro, nombre                         # tiene los dos temas
+    assert props["fondoCampo"][0] == "#FFFFFFFF"               # claro = el blanco de hoy
+    for texto, minimo in (("textoPrimario", 4.5), ("textoGuia", 4.5), ("textoSecundario", 4.5),
+                          ("iconoCampo", 3.0), ("bordeCampo", 1.0)):
+        c = _contraste(props[texto][1], props["fondoCampo"][1])
+        assert c >= minimo, f"{texto} sobre fondoCampo (oscuro): {c:.2f} < {minimo}"
+    # el borde del campo activo (acción) y el de error también se ven
+    for texto in ("accionPrimario", "peligroTexto"):
+        assert _contraste(props[texto][1], props["fondoCampo"][1]) >= 3.0, texto
+    # «PUERTA CERRADA» (IndicadorPuerta): texto e ícono legibles sobre su fondo
+    assert _contraste(props["puertaCerradaTexto"][1], props["puertaCerradaFondo"][1]) >= 4.5
+    assert _contraste(props["puertaCerradaBorde"][1], props["puertaCerradaFondo"][1]) >= 3.0
 
 
 # ────────────────── (a) sin literales de color fuera de Tema/ ──────────────────

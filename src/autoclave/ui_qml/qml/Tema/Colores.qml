@@ -69,6 +69,10 @@ QtObject {
     readonly property color bordeCampo:         oscuro ? "#33445A" : "#CCCCCC" // neutro_300
     readonly property color fondoSutil:         oscuro ? "#18222F" : "#F6F6F6" // bg-subtle
     readonly property color fondoTarjeta:       oscuro ? "#152130" : "#FFFFFF"
+    // Campos de formulario (Login, CampoFormulario, casilla «Recordar usuario»; OSC-21):
+    // claro = el blanco que daba el Rectangle sin color; oscuro = superficie elevada (paleta §6)
+    readonly property color fondoCampo:         oscuro ? "#1E2A38" : "#FFFFFF"
+    readonly property color iconoCampo:         oscuro ? "#8C98A7" : "#CCCCCC" // candado del Login (OSC-18); claro = bordeCampo de hoy
     readonly property color iconoBarraInferior: oscuro ? "#E9EEF4" : "#333333" // neutro_800
 
     // ───────────── Propiedades nuevas del modo oscuro (plan.md §3) ─────────────
@@ -184,6 +188,8 @@ QtObject {
     readonly property color iconoBarraMenu: oscuro ? "#E9EEF4" : "#231F20" // back/home de BarraInferiorMenu (OSC-16)
     readonly property color seleccionSutil:     oscuro ? "#16305E" : "#E8F0FE" // → accionFondoTenue (OSC-11)
     readonly property color puertaCerradaFondo: oscuro ? "#1E2A38" : "#EAF1F8" // → fondoElevado
+    readonly property color puertaCerradaBorde: oscuro ? "#3B6FD8" : "#2C4B70" // IndicadorPuerta «PUERTA CERRADA»: claro = fondoBarraSuperior (OSC-22); oscuro = borde de acción (paleta §2)
+    readonly property color puertaCerradaTexto: oscuro ? "#6EA4FF" : "#2C4B70" // texto e ícono; claro = fondoBarraSuperior, oscuro = accionPrimarioTexto (≥ 3:1 sobre puertaCerradaFondo)
     readonly property color fondoSeccion:       oscuro ? "#18222F" : "#F2F2F2" // → fondoSutil
     readonly property color peligroFuerte:      "#B71C1C" // PanelEquipo (OSC-10)
     readonly property color naranjaTexto:  oscuro ? "#FFAE5C" : "#EC9233" // → advertenciaTexto
