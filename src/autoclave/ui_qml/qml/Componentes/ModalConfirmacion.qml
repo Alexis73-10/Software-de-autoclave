@@ -37,7 +37,7 @@ Item {
     property string textoVolver: I18n.t("ciclo.modal_volver", I18n.lang)
     property string textoAccion: ""
     property color colorAccion: Colores.accionPrimario
-    property color colorTextoAccion: "white"
+    property color colorTextoAccion: Colores.textoSobreAccion
 
     readonly property bool abierto: visible
 
@@ -53,7 +53,7 @@ Item {
     Rectangle {
         objectName: "fondoModalConfirmacion"
         anchors.fill: parent
-        color: "#99000000"
+        color: Colores.velo
         MouseArea { anchors.fill: parent; onClicked: raiz._volver() }
     }
 

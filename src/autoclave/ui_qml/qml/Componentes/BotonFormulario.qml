@@ -57,7 +57,7 @@ Item {
             fontSizeMode: Text.HorizontalFit
             minimumPixelSize: Escala.fuenteMinima
             text: raiz.texto
-            color: raiz.primario ? "white" : Colores.textoPrimario
+            color: raiz.primario ? Colores.textoSobreAccion : Colores.textoPrimario
             font.family: Tipografia.familia
             font.pixelSize: Escala.fuente(Tipografia.botonEtiquetaTam)
             font.weight: raiz.primario ? Tipografia.pesoSemiBold : Tipografia.pesoMedium

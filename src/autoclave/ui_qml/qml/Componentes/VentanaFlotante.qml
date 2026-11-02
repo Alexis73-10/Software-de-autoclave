@@ -58,7 +58,7 @@ Item {
     Rectangle {
         objectName: "fondoVentana"
         anchors.fill: parent
-        color: "#99000000"
+        color: Colores.velo
         opacity: compartido.opacidadFondo
         MouseArea { anchors.fill: parent; enabled: !raiz._cerrando; onClicked: raiz.cerrar() }
     }

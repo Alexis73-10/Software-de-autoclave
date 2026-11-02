@@ -261,12 +261,11 @@ Item {
         width: Escala.px(64); height: width
         anchors.top: parent.top; anchors.right: parent.right
         anchors.topMargin: Escala.px(8); anchors.rightMargin: Escala.px(12)
-        Image {
+        IconoColor {
             anchors.centerIn: parent
             width: Escala.px(48); height: width
             source: "../../assets/iconos/color/ocultar_teclado.svg"
-            sourceSize.width: width
-            sourceSize.height: height
+            color: Colores.textoGuia   // trazo #808080
             opacity: zonaOcultar.pressed ? 0.5 : 1
         }
         MouseArea {

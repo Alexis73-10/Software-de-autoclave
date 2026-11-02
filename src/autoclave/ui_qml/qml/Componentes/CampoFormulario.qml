@@ -57,7 +57,7 @@ Item {
             anchors.fill: parent
             onClicked: raiz.tocado()
         }
-        Image {
+        IconoColor {
             id: ojo
             visible: raiz.conOjo
             anchors.right: parent.right
@@ -65,8 +65,7 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
             width: Escala.px(44); height: Escala.px(44)
             source: "../../assets/iconos/color/" + (raiz.oculto ? "ojo_mostrar.svg" : "ojo_ocultar.svg")
-            sourceSize.width: width
-            sourceSize.height: height
+            color: Colores.textoSecundario   // OSC-17 (ojo_ocultar tenía además un trazo #031225)
             MouseArea {
                 anchors.fill: parent
                 anchors.margins: -Escala.px(16)

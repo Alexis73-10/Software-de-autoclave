@@ -25,7 +25,7 @@ Item {
 
     Rectangle {
         anchors.fill: parent
-        color: "#99000000"
+        color: Colores.velo
         MouseArea { anchors.fill: parent; onClicked: raiz._descartar() }
     }
 
@@ -113,7 +113,7 @@ Item {
                     fontSizeMode: Text.HorizontalFit
                     minimumPixelSize: Escala.fuenteMinima
                     text: raiz.textoConfirmar
-                    color: "white"
+                    color: Colores.textoSobreAccion
                     font.family: Tipografia.familia
                     font.weight: Tipografia.pesoSemiBold
                     font.pixelSize: Escala.fuente(Tipografia.botonEtiquetaTam)

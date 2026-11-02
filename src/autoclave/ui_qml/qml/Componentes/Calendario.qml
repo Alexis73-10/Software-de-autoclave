@@ -104,7 +104,7 @@ Item {
 
         Rectangle {
             anchors.fill: parent
-            color: "#99000000"
+            color: Colores.velo
             MouseArea { anchors.fill: parent; onClicked: raiz.cancelar() }
         }
 
@@ -206,7 +206,7 @@ Item {
                                 Text {
                                     anchors.centerIn: parent
                                     text: celda.dia
-                                    color: celda.fecha === raiz.seleccion ? "white" : Colores.textoPrimario
+                                    color: celda.fecha === raiz.seleccion ? Colores.textoSobreAccion : Colores.textoPrimario
                                     font.family: Tipografia.familia
                                     font.weight: Tipografia.pesoSemiBold
                                     font.pixelSize: Escala.fuente(26)
@@ -253,12 +253,11 @@ Item {
         width: Escala.px(96); height: Escala.px(96)
         radius: width / 2
         color: Colores.fondoSutil
-        Image {
+        IconoColor {
             anchors.centerIn: parent
             width: Escala.px(44); height: width
             source: "../../assets/iconos/color/" + f.icono + ".svg"
-            sourceSize.width: width
-            sourceSize.height: height
+            color: f.icono === "chevron_derecha" ? Colores.textoNegro : Colores.textoPrimario
         }
         MouseArea { anchors.fill: parent; onClicked: f.pulsada() }
     }
@@ -278,7 +277,7 @@ Item {
             id: textoB
             anchors.centerIn: parent
             text: b.texto
-            color: b.primario ? "white" : Colores.textoPrimario
+            color: b.primario ? Colores.textoSobreAccion : Colores.textoPrimario
             font.family: Tipografia.familia
             font.weight: Tipografia.pesoSemiBold
             font.pixelSize: Escala.fuente(24)

@@ -37,7 +37,7 @@ Item {
 
     Rectangle {
         anchors.fill: parent
-        color: "#99000000"
+        color: Colores.velo
         opacity: compartido.opacidadFondo
         MouseArea { anchors.fill: parent; enabled: !raiz._cerrando; onClicked: raiz.cerrar() }
     }
@@ -74,7 +74,7 @@ Item {
             id: linea
             x: Escala.px(48); y: titulo.y + titulo.height + Escala.px(20)
             width: tarjeta.width - Escala.px(96); height: Escala.px(2)
-            color: "#E6E6E6"
+            color: Colores.bordeDivisor
         }
 
         Item {
@@ -115,7 +115,7 @@ Item {
                 fontSizeMode: Text.HorizontalFit
                 minimumPixelSize: Escala.fuenteMinima
                 text: raiz.textoCerrar
-                color: "white"
+                color: Colores.textoSobreAccion
                 font.family: Tipografia.familia
                 font.weight: Tipografia.pesoSemiBold
                 font.pixelSize: Escala.fuente(Tipografia.botonEtiquetaTam)

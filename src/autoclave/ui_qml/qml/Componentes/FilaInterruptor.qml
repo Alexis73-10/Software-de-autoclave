@@ -47,15 +47,14 @@ Item {
         font.pixelSize: Escala.fuente(21)
     }
 
-    Image {
+    IconoColor {
         visible: raiz.bloqueado
         anchors.right: interruptor.left
         anchors.rightMargin: Escala.px(20)
         anchors.verticalCenter: parent.verticalCenter
         width: Escala.px(36); height: width
         source: "../../assets/iconos/color/candado.svg"
-        sourceSize.width: width
-        sourceSize.height: height
+        color: Colores.bordeCampo   // relleno #CCCCCC
     }
 
     Rectangle {
@@ -70,7 +69,7 @@ Item {
             width: parent.height - Escala.px(6); height: width; radius: width / 2
             anchors.verticalCenter: parent.verticalCenter
             x: raiz.marcado ? parent.width - width - Escala.px(3) : Escala.px(3)
-            color: "white"
+            color: Colores.textoSobreAccion
             Behavior on x { NumberAnimation { duration: 150 } }
         }
     }

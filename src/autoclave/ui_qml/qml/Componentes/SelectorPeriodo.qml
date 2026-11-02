@@ -42,7 +42,7 @@ Column {
                 Text {
                     anchors.centerIn: parent
                     text: I18n.t("menu." + (filtro.modelData[1]), I18n.lang)
-                    color: filtro.marcado ? "white" : Colores.textoPrimario
+                    color: filtro.marcado ? Colores.textoSobreAccion : Colores.textoPrimario
                     font.family: Tipografia.familia
                     font.weight: Tipografia.pesoSemiBold
                     font.pixelSize: raiz.fuente(22)
@@ -66,14 +66,13 @@ Column {
             border.width: raiz.m(2); border.color: Colores.bordeDivisor
         }
         // tinta de chevron_derecha.svg = [12.8, 4.3, 35.2, 43.8]
-        Image {
+        IconoColor {
             readonly property real _k: raiz.m(26) / (43.8 - 4.3)
             width: 48 * _k; height: width
             anchors.centerIn: parent
             rotation: flecha.atras ? 180 : 0
             source: "../../assets/iconos/mono/chevron_derecha.svg"
-            sourceSize.width: width
-            sourceSize.height: height
+            color: Colores.textoPrimario
         }
         MouseArea { anchors.fill: parent; enabled: flecha.habilitada; onClicked: flecha.pulsada() }
     }
