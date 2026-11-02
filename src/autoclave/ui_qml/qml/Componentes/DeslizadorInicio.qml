@@ -396,6 +396,71 @@ Item {
         Anillo { anchors.centerIn: parent; diam: 30 * desl.u; angulo: 135; duracion: 1500 }
     }
 
+    // ======================= estela de gota (detrás de la manija) =======================
+    // La manija se ve como una gota al deslizarse: la cola se estira hacia atrás y su
+    // largo sigue la velocidad (rápido = cola larga, lento = corta, quieta = sin cola).
+    // La velocidad se mide por cuadro y se suaviza; al soltar, la cola se encoge sola
+    // mientras la manija vuelve al inicio.
+    property real _vel: 0          // px/s con signo (+ hacia la derecha), suavizada
+    property real _xPrevia: 0
+    readonly property real _largoMax: 2.2 * diametro
+    readonly property real _largoCola: Math.min(_largoMax, Math.abs(_vel) * 0.4)
+
+    FrameAnimation {
+        running: desl.animar && (arrastre.active || regreso.running || Math.abs(desl._vel) > 1)
+        onRunningChanged: if (running) desl._xPrevia = manija.x
+        onTriggered: {
+            const dt = Math.max(0.001, frameTime)
+            const inst = (manija.x - desl._xPrevia) / dt
+            desl._xPrevia = manija.x
+            const v = desl._vel * 0.5 + inst * 0.5
+            desl._vel = Math.abs(v) < 5 ? 0 : v
+        }
+    }
+
+    Shape {
+        id: estela
+        objectName: "estelaDeslizadorInicio"
+        // el origen es el centro de la manija; la cola va al lado opuesto del movimiento
+        readonly property real s: desl._vel >= 0 ? -1 : 1
+        readonly property real cx: manija.x + desl.diametro / 2
+        readonly property real cy: manija.y + desl.diametro / 2
+        readonly property real r: desl.diametro / 2
+        // la cola no sale de la pista
+        readonly property real largo: Math.max(0, Math.min(desl._largoCola,
+            s < 0 ? cx - desl.margen : desl.width - desl.margen - cx))
+        visible: largo > 1
+        opacity: Math.min(1, largo / (desl.diametro * 0.5))
+        preferredRendererType: Shape.CurveRenderer
+        ShapePath {
+            strokeWidth: 0
+            fillGradient: LinearGradient {
+                x1: estela.cx; y1: estela.cy
+                x2: estela.cx + estela.s * Math.max(1, estela.largo); y2: estela.cy
+                GradientStop { position: 0.0; color: desl.ac(0.55) }
+                GradientStop { position: 1.0; color: desl.ac(0) }
+            }
+            startX: estela.cx; startY: estela.cy - estela.r
+            // medio círculo del lado de avance (la cabeza de la gota)
+            PathArc {
+                x: estela.cx; y: estela.cy + estela.r
+                radiusX: estela.r; radiusY: estela.r
+                direction: estela.s < 0 ? PathArc.Clockwise : PathArc.Counterclockwise
+            }
+            // flancos que se afinan hasta la punta
+            PathQuad {
+                x: estela.cx + estela.s * estela.largo; y: estela.cy
+                controlX: estela.cx + estela.s * estela.largo * 0.5
+                controlY: estela.cy + estela.r * 0.85
+            }
+            PathQuad {
+                x: estela.cx; y: estela.cy - estela.r
+                controlX: estela.cx + estela.s * estela.largo * 0.5
+                controlY: estela.cy - estela.r * 0.85
+            }
+        }
+    }
+
     // ======================= manija (toggle-thumb) =======================
     Item {
         id: manija

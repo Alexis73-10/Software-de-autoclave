@@ -774,7 +774,8 @@ Item {
 
     DeslizadorInicio {
         objectName: "deslizadorIniciarCiclo"
-        x: raiz.m(845); y: raiz.m(1616); width: raiz.m(302); height: raiz.m(110)
+        // 10 % más ancho (302 → 332), conservando el borde derecho
+        x: raiz.m(815); y: raiz.m(1616); width: raiz.m(332); height: raiz.m(110)
         texto: raiz.textos.iniciar
         textoCompletado: raiz.textos.iniciando
         // Como tkinter (_upd_listo) pero oculto en vez de inactivo cuando el equipo
