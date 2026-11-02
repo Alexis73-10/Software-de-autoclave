@@ -56,7 +56,7 @@ def main(argv=None) -> int:
     logger.warning("BACKEND SIMULADO — ciclo #%s (%s), %.1f min reales a %gx = %.1f min",
                    ciclo["numero_ciclo"], ciclo["tipo_ciclo"], repeticion.duracion_s / 60,
                    args.velocidad, repeticion.duracion_s / 60 / args.velocidad)
-    app = crear_app(repeticion, ciclos, config.get(), velocidad=args.velocidad)
+    app = crear_app(repeticion, ciclos, config.get(), velocidad=args.velocidad, bd=args.bd)
     uvicorn.run(app, host="127.0.0.1", port=args.puerto, log_level="warning")
     return 0
 

@@ -136,7 +136,7 @@ Item {
     // ------------------------------------------------------------ compacto
     Rectangle {
         id: tarjeta
-        objectName: "tarjetaMes"
+        objectName: "recuadroMes"
         visible: raiz.compacto
         anchors.fill: parent
         radius: raiz.m(16)

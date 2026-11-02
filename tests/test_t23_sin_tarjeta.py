@@ -57,6 +57,8 @@ RECUADROS = {
     "tarjeta_titulo", "tarjeta_descripcion", "tarjeta_",
     # movimiento de la UI (31-oct): destino del elemento compartido y arnés de prueba
     "tarjetaAjuste", "tarjetaPrueba",
+    # dashboard de Reportes (2-nov): recuadros de interfaz, no el módulo E/S
+    "TarjetaIndicador", "tarjetaIndicador", "tarjetaErrorReportes",
 }
 
 # Frases de autoclave.iss donde «tarjeta» no es el módulo E/S.
