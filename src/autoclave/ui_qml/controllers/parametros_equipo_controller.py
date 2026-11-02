@@ -73,6 +73,7 @@ class ParametrosEquipoController(QObject):
         self._impresora = None          # None = se desconoce
         self._unidades = {"temperatura": "", "presion": ""}   # U1; "" = se desconoce
         self._idioma = ""
+        self._tema = ""                 # modo oscuro; "" = se desconoce
         self._parametros = []
         self._grupos = list(GRUPOS)     # visibles (backend), con "maquina" al final
         self._grupo = ""                # "" = pantalla de entrada (7 tarjetas)
@@ -149,6 +150,10 @@ class ParametrosEquipoController(QObject):
                           "presion": str(datos.get("presion") or "")}
         ri = self._s().enviar("GET", "/language")
         self._idioma = str(ri.datos.get("idioma") or "") if ri.ok and isinstance(ri.datos, dict) else ""
+        # Modo oscuro (OSC-02): sin respuesta o inválido, "" (selector inactivo)
+        rt = self._s().enviar("GET", "/theme")
+        tema = rt.datos.get("tema") if rt.ok and isinstance(rt.datos, dict) else None
+        self._tema = tema if tema in ("claro", "oscuro") else ""
         p = (self._leer_perfil or _perfil)()
         self._serie = str(getattr(p, "serial_number", "") or "") if p else ""
         self._modelo = str(getattr(p, "model_id", "") or "") if p else ""
@@ -271,6 +276,22 @@ class ParametrosEquipoController(QObject):
             try:                       # esta ventana cambia ya
                 from autoclave import i18n
                 i18n.fijar_idioma(idioma)
+            except Exception:
+                pass
+        return self._resultado(r)
+
+    # Modo oscuro (OSC-02): mismos roles que el idioma (motivoIdioma), sin bitácora
+    @Property(str, notify=datosChanged)
+    def tema(self) -> str:
+        return self._tema
+
+    @Slot(str, result=bool)
+    def fijarTema(self, tema: str) -> bool:
+        r = self._s().enviar("PUT", "/theme", {"tema": tema})
+        if r.ok:
+            try:                       # esta ventana cambia ya, sin esperar el sondeo
+                from autoclave.ui_qml.bridge import apariencia_qml
+                apariencia_qml.instancia.fijar(tema)
             except Exception:
                 pass
         return self._resultado(r)

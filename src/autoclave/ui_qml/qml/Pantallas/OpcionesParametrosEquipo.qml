@@ -383,7 +383,7 @@ Item {
                         radius: width / 2
                         y: Escala.px(6)
                         x: interruptor.encendido ? parent.width - width - Escala.px(6) : Escala.px(6)
-                        color: "white"
+                        color: Colores.textoSobreAccion
                     }
                 }
                 Text {
@@ -467,6 +467,8 @@ Item {
             return
         if (c.tipo === "idioma")
             control.fijarIdioma(c.valor)
+        else if (c.tipo === "tema")
+            control.fijarTema(c.valor)
         else if (c.tipo === "temperatura")
             control.fijarUnidades(c.valor, control.unidadPresion)
         else if (c.tipo === "presion")
@@ -578,6 +580,16 @@ Item {
                 elegida: control.idioma
                 motivo: control.motivoIdioma === "rol" ? I18n.t("opciones.equipo_motivo_idioma_rol", I18n.lang) : ""
             }
+            // Modo oscuro (OSC-02): mismos roles que el idioma; no va a la bitácora
+            Selector {
+                objectName: "temaEquipo"
+                tipo: "tema"
+                rotulo: I18n.t("opciones.equipo_tema", I18n.lang)
+                opciones: [{ v: "claro", t: I18n.t("opciones.equipo_tema_claro", I18n.lang) },
+                           { v: "oscuro", t: I18n.t("opciones.equipo_tema_oscuro", I18n.lang) }]
+                elegida: control.tema
+                motivo: control.motivoIdioma === "rol" ? I18n.t("opciones.equipo_motivo_tema_rol", I18n.lang) : ""
+            }
             Selector {
                 objectName: "unidadTemperatura"
                 tipo: "temperatura"
@@ -635,6 +647,8 @@ Item {
         mensaje: !raiz._cambioPendiente ? ""
                  : raiz._cambioPendiente.tipo === "idioma"
                    ? I18n.t("opciones.equipo_idioma_confirmar", I18n.lang, { opcion: raiz._cambioPendiente.texto })
+                 : raiz._cambioPendiente.tipo === "tema"
+                   ? I18n.t("opciones.equipo_tema_confirmar", I18n.lang, { opcion: raiz._cambioPendiente.texto })
                    : I18n.t("opciones.equipo_unidades_confirmar", I18n.lang,
                             { magnitud: I18n.t("opciones.equipo_magnitud_" + raiz._cambioPendiente.tipo, I18n.lang),
                               opcion: raiz._cambioPendiente.texto })
@@ -663,7 +677,7 @@ Item {
         visible: control.reiniciando
         anchors.fill: parent
         z: 200
-        color: "#CC000000"
+        color: Colores.veloFuerte
         MouseArea { anchors.fill: parent }
         Column {
             anchors.centerIn: parent
@@ -674,7 +688,7 @@ Item {
                 horizontalAlignment: Text.AlignHCenter
                 wrapMode: Text.WordWrap
                 text: I18n.t("opciones.equipo_reiniciando", I18n.lang)
-                color: "white"
+                color: Colores.textoSobreAccion
                 font.family: Tipografia.familia
                 font.weight: Tipografia.pesoBold
                 font.pixelSize: Escala.fuente(36)
@@ -684,7 +698,7 @@ Item {
                 horizontalAlignment: Text.AlignHCenter
                 wrapMode: Text.WordWrap
                 text: I18n.t("opciones.equipo_reinicio_aviso", I18n.lang)
-                color: "white"
+                color: Colores.textoSobreAccion
                 font.family: Tipografia.familia
                 font.pixelSize: Escala.fuente(26)
             }
@@ -768,7 +782,7 @@ Item {
         MouseArea { anchors.fill: parent; enabled: ajuste.abierto }            // modal
         Rectangle {
             anchors.fill: parent
-            color: "#80000000"
+            color: Colores.veloSuave
             opacity: compartidoAjuste.opacidadFondo
         }
         ElementoCompartido {
