@@ -914,6 +914,15 @@ class BackendContext:
             return self._config_idioma
 
     @property
+    def config_tema(self):
+        """Modo oscuro (OSC-02): tema de la interfaz QML, data/tema.json."""
+        with _LOCK_MANTENIMIENTO:
+            if getattr(self, "_config_tema", None) is None:
+                from autoclave.core.runtime.config_tema import ConfigTema
+                self._config_tema = ConfigTema(app_root() / "data" / "tema.json")
+            return self._config_tema
+
+    @property
     def config_unidades(self):
         """U1 (tanda 5): unidades de presentación, data/unidades.json."""
         with _LOCK_MANTENIMIENTO:

@@ -663,6 +663,23 @@
     "title": "_SuspensionBody",
     "type": "object"
    },
+   "_TemaBody": {
+    "properties": {
+     "tema": {
+      "enum": [
+       "claro",
+       "oscuro"
+      ],
+      "title": "Tema",
+      "type": "string"
+     }
+    },
+    "required": [
+     "tema"
+    ],
+    "title": "_TemaBody",
+    "type": "object"
+   },
    "_UnidadesBody": {
     "properties": {
      "presion": {
@@ -4762,6 +4779,75 @@
      }
     },
     "summary": "Get System Params"
+   }
+  },
+  "/theme": {
+   "get": {
+    "operationId": "get_theme_theme_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Get Theme"
+   },
+   "put": {
+    "description": "OSC-02: admin e ingeniero, como el idioma; sin bitácora.",
+    "operationId": "put_theme_theme_put",
+    "parameters": [
+     {
+      "in": "header",
+      "name": "authorization",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/_TemaBody"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Put Theme"
    }
   },
   "/ui/activity": {
