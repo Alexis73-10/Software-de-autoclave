@@ -41,3 +41,9 @@ def test_reportes_sin_palabras_prohibidas():
         for k, v in _textos(idioma).items():
             if k.startswith("reportes.") and isinstance(v, str):
                 assert not PROHIBIDAS.search(v), (idioma, k, v)
+
+
+# Trazabilidad (matriz REQ-37..REQ-50, dashboard de Reportes)
+import pytest as _pytest  # noqa: E402
+
+pytestmark = [_pytest.mark.req("REQ-50")]

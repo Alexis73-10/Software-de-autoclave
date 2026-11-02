@@ -137,8 +137,8 @@ _SCRIPT = textwrap.dedent(r"""
 
     r = {}
     if escenario.startswith("menu_"):
-        for nombre in ("botonEnviarCiclo", "botonEnviarCicloFallo", "botonEnviarMarcados",
-                       "botonEnviarResumen"):
+        # Reportes ya no vive en el menú (pantalla propia, cubierta en test_rep_pantalla_reportes_qml)
+        for nombre in ("botonEnviarCiclo", "botonEnviarMarcados"):
             o = item(raiz, nombre)
             assert o is not None, nombre
             r[nombre] = {"texto": o.property("texto"), "habilitado": o.property("habilitado")}
@@ -240,8 +240,7 @@ def test_textos_de_las_notas_es():
     assert r["textos_notas"] == [_NOTA_SESION, _SIN_GUARDADOS]
 
 
-_BOTONES = ("botonEnviarCiclo", "botonEnviarCicloFallo", "botonEnviarMarcados",
-            "botonEnviarResumen")
+_BOTONES = ("botonEnviarCiclo", "botonEnviarMarcados")
 
 
 def test_menu_sin_sesion_sin_guardados_enviar_deshabilitado():
@@ -255,9 +254,13 @@ def test_menu_sin_sesion_sin_guardados_enviar_deshabilitado():
 def test_menu_con_guardados_o_con_sesion_enviar_como_antes():
     for escenario in ("menu_sin_sesion_con_guardados", "menu_con_sesion_sin_guardados"):
         r = _correr(_QML_MENU, escenario)
-        # Ciclo del Historial y del fallo de Reportes: solo dependen de ocupado y correo
+        # Ciclo del Historial: solo dependen de ocupado y correo
         assert r["botonEnviarCiclo"] == {"texto": "ENVIAR POR CORREO", "habilitado": True}, escenario
-        assert r["botonEnviarCicloFallo"] == {"texto": "ENVIAR POR CORREO",
-                                              "habilitado": True}, escenario
         for b in _BOTONES:
             assert r[b]["texto"] == "ENVIAR POR CORREO", (escenario, b)
+
+
+# Trazabilidad (matriz REQ-37..REQ-50, dashboard de Reportes)
+import pytest as _pytest  # noqa: E402
+
+pytestmark = [_pytest.mark.req("REQ-49")]

@@ -451,3 +451,9 @@ def test_claves_de_tema_son_nombres_validos():
     claves = {a[k] for a in d._ASPECTO_DIA.values() for k in ("relleno", "borde", "punto")} - {""}
     claves |= set(d._COLOR_RESULTADO.values()) | set(d._COLOR_NIVEL.values()) | {d.C_BUENO, d.C_MALO, d.C_NEUTRO}
     assert all(re.fullmatch(r"[a-z][A-Za-z0-9]*", c) for c in claves)
+
+
+# Trazabilidad (matriz REQ-37..REQ-50, dashboard de Reportes)
+import pytest as _pytest  # noqa: E402
+
+pytestmark = [_pytest.mark.req("REQ-39"), _pytest.mark.req("REQ-40"), _pytest.mark.req("REQ-41"), _pytest.mark.req("REQ-42"), _pytest.mark.req("REQ-43"), _pytest.mark.req("REQ-44"), _pytest.mark.req("REQ-45"), _pytest.mark.req("REQ-46"), _pytest.mark.req("REQ-47")]

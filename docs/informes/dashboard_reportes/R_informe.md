@@ -63,3 +63,90 @@ Desvíos del plan y DECISIÓN SIN CONFIRMAR:
 8. `ReporteResumen`, `ResumenPeriodo.qml` y las claves `reportes.pestana_*` quedan sin uso en la UI (se conservan; sus pruebas siguen verdes). `ventana.reporte` sigue inyectado en `Main.qml` pero nadie lo usa; se puede retirar en una etapa posterior.
 9. Hay dos archivos modificados en el árbol que no son de esta etapa (`simulador/servidor.py`, `Componentes/CirculoFaseLiquido.qml`).
 Pendiente de banco para Cristian: navegación táctil real de la pantalla, rendimiento de la vista Año con datos reales y el umbral del consolidado.
+
+## Etapa G — Riesgos, trazabilidad y documentación (2026-11-02)
+
+- `docs/riesgos/registro_riesgos.md`: sección «Dashboard de Reportes» con HAZ-REP-01 (MEDIA; verificación = prueba de textos y revisión de capturas), HAZ-REP-02 (BAJA; residual DR-H08, control solo en la UI) y HAZ-REP-03 (BAJA).
+- `docs/riesgos/matriz_trazabilidad.md`: REQ-37 a REQ-50, uno por REP-01 a REP-14 (REQ-36 era el último). Las pruebas existentes llevan `pytestmark = [... req("REQ-xx")]` al final del archivo, sin cambiar su lógica; `test_rep_pantalla_reportes_qml.py` tenía `req("REP-01")` y pasó a REQ-37, 44–48.
+- Prueba nueva `tests/test_rep_textos_prohibidos.py` (REQ-50): ninguna clave `reportes.*` (es/en) ni literal de los QML del dashboard contiene «conforme»/«apto» (ni sus equivalentes en inglés); la leyenda DR-H01 (`reportes.cal_leyenda`) es exactamente la acordada en ambos idiomas y el dominio la usa. La clave heredada del Historial queda fuera.
+- `CLAUDE.md`: sección «Dashboard de Reportes (tanda 25, 2-nov)».
+- DR-H07 (comentario de `_ciclo_json`) ya hecho en la etapa D; i18n es/en en el commit 96a28ed5.
+
+### DECISIÓN SIN CONFIRMAR recogidas (A–E)
+- B: `PERIODOS` se queda en tres; el dashboard usa `PERIODOS_REPORTES` (con «anio»).
+- D: (1) título de alarma en el idioma del backend; (2) el ciclo en curso cuenta como «sin cierre» y en `total` del dashboard, no en el calendario; (3) el selector de programas se calcula con el periodo pedido; (4) con `semana` el calendario usa el mes que contiene `fecha`; (5) `por_programa.programa_nombre` del ciclo más reciente del periodo; (6) `day-cycles` con el número de programa efectivo; (7) claves extra `sin_operador` y `operadores_otros`.
+- E: (1) Inicio vuelve al Menú Principal y Salir a la pantalla principal; (2) encabezado sin equipo ni puerta; (3) panel del día debajo del calendario; (4) consolidado grande: 0,1 MB por ciclo y umbral de 300 ciclos; (5) notas bajo los botones de envío; (6) títulos de alarma en el idioma de la pantalla; (7) anillo de mantenimiento con título propio; (8) `ReporteResumen`, `ResumenPeriodo.qml` y `reportes.pestana_*` sin uso pero conservados.
+- AJ-01: sin decisión (no se subió la saturación).
+- Pendiente de banco para Cristian: navegación táctil, rendimiento de la vista Año con datos reales, umbral del consolidado, envío sin sesión, aprobación visual de AJ-01.
+
+### Archivos tocados por toda la tanda (`git diff --name-only dev..HEAD` más el trabajo sin commit de la etapa G; sin las capturas PNG de `docs/informes/dashboard_reportes/capturas/`)
+- `CLAUDE.md`
+- `docs/informes/dashboard_reportes/F_diagnostico_correo.md`
+- `docs/informes/dashboard_reportes/R_informe.md`
+- `docs/informes/dashboard_reportes/aj01_notas.md`
+- `docs/informes/dashboard_reportes/claves_i18n_reportes.json`
+- `docs/informes/dashboard_reportes/estado.md`
+- `docs/informes/tanda15/base/openapi.json`
+- `docs/informes/tanda15/base/rutas.json`
+- `docs/mis_plans/planeacion_dashboard_reportes.md`
+- `docs/riesgos/matriz_trazabilidad.md`
+- `docs/riesgos/registro_riesgos.md`
+- `src/autoclave/backend/rutas/_comun.py`
+- `src/autoclave/backend/rutas/reportes.py`
+- `src/autoclave/i18n/en.json`
+- `src/autoclave/i18n/es.json`
+- `src/autoclave/services/domain/logging/db_manager.py`
+- `src/autoclave/services/domain/reportes/dashboard.py`
+- `src/autoclave/ui_qml/app.py`
+- `src/autoclave/ui_qml/bridge/acciones_ciclos.py`
+- `src/autoclave/ui_qml/bridge/reporte_dashboard.py`
+- `src/autoclave/ui_qml/domain/reporte_dashboard.py`
+- `src/autoclave/ui_qml/qml/Componentes/AnilloProgreso.qml`
+- `src/autoclave/ui_qml/qml/Componentes/CalendarioEjecucion.qml`
+- `src/autoclave/ui_qml/qml/Componentes/DeslizadorInicio.qml`
+- `src/autoclave/ui_qml/qml/Componentes/GraficaArea.qml`
+- `src/autoclave/ui_qml/qml/Componentes/GraficaDona.qml`
+- `src/autoclave/ui_qml/qml/Componentes/ListaAlarmasPeriodo.qml`
+- `src/autoclave/ui_qml/qml/Componentes/ListaOperadores.qml`
+- `src/autoclave/ui_qml/qml/Componentes/ListaProgramasReporte.qml`
+- `src/autoclave/ui_qml/qml/Componentes/MesMiniatura.qml`
+- `src/autoclave/ui_qml/qml/Componentes/PanelDiaCalendario.qml`
+- `src/autoclave/ui_qml/qml/Componentes/SelectorDestino.qml`
+- `src/autoclave/ui_qml/qml/Componentes/SelectorPeriodo.qml`
+- `src/autoclave/ui_qml/qml/Componentes/TarjetaIndicador.qml`
+- `src/autoclave/ui_qml/qml/Main.qml`
+- `src/autoclave/ui_qml/qml/Pantallas/MenuPrincipal.qml`
+- `src/autoclave/ui_qml/qml/Pantallas/PantallaPreciclo.qml`
+- `src/autoclave/ui_qml/qml/Pantallas/Reportes.qml`
+- `src/autoclave/ui_qml/qml/Pruebas/PruebaMenuPrincipal.qml`
+- `src/autoclave/ui_qml/qml/Pruebas/PruebaReportes.qml`
+- `src/autoclave/ui_qml/qml/Tema/Colores.qml`
+- `src/autoclave/utils/periodos.py`
+- `tests/banco/rep_capturas_reportes.py`
+- `tests/helpers/reportes_ejemplo.py`
+- `tests/helpers/textos_caben_qml.py`
+- `tests/test_acciones_ciclos_puente.py`
+- `tests/test_backend_cycle_summary.py`
+- `tests/test_backend_dashboard_reportes.py`
+- `tests/test_c2_acciones_correo_manual.py`
+- `tests/test_c2_selector_correo_manual_qml.py`
+- `tests/test_dashboard_reportes_servicio.py`
+- `tests/test_dr_h06_correo_manual_punta_a_punta_qml.py`
+- `tests/test_i18n.py`
+- `tests/test_menu_principal_pantalla_qml.py`
+- `tests/test_periodos_calendario.py`
+- `tests/test_rep13_acciones_sin_sesion.py`
+- `tests/test_rep13_selector_sin_sesion_qml.py`
+- `tests/test_rep_calendario_qml.py`
+- `tests/test_rep_componentes_graficos_qml.py`
+- `tests/test_rep_pantalla_reportes_qml.py`
+- `tests/test_rep_textos_prohibidos.py`
+- `tests/test_reporte_dashboard_dominio.py`
+- `tests/test_reporte_dashboard_puente.py`
+- `tests/test_reportes_i18n_paridad.py`
+- `tests/test_t15_rutas_equivalentes.py`
+- `tests/test_u10b_textos_caben_qml.py`
+- `tests/test_u8_correo_rechazo_parcial_qml.py`
+- `tests/test_v8a_reportes_fallos_backend.py`
+
+No se tocaron `src/autoclave/simulador/servidor.py` ni `Componentes/CirculoFaseLiquido.qml` (cambios ajenos sin commit). No se compiló la entrega: `python tools/entrega/compilar_entrega.py` desde `dev` limpio.

@@ -203,3 +203,9 @@ def test_manual_tras_ocultar_el_teclado_llega_completa_una_vez():
 def test_manual_y_guardadas_llegan_completas_una_vez():
     r = _correr("mixto")
     _una_vez_completa(r, ["juan@gmail.com", "mant@x.com"])
+
+
+# Trazabilidad (matriz REQ-37..REQ-50, dashboard de Reportes)
+import pytest as _pytest  # noqa: E402
+
+pytestmark = [_pytest.mark.req("REQ-48"), _pytest.mark.req("REQ-49")]

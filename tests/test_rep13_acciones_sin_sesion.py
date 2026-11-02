@@ -128,3 +128,9 @@ def test_por_defecto_usa_la_sesion_de_la_ventana():
         a.enviarResumen("mes", "2026-09-15", "juan@gmail.com")
         exito, _ = _resultado(espia)
     assert not exito and s.rcpt == []
+
+
+# Trazabilidad (matriz REQ-37..REQ-50, dashboard de Reportes)
+import pytest as _pytest  # noqa: E402
+
+pytestmark = [_pytest.mark.req("REQ-49")]

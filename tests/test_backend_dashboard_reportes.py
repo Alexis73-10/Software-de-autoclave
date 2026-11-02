@@ -385,3 +385,9 @@ def test_las_consultas_nuevas_son_de_solo_lectura_en_el_codigo():
     for nombre in ("get_ciclos_periodo", "get_alarmas_periodo"):
         fuente = inspect.getsource(getattr(DbManager, nombre)).upper()
         assert "INSERT" not in fuente and "UPDATE" not in fuente and "DELETE" not in fuente
+
+
+# Trazabilidad (matriz REQ-37..REQ-50, dashboard de Reportes)
+import pytest as _pytest  # noqa: E402
+
+pytestmark = [_pytest.mark.req("REQ-39"), _pytest.mark.req("REQ-41"), _pytest.mark.req("REQ-42"), _pytest.mark.req("REQ-43"), _pytest.mark.req("REQ-44"), _pytest.mark.req("REQ-46"), _pytest.mark.req("REQ-47")]

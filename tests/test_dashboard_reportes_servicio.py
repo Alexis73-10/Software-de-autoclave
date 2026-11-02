@@ -334,3 +334,9 @@ def test_operadores_desempate_por_nombre_y_sin_filas():
     r = d.agrupar_operadores([{"operador": "b"}, {"operador": "a"}])
     assert [o["operador"] for o in r["operadores"]] == ["a", "b"]
     assert d.agrupar_operadores([]) == {"operadores": [], "otros": None}
+
+
+# Trazabilidad (matriz REQ-37..REQ-50, dashboard de Reportes)
+import pytest as _pytest  # noqa: E402
+
+pytestmark = [_pytest.mark.req("REQ-39"), _pytest.mark.req("REQ-41"), _pytest.mark.req("REQ-42"), _pytest.mark.req("REQ-43"), _pytest.mark.req("REQ-46"), _pytest.mark.req("REQ-47")]

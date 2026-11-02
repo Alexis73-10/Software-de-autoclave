@@ -77,3 +77,9 @@ def test_constantes_de_periodos():
     # el Historial y Reportes actual siguen con tres; /report/* suma el año
     assert periodos.PERIODOS == ("dia", "semana", "mes")
     assert periodos.PERIODOS_REPORTES == ("dia", "semana", "mes", "anio")
+
+
+# Trazabilidad (matriz REQ-37..REQ-50, dashboard de Reportes)
+import pytest as _pytest  # noqa: E402
+
+pytestmark = [_pytest.mark.req("REQ-38")]

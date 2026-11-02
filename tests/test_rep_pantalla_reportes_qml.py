@@ -21,7 +21,7 @@ pytest.importorskip("PySide6")
 from tests.helpers.textos_caben_qml import ESTADOS_REPORTES, revisar_reportes  # noqa: E402
 
 RAIZ = Path(__file__).resolve().parents[1]
-pytestmark = pytest.mark.req("REP-01")
+pytestmark = [pytest.mark.req(f"REQ-{n}") for n in (37, 44, 45, 46, 47, 48)]
 
 _SCRIPT = textwrap.dedent(r"""
     import json, sys, tempfile

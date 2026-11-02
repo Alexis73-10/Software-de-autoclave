@@ -314,3 +314,9 @@ def test_slots_y_propiedades_publicas_para_qml():
               "hayError", "textoError", "textoReintentar", "datos", "mantenimiento", "hayCiclos", "programa",
               "diaElegido", "panelDia", "ciclosDia", "cargandoDia", "errorDia"):
         assert p in props, p
+
+
+# Trazabilidad (matriz REQ-37..REQ-50, dashboard de Reportes)
+import pytest as _pytest  # noqa: E402
+
+pytestmark = [_pytest.mark.req("REQ-38"), _pytest.mark.req("REQ-39"), _pytest.mark.req("REQ-43"), _pytest.mark.req("REQ-48")]

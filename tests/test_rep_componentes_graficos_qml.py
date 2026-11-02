@@ -230,3 +230,9 @@ buscar('dona').setProperty('dona', pr['dona'])
 QTest.qWait(80)
 """)
     assert r["avisos"] == []
+
+
+# Trazabilidad (matriz REQ-37..REQ-50, dashboard de Reportes)
+import pytest as _pytest  # noqa: E402
+
+pytestmark = [_pytest.mark.req("REQ-39"), _pytest.mark.req("REQ-40"), _pytest.mark.req("REQ-41")]

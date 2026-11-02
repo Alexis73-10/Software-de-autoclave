@@ -430,3 +430,9 @@ def test_panel_con_ciclos(idioma):
     assert r["desbordes"] == []
     for t in r["textos"]:
         assert not _PROHIBIDAS.search(t), t
+
+
+# Trazabilidad (matriz REQ-37..REQ-50, dashboard de Reportes)
+import pytest as _pytest  # noqa: E402
+
+pytestmark = [_pytest.mark.req("REQ-43")]
