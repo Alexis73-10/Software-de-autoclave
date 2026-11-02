@@ -89,9 +89,9 @@ def _rango_del_periodo(periodo: str, fecha: date) -> tuple[str, str]:
 
 
 def _ciclo_json(fila) -> dict:
-    """Un ciclo de la tabla `ciclos` para el Menú Principal. El número de programa
-    no se guarda en `ciclos`: se toma del programa actual con ese id (None si ya
-    no existe o no tiene número)."""
+    """Un ciclo de la tabla `ciclos` para el Menú Principal. `programa_numero` se
+    toma del programa actual con ese id (None si ya no existe o no tiene número);
+    `ciclos.numero_programa` (el número al iniciar el ciclo) no se publica aquí."""
     programa = context.cycle_manager.cycles.get(fila["tipo_ciclo"])
     return {
         "id":              fila["id"],   # para pedir su curva a /cycle/history/{id}/graph
@@ -102,8 +102,8 @@ def _ciclo_json(fila) -> dict:
         "programa_nombre": fila["nombre_ciclo"],
         "programa_numero": getattr(programa, "number", None),
         "resultado":       fila["resultado"],
-        # CycleLogger hoy no lo guarda (siempre ''): queda None hasta que exista
-        # el registro de operadores (B-02 de planeacion_menu_principal.md)
+        # CycleLogger guarda el operador desde O1 (tanda 3, `operador_inicio`);
+        # vacío (ciclos anteriores o sin sesión) se publica como None (DR-H07)
         "operador":        fila["operador"] or None,
         # P4 (tanda 16, D-14.4): NO CONFORME (Referencia sin verificar), según
         # avisos_ticket; el resultado técnico sigue siendo el guardado

@@ -52,4 +52,18 @@ QtObject {
     readonly property color fondoSutil:         "#F6F6F6" // bg-subtle
     readonly property color fondoTarjeta:       "#FFFFFF"
     readonly property color iconoBarraInferior: "#333333" // neutro_800
+
+    // Deslizador de inicio de ciclo (AJ-01): verde pastel. NO es color de alarma.
+    readonly property color deslizadorPista:         "#E9F8EE" // éxito 050 — pista en reposo
+    readonly property color deslizadorPistaListo:    "#D3F1DD" // pista con el arrastre completo
+    readonly property color deslizadorAcento:        "#2DBE66" // acento en reposo
+    readonly property color deslizadorAcentoListo:   "#5ED68C" // acento con el arrastre completo
+    readonly property color deslizadorBrillo:        "#BDEBCB" // brillo en reposo
+    readonly property color deslizadorBrilloListo:   "#DDF7E5" // brillo con el arrastre completo
+    readonly property color deslizadorTexto:         "#007A29" // éxito fuerte: textos de la pista (≥ 4,5:1 sobre la pista)
+    readonly property color deslizadorSombraInterior: "#007A29" // base de la sombra interior (se usa al 12 %)
+    readonly property color deslizadorNucleo:        "#009933" // éxito: núcleo de la manija (triángulo blanco ≥ 3:1)
+
+    // Reportes (dashboard): verde claro de relleno (éxito 050 de tokens.css). NO es color de alarma.
+    readonly property color exitoFondo: "#E9F8EE"
 }

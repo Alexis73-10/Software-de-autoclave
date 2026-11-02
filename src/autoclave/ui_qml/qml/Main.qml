@@ -42,6 +42,8 @@ Window {
     property QtObject acciones: null
     // reporte: resumen de ciclos por periodo de Reportes (ReporteResumen)
     property QtObject reporte: null
+    // reporteDashboard: dashboard de Reportes (ReporteDashboard)
+    property QtObject reporteDashboard: null
     // sesion: sesión de esta ventana contra el backend (SesionVentana, T-8):
     // vigilancia de conexión, cierre por desconexión y 401
     property QtObject sesion: null
@@ -423,6 +425,8 @@ Window {
             acciones: ventana.acciones
             reporte: ventana.reporte
             teclado: panelTeclado
+            // REP-13: sesión de esta ventana (notifica login y cierre)
+            sesionActiva: ventana.sesion?.sesionActiva ?? false
             infoEquipo: ventana.infoEquipo
             comandosSistema: ventana.comandosSistema
             inicioActivo: true

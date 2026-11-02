@@ -18,6 +18,10 @@ import Autoclave.I18n
 // un paso de confirmación: la dirección se valida y el usuario elige enviar
 // solo a ella o junto con las guardadas. Nada de esto la agrega a las
 // guardadas (eso es de admin e ingeniero, OPCIONES › Conectividad).
+// REP-13 (tanda dashboard-reportes): sin sesión (`sesionActiva` false) no hay
+// «Otro correo…» ni su confirmación; solo los guardados y la nota para iniciar
+// sesión. Sin sesión ni guardados, `hayDestino` es false: quien abre el
+// selector deshabilita Enviar con «No hay destinatarios guardados».
 // Medidas en px del mockup escaladas con `escala` (convención m(), D-18).
 // DISEÑO PROVISIONAL: sin diseño del diseñador.
 Rectangle {
@@ -26,6 +30,12 @@ Rectangle {
     property real escala: 1
     property var destinos: []           // [{nombre, correo}]
     property QtObject teclado: null     // PanelTeclado
+    // REP-13 (DR-D10): sin sesión solo se puede enviar a los guardados; no se
+    // ofrece escribir otra dirección. Lo da quien usa el selector (sesión de la
+    // ventana, sesion_backend). AccionesCiclos vuelve a filtrarlo (DR-H08).
+    property bool sesionActiva: false
+    // false: sin sesión y sin guardados no hay a quién enviar (Enviar deshabilitado)
+    readonly property bool hayDestino: sesionActiva || destinos.length > 0
 
     signal elegido(string correo)
     signal cancelado()
@@ -48,6 +58,7 @@ Rectangle {
         return lista
     }
     function abrirManual() {
+        if (!sesionActiva) return
         confirmando = false
         escribiendo = true
         teclado?.abrirAlfanumerico(I18n.t("menu.titulo_otro_correo", I18n.lang), manual, 80, false,
@@ -60,6 +71,11 @@ Rectangle {
     }
 
     onVisibleChanged: if (!visible) reiniciar()
+    // la sesión se cierra con el selector abierto: se descarta lo escrito a mano
+    onSesionActivaChanged: if (!sesionActiva) {
+        if (escribiendo) teclado?.cerrar()
+        reiniciar()
+    }
 
     Connections {
         target: raiz.escribiendo ? raiz.teclado : null
@@ -156,6 +172,7 @@ Rectangle {
             }
             Opcion {
                 objectName: "destinoOtro"
+                visible: raiz.sesionActiva
                 onTocada: raiz.abrirManual()
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
@@ -167,6 +184,29 @@ Rectangle {
                     font.pixelSize: raiz.fuente(26)
                 }
             }
+            // REP-13: sin sesión, en lugar de «Otro correo»
+            Text {
+                objectName: "notaInicieSesion"
+                width: parent.width
+                visible: !raiz.sesionActiva && raiz.destinos.length > 0
+                horizontalAlignment: Text.AlignHCenter
+                wrapMode: Text.WordWrap
+                text: I18n.t("reportes.destino_inicie_sesion", I18n.lang)
+                color: Colores.textoSecundario
+                font.family: Tipografia.familia
+                font.pixelSize: raiz.fuente(22)
+            }
+            Text {
+                objectName: "notaSinGuardados"
+                width: parent.width
+                visible: !raiz.hayDestino
+                horizontalAlignment: Text.AlignHCenter
+                wrapMode: Text.WordWrap
+                text: I18n.t("reportes.destino_sin_guardados", I18n.lang)
+                color: Colores.textoSecundario
+                font.family: Tipografia.familia
+                font.pixelSize: raiz.fuente(22)
+            }
         }
 
         // ---------- confirmación de la dirección escrita a mano ----------
@@ -174,7 +214,7 @@ Rectangle {
             objectName: "confirmacionManual"
             width: parent.width
             spacing: raiz.m(16)
-            visible: raiz.confirmando
+            visible: raiz.confirmando && raiz.sesionActiva
             Text {
                 width: parent.width
                 text: I18n.t("correo_c2.enviar_a_manual", I18n.lang)
@@ -217,7 +257,7 @@ Rectangle {
                 primario: true
                 habilitado: raiz.manualValido
                 texto: I18n.t("correo_c2.solo_manual", I18n.lang)
-                onPulsado: raiz.elegido(raiz.manualLimpio)
+                onPulsado: if (raiz.sesionActiva) raiz.elegido(raiz.manualLimpio)
             }
             BotonPildora {
                 objectName: "botonManualYGuardados"
@@ -226,7 +266,8 @@ Rectangle {
                 escala: raiz.escala
                 habilitado: raiz.manualValido
                 texto: I18n.t("correo_c2.manual_y_guardados", I18n.lang)
-                onPulsado: raiz.elegido([raiz.manualLimpio].concat(raiz.correosGuardados()).join(","))
+                onPulsado: if (raiz.sesionActiva)
+                    raiz.elegido([raiz.manualLimpio].concat(raiz.correosGuardados()).join(","))
             }
             BotonPildora {
                 objectName: "botonCorregirManual"

@@ -12,6 +12,13 @@ línea base tomada sobre ``dev`` antes de mover nada
 - ninguna ruta pierde una dependencia.
 
 La misma función ``huella_rutas`` generó la línea base.
+
+Cambios deliberados de la línea base (nada más cambia sin tocar este archivo):
+- Dashboard de Reportes, etapa D (2-nov): rutas nuevas ``/report/dashboard``,
+  ``/report/calendar`` y ``/report/day-cycles``, y el valor ``anio`` en el
+  parámetro ``periodo`` de ``/report/summary``, ``/report/failures`` y
+  ``/report/summary/print`` (etapas B y D). Se añadieron a ``rutas.json`` sin
+  reordenar las demás y ``openapi.json`` se regeneró con ``openapi_ordenado``.
 """
 import json
 from pathlib import Path

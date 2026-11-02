@@ -126,6 +126,6 @@ def test_endpoint_sin_ciclos(cliente):
 
 def test_endpoint_valida_parametros(cliente):
     assert cliente.get("/report/failures", params={"periodo": "mes"}).status_code == 422   # sin causa
-    assert cliente.get("/report/failures", params={"periodo": "anio", "causa": "X"}).status_code == 422
+    assert cliente.get("/report/failures", params={"periodo": "trimestre", "causa": "X"}).status_code == 422
     assert cliente.get("/report/failures", params={"causa": "X", "pagina": 0}).status_code == 422
     assert cliente.get("/report/failures", params={"causa": "X", "por_pagina": 500}).status_code == 422
