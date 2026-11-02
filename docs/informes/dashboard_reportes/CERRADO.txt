@@ -1,0 +1,6 @@
+Fecha: 2026-11-02
+Trabajo: dashboard de Reportes (planeacion_dashboard_reportes.md)
+Commit del merge a dev: 3eec8a0a
+Suite completa sobre el arbol unido (con modo oscuro): 10032 passed, 38 skipped, 7 xfailed, 0 failed (docs/informes/dashboard_reportes/suite_K_union.txt)
+No se compiló la entrega. Comando: python tools/entrega/compilar_entrega.py desde dev limpio. Bloqueante de entrega AUT-R3 sigue vigente.
+Pendiente de banco (Cristian): navegación táctil, rendimiento de la vista Año con datos reales, envío sin sesión, umbrales del consolidado (100/200), aprobación visual de AJ-01 en claro y oscuro.
