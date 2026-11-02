@@ -738,7 +738,9 @@
     "pagina": "Page {n} of {total}",
     "pagina_anterior": "Previous",
     "pagina_siguiente": "Next",
-    "sin_ciclos_fallo": "No cycles with this failure in the period"
+    "sin_ciclos_fallo": "No cycles with this failure in the period",
+    "destino_inicie_sesion": "Log in to type another email address",
+    "destino_sin_guardados": "No saved recipients"
   },
   "sistema": {
     "sin_conexion": "No connection with the controller. The values shown are not up to date.",

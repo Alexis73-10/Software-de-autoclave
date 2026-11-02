@@ -423,6 +423,8 @@ Window {
             acciones: ventana.acciones
             reporte: ventana.reporte
             teclado: panelTeclado
+            // REP-13: sesión de esta ventana (notifica login y cierre)
+            sesionActiva: ventana.sesion?.sesionActiva ?? false
             infoEquipo: ventana.infoEquipo
             comandosSistema: ventana.comandosSistema
             inicioActivo: true

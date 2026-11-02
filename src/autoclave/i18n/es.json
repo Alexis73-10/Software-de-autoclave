@@ -738,7 +738,9 @@
     "pagina": "Página {n} de {total}",
     "pagina_anterior": "Anterior",
     "pagina_siguiente": "Siguiente",
-    "sin_ciclos_fallo": "No hay ciclos con este fallo en el periodo"
+    "sin_ciclos_fallo": "No hay ciclos con este fallo en el periodo",
+    "destino_inicie_sesion": "Inicie sesión para escribir otro correo",
+    "destino_sin_guardados": "No hay destinatarios guardados"
   },
   "sistema": {
     "sin_conexion": "Sin conexión con el módulo E/S. Los valores mostrados no están actualizados.",

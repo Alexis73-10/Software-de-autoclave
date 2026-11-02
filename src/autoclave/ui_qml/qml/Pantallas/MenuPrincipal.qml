@@ -35,6 +35,16 @@ Item {
     // Casa de la barra: activa cuando hay una pantalla a la que regresar (la de
     // preciclo o la de ciclo en curso, desde cuyo engranaje se abrió el menú)
     property bool inicioActivo: false
+    // REP-13 (DR-D10): sesión de la ventana (Main.qml, sesion_backend). Sin ella
+    // los selectores de destino solo ofrecen los guardados; sin guardados,
+    // Enviar queda deshabilitado con «No hay destinatarios guardados».
+    property bool sesionActiva: false
+    readonly property bool hayDestinoCorreo: sesionActiva || (acciones?.destinos ?? []).length > 0
+    function textoEnviarCorreo(listo) {
+        return !listo ? I18n.t("menu.correo_no_configurado", I18n.lang)
+             : !hayDestinoCorreo ? I18n.t("reportes.destino_sin_guardados", I18n.lang)
+             : I18n.t("menu.enviar_correo", I18n.lang)
+    }
 
     // ---- acciones: las resuelve quien usa la pantalla (Main.qml) ----
     signal iniciarSesionPulsado()       // abre el login QML (Main.qml)
@@ -557,8 +567,7 @@ Item {
         readonly property bool ocupado: raiz.acciones?.ocupado ?? false
         readonly property var marcados: raiz.historial?.seleccionados ?? []
         readonly property bool correoListo: raiz.acciones?.correoConfigurado ?? false
-        readonly property string textoEnviar: correoListo ? I18n.t("menu.enviar_correo", I18n.lang)
-                                                          : I18n.t("menu.correo_no_configurado", I18n.lang)
+        readonly property string textoEnviar: raiz.textoEnviarCorreo(correoListo)
         titulo: seleccion ? I18n.t("menu.ciclo_titulo", I18n.lang) + " " + seleccion.numero
                           : I18n.t("menu.ventana_historial", I18n.lang)
 
@@ -678,7 +687,7 @@ Item {
                         escala: raiz.escala
                         texto: ventanaHistorial.textoEnviar
                         habilitado: barraAcciones.cuenta > 0 && !ventanaHistorial.ocupado
-                                    && ventanaHistorial.correoListo
+                                    && ventanaHistorial.correoListo && raiz.hayDestinoCorreo
                         onPulsado: ventanaHistorial.pedirDestino(ventanaHistorial.marcados)
                     }
                     BotonPildora {
@@ -712,6 +721,7 @@ Item {
                     escala: raiz.escala
                     texto: ventanaHistorial.textoEnviar
                     habilitado: !ventanaHistorial.ocupado && ventanaHistorial.correoListo
+                                && raiz.hayDestinoCorreo
                     onPulsado: ventanaHistorial.pedirDestino([ventanaHistorial.seleccion.id])
                 }
                 BotonPildora {
@@ -771,6 +781,7 @@ Item {
             escala: raiz.escala
             destinos: raiz.acciones?.destinos ?? []
             teclado: raiz.teclado
+            sesionActiva: raiz.sesionActiva
             onElegido: (correo) => ventanaHistorial.enviar(correo)
             onCancelado: ventanaHistorial.eligiendoDestino = false
         }
@@ -1132,9 +1143,9 @@ Item {
                 BotonPildora {
                     objectName: "botonEnviarCicloFallo"
                     escala: raiz.escala
-                    texto: ventanaReportes.correoListo ? I18n.t("menu.enviar_correo", I18n.lang)
-                                                       : I18n.t("menu.correo_no_configurado", I18n.lang)
+                    texto: raiz.textoEnviarCorreo(ventanaReportes.correoListo)
                     habilitado: !ventanaReportes.ocupado && ventanaReportes.correoListo
+                                && raiz.hayDestinoCorreo
                     onPulsado: ventanaReportes.pedirDestinoCiclo([ventanaReportes.seleccionFallo.id])
                 }
                 BotonPildora {
@@ -1180,9 +1191,9 @@ Item {
             BotonPildora {
                 objectName: "botonEnviarResumen"
                 escala: raiz.escala
-                texto: ventanaReportes.correoListo ? I18n.t("menu.enviar_correo", I18n.lang)
-                                                   : I18n.t("menu.correo_no_configurado", I18n.lang)
+                texto: raiz.textoEnviarCorreo(ventanaReportes.correoListo)
                 habilitado: !ventanaReportes.ocupado && ventanaReportes.correoListo
+                            && raiz.hayDestinoCorreo
                             && !(raiz.reporte?.sinConexion ?? true)
                             && (ventanaReportes.pestana === "resumen" || ventanaReportes.hayCiclos)
                 onPulsado: { ventanaReportes.mensaje = ""; ventanaReportes.eligiendoDestino = true }
@@ -1205,6 +1216,7 @@ Item {
             escala: raiz.escala
             destinos: raiz.acciones?.destinos ?? []
             teclado: raiz.teclado
+            sesionActiva: raiz.sesionActiva
             onElegido: (correo) => ventanaReportes.enviar(correo)
             onCancelado: ventanaReportes.eligiendoDestino = false
         }
