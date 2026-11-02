@@ -37,10 +37,10 @@ Item {
     readonly property bool animar: visible && !Movimiento.instantaneo
 
     // ---- paleta de verdes (reposo → listo) ----
-    readonly property color verdeReposo: "#28be5f"
-    readonly property color verdeListo: "#6effa0"
-    readonly property color brilloReposo: "#9be8b4"
-    readonly property color brilloListo: "#c8ffd8"
+    readonly property color verdeReposo: Colores.deslizadorAcento
+    readonly property color verdeListo: Colores.deslizadorAcentoListo
+    readonly property color brilloReposo: Colores.deslizadorBrillo
+    readonly property color brilloListo: Colores.deslizadorBrilloListo
     readonly property color acento: mezcla(verdeReposo, verdeListo, progreso)
     readonly property color brillo: mezcla(brilloReposo, brilloListo, progreso)
 
@@ -205,23 +205,23 @@ Item {
         id: pista
         anchors.fill: parent
         radius: height / 2
-        color: desl.mezcla("#052a17", "#063a1f", desl.progreso)
+        color: desl.mezcla(Colores.deslizadorPista, Colores.deslizadorPistaListo, desl.progreso)
         border.width: Math.max(1, desl.u)
-        border.color: desl.ac(0.3)
+        border.color: desl.ac(0.45)
         layer.enabled: true
         layer.effect: MultiEffect {
             shadowEnabled: true
             shadowColor: desl.ac(1)
-            shadowOpacity: 0.4
+            shadowOpacity: 0.2
             shadowBlur: 0.6
             paddingRect: Qt.rect(24 * desl.u, 24 * desl.u, 24 * desl.u, 24 * desl.u)
         }
     }
 
-    // sombra interior de la pista (inset 0 0 10px negro .8)
+    // sombra interior de la pista (inset 0 0 10px verde oscuro suave)
     SombraInterior {
         anchors.fill: parent
-        color: Qt.rgba(0, 0, 0, 0.8)
+        color: Qt.alpha(Colores.deslizadorSombraInterior, 0.12)
         grosor: 10 * desl.u
         desenfoque: 0.55
     }
@@ -240,8 +240,8 @@ Item {
             opacity: 0.6
             gradient: Gradient {
                 orientation: Gradient.Horizontal
-                GradientStop { position: 0.0; color: desl.mezcla(Qt.rgba(0.04, 0.35, 0.18, 0.1), Qt.rgba(0, 0.47, 0.24, 0.1), desl.progreso) }
-                GradientStop { position: 1.0; color: desl.mezcla(Qt.rgba(0.01, 0.18, 0.09, 0.2), Qt.rgba(0, 0.24, 0.12, 0.2), desl.progreso) }
+                GradientStop { position: 0.0; color: desl.ac(0.1) }
+                GradientStop { position: 1.0; color: desl.ac(0.2) }
             }
         }
 
@@ -254,7 +254,7 @@ Item {
             gradient: Gradient {
                 orientation: Gradient.Horizontal
                 GradientStop { position: 0.0; color: desl.ac(0.3) }
-                GradientStop { position: 1.0; color: desl.mezcla(Qt.rgba(0.1, 0.7, 0.4, 0.1), Qt.rgba(0.1, 0.8, 0.5, 0.1), desl.progreso) }
+                GradientStop { position: 1.0; color: desl.ac(0.1) }
             }
         }
 
@@ -295,7 +295,7 @@ Item {
         anchors.verticalCenter: parent.verticalCenter
         horizontalAlignment: Text.AlignRight
         text: desl.texto
-        color: desl.ac(0.85)
+        color: Colores.deslizadorTexto
         opacity: 1.0 - desl.progreso
         font.family: Tipografia.familia
         font.weight: Tipografia.pesoMedium
@@ -303,11 +303,6 @@ Item {
         font.letterSpacing: desl.u
         fontSizeMode: Text.HorizontalFit
         minimumPixelSize: Math.min(font.pixelSize, Escala.fuenteMinima)
-        layer.enabled: true
-        layer.effect: MultiEffect {
-            shadowEnabled: true; shadowColor: desl.ac(1); shadowOpacity: 0.5; shadowBlur: 0.35
-            paddingRect: Qt.rect(8 * desl.u, 8 * desl.u, 8 * desl.u, 8 * desl.u)
-        }
     }
     Item {
         id: puntoReposo
@@ -341,7 +336,7 @@ Item {
         anchors.verticalCenter: parent.verticalCenter
         horizontalAlignment: Text.AlignLeft
         text: desl.textoCompletado
-        color: desl.ac(0.85)
+        color: Colores.deslizadorTexto
         opacity: desl.progreso
         font.family: Tipografia.familia
         font.weight: Tipografia.pesoMedium
@@ -349,11 +344,6 @@ Item {
         font.letterSpacing: desl.u
         fontSizeMode: Text.HorizontalFit
         minimumPixelSize: Math.min(font.pixelSize, Escala.fuenteMinima)
-        layer.enabled: true
-        layer.effect: MultiEffect {
-            shadowEnabled: true; shadowColor: desl.ac(1); shadowOpacity: 0.5; shadowBlur: 0.35
-            paddingRect: Qt.rect(8 * desl.u, 8 * desl.u, 8 * desl.u, 8 * desl.u)
-        }
     }
     Item {
         width: 10 * desl.u; height: width
@@ -424,8 +414,8 @@ Item {
         // fondo
         DiscoRadial {
             anchors.fill: parent
-            centro: desl.mezcla(Qt.rgba(0.02, 0.25, 0.13, 0.9), Qt.rgba(0.04, 0.35, 0.16, 0.9), desl.progreso)
-            borde: desl.mezcla(Qt.rgba(0, 0.13, 0.07, 0.8), Qt.rgba(0, 0.2, 0.08, 0.8), desl.progreso)
+            centro: Qt.alpha(Colores.deslizadorNucleo, 0.9)
+            borde: Qt.alpha(Colores.deslizadorNucleo, 0.8)
         }
 
         // contenido recortado al círculo: núcleo, centro que pulsa, barrido y partículas
@@ -442,7 +432,7 @@ Item {
                 width: 40 * desl.u; height: width
                 opacity: 0.9
                 centro: desl.ac(0.6)
-                borde: desl.mezcla(Qt.rgba(0, 0.2, 0.1, 0.2), Qt.rgba(0, 0.24, 0.1, 0.2), desl.progreso)
+                borde: Qt.alpha(Colores.deslizadorNucleo, 0.2)
             }
             // thumb-inner
             DiscoRadial {
