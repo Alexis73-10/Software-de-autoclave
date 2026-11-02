@@ -33,7 +33,7 @@ Item {
         id: textoBoton
         anchors.centerIn: parent
         text: raiz.texto
-        color: raiz.primario ? "white" : Colores.textoPrimario
+        color: raiz.primario ? Colores.textoSobreAccion : Colores.textoPrimario
         font.family: Tipografia.familia
         font.weight: Tipografia.pesoSemiBold
         font.pixelSize: Math.max(1, Math.round(raiz.m(22)))

@@ -26,9 +26,9 @@ Rectangle {
     property QtObject tiempos: null
     property bool instantaneo: false
 
-    readonly property color _liquidoInicio: "#0B7A80"
-    readonly property color _liquidoFin: "#003A9C"
-    readonly property color _chorro: "#07BDFF"
+    readonly property color _liquidoInicio: estado === "activa" ? Colores.faseActiva : Colores.faseCompletadaInicio
+    readonly property color _liquidoFin: estado === "activa" ? Colores.faseActivaFin : Colores.faseCompletadaFin
+    readonly property color _chorro: Colores.faseChorro
 
     // ---- nivel ----
     readonly property bool _fraccionValida: typeof fraccion === "number" && isFinite(fraccion)
@@ -63,7 +63,10 @@ Rectangle {
     readonly property color colorTerminacion: estado === "fallida" ? Colores.alarmaAlta
         : estado === "interrumpida" ? Colores.advertencia : "transparent"
     width: 85 * escala; height: width; radius: width / 2
-    color: colorTerminacion.a > 0 ? colorTerminacion : "#CCCCCC"
+    color: colorTerminacion.a > 0 ? colorTerminacion : Colores.fasePendienteFondo
+    // aro de la activa y borde de la pendiente: transparentes en el tema claro
+    border.width: estado === "activa" ? 2 * escala : estado === "pendiente" ? escala : 0
+    border.color: estado === "activa" ? Colores.faseActivaAro : Colores.fasePendienteBorde
     Behavior on color {
         enabled: !raiz.instantaneo
         ColorAnimation { duration: raiz.tiempos ? raiz.tiempos.terminacionMs : 200 }

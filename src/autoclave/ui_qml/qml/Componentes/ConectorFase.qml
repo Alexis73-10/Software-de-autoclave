@@ -1,4 +1,5 @@
 import QtQuick
+import Tema
 
 // Conector entre dos círculos de la barra de fases (llenado de fases, contrato
 // A-3). Pista gris con un relleno azul que crece de izquierda a derecha. Solo
@@ -56,7 +57,7 @@ Item {
 
     Rectangle {
         anchors.fill: parent
-        color: "#CCCCCC"
+        color: Colores.conectorPendiente
     }
     Rectangle {
         objectName: "rellenoConector"
@@ -68,8 +69,8 @@ Item {
             width: raiz.width; height: raiz.height
             gradient: Gradient {
                 orientation: Gradient.Horizontal
-                GradientStop { position: 0.0; color: "#003B9B" }
-                GradientStop { position: 1.0; color: "#07BDFF" }
+                GradientStop { position: 0.0; color: Colores.conectorInicio }
+                GradientStop { position: 1.0; color: Colores.conectorFin }
             }
         }
     }

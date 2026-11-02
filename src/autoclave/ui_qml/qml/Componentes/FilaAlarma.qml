@@ -63,7 +63,7 @@ Item {
             id: textoBoton
             anchors.centerIn: parent
             text: raiz.textoDespejar
-            color: "white"
+            color: Colores.textoSobreAccion
             font.family: Tipografia.familia
             font.weight: Tipografia.pesoSemiBold
             font.pixelSize: Escala.fuente(22)
@@ -73,6 +73,6 @@ Item {
     Rectangle {
         anchors.bottom: parent.bottom
         width: raiz.width; height: Escala.px(1)
-        color: "#D7D7D7"
+        color: Colores.lineaAlarmas
     }
 }

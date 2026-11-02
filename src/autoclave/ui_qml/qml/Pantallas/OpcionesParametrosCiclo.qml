@@ -811,7 +811,7 @@ Item {
         MouseArea { anchors.fill: parent; enabled: ajuste.abierto }            // modal
         Rectangle {
             anchors.fill: parent
-            color: "#80000000"
+            color: Colores.veloSuave
             opacity: compartidoAjuste.opacidadFondo
         }
         ElementoCompartido {

@@ -141,7 +141,7 @@ Item {
 
         Rectangle {
             anchors.fill: parent
-            color: "#99000000"
+            color: Colores.velo
             opacity: compartido.opacidadFondo
             MouseArea { anchors.fill: parent; enabled: raiz.abierta; onClicked: raiz.cerrar() }
         }
@@ -333,7 +333,7 @@ Item {
             id: textoBoton
             anchors.centerIn: parent
             text: b.texto
-            color: "white"
+            color: Colores.textoSobreAccion
             font.family: Tipografia.familia
             font.weight: Tipografia.pesoSemiBold
             font.pixelSize: Escala.fuente(Tipografia.botonEtiquetaTam)

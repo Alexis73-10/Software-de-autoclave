@@ -220,7 +220,7 @@ Item {
                 onClicked: c.tocado()
             }
             // Muestra "ojo_mostrar" mientras está oculta (la acción disponible es mostrarla)
-            Image {
+            IconoColor {
                 id: ojo
                 visible: c.conOjo
                 anchors.right: parent.right
@@ -228,8 +228,7 @@ Item {
                 anchors.verticalCenter: parent.verticalCenter
                 width: Escala.px(44); height: Escala.px(44)
                 source: raiz.iconos + (c.visibleTexto ? "ojo_ocultar.svg" : "ojo_mostrar.svg")
-                sourceSize.width: width
-                sourceSize.height: height
+                color: Colores.textoSecundario
                 MouseArea {
                     anchors.fill: parent
                     anchors.margins: -Escala.px(16)   // área táctil más grande que el icono
@@ -283,13 +282,12 @@ Item {
                     Behavior on y { NumberAnimation { duration: 400; easing.type: Easing.OutCubic } }
 
                     // ---- título ----
-                    Image {
+                    IconoColor {
                         id: atras
                         x: Escala.px(64); y: Escala.px(72)
                         width: Escala.px(36); height: Escala.px(36)
                         source: raiz.iconos + "chevron_izquierda.svg"
-                        sourceSize.width: width
-                        sourceSize.height: height
+                        color: Colores.textoPrimario
                         MouseArea {
                             anchors.fill: parent
                             anchors.margins: -Escala.px(24)
@@ -311,13 +309,12 @@ Item {
                     Rectangle {
                         x: Escala.px(46); y: Escala.px(224)
                         width: Escala.px(287); height: width; radius: width / 2
-                        color: "#E6E6E6"
-                        Image {
+                        color: Colores.avatarFondo
+                        IconoColor {
                             anchors.centerIn: parent
                             width: parent.width * 0.5; height: width
                             source: raiz.iconos + "usuario.svg"
-                            sourceSize.width: width
-                            sourceSize.height: height
+                            color: Colores.textoGuia
                         }
                     }
 
@@ -409,15 +406,14 @@ Item {
                                 font.family: Tipografia.familia
                                 font.pixelSize: Escala.fuente(Tipografia.campoValorTam)
                             }
-                            Image {
+                            IconoColor {
                                 anchors.right: parent.right
                                 anchors.rightMargin: Escala.px(40)
                                 anchors.verticalCenter: parent.verticalCenter
                                 width: Escala.px(32); height: Escala.px(32)
                                 source: raiz.iconos + (listaRoles.visible ? "chevron_arriba.svg"
                                                                           : "chevron_abajo.svg")
-                                sourceSize.width: width
-                                sourceSize.height: height
+                                color: listaRoles.visible ? Colores.textoPrimario : Colores.textoNegro
                             }
                             MouseArea {
                                 anchors.fill: parent
@@ -462,7 +458,7 @@ Item {
                             width: parent.height - Escala.px(6); height: width; radius: width / 2
                             anchors.verticalCenter: parent.verticalCenter
                             x: raiz.activo ? parent.width - width - Escala.px(3) : Escala.px(3)
-                            color: "white"
+                            color: Colores.textoSobreAccion
                             Behavior on x { NumberAnimation { duration: 150 } }
                         }
                         MouseArea {
@@ -515,7 +511,7 @@ Item {
                             Text {
                                 anchors.verticalCenter: parent.verticalCenter
                                 text: I18n.t("acciones.guardar_usuario", I18n.lang)
-                                color: "white"
+                                color: Colores.textoSobreAccion
                                 font.family: Tipografia.familia
                                 font.pixelSize: Escala.fuente(Tipografia.botonEtiquetaTam)
                                 font.weight: Tipografia.pesoSemiBold

@@ -148,7 +148,7 @@ Item {
         width: raiz.m(57); height: raiz.m(57)
         preferredRendererType: Shape.CurveRenderer
         ShapePath {
-            strokeColor: "white"
+            strokeColor: Colores.textoSobreAccion
             strokeWidth: raiz.m(3.3)
             fillColor: "transparent"
             capStyle: ShapePath.RoundCap
@@ -171,7 +171,7 @@ Item {
         property real bl: 0
         x: raiz.m(cx) - width / 2
         y: raiz.m(bl) - baselineOffset
-        color: "white"
+        color: Colores.textoSobreAccion
         font.family: Tipografia.familia
         font.weight: Tipografia.pesoSemiBold
         font.pixelSize: raiz.fuente(39)

@@ -118,25 +118,23 @@ Item {
                                                             : Colores.bordeCampo
             border.width: raiz.campoActivo === campo.nombre || raiz.error(campo.nombre) !== "" ? 2 : 1
 
-            Image {
+            IconoColor {
                 id: candado
                 anchors.left: parent.left
                 anchors.leftMargin: Escala.px(16)
                 anchors.verticalCenter: parent.verticalCenter
                 width: Escala.px(24); height: Escala.px(24)
                 source: raiz.iconos + "candado.svg"
-                sourceSize.width: width
-                sourceSize.height: height
+                color: Colores.bordeCampo
             }
-            Image {
+            IconoColor {
                 id: ojo
                 anchors.right: parent.right
                 anchors.rightMargin: Escala.px(16)
                 anchors.verticalCenter: parent.verticalCenter
                 width: Escala.px(24); height: Escala.px(24)
                 source: raiz.iconos + (campo.visibleTexto ? "ojo_ocultar.svg" : "ojo_mostrar.svg")
-                sourceSize.width: width
-                sourceSize.height: height
+                color: Colores.textoSecundario
                 MouseArea {
                     anchors.fill: parent
                     anchors.margins: -Escala.px(16)
@@ -221,14 +219,13 @@ Item {
                         Rectangle {
                             anchors.horizontalCenter: parent.horizontalCenter
                             width: Escala.px(336); height: Escala.px(336); radius: width / 2
-                            color: "#E6E6E6"
-                            Image {
+                            color: Colores.avatarFondo
+                            IconoColor {
                                 anchors.centerIn: parent
                                 width: parent.width * 0.5
                                 height: width
                                 source: "../../assets/iconos/color/usuario.svg"
-                                sourceSize.width: width
-                                sourceSize.height: height
+                                color: Colores.textoGuia
                             }
                         }
 
@@ -266,7 +263,7 @@ Item {
                             Text {
                                 anchors.centerIn: parent
                                 text: I18n.t("sesion.boton_cambiar_clave", I18n.lang)
-                                color: "white"
+                                color: Colores.textoSobreAccion
                                 font.family: Tipografia.familia
                                 font.pixelSize: Escala.fuente(Tipografia.botonEtiquetaTam)
                                 font.weight: Tipografia.pesoSemiBold

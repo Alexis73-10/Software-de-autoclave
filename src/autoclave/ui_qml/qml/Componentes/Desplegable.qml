@@ -97,14 +97,13 @@ Item {
                 font.pixelSize: Escala.fuente(raiz.rotulo !== "" ? 24 : 26)
             }
         }
-        Image {
+        IconoColor {
             id: chevron
             anchors.right: parent.right; anchors.rightMargin: Escala.px(20)
             anchors.verticalCenter: parent.verticalCenter
             width: Escala.px(36); height: width
             source: "../../assets/iconos/color/" + (raiz.abierto ? "chevron_arriba" : "chevron_abajo") + ".svg"
-            sourceSize.width: width
-            sourceSize.height: height
+            color: raiz.abierto ? Colores.textoPrimario : Colores.textoNegro   // OSC-17
         }
         MouseArea { anchors.fill: parent; onClicked: raiz.abrir() }
     }
@@ -124,7 +123,7 @@ Item {
         // tocar fuera de la lista la cierra
         Rectangle {
             anchors.fill: parent
-            color: "#99000000"
+            color: Colores.velo
             MouseArea { anchors.fill: parent; onClicked: raiz.cerrar() }
         }
 

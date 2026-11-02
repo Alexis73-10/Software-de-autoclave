@@ -57,6 +57,9 @@ from autoclave.ui_qml.doble_pantalla import CODIGO_INSTALACION_TERMINADA
 from autoclave.ui_qml.bridge import i18n_qml  # noqa: F401
 # U1 (tanda 5): singleton Unidades en Autoclave.Unidades
 from autoclave.ui_qml.bridge import unidades_qml  # noqa: F401
+# Modo oscuro: singleton Apariencia en Autoclave.Apariencia; lo enlazan las
+# raíces de ventana con Colores.oscuro
+from autoclave.ui_qml.bridge import apariencia_qml  # noqa: F401
 # Registran los controladores de los teclados en Autoclave.Controllers
 # (qmlRegisterType al importar); los usa PanelTeclado de Main.qml.
 from autoclave.ui_qml.controllers import teclado_alfanumerico_controller  # noqa: F401

@@ -27,7 +27,7 @@ Rectangle {
         Rectangle {
             Layout.fillWidth: true
             Layout.preferredHeight: 1   // en un Layout, height no fija el alto
-            color: "#E6E6E6"   // borde_divisor de tokens.css
+            color: Colores.bordeDivisor   // borde_divisor de tokens.css
             visible: zonaPie.children.length > 0
         }
 

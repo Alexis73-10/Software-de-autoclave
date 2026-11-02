@@ -42,7 +42,7 @@ Item {
         Text {
             anchors.centerIn: parent
             text: boton.texto
-            color: "white"
+            color: Colores.textoSobreAccion
             font.family: Tipografia.familia
             font.weight: Tipografia.pesoSemiBold
             font.pixelSize: Escala.fuente(27)
@@ -221,7 +221,7 @@ Item {
                             anchors.centerIn: parent
                             text: fila.modelData.valido ? I18n.t("respaldo.valido", I18n.lang)
                                                         : I18n.t("respaldo.rechazado", I18n.lang)
-                            color: fila.modelData.valido ? "white" : Colores.peligroTexto
+                            color: fila.modelData.valido ? Colores.textoSobreAccion : Colores.peligroTexto
                             font.family: Tipografia.familia
                             font.weight: Tipografia.pesoSemiBold
                             font.pixelSize: Escala.fuente(20)

@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="es">
+<head>
+<!-- Mockup de referencia (modo oscuro). Exportado del lienzo de diseño. Solo referencia visual: no es código de producción. -->
+<meta charset="utf-8">
+<title>Preciclo — modo oscuro</title>
+</head>
+<body>
+<style>
+@font-face{font-family:Montserrat;src:url('../../../../src/autoclave/ui_qml/assets/fuentes/Montserrat-Regular.otf');font-weight:400}@font-face{font-family:Montserrat;src:url('../../../../src/autoclave/ui_qml/assets/fuentes/Montserrat-Medium.otf');font-weight:500}@font-face{font-family:Montserrat;src:url('../../../../src/autoclave/ui_qml/assets/fuentes/Montserrat-SemiBold.otf');font-weight:600}@font-face{font-family:Montserrat;src:url('../../../../src/autoclave/ui_qml/assets/fuentes/Montserrat-Bold.otf');font-weight:700}
+body{margin:0}
+a{color:#6EA4FF}a:hover{color:#9CC2FF}
+</style>
+<div style="width: 720px; height: 1280px; box-sizing: border-box; position: relative; overflow: hidden; font-family: Montserrat, sans-serif; color: #E9EEF4; background: radial-gradient(120% 60% at 70% 0%, #1A3150 0%, #0F1B2A 45%, #090E14 100%); display: flex; flex-direction: column; padding: 22px 14px 14px">
+
+  <!-- Barra superior -->
+  <header style="display: flex; align-items: center; justify-content: space-between; height: 88px; padding: 0 22px">
+    <img src="../../../../src/autoclave/ui_qml/assets/logo/logo-especifika-blanco.svg" alt="Especifika" style="width: 150px; height: auto; display: block">
+    <div style="display: flex; flex-direction: column; align-items: center; margin-left: 40px">
+      <div style="font-family: Tahoma, Verdana, sans-serif; font-weight: 700; font-size: 62px; line-height: 62px; letter-spacing: 1px">15:15</div>
+      <div style="font-family: Tahoma, Verdana, sans-serif; font-size: 15px; color: #A7B3C1; letter-spacing: 1px; margin-top: 4px">02 nov &nbsp;-&nbsp; 2026</div>
+    </div>
+    <div style="display: flex; gap: 6px">
+      <button aria-label="Notificaciones, 1 nueva" style="position: relative; width: 58px; height: 58px; border: 0; background: transparent; color: #E9EEF4; display: flex; align-items: center; justify-content: center; cursor: pointer">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"></path></svg>
+        <span style="position: absolute; top: 8px; right: 8px; min-width: 18px; height: 18px; border-radius: 9px; background: #00CCFF; color: #031225; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center">1</span>
+      </button>
+      <button aria-label="Opciones" style="width: 58px; height: 58px; border: 0; background: transparent; color: #E9EEF4; display: flex; align-items: center; justify-content: center; cursor: pointer">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"></path></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Panel principal -->
+  <main style="margin-top: 14px; flex: 1; background: #131C27; border: 1px solid #243242; border-radius: 22px; display: flex; flex-direction: column; overflow: hidden">
+
+    <!-- Cabecera de ciclo -->
+    <section style="display: grid; grid-template-columns: 1fr 1.5fr 1fr; padding: 20px 0 18px; border-bottom: 1px solid #243242">
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; border-right: 1px solid #2A3746">
+        <div style="font-size: 12px; font-weight: 600; letter-spacing: 0.6px; color: #A7B3C1">CICLO ACTIVO</div>
+        <div style="font-size: 66px; font-weight: 700; line-height: 72px; font-variant-numeric: tabular-nums">04</div>
+      </div>
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 12px; border-right: 1px solid #2A3746; padding: 0 14px">
+        <div style="font-size: 12px; font-weight: 600; letter-spacing: 0.6px; color: #A7B3C1">PROGRAMA</div>
+        <button aria-label="Cambiar programa" style="width: 100%; height: 56px; border-radius: 12px; border: 1px solid #33445A; background: #1A2533; color: #E9EEF4; font-family: Montserrat, sans-serif; font-size: 18px; font-weight: 700; letter-spacing: 0.5px; display: flex; align-items: center; justify-content: center; gap: 12px; cursor: pointer">
+          BOWIE &amp; DICK
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#A7B3C1" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>
+        </button>
+      </div>
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 8px">
+        <div style="font-size: 12px; font-weight: 600; letter-spacing: 0.6px; color: #A7B3C1">ESTADO</div>
+        <div style="width: 54px; height: 54px; border-radius: 50%; background: #34C46A; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 22px rgba(52,196,106,0.35)">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#0B1A10" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"></path></svg>
+        </div>
+        <div style="font-size: 15px; font-weight: 600; color: #4FD27F">Preparado</div>
+      </div>
+    </section>
+
+    <!-- Tira de sensores -->
+    <section style="margin: 14px 12px 0; background: #18222F; border: 1px solid #263445; border-radius: 16px; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); padding: 14px 0">
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 6px; border-right: 1px solid #2A3746">
+        <div style="display: flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 600; color: #A7B3C1"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#A7B3C1" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M10 14V5a2 2 0 1 1 4 0v9a4 4 0 1 1-4 0z"></path></svg>Temp. ester.</div>
+        <div style="font-size: 30px; font-weight: 700; line-height: 34px; font-variant-numeric: tabular-nums">134.0</div>
+        <div style="font-size: 15px; font-weight: 600; color: #A7B3C1">°C</div>
+      </div>
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 6px; border-right: 1px solid #2A3746">
+        <div style="display: flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 600; color: #A7B3C1"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#A7B3C1" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>Tiempo ester.</div>
+        <div style="font-size: 30px; font-weight: 700; line-height: 34px; font-variant-numeric: tabular-nums">3.5</div>
+        <div style="font-size: 15px; font-weight: 600; color: #A7B3C1">min</div>
+      </div>
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 6px; border-right: 1px solid #2A3746">
+        <div style="display: flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 600; color: #A7B3C1"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#A7B3C1" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M7 4c-2 3 2 5 0 8s2 5 0 8"></path><path d="M12 4c-2 3 2 5 0 8s2 5 0 8"></path><path d="M17 4c-2 3 2 5 0 8s2 5 0 8"></path></svg>T. secado</div>
+        <div style="font-size: 30px; font-weight: 700; line-height: 34px; font-variant-numeric: tabular-nums">15</div>
+        <div style="font-size: 15px; font-weight: 600; color: #A7B3C1">min</div>
+      </div>
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 6px; border-right: 1px solid #2A3746">
+        <div style="display: flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 600; color: #A7B3C1"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6EA4FF" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M10 14V5a2 2 0 1 1 4 0v9a4 4 0 1 1-4 0z"></path></svg>T. cámara</div>
+        <div style="font-size: 30px; font-weight: 700; line-height: 34px; font-variant-numeric: tabular-nums; color: #8AB6FF">098.2</div>
+        <div style="font-size: 15px; font-weight: 600; color: #A7B3C1">°C</div>
+      </div>
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 6px; border-right: 1px solid #2A3746">
+        <div style="display: flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 600; color: #A7B3C1"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C48BF5" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M10 14V5a2 2 0 1 1 4 0v9a4 4 0 1 1-4 0z"></path></svg>T. referencia</div>
+        <div style="font-size: 30px; font-weight: 700; line-height: 34px; font-variant-numeric: tabular-nums; color: #CFA2F7">096.4</div>
+        <div style="font-size: 15px; font-weight: 600; color: #A7B3C1">°C</div>
+      </div>
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 6px">
+        <div style="display: flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 600; color: #A7B3C1"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2BD3A8" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M4 16a8 8 0 1 1 16 0"></path><path d="m12 16 4-5"></path></svg>Presión</div>
+        <div style="font-size: 30px; font-weight: 700; line-height: 34px; font-variant-numeric: tabular-nums; color: #5EE3C2">084.1</div>
+        <div style="font-size: 15px; font-weight: 600; color: #A7B3C1">kPa</div>
+      </div>
+    </section>
+
+    <!-- Alarmas y avisos -->
+    <section style="margin: 14px 12px 0; flex: 1; background: #18222F; border: 1px solid #263445; border-radius: 16px; padding: 22px 26px; display: flex; flex-direction: column">
+      <h2 style="margin: 0; font-size: 17px; font-weight: 700; letter-spacing: 0.5px; padding-bottom: 12px; border-bottom: 1px solid #2E3D50">ALARMAS Y AVISOS</h2>
+      <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 14px">
+        <button style="display: flex; align-items: center; gap: 14px; height: 50px; padding: 0 14px 0 0; border: 0; border-radius: 10px; background: #1E2A38; color: #E9EEF4; font-family: Montserrat, sans-serif; font-size: 15px; text-align: left; cursor: pointer; overflow: hidden">
+          <span style="width: 8px; align-self: stretch; background: #FFCC00"></span>
+          <span style="flex: 1">NO ABRIR — cámara presurizada</span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#A7B3C1" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m9 6 6 6-6 6"></path></svg>
+        </button>
+        <button style="display: flex; align-items: center; gap: 14px; height: 50px; padding: 0 14px 0 0; border: 0; border-radius: 10px; background: #1E2A38; color: #E9EEF4; font-family: Montserrat, sans-serif; font-size: 15px; text-align: left; cursor: pointer; overflow: hidden">
+          <span style="width: 8px; align-self: stretch; background: #00CCFF"></span>
+          <span style="flex: 1">Mantenimiento preventivo en 52 ciclos</span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#A7B3C1" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m9 6 6 6-6 6"></path></svg>
+        </button>
+      </div>
+      <div style="margin-top: auto; display: flex; align-items: center; gap: 14px; color: #7F8B99; font-size: 13px">
+        <span style="display: flex; align-items: center; gap: 6px"><span style="width: 10px; height: 10px; border-radius: 50%; background: #34C46A"></span>Puerta 1 cerrada</span>
+        <span style="display: flex; align-items: center; gap: 6px"><span style="width: 10px; height: 10px; border-radius: 50%; background: #34C46A"></span>Chaqueta lista</span>
+        <span style="display: flex; align-items: center; gap: 6px"><span style="width: 10px; height: 10px; border-radius: 50%; background: #34C46A"></span>Módulo E/S conectado</span>
+      </div>
+    </section>
+
+    <!-- Acciones -->
+    <section style="margin: 14px 12px 14px; display: grid; grid-template-columns: 180px 1fr; gap: 12px">
+      <button style="height: 74px; border-radius: 14px; border: 1px solid #3B6FD8; background: #16305E; color: #E9EEF4; font-family: Montserrat, sans-serif; font-size: 13px; font-weight: 600; letter-spacing: 0.4px; display: flex; align-items: center; justify-content: center; gap: 12px; cursor: pointer">
+        <span style="width: 44px; height: 44px; border-radius: 50%; border: 2px solid #E9EEF4; display: flex; align-items: center; justify-content: center">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#E9EEF4" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 21V4l9-1v18"></path><path d="M12 12v.01"></path><path d="M3 21h18"></path></svg>
+        </span>
+        ABRIR PUERTA
+      </button>
+      <div role="group" aria-label="Deslice para iniciar ciclo" style="position: relative; height: 74px; border-radius: 37px; background: #12301F; border: 1px solid #1F5A36; display: flex; align-items: center; overflow: hidden">
+        <button aria-label="Iniciar ciclo" style="position: absolute; left: 6px; top: 6px; width: 62px; height: 62px; border-radius: 50%; border: 0; background: #2DBE66; box-shadow: 0 0 18px rgba(45,190,102,0.45); display: flex; align-items: center; justify-content: center; cursor: grab">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="#FFFFFF" aria-hidden="true"><path d="M8 5v14l11-7z"></path></svg>
+        </button>
+        <span style="flex: 1; text-align: center; padding-left: 60px; font-size: 15px; font-weight: 700; letter-spacing: 1px; color: #5ED68C">DESLICE PARA INICIAR  ›››</span>
+      </div>
+    </section>
+  </main>
+
+  <!-- Barra inferior -->
+  <footer style="margin-top: 12px; height: 84px; background: #131C27; border: 1px solid #243242; border-radius: 18px; display: grid; grid-template-columns: 1.1fr 1.4fr 1.1fr; align-items: center">
+    <div style="display: flex; flex-direction: column; gap: 4px; padding-left: 22px; border-right: 1px solid #2A3746; height: 60px; justify-content: center">
+      <svg width="40" height="26" viewBox="0 0 40 26" fill="none" stroke="#A7B3C1" stroke-width="1.5" aria-hidden="true"><rect x="1" y="1" width="38" height="24" rx="2"></rect><path d="M26 1v24"></path><path d="M22 9h4v8h-4z"></path></svg>
+      <div style="font-size: 11px; font-weight: 600; line-height: 14px; color: #C9D2DC">Modelo: SPK-SAT 45H<br>Serie: SN260045</div>
+    </div>
+    <div style="display: flex; justify-content: center">
+      <button aria-label="Usuario: operador" style="width: 60px; height: 60px; border-radius: 50%; border: 1px solid #33445A; background: #1E2A38; display: flex; align-items: center; justify-content: center; cursor: pointer">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#A7B3C1" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="4"></circle><path d="M4 21c1-4 4.5-6 8-6s7 2 8 6"></path></svg>
+      </button>
+    </div>
+    <div style="border-left: 1px solid #2A3746; height: 60px"></div>
+  </footer>
+</div>
+</body>
+</html>

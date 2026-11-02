@@ -37,13 +37,13 @@ Window {
             objectName: "seccionA"
             seleccionada: ventanaPrueba.primera
             x: 0; y: 600; width: 300; height: 100
-            sourceComponent: Rectangle { color: "red" }
+            sourceComponent: Rectangle { color: Colores.alarmaAlta }
         }
         CargadorSeccion {
             objectName: "seccionB"
             seleccionada: !ventanaPrueba.primera
             x: 400; y: 600; width: 300; height: 100
-            sourceComponent: Rectangle { color: "blue" }
+            sourceComponent: Rectangle { color: Colores.accionPrimario }
         }
     }
 }

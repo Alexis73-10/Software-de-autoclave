@@ -334,7 +334,7 @@ Item {
                         id: textoChip
                         anchors.centerIn: parent
                         text: I18n.t("opciones.mant_tipo_" + chip.modelData, I18n.lang)
-                        color: chip.activo ? "white" : Colores.textoPrimario
+                        color: chip.activo ? Colores.textoSobreAccion : Colores.textoPrimario
                         font.family: Tipografia.familia
                         font.weight: Tipografia.pesoSemiBold
                         font.pixelSize: Escala.fuente(24)
@@ -353,7 +353,7 @@ Item {
             Text {
                 anchors.centerIn: parent
                 text: I18n.t("opciones.mant_registrar", I18n.lang)
-                color: "white"
+                color: Colores.textoSobreAccion
                 font.family: Tipografia.familia
                 font.weight: Tipografia.pesoSemiBold
                 font.pixelSize: Escala.fuente(28)
@@ -411,7 +411,7 @@ Item {
             Text {
                 anchors.centerIn: parent
                 text: I18n.t("opciones.mant_guardar_intervalos", I18n.lang)
-                color: "white"
+                color: Colores.textoSobreAccion
                 font.family: Tipografia.familia
                 font.weight: Tipografia.pesoSemiBold
                 font.pixelSize: Escala.fuente(28)

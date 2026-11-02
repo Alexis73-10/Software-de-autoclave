@@ -87,7 +87,7 @@ Item {
         anchors.fill: parent
         radius: raiz.m(30)
         color: Colores.fondoTarjeta
-        border.width: raiz.m(2); border.color: "#E5E5E5"   // = GraficaCiclo.paleta.borde
+        border.width: raiz.m(2); border.color: Colores.graficaBorde   // = GraficaCiclo.paleta.borde
     }
 
     // ---- cabecera fija ----

@@ -44,7 +44,7 @@ Item {
             Text {
                 anchors.centerIn: parent
                 text: punto.index + 1
-                color: punto.hecho ? "white" : punto.actual ? Colores.accionPrimarioTexto : Colores.textoGuia
+                color: punto.hecho ? Colores.textoSobreAccion : punto.actual ? Colores.accionPrimarioTexto : Colores.textoGuia
                 font.family: Tipografia.familia
                 font.pixelSize: Escala.fuente(22)
                 font.weight: Tipografia.pesoBold

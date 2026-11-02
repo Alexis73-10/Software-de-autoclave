@@ -150,7 +150,7 @@ Item {
 
     // Flecha: tinta de chevron_derecha.svg = [12.8, 4.3, 35.2, 43.8] en el viewBox de 48;
     // la caja se escala para que la tinta mida 24 de alto como en el v3.
-    Image {
+    IconoColor {
         id: flecha
         visible: raiz.flechaVisible
         readonly property real _k: raiz.m(24) / (43.8 - 4.3)
@@ -158,15 +158,14 @@ Item {
         x: parent.width - raiz.m(30) - 35.2 * _k
         y: parent.height - raiz.m(62.5) - (4.3 + 43.8) / 2 * _k
         source: raiz._iconos + "chevron_derecha.svg"
-        sourceSize.width: width
-        sourceSize.height: height
+        color: Colores.textoNegro
     }
 
     // Atenuación ligera mientras se presiona (PROVISIONAL)
     Rectangle {
         anchors.fill: parent
         radius: raiz.m(26)
-        color: "#000000"
+        color: Colores.textoNegro
         opacity: raiz.interactiva && raiz.presionada ? 0.08 : 0.0
     }
 

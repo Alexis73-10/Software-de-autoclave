@@ -76,7 +76,7 @@ Column {
     component Nota: Rectangle {
         id: nota
         property string texto: ""
-        property color fondo: "#F2F2F2"
+        property color fondo: Colores.fondoSeccion
         property color tinta: Colores.textoGuia
         property bool borde: false
         width: raiz.width
@@ -226,7 +226,7 @@ Column {
                 text: (raiz.enCurso || raiz.enviando)
                       ? I18n.t("sistema.estado_seguro_en_curso_boton", I18n.lang)
                       : I18n.t("sistema.confirmar_estado_seguro", I18n.lang)
-                color: "white"
+                color: Colores.textoSobreAccion
                 font.family: Tipografia.familia
                 font.weight: Tipografia.pesoBold
                 font.pixelSize: Escala.fuente(28)
@@ -296,7 +296,7 @@ Column {
             fontSizeMode: Text.HorizontalFit
             minimumPixelSize: Escala.fuenteMinima
             text: I18n.t("sistema.asignar_sonda_principal", I18n.lang)
-            color: "white"
+            color: Colores.textoSobreAccion
             font.family: Tipografia.familia
             font.weight: Tipografia.pesoBold
             font.pixelSize: Escala.fuente(24)

@@ -48,7 +48,7 @@ Item {
                         fontSizeMode: Text.HorizontalFit
                         minimumPixelSize: Escala.fuenteMinima
                         text: segmento.modelData.etiqueta
-                        color: segmento.activo ? "white" : Colores.textoPrimario
+                        color: segmento.activo ? Colores.textoSobreAccion : Colores.textoPrimario
                         font.family: Tipografia.familia
                         font.pixelSize: Escala.fuente(Tipografia.botonEtiquetaTam)
                         font.weight: segmento.activo ? Tipografia.pesoBold : Tipografia.pesoSemiBold

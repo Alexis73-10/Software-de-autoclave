@@ -71,7 +71,7 @@ PanelModal {
             Rectangle {
                 anchors.bottom: parent.bottom
                 width: parent.width; height: Escala.px(1)
-                color: "#E6E6E6"
+                color: Colores.bordeDivisor
             }
         }
     }
@@ -117,13 +117,13 @@ PanelModal {
             width: textoApagar.implicitWidth + Escala.px(64)
             height: Escala.px(72)
             radius: Escala.px(36)
-            color: "#B71C1C"
+            color: Colores.peligroFuerte
             opacity: (raiz.comandosSistema?.ocupado ?? false) ? 0.5 : 1.0
             Text {
                 id: textoApagar
                 anchors.centerIn: parent
                 text: I18n.t("equipo.apagar", I18n.lang)
-                color: "white"
+                color: Colores.textoSobreAccion
                 font.family: Tipografia.familia
                 font.weight: Tipografia.pesoBold
                 font.pixelSize: Escala.fuente(22)
@@ -140,7 +140,7 @@ PanelModal {
                     ? "\n\n" + I18n.t("equipo.apagar_camara_no_segura", I18n.lang) : "")
         textoConfirmar: I18n.t("equipo.apagar", I18n.lang)
         textoCancelar: I18n.t("acciones.cancelar", I18n.lang)
-        colorConfirmar: "#B71C1C"
+        colorConfirmar: Colores.peligroFuerte
         onConfirmado: { cerrar(); if (raiz.puedeApagar) raiz.comandosSistema?.apagarEquipo() }
     }
 }

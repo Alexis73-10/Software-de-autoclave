@@ -73,7 +73,7 @@ Item {
                 anchors.centerIn: parent
                 visible: casilla.marcada
                 text: "✓"
-                color: "white"
+                color: Colores.textoSobreAccion
                 font.family: Tipografia.familia
                 font.weight: Tipografia.pesoBold
                 font.pixelSize: raiz.fuente(30)
@@ -140,7 +140,7 @@ Item {
 
             Rectangle {
                 anchors.fill: parent
-                color: "#000000"
+                color: Colores.textoNegro
                 opacity: raiz.seleccionable && zona.pressed ? 0.06 : 0.0
             }
             Celda { columna: 0; text: fila.modelData.numero; font.weight: Tipografia.pesoBold }
@@ -167,15 +167,14 @@ Item {
                 font.weight: raiz.conOperador ? Tipografia.pesoRegular : Tipografia.pesoBold
             }
             // tinta de chevron_derecha.svg = [12.8, 4.3, 35.2, 43.8]: 22 de alto
-            Image {
+            IconoColor {
                 visible: raiz.seleccionable
                 readonly property real _k: raiz.m(22) / (43.8 - 4.3)
                 width: 48 * _k; height: width
                 x: parent.width - raiz.m(8) - 35.2 * _k
                 anchors.verticalCenter: parent.verticalCenter
                 source: "../../assets/iconos/mono/chevron_derecha.svg"
-                sourceSize.width: width
-                sourceSize.height: height
+                color: Colores.textoPrimario
             }
             Rectangle {
                 anchors.bottom: parent.bottom

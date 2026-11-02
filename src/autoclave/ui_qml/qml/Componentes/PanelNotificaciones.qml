@@ -117,25 +117,24 @@ PanelModal {
                     id: conteoTexto
                     anchors.centerIn: parent
                     text: g.conteo
-                    color: "white"
+                    color: Colores.textoSobreAccion
                     font.family: Tipografia.familia
                     font.weight: Tipografia.pesoBold
                     font.pixelSize: Escala.fuente(22)
                 }
             }
-            Image {
+            IconoColor {
                 id: chevron
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
                 width: Escala.px(40); height: width
                 source: "../../assets/iconos/color/" + (g.expandido ? "chevron_arriba" : "chevron_abajo") + ".svg"
-                sourceSize.width: width
-                sourceSize.height: height
+                color: g.expandido ? Colores.textoPrimario : Colores.textoNegro   // OSC-17
             }
             Rectangle {
                 anchors.bottom: parent.bottom
                 width: parent.width; height: Escala.px(2)
-                color: "#E6E6E6"
+                color: Colores.bordeDivisor
             }
             MouseArea { anchors.fill: parent; onClicked: g.expandido = !g.expandido }
         }

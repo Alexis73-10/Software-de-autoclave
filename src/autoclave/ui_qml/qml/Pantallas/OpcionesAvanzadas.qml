@@ -68,7 +68,7 @@ Item {
                     verticalAlignment: Text.AlignVCenter
                     wrapMode: Text.WordWrap
                     text: I18n.t(seg.modelData.texto, I18n.lang)
-                    color: seg.activo ? "white" : Colores.textoPrimario
+                    color: seg.activo ? Colores.textoSobreAccion : Colores.textoPrimario
                     font.family: Tipografia.familia
                     font.pixelSize: Escala.fuente(Tipografia.botonEtiquetaTam)
                     font.weight: seg.activo ? Tipografia.pesoBold : Tipografia.pesoSemiBold

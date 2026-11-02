@@ -484,6 +484,28 @@
   "response_model": null
  },
  {
+  "path": "/theme",
+  "methods": [
+   "GET"
+  ],
+  "name": "get_theme",
+  "dependencias": [],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/theme",
+  "methods": [
+   "PUT"
+  ],
+  "name": "put_theme",
+  "dependencias": [
+   "requiere_rol.<locals>.dependencia(permitir_cambio_pendiente=False, roles=['admin', 'ingeniero'])"
+  ],
+  "status_code": null,
+  "response_model": null
+ },
+ {
   "path": "/units",
   "methods": [
    "GET"

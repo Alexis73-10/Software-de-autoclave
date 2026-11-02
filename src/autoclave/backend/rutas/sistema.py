@@ -845,6 +845,30 @@ def put_language(body: _IdiomaBody,
     return {"ok": True, "idioma": body.idioma}
 
 
+# ── Tema de la interfaz (modo oscuro, OSC-02) ────────────────────────────
+# Mismos roles que el idioma, también en ciclo (no afecta al control). Es
+# presentación, no dato de proceso: sin _auditar (no va a la bitácora).
+
+class _TemaBody(BaseModel):
+    tema: Literal["claro", "oscuro"]
+
+
+@router.get("/theme")
+def get_theme():
+    return {"tema": context.config_tema.leer()}
+
+
+@router.put("/theme")
+def put_theme(body: _TemaBody,
+              sesion: Sesion = Depends(requiere_rol(ROL_ADMIN, ROL_INGENIERO))):
+    """OSC-02: admin e ingeniero, como el idioma; sin bitácora."""
+    try:
+        context.config_tema.guardar(body.tema)
+    except OSError:
+        _rechazar(503, "ARCHIVO_NO_ESCRIBIBLE", "No se pudo guardar el tema", "/theme", sesion)
+    return {"ok": True, "tema": body.tema}
+
+
 @router.get("/network/status")
 def get_network_status(sesion: Sesion = Depends(requiere_rol(*_LEEN_CONECTIVIDAD))):
     return context.estado_red.leer()

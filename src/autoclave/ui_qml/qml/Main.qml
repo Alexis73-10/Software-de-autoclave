@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Controls
 import Tema
+import Autoclave.Apariencia
 import Autoclave.Controllers
 import "Pantallas"
 import "Componentes"
@@ -9,6 +10,9 @@ import Autoclave.I18n
 
 Window {
     id: ventana
+    // Modo oscuro: el tema vigente (Apariencia) enlazado a Colores; ninguna
+    // pantalla pregunta por el tema, solo leen Colores.*
+    Binding { target: Colores; property: "oscuro"; value: Apariencia.oscuro }
     width: 600; height: 960   // 5:8, igual que el lienzo de Escala
     visibility: Window.Windowed   // app.py la pasa a pantalla completa en el monitor elegido
     visible: true

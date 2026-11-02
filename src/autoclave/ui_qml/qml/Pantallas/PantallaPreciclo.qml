@@ -154,26 +154,26 @@ Item {
     // Colores medidos sobre el mockup. PENDIENTE: promover a Tema/Colores.qml
     // cuando el diseñador los confirme; se dejan aquí para no tocar el tema.
     readonly property QtObject paleta: QtObject {
-        readonly property color negro: "#000000"
-        readonly property color programa: "#000209"
-        readonly property color naranjaTexto: "#EC9233"
-        readonly property color naranjaEstado: "#FF962B"
-        readonly property color verdeEjecutando: "#25BA9E"
-        readonly property color insignia: "#08C9F9"
-        readonly property color bordeTarjeta: "#E5E5E5"
-        readonly property color bordeSuave: "#F5F5F5"
-        readonly property color divisorCiclo: "#C0C0C0"
-        readonly property color divisorParam: "#C3C3C3"
-        readonly property color divisorPie: "#BEBEBE"
-        readonly property color lineaAlarmas: "#D7D7D7"
-        readonly property color tituloAlarmas: "#010006"
-        readonly property color textoVacio: "#969BA0"
-        readonly property color etiqueta: "#393939"
-        readonly property color unidad: "#424242"
-        readonly property color textoPie: "#3B3B3B"
-        readonly property color versionTexto: "#8F8F8F"
-        readonly property color avatarFondo: "#E6E6E6"
-        readonly property color iconoGris: "#808080"
+        readonly property color negro: Colores.textoNegro
+        readonly property color programa: Colores.textoPrograma
+        readonly property color naranjaTexto: Colores.naranjaTexto
+        readonly property color naranjaEstado: Colores.naranjaEstado
+        readonly property color verdeEjecutando: Colores.estadoEjecucion
+        readonly property color insignia: Colores.insignia
+        readonly property color bordeTarjeta: Colores.bordeTarjeta
+        readonly property color bordeSuave: Colores.bordeSuave
+        readonly property color divisorCiclo: Colores.divisorCiclo
+        readonly property color divisorParam: Colores.divisorParam
+        readonly property color divisorPie: Colores.divisorPie
+        readonly property color lineaAlarmas: Colores.lineaAlarmas
+        readonly property color tituloAlarmas: Colores.textoTitulo
+        readonly property color textoVacio: Colores.textoVacio
+        readonly property color etiqueta: Colores.textoEtiqueta
+        readonly property color unidad: Colores.textoUnidad
+        readonly property color textoPie: Colores.textoPie
+        readonly property color versionTexto: Colores.textoVersion
+        readonly property color avatarFondo: Colores.avatarFondo
+        readonly property color iconoGris: Colores.textoGuia
     }
 
     // Sustitutos (PC-03): Poppins no está disponible, se usa Montserrat
@@ -221,7 +221,7 @@ Item {
         property alias caja: fuente.caja
         property alias tinta: fuente.tinta
         property alias source: fuente.source
-        property color color: "white"
+        property color color: Colores.textoSobreAccion
         anchors.fill: parent
         Icono { id: fuente; visible: false }
         MultiEffect {
@@ -266,7 +266,7 @@ Item {
             cx: 597.5; bl: 108; tam: 97
             text: reloj._dosDigitos(reloj._ahora.getHours()) + ":" +
                   reloj._dosDigitos(reloj._ahora.getMinutes())
-            color: "white"
+            color: Colores.textoSobreAccion
             font.family: Tipografia.familiaReloj
             font.weight: Tipografia.pesoBold
         }
@@ -275,7 +275,7 @@ Item {
             text: reloj._ahora.getDate() + " " +
                   (reloj._meses[reloj._ahora.getMonth()] ?? "") + "  -  " +
                   reloj._ahora.getFullYear()
-            color: "white"
+            color: Colores.textoSobreAccion
             font.family: Tipografia.familiaReloj
         }
     }
@@ -412,7 +412,7 @@ Item {
             visible: !raiz.estadoListo
             anchors.centerIn: parent
             text: "!"
-            color: "white"
+            color: Colores.textoSobreAccion
             font.family: raiz.fuenteNumeros
             font.weight: Tipografia.pesoBold
             font.pixelSize: raiz.fuente(56)
@@ -456,7 +456,8 @@ Item {
     }
     component Valor: Texto {
         bl: 554; tam: 55
-        color: raiz.datosVigentes ? raiz.paleta.negro : Colores.textoGuia
+        property color tinta: Colores.textoNegro   // los sensores usan valorTemp*/valorPresion
+        color: raiz.datosVigentes ? tinta : Colores.textoGuia
         font.family: raiz.fuenteNumeros
         font.weight: Tipografia.pesoBold
     }
@@ -518,7 +519,8 @@ Item {
                 clave: "ciclo.entrada_corta_" + entrada.modelData.clave
                 // 28-oct: sin sufijo "(monitoreo)" (desbordaba la casilla)
             }
-            Valor { cx: entrada.c0 + 94.1; text: entrada.modelData.valor }
+            // Colores por posición de Entradas mostradas (coincide con la gráfica), no por tipo de sensor.
+            Valor { cx: entrada.c0 + 94.1; text: entrada.modelData.valor; tinta: [Colores.valorTempCamara, Colores.valorTempReferencia, Colores.valorPresion][entrada.index] || Colores.textoNegro }
             Unidad { cx: entrada.c0 + (entrada.esPresion ? 109.6 : 85.1); text: entrada.modelData.unidad || "" }
         }
     }
@@ -667,6 +669,8 @@ Item {
         property var caja: [0, 0, 0, 0]
         property color colorArriba
         property color colorAbajo
+        property color colorBorde: "transparent"
+        property color colorTextoBoton: Colores.textoSobreAccion
         property string texto: ""
         property real textoX: 0            // x absoluta del mockup donde empieza el texto
         property real circuloX: 0          // x absoluta del mockup del círculo de contorno
@@ -684,6 +688,8 @@ Item {
             id: cuerpo
             anchors.fill: parent
             radius: raiz.m(14)
+            border.width: boton.colorBorde.a > 0 ? raiz.m(2) : 0
+            border.color: boton.colorBorde
             gradient: Gradient {
                 GradientStop { position: 0.0; color: boton.colorArriba }
                 GradientStop { position: 1.0; color: boton.colorAbajo }
@@ -691,7 +697,7 @@ Item {
             layer.enabled: true
             layer.effect: MultiEffect {
                 shadowEnabled: true
-                shadowColor: "#40000000"
+                shadowColor: Colores.sombra
                 shadowVerticalOffset: raiz.m(3)
                 shadowBlur: 0.4
             }
@@ -702,7 +708,7 @@ Item {
             y: raiz.m(1629) - boton.y
             width: raiz.m(84); height: width; radius: width / 2
             color: "transparent"
-            border.color: "white"; border.width: raiz.m(4)
+            border.color: boton.colorTextoBoton; border.width: raiz.m(4)
         }
         // FC-10 (tanda 21): el texto nunca se sale del botón; si no cabe
         // entre su inicio y el borde derecho, se reduce (mínimo Escala.fuenteMinima)
@@ -712,7 +718,7 @@ Item {
             y: raiz.m(1676) - boton.y - baselineOffset
             width: boton.width - x - raiz.m(12)
             text: boton.texto
-            color: "white"
+            color: boton.colorTextoBoton
             font.family: Tipografia.familia
             font.weight: Tipografia.pesoMedium
             font.pixelSize: raiz.fuente(17)
@@ -728,8 +734,10 @@ Item {
         objectName: "botonPuertaPreciclo"
         visible: raiz.puertaConActuador
         caja: [41, 1615, 298, 110]
-        colorArriba: Qt.rgba(47/255, 88/255, 251/255, 1)
-        colorAbajo: Qt.rgba(0, 0, 73/255, 1)
+        colorArriba: Colores.abrirPuertaArriba
+        colorAbajo: Colores.abrirPuertaAbajo
+        colorBorde: Colores.abrirPuertaBorde
+        colorTextoBoton: Colores.abrirPuertaTexto
         texto: raiz.puertaAbierta ? raiz.textos.cerrarPuerta : raiz.textos.abrirPuerta
         textoX: 172
         circuloX: 64
@@ -796,7 +804,7 @@ Item {
             preferredRendererType: Shape.CurveRenderer
             ShapePath {
                 strokeWidth: 0
-                fillColor: "white"
+                fillColor: Colores.abrirPuertaTexto
                 startX: 0; startY: 0
                 PathLine { x: raiz.m(30); y: raiz.m(17) }
                 PathLine { x: 0; y: raiz.m(34) }
@@ -811,8 +819,8 @@ Item {
     BotonAccion {
         objectName: "botonReconocerFalla"
         caja: [845, 1616, 302, 110]
-        colorArriba: Qt.rgba(230/255, 120/255, 20/255, 1)
-        colorAbajo: Qt.rgba(120/255, 50/255, 0, 1)
+        colorArriba: Colores.botonNaranjaArriba
+        colorAbajo: Colores.botonNaranjaAbajo
         texto: raiz.textos.reconocerFalla
         textoX: 980
         circuloX: 866
@@ -823,7 +831,7 @@ Item {
         contenidoCirculo: Text {
             anchors.centerIn: parent
             text: "!"
-            color: "white"
+            color: Colores.textoSobreAccion
             font.family: Tipografia.familia
             font.weight: Tipografia.pesoBold
             font.pixelSize: raiz.fuente(40)
@@ -997,7 +1005,7 @@ Item {
                 width: ListView.view.width
                 height: raiz.m(124)
                 radius: raiz.m(16)
-                color: modelData.seleccionado ? "#E8F0FE" : Colores.fondoSutil
+                color: modelData.seleccionado ? Colores.seleccionSutil : Colores.fondoSutil
                 border.width: modelData.seleccionado ? raiz.m(3) : 0
                 border.color: Colores.accionPrimario
                 opacity: activa ? 1.0 : 0.45

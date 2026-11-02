@@ -58,7 +58,7 @@ Rectangle {
     readonly property color colorTexto: {
         if (raiz.verPresionada) return Colores.accionPrimarioTexto
         switch (raiz.variante) {
-        case "confirmar": return "white"
+        case "confirmar": return Colores.textoSobreAccion
         case "borrar":    return Colores[TecladoProvisional.borrarTexto]
         case "cancelar":  return Colores[TecladoProvisional.cancelarTexto]
         default:          return Colores.textoPrimario
@@ -81,13 +81,12 @@ Rectangle {
         font.capitalization: raiz.variante === "normal" ? Font.MixedCase : Font.AllUppercase
     }
 
-    Image {
+    IconoColor {
         anchors.centerIn: parent
         visible: raiz.texto === "" && raiz.icono.toString() !== ""
         width: Escala.px(48); height: width   // tamaño nativo de los íconos del diseñador
         source: raiz.icono
-        sourceSize.width: width
-        sourceSize.height: height
+        color: Colores.textoPrimario   // trazo #031225 de borrar.svg
     }
 
     // Mantiene visible el presionado 90 ms desde que empieza el toque

@@ -51,7 +51,7 @@ Rectangle {
             anchors.horizontalCenter: parent.horizontalCenter
             text: raiz._dosDigitos(raiz._ahora.getHours()) + ":" +
                   raiz._dosDigitos(raiz._ahora.getMinutes())
-            color: "white"
+            color: Colores.textoSobreAccion
             font.family: Tipografia.familiaReloj
             font.pixelSize: Escala.fuente(raiz.mostrarIconos ? 97 : Tipografia.relojBarraTam)
             font.weight: Tipografia.pesoSemiBold
@@ -61,7 +61,7 @@ Rectangle {
             text: raiz._ahora.getDate() + " " +
                   raiz._meses[raiz._ahora.getMonth()] + "  -  " +
                   raiz._ahora.getFullYear()
-            color: "#C7DCFD"
+            color: Colores.textoFechaReposo
             font.family: Tipografia.familiaReloj
             font.pixelSize: Escala.fuente(raiz.mostrarIconos ? 26 : Tipografia.relojFechaTam)
             font.weight: Tipografia.pesoMedium
@@ -88,7 +88,7 @@ Rectangle {
             Text {
                 anchors.centerIn: parent
                 text: raiz.conteoNotificaciones
-                color: "white"
+                color: Colores.textoSobreAccion
                 font.family: Tipografia.familia
                 font.pixelSize: Escala.fuente(17)
             }

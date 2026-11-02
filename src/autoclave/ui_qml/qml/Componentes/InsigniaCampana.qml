@@ -11,7 +11,7 @@ Rectangle {
     property bool urgente: false
     property bool enCurso: false
     property bool parpadeo: false
-    property color colorNormal: "#08C9F9"
+    property color colorNormal: Colores.insignia
     property real tamFuente: 17
 
     visible: conteo > 0
@@ -21,7 +21,10 @@ Rectangle {
     Text {
         anchors.centerIn: parent
         text: raiz.conteo
-        color: raiz.enCurso && !raiz.urgente ? Colores.textoPrimario : "white"
+        // número: oscuro sobre el amarillo de alarma en los dos temas; blanco sobre
+        // el rojo; sobre la insignia normal, el del tema (OSC-08)
+        color: raiz.enCurso && !raiz.urgente ? Colores.textoSobreAlarmaMedia
+               : raiz.urgente ? Colores.textoSobreAccion : Colores.textoInsignia
         font.family: Tipografia.familia
         font.pixelSize: Math.max(1, Math.round(raiz.tamFuente))
     }

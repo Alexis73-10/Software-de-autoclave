@@ -1,6 +1,7 @@
 pragma ComponentBehavior: Bound
 import QtQuick
 import Tema
+import Autoclave.Apariencia
 import Autoclave.I18n
 import "Pantallas"
 
@@ -16,6 +17,9 @@ import "Pantallas"
 // (solo informa: quien reinicia es el lanzador). Mismo escalado que Main.qml.
 Window {
     id: ventana
+    // Modo oscuro: el tema vigente (Apariencia) enlazado a Colores; ninguna
+    // pantalla pregunta por el tema, solo leen Colores.*
+    Binding { target: Colores; property: "oscuro"; value: Apariencia.oscuro }
     width: 600; height: 960
     visible: true
     color: Colores.fondoMarinoOscuro

@@ -646,7 +646,7 @@ Item {
         objectName: "fondoCajon"
         z: 5
         anchors.fill: parent
-        color: "#99000000"   // PROVISIONAL: misma atenuación que DialogoConfirmacion
+        color: Colores.velo   // PROVISIONAL: misma atenuación que DialogoConfirmacion
         opacity: raiz.cajonAbierto ? 1 : 0
         visible: opacity > 0
         Behavior on opacity { NumberAnimation { duration: 180 } }
