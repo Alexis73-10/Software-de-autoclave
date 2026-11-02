@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="es">
+<head>
+<!-- Mockup de referencia (modo oscuro). Exportado del lienzo de diseño. Solo referencia visual: no es código de producción. -->
+<meta charset="utf-8">
+<title>Ciclo en curso — modo oscuro</title>
+</head>
+<body>
+<style>
+@font-face{font-family:Montserrat;src:url('../../../../src/autoclave/ui_qml/assets/fuentes/Montserrat-Regular.otf');font-weight:400}@font-face{font-family:Montserrat;src:url('../../../../src/autoclave/ui_qml/assets/fuentes/Montserrat-Medium.otf');font-weight:500}@font-face{font-family:Montserrat;src:url('../../../../src/autoclave/ui_qml/assets/fuentes/Montserrat-SemiBold.otf');font-weight:600}@font-face{font-family:Montserrat;src:url('../../../../src/autoclave/ui_qml/assets/fuentes/Montserrat-Bold.otf');font-weight:700}
+body{margin:0}
+a{color:#6EA4FF}a:hover{color:#9CC2FF}
+</style>
+<div style="width: 720px; height: 1280px; box-sizing: border-box; position: relative; overflow: hidden; font-family: Montserrat, sans-serif; color: #E9EEF4; background: radial-gradient(120% 60% at 70% 0%, #1A3150 0%, #0F1B2A 45%, #090E14 100%); display: flex; flex-direction: column; padding: 22px 14px 14px">
+
+  <!-- Barra superior -->
+  <header style="display: flex; align-items: center; justify-content: space-between; height: 88px; padding: 0 22px">
+    <img src="../../../../src/autoclave/ui_qml/assets/logo/logo-especifika-blanco.svg" alt="Especifika" style="width: 150px; height: auto; display: block">
+    <div style="display: flex; flex-direction: column; align-items: center; margin-left: 40px">
+      <div style="font-family: Tahoma, Verdana, sans-serif; font-weight: 700; font-size: 62px; line-height: 62px; letter-spacing: 1px">14:38</div>
+      <div style="font-family: Tahoma, Verdana, sans-serif; font-size: 15px; color: #A7B3C1; letter-spacing: 1px; margin-top: 4px">02 nov &nbsp;-&nbsp; 2026</div>
+    </div>
+    <div style="display: flex; gap: 6px">
+      <button aria-label="Notificaciones, 2 nuevas" style="position: relative; width: 58px; height: 58px; border: 0; background: transparent; color: #E9EEF4; display: flex; align-items: center; justify-content: center; cursor: pointer">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"></path></svg>
+        <span style="position: absolute; top: 8px; right: 8px; min-width: 18px; height: 18px; border-radius: 9px; background: #00CCFF; color: #031225; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center">2</span>
+      </button>
+      <button aria-label="Opciones" style="width: 58px; height: 58px; border: 0; background: transparent; color: #E9EEF4; display: flex; align-items: center; justify-content: center; cursor: pointer">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"></path></svg>
+      </button>
+    </div>
+  </header>
+
+  <main style="margin-top: 12px; flex: 1; background: #131C27; border: 1px solid #243242; border-radius: 22px; display: flex; flex-direction: column; overflow: hidden">
+
+    <!-- Cabecera de ciclo -->
+    <section style="display: grid; grid-template-columns: 1fr 1.5fr 1fr; padding: 16px 0 14px; border-bottom: 1px solid #243242">
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 2px; border-right: 1px solid #2A3746">
+        <div style="font-size: 12px; font-weight: 600; letter-spacing: 0.6px; color: #A7B3C1">CICLO ACTIVO</div>
+        <div style="font-size: 60px; font-weight: 700; line-height: 66px; font-variant-numeric: tabular-nums">03</div>
+      </div>
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 22px; border-right: 1px solid #2A3746">
+        <div style="font-size: 12px; font-weight: 600; letter-spacing: 0.6px; color: #A7B3C1">PROGRAMA</div>
+        <div style="font-size: 22px; font-weight: 700; letter-spacing: 0.6px">BOWIE &amp; DICK</div>
+      </div>
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 6px">
+        <div style="font-size: 12px; font-weight: 600; letter-spacing: 0.6px; color: #A7B3C1">ESTADO</div>
+        <div style="width: 52px; height: 52px; border-radius: 50%; background: #1B9C7E; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 22px rgba(43,211,168,0.35)">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12a8 8 0 0 1-13.7 5.7"></path><path d="M4 12a8 8 0 0 1 13.7-5.7"></path><circle cx="12" cy="12" r="3"></circle></svg>
+        </div>
+        <div style="font-size: 15px; font-weight: 600; color: #2BD3A8">En ejecución</div>
+      </div>
+    </section>
+
+    <!-- Barra de fases -->
+    <section aria-label="Fases del ciclo" style="display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); padding: 16px 8px 4px; position: relative">
+      <div style="position: absolute; left: 60px; right: 60px; top: 44px; height: 4px; background: #2A3746; border-radius: 2px"></div>
+      <div style="position: absolute; left: 60px; width: 238px; top: 44px; height: 4px; background: linear-gradient(90deg, #1E5FD9, #33B4F5); border-radius: 2px"></div>
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 8px; position: relative">
+        <div style="width: 58px; height: 58px; border-radius: 50%; background: linear-gradient(160deg, #1E5FD9, #0E7A9A); display: flex; align-items: center; justify-content: center">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M7 4c-2 3 2 5 0 8s2 5 0 8"></path><path d="M12 4c-2 3 2 5 0 8s2 5 0 8"></path><path d="M17 4c-2 3 2 5 0 8s2 5 0 8"></path></svg>
+        </div>
+        <span style="font-size: 10.5px; font-weight: 600; color: #C9D2DC">Precalentamiento</span>
+      </div>
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 8px; position: relative">
+        <div style="width: 58px; height: 58px; border-radius: 50%; background: linear-gradient(160deg, #1E5FD9, #0E7A9A); display: flex; align-items: center; justify-content: center">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="1.9" stroke-linecap="round" stroke-dasharray="0.1 3.4" aria-hidden="true"><path d="M4 5h16l-8 15z"></path></svg>
+        </div>
+        <span style="font-size: 10.5px; font-weight: 600; color: #C9D2DC">Vacío</span>
+      </div>
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 8px; position: relative">
+        <div style="width: 58px; height: 58px; border-radius: 50%; background: linear-gradient(0deg, #1E5FD9 0%, #1E5FD9 62%, #2A3746 62%); box-shadow: 0 0 0 3px rgba(51,180,245,0.35); display: flex; align-items: center; justify-content: center">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M10 14V5a2 2 0 1 1 4 0v9a4 4 0 1 1-4 0z"></path><path d="M12 11v5"></path></svg>
+        </div>
+        <span style="font-size: 10.5px; font-weight: 700; color: #6EC8FF">Calentamiento</span>
+      </div>
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 8px; position: relative">
+        <div style="width: 58px; height: 58px; border-radius: 50%; background: #222E3C; border: 1px solid #33445A; box-sizing: border-box; display: flex; align-items: center; justify-content: center">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#6B7889" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="5"></circle><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M5 19l2-2M17 7l2-2"></path></svg>
+        </div>
+        <span style="font-size: 10.5px; font-weight: 600; color: #7F8B99">Esterilización</span>
+      </div>
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 8px; position: relative">
+        <div style="width: 58px; height: 58px; border-radius: 50%; background: #222E3C; border: 1px solid #33445A; box-sizing: border-box; display: flex; align-items: center; justify-content: center">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#6B7889" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 14a4 4 0 0 1 .5-8 5 5 0 0 1 9.6 1.5A3.5 3.5 0 0 1 18 14"></path><path d="M10 13v8M14 13v8M10 21l-2-2M14 21l2-2"></path></svg>
+        </div>
+        <span style="font-size: 10.5px; font-weight: 600; color: #7F8B99">Descompresión</span>
+      </div>
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 8px; position: relative">
+        <div style="width: 58px; height: 58px; border-radius: 50%; background: #222E3C; border: 1px solid #33445A; box-sizing: border-box; display: flex; align-items: center; justify-content: center">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#6B7889" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M8 4c-1.5 2 1.5 4 0 6s1.5 4 0 6"></path><path d="M12 4c-1.5 2 1.5 4 0 6s1.5 4 0 6"></path><path d="M16 4c-1.5 2 1.5 4 0 6s1.5 4 0 6"></path><path d="M4 20h16"></path></svg>
+        </div>
+        <span style="font-size: 10.5px; font-weight: 600; color: #7F8B99">Secado</span>
+      </div>
+    </section>
+
+    <!-- Tira de sensores -->
+    <section style="margin: 10px 12px 0; background: #18222F; border: 1px solid #263445; border-radius: 16px; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); padding: 12px 0">
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; border-right: 1px solid #2A3746">
+        <div style="font-size: 10px; font-weight: 600; color: #A7B3C1">Temp. ester.</div>
+        <div style="font-size: 30px; font-weight: 700; line-height: 34px; font-variant-numeric: tabular-nums">134.0</div>
+        <div style="font-size: 14px; font-weight: 600; color: #A7B3C1">°C</div>
+      </div>
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; border-right: 1px solid #2A3746">
+        <div style="font-size: 10px; font-weight: 600; color: #A7B3C1">Tiempo ester.</div>
+        <div style="font-size: 30px; font-weight: 700; line-height: 34px; font-variant-numeric: tabular-nums">10</div>
+        <div style="font-size: 14px; font-weight: 600; color: #A7B3C1">min</div>
+      </div>
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; border-right: 1px solid #2A3746">
+        <div style="font-size: 10px; font-weight: 600; color: #A7B3C1">Tiempo secado</div>
+        <div style="font-size: 30px; font-weight: 700; line-height: 34px; font-variant-numeric: tabular-nums">15</div>
+        <div style="font-size: 14px; font-weight: 600; color: #A7B3C1">min</div>
+      </div>
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; border-right: 1px solid #2A3746">
+        <div style="font-size: 10px; font-weight: 600; color: #A7B3C1">Temp. cámara</div>
+        <div style="font-size: 30px; font-weight: 700; line-height: 34px; font-variant-numeric: tabular-nums; color: #8AB6FF">130.0</div>
+        <div style="font-size: 14px; font-weight: 600; color: #A7B3C1">°C</div>
+      </div>
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; border-right: 1px solid #2A3746">
+        <div style="font-size: 10px; font-weight: 600; color: #A7B3C1">Temp. referencia</div>
+        <div style="font-size: 30px; font-weight: 700; line-height: 34px; font-variant-numeric: tabular-nums; color: #CFA2F7">120.2</div>
+        <div style="font-size: 14px; font-weight: 600; color: #A7B3C1">°C</div>
+      </div>
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 4px">
+        <div style="font-size: 10px; font-weight: 600; color: #A7B3C1">Presión</div>
+        <div style="font-size: 30px; font-weight: 700; line-height: 34px; font-variant-numeric: tabular-nums; color: #5EE3C2">270.3</div>
+        <div style="font-size: 14px; font-weight: 600; color: #A7B3C1">kPa</div>
+      </div>
+    </section>
+
+    <!-- Gráfica del ciclo -->
+    <section style="margin: 10px 12px 0; flex: 1; background: #18222F; border: 1px solid #263445; border-radius: 16px; padding: 18px 20px 10px; display: flex; flex-direction: column">
+      <div style="display: flex; justify-content: space-between; align-items: center">
+        <h2 style="margin: 0; font-size: 17px; font-weight: 700; letter-spacing: 0.5px">GRÁFICA DEL CICLO</h2>
+        <div style="display: flex; gap: 10px">
+          <button style="height: 40px; padding: 0 14px; border-radius: 8px; border: 1px solid #33445A; background: #1E2A38; color: #E9EEF4; font-family: Montserrat, sans-serif; font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px; cursor: pointer">Tiempos
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="#E9EEF4" aria-hidden="true"><path d="M6 9h12l-6 7z"></path></svg>
+          </button>
+          <button aria-label="Pantalla completa" style="width: 44px; height: 40px; border-radius: 8px; border: 1px solid #33445A; background: #1E2A38; color: #E9EEF4; display: flex; align-items: center; justify-content: center; cursor: pointer">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"></path></svg>
+          </button>
+        </div>
+      </div>
+      <div style="display: flex; gap: 18px; margin-top: 10px; font-size: 13px; color: #C9D2DC">
+        <span style="display: flex; align-items: center; gap: 6px"><span style="width: 11px; height: 11px; border-radius: 50%; background: #5B9BFF"></span>Temperatura de cámara</span>
+        <span style="display: flex; align-items: center; gap: 6px"><span style="width: 11px; height: 11px; border-radius: 50%; background: #B06BF0"></span>Temperatura de referencia</span>
+        <span style="display: flex; align-items: center; gap: 6px"><span style="width: 11px; height: 11px; border-radius: 50%; background: #22D3B0"></span>Presión</span>
+      </div>
+      <svg viewBox="0 0 640 330" width="100%" style="margin-top: 8px; flex: 1; font-family: Montserrat, sans-serif" role="img" aria-label="Gráfica del ciclo: temperatura de cámara, de referencia y presión hasta el minuto 15:23">
+        <g stroke="#2A3746" stroke-width="1">
+          <line x1="50" y1="20" x2="590" y2="20"></line><line x1="50" y1="76" x2="590" y2="76"></line><line x1="50" y1="132" x2="590" y2="132"></line><line x1="50" y1="188" x2="590" y2="188"></line><line x1="50" y1="244" x2="590" y2="244"></line>
+        </g>
+        <line x1="50" y1="300" x2="590" y2="300" stroke="#3A4A5E" stroke-width="1"></line>
+        <g stroke="#3A4A5E" stroke-dasharray="4 4"><line x1="178" y1="20" x2="178" y2="300"></line><line x1="320" y1="20" x2="320" y2="300"></line><line x1="509" y1="20" x2="509" y2="300"></line></g>
+        <g fill="#8C98A7" font-size="12" text-anchor="end"><text x="40" y="24">150</text><text x="40" y="80">120</text><text x="40" y="136">90</text><text x="40" y="192">60</text><text x="40" y="248">30</text><text x="40" y="304">0</text><text x="40" y="10" font-size="11">°C</text></g>
+        <g fill="#8C98A7" font-size="12" text-anchor="start"><text x="598" y="24">400</text><text x="598" y="80">320</text><text x="598" y="136">240</text><text x="598" y="192">160</text><text x="598" y="248">80</text><text x="598" y="304">0</text><text x="598" y="10" font-size="11">kPa</text></g>
+        <g fill="#8C98A7" font-size="12" text-anchor="middle"><text x="50" y="320">0</text><text x="117.5" y="320">5</text><text x="185" y="320">10</text><text x="252.5" y="320">15</text><text x="320" y="320">20</text><text x="387.5" y="320">25</text><text x="455" y="320">30</text><text x="522.5" y="320">35</text><text x="590" y="320">40</text></g>
+        <polyline fill="none" stroke="#22D3B0" stroke-width="2.4" stroke-linejoin="round" points="50.0,260.6 77.0,249.6 104.0,205.5 131.0,181.9 158.0,178.7 171.5,134.6 198.5,126.8 212.0,106.3 257.9,111.0"></polyline>
+        <polyline fill="none" stroke="#B06BF0" stroke-width="2.4" stroke-linejoin="round" points="50.0,236.5 90.5,202.9 117.5,184.3 144.5,160.0 171.5,117.1 212.0,89.1 257.6,75.6"></polyline>
+        <polyline fill="none" stroke="#5B9BFF" stroke-width="2.4" stroke-linejoin="round" points="50.0,217.9 77.0,191.7 117.5,141.3 144.5,113.3 171.5,79.7 212.0,62.9 257.6,57.3"></polyline>
+        <line x1="257.6" y1="20" x2="257.6" y2="300" stroke="#E9EEF4" stroke-width="1.5" opacity="0.7"></line>
+        <circle cx="257.6" cy="57.3" r="5" fill="#5B9BFF" stroke="#18222F" stroke-width="2"></circle>
+        <circle cx="257.6" cy="75.6" r="5" fill="#B06BF0" stroke="#18222F" stroke-width="2"></circle>
+        <circle cx="257.6" cy="111.0" r="5" fill="#22D3B0" stroke="#18222F" stroke-width="2"></circle>
+        <g transform="translate(272 160)">
+          <rect width="190" height="96" rx="10" fill="#0F1721" stroke="#33445A"></rect>
+          <text x="14" y="26" fill="#E9EEF4" font-size="15" font-weight="600">15:23 min</text>
+          <circle cx="18" cy="45" r="4" fill="#5B9BFF"></circle><text x="28" y="49" fill="#A7B3C1" font-size="11">Temp. cámara</text><text x="176" y="49" fill="#E9EEF4" font-size="12" font-weight="700" text-anchor="end">130.0 °C</text>
+          <circle cx="18" cy="64" r="4" fill="#B06BF0"></circle><text x="28" y="68" fill="#A7B3C1" font-size="11">Temp. referencia</text><text x="176" y="68" fill="#E9EEF4" font-size="12" font-weight="700" text-anchor="end">120.2 °C</text>
+          <circle cx="18" cy="83" r="4" fill="#22D3B0"></circle><text x="28" y="87" fill="#A7B3C1" font-size="11">Presión</text><text x="176" y="87" fill="#E9EEF4" font-size="12" font-weight="700" text-anchor="end">270.3 kPa</text>
+        </g>
+      </svg>
+    </section>
+
+    <!-- Tiempos y progreso -->
+    <section style="padding: 12px 22px 16px">
+      <div style="display: flex; justify-content: space-around">
+        <div style="display: flex; flex-direction: column; align-items: center">
+          <span style="font-size: 40px; font-weight: 700; line-height: 44px; font-variant-numeric: tabular-nums">00:15:23</span>
+          <span style="font-size: 14px; color: #A7B3C1">Tiempo transcurrido</span>
+        </div>
+        <div style="display: flex; flex-direction: column; align-items: center">
+          <span style="font-size: 40px; font-weight: 700; line-height: 44px; font-variant-numeric: tabular-nums">00:24:37</span>
+          <span style="font-size: 14px; color: #A7B3C1">Tiempo restante</span>
+        </div>
+      </div>
+      <div role="progressbar" aria-label="Avance del ciclo" aria-valuenow="38" aria-valuemin="0" aria-valuemax="100" style="margin-top: 12px; height: 18px; border-radius: 9px; background: #243242; overflow: hidden">
+        <div style="width: 38%; height: 100%; border-radius: 9px; background: linear-gradient(90deg, #1E5FD9, #33B4F5)"></div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Barra inferior -->
+  <footer style="margin-top: 12px; height: 84px; background: #131C27; border: 1px solid #243242; border-radius: 18px; display: grid; grid-template-columns: 1.1fr 1fr 1.3fr; align-items: center">
+    <div style="display: flex; flex-direction: column; gap: 4px; padding-left: 22px; border-right: 1px solid #2A3746; height: 60px; justify-content: center">
+      <svg width="40" height="26" viewBox="0 0 40 26" fill="none" stroke="#A7B3C1" stroke-width="1.5" aria-hidden="true"><rect x="1" y="1" width="38" height="24" rx="2"></rect><path d="M26 1v24"></path><path d="M22 9h4v8h-4z"></path></svg>
+      <div style="font-size: 11px; font-weight: 600; line-height: 14px; color: #C9D2DC">Modelo: SPK-SAT 45H<br>Serie: SN260045</div>
+    </div>
+    <div style="display: flex; justify-content: center">
+      <button aria-label="Usuario: operador" style="width: 60px; height: 60px; border-radius: 50%; border: 1px solid #33445A; background: #1E2A38; display: flex; align-items: center; justify-content: center; cursor: pointer">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#A7B3C1" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="4"></circle><path d="M4 21c1-4 4.5-6 8-6s7 2 8 6"></path></svg>
+      </button>
+    </div>
+    <div style="border-left: 1px solid #2A3746; height: 60px; display: flex; align-items: center; justify-content: center">
+      <button style="height: 58px; padding: 0 18px 0 8px; border-radius: 12px; border: 1px solid #FF5A5A; background: linear-gradient(180deg, #D71A1A, #A30F0F); color: #FFFFFF; font-family: Montserrat, sans-serif; font-size: 12.5px; font-weight: 700; letter-spacing: 0.4px; display: flex; align-items: center; gap: 12px; cursor: pointer">
+        <span style="width: 42px; height: 42px; border-radius: 50%; border: 2px solid #FFFFFF; display: flex; align-items: center; justify-content: center"><span style="width: 16px; height: 16px; background: #FFFFFF; border-radius: 2px"></span></span>
+        CANCELAR CICLO
+      </button>
+    </div>
+  </footer>
+</div>
+</body>
+</html>
