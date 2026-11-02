@@ -454,17 +454,6 @@ def test_e_contraste_de_la_seccion_8_en_oscuro(texto, fondo, minimo):
 # Archivos de los conjuntos B, C y D (plan.md §4) que aún tienen literales: cada
 # implementador quita los suyos de aquí al migrarlos. La lista debe quedar vacía.
 _PENDIENTES = {
-    "Componentes/BarraFases.qml",
-    "Componentes/CirculoFaseLiquido.qml",
-    "Componentes/ConectorFase.qml",
-    "Componentes/DeslizadorInicio.qml",
-    "Componentes/GraficaCiclo.qml",
-    "Componentes/IndicadorPuerta.qml",
-    "Componentes/PanelFinCiclo.qml",
-    "Componentes/SeccionEstadoSeguro.qml",
-    "Pantallas/PantallaCicloEnCurso.qml",
-    "Pantallas/PantallaPreciclo.qml",
-    "Pruebas/PruebaCicloEnCurso.qml",
 }
 # Excepciones permanentes (justificadas): ninguna por ahora.
 _EXCEPCIONES: dict = {}

@@ -34,7 +34,7 @@ Item {
     readonly property bool cerrada: !sinDatos && estadoPuerta === "CERRADO"
     readonly property string modo: sinDatos ? "sin_datos" : (cerrada ? "cerrada" : "abierta")
 
-    readonly property color colorFondo: modo === "cerrada" ? "#EAF1F8"
+    readonly property color colorFondo: modo === "cerrada" ? Colores.puertaCerradaFondo
                                       : modo === "abierta" ? Colores.advertenciaFondo
                                       : Colores.fondoSutil
     readonly property color colorBorde: modo === "cerrada" ? Colores.fondoBarraSuperior

@@ -60,8 +60,10 @@ Item {
             : (xPrimera + xUltima) / 2
     }
 
-    readonly property QtObject paleta: QtObject {
-        readonly property color etiqueta: "#3C3C3C"
+    function colorEtiqueta(estado) {
+        return estado === "completada" ? Colores.faseEtiqueta
+             : estado === "activa" ? Colores.faseEtiquetaActiva
+             : Colores.fasePendienteEtiqueta
     }
 
     // ---- sincronización con la respuesta anterior ----
@@ -214,7 +216,7 @@ Item {
                 x: raiz.m(fase.cx) - width / 2
                 y: raiz.m(550) - baselineOffset
                 text: raiz.nombre(fase.datos ? fase.datos.fase : "")
-                color: raiz.paleta.etiqueta
+                color: raiz.colorEtiqueta(fase.datos ? fase.datos.estado : "")
                 font.family: Tipografia.familia
                 font.weight: Tipografia.pesoSemiBold
                 font.pixelSize: raiz.fuente(13.5)

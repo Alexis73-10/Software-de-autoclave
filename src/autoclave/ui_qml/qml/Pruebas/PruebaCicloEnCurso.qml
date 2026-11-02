@@ -150,12 +150,12 @@ Window {
         z: 1000
         anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom
         height: rotuloDemo.implicitHeight + 16
-        color: "#CC000000"
+        color: Colores.veloFuerte
         Text {
             id: rotuloDemo
             anchors.fill: parent; anchors.margins: 8
             wrapMode: Text.WordWrap
-            color: "white"
+            color: Colores.textoSobreAccion
             font.pixelSize: 15
             text: "ESCENARIO " + ventana.escActual.nombre + "  (paso " + (ventana.paso + 1) + "/"
                   + ventana.escActual.pasos.length + (ventana.vigentesDemo ? "" : ", SIN DATOS VIGENTES") + ")\n"

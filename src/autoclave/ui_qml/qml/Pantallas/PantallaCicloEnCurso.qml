@@ -195,34 +195,34 @@ Item {
     }
 
     // Colores medidos sobre el mockup (los compartidos con PantallaPreciclo.qml, iguales).
-    // PENDIENTE: promover a Tema/Colores.qml cuando el diseñador los confirme.
+    // Alias hacia Tema/Colores.qml (modo oscuro; en claro valen lo de siempre).
     readonly property QtObject paleta: QtObject {
-        readonly property color negro: "#000000"
-        readonly property color programa: "#000209"
-        readonly property color verdeEjecutando: "#25BA9E"
-        readonly property color naranjaTexto: "#EC9233"
-        readonly property color naranjaEstado: "#FF962B"
-        readonly property color confirmarArriba: "#08AA41"   // = INICIAR CICLO de PantallaPreciclo.qml
-        readonly property color confirmarAbajo: "#01501E"
-        readonly property color insignia: "#08C9F9"
-        readonly property color bordeTarjeta: "#E5E5E5"
-        readonly property color bordeSuave: "#F5F5F5"
-        readonly property color divisorCiclo: "#C0C0C0"
-        readonly property color divisorParam: "#C3C3C3"
-        readonly property color divisorPie: "#BEBEBE"
-        readonly property color etiqueta: "#393939"
-        readonly property color unidad: "#424242"
-        readonly property color textoPie: "#3B3B3B"
-        readonly property color versionTexto: "#8F8F8F"
-        readonly property color avatarFondo: "#E6E6E6"
-        readonly property color iconoGris: "#808080"
-        readonly property color reloj: "#383838"
-        readonly property color rotuloReloj: "#3E3E3E"
-        readonly property color pistaProgreso: "#DEE4EC"
-        readonly property color progresoInicio: "#04439B"
-        readonly property color progresoFin: "#0BB8FA"
-        readonly property color cancelarArriba: "#F40000"
-        readonly property color cancelarAbajo: "#870004"
+        readonly property color negro: Colores.textoNegro
+        readonly property color programa: Colores.textoPrograma
+        readonly property color verdeEjecutando: Colores.estadoEjecucion
+        readonly property color naranjaTexto: Colores.naranjaTexto
+        readonly property color naranjaEstado: Colores.naranjaEstado
+        readonly property color confirmarArriba: Colores.confirmarArriba   // = INICIAR CICLO de PantallaPreciclo.qml
+        readonly property color confirmarAbajo: Colores.confirmarAbajo
+        readonly property color insignia: Colores.insignia
+        readonly property color bordeTarjeta: Colores.bordeTarjeta
+        readonly property color bordeSuave: Colores.bordeSuave
+        readonly property color divisorCiclo: Colores.divisorCiclo
+        readonly property color divisorParam: Colores.divisorParam
+        readonly property color divisorPie: Colores.divisorPie
+        readonly property color etiqueta: Colores.textoEtiqueta
+        readonly property color unidad: Colores.textoUnidad
+        readonly property color textoPie: Colores.textoPie
+        readonly property color versionTexto: Colores.textoVersion
+        readonly property color avatarFondo: Colores.avatarFondo
+        readonly property color iconoGris: Colores.textoGuia
+        readonly property color reloj: Colores.textoReloj
+        readonly property color rotuloReloj: Colores.rotuloReloj
+        readonly property color pistaProgreso: Colores.fondoPista
+        readonly property color progresoInicio: Colores.progresoInicio
+        readonly property color progresoFin: Colores.progresoFin
+        readonly property color cancelarArriba: Colores.cancelarArriba
+        readonly property color cancelarAbajo: Colores.cancelarAbajo
     }
 
     readonly property string fuenteNumeros: "Arial"   // como PantallaPreciclo.qml (PC-03)
@@ -270,7 +270,7 @@ Item {
         property alias caja: fuenteIcono.caja
         property alias tinta: fuenteIcono.tinta
         property alias source: fuenteIcono.source
-        property color color: "white"
+        property color color: Colores.textoSobreAccion
         anchors.fill: parent
         Icono { id: fuenteIcono; visible: false }
         MultiEffect {
@@ -316,7 +316,7 @@ Item {
             cx: 597.5; bl: 108; tam: 97
             text: reloj._dosDigitos(reloj._ahora.getHours()) + ":" +
                   reloj._dosDigitos(reloj._ahora.getMinutes())
-            color: "white"
+            color: Colores.textoSobreAccion
             font.family: Tipografia.familiaReloj
             font.weight: Tipografia.pesoBold
         }
@@ -325,7 +325,7 @@ Item {
             text: reloj._ahora.getDate() + " " +
                   (reloj._meses[reloj._ahora.getMonth()] ?? "") + "  -  " +
                   reloj._ahora.getFullYear()
-            color: "white"
+            color: Colores.textoSobreAccion
             font.family: Tipografia.familiaReloj
         }
     }
@@ -448,7 +448,7 @@ Item {
             visible: raiz.resultado !== "exitoso"
             anchors.centerIn: parent
             text: "!"
-            color: "white"
+            color: Colores.textoSobreAccion
             font.family: raiz.fuenteNumeros
             font.weight: Tipografia.pesoBold
             font.pixelSize: raiz.fuente(56)
@@ -495,7 +495,8 @@ Item {
     }
     component Valor: Texto {
         bl: 554; tam: 55
-        color: raiz.datosVigentes ? raiz.paleta.negro : Colores.textoGuia
+        property color tinta: Colores.textoNegro   // los sensores usan valorTemp*/valorPresion
+        color: raiz.datosVigentes ? tinta : Colores.textoGuia
         font.family: raiz.fuenteNumeros
         font.weight: Tipografia.pesoBold
     }
@@ -572,7 +573,7 @@ Item {
                     clave: "ciclo.entrada_corta_" + entrada.modelData.clave
                     // 28-oct: sin sufijo "(monitoreo)" (desbordaba la casilla)
                 }
-                Valor { cx: entrada.c0 + 94.1; text: raiz.datosVigentes ? entrada.modelData.valor : "—" }
+                Valor { cx: entrada.c0 + 94.1; text: raiz.datosVigentes ? entrada.modelData.valor : "—"; tinta: [Colores.valorTempCamara, Colores.valorTempReferencia, Colores.valorPresion][entrada.index] || Colores.textoNegro }
                 Unidad { cx: entrada.c0 + (entrada.esPresion ? 109.6 : 85.1); text: entrada.modelData.unidad || "" }
             }
         }
@@ -860,6 +861,8 @@ Item {
             Rectangle {
                 anchors.fill: parent
                 radius: raiz.m(14)
+                border.width: (!raiz.terminado && Colores.cancelarBorde.a > 0) ? raiz.m(2) : 0
+                border.color: Colores.cancelarBorde
                 gradient: Gradient {
                     GradientStop { position: 0.0; color: raiz.terminado ? raiz.paleta.confirmarArriba : raiz.paleta.cancelarArriba }
                     GradientStop { position: 1.0; color: raiz.terminado ? raiz.paleta.confirmarAbajo : raiz.paleta.cancelarAbajo }
@@ -867,7 +870,7 @@ Item {
                 layer.enabled: true
                 layer.effect: MultiEffect {
                     shadowEnabled: true
-                    shadowColor: "#40000000"
+                    shadowColor: Colores.sombra
                     shadowVerticalOffset: raiz.m(3)
                     shadowBlur: 0.4
                 }
@@ -888,7 +891,7 @@ Item {
                 y: raiz.m(1812 - 1768) - height / 2
                 width: raiz.m(65); height: width; radius: width / 2
                 color: "transparent"
-                border.color: "white"; border.width: raiz.m(2)
+                border.color: Colores.textoSobreAccion; border.width: raiz.m(2)
                 Image {
                     id: checkConfirmar
                     visible: false
@@ -907,7 +910,7 @@ Item {
                 x: raiz.m(941 - 846)
                 y: raiz.m(1816 - 1768) - baselineOffset
                 text: raiz.terminado ? I18n.t("ciclo.confirmar", I18n.lang) : raiz.textos.cancelar
-                color: "white"
+                color: Colores.textoSobreAccion
                 font.family: Tipografia.familia
                 font.weight: Tipografia.pesoMedium
                 font.pixelSize: raiz.fuente(13)

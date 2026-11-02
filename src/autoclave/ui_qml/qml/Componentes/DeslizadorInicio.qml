@@ -37,10 +37,10 @@ Item {
     readonly property bool animar: visible && !Movimiento.instantaneo
 
     // ---- paleta de verdes (reposo → listo) ----
-    readonly property color verdeReposo: "#28be5f"
-    readonly property color verdeListo: "#6effa0"
-    readonly property color brilloReposo: "#9be8b4"
-    readonly property color brilloListo: "#c8ffd8"
+    readonly property color verdeReposo: Colores.deslizadorAcento
+    readonly property color verdeListo: Colores.deslizadorAcentoListo
+    readonly property color brilloReposo: Colores.deslizadorBrillo
+    readonly property color brilloListo: Colores.deslizadorBrilloListo
     readonly property color acento: mezcla(verdeReposo, verdeListo, progreso)
     readonly property color brillo: mezcla(brilloReposo, brilloListo, progreso)
 
@@ -51,6 +51,12 @@ Item {
     }
     function ac(alfa) { return Qt.rgba(acento.r, acento.g, acento.b, alfa) }
     function br(alfa) { return Qt.rgba(brillo.r, brillo.g, brillo.b, alfa) }
+    // decoración del tema: verde de pista, núcleo, blanco y negro con alfa
+    readonly property color pistaMezcla: mezcla(Colores.deslizadorPista, Colores.deslizadorPistaListo, progreso)
+    function pi(alfa) { return Qt.rgba(pistaMezcla.r, pistaMezcla.g, pistaMezcla.b, alfa) }
+    function nu(alfa) { const c = Colores.deslizadorNucleo; return Qt.rgba(c.r, c.g, c.b, alfa) }
+    function bl(alfa) { const c = Colores.textoSobreAccion; return Qt.rgba(c.r, c.g, c.b, alfa) }
+    function ne(alfa) { const c = Colores.sombra; return Qt.rgba(c.r, c.g, c.b, alfa) }
 
     opacity: enabled ? 1.0 : 0.4
 
@@ -64,7 +70,7 @@ Item {
     // círculo/elipse con degradado radial (centro → borde)
     component DiscoRadial: Shape {
         id: dr
-        property color centro: "white"
+        property color centro: Colores.textoSobreAccion
         property color borde: "transparent"
         property real corte: 1.0          // posición del borde dentro del radio
         preferredRendererType: Shape.CurveRenderer
@@ -89,7 +95,7 @@ Item {
     // "radial-gradient(ellipse at center, ...)": círculo comprimido en vertical
     component ElipseRadial: Item {
         id: er
-        property color centro: "white"
+        property color centro: Colores.textoSobreAccion
         property color borde: "transparent"
         property real corte: 0.99
         DiscoRadial {
@@ -105,7 +111,7 @@ Item {
     component SombraInterior: Item {
         id: si
         property real radio: height / 2
-        property color color: "#000000"
+        property color color: Colores.deslizadorSombraInterior
         property real grosor: 8
         property real desenfoque: 0.6
         Item {
@@ -205,7 +211,7 @@ Item {
         id: pista
         anchors.fill: parent
         radius: height / 2
-        color: desl.mezcla("#052a17", "#063a1f", desl.progreso)
+        color: desl.pistaMezcla
         border.width: Math.max(1, desl.u)
         border.color: desl.ac(0.3)
         layer.enabled: true
@@ -221,7 +227,7 @@ Item {
     // sombra interior de la pista (inset 0 0 10px negro .8)
     SombraInterior {
         anchors.fill: parent
-        color: Qt.rgba(0, 0, 0, 0.8)
+        color: Colores.deslizadorSombraInterior
         grosor: 10 * desl.u
         desenfoque: 0.55
     }
@@ -240,8 +246,8 @@ Item {
             opacity: 0.6
             gradient: Gradient {
                 orientation: Gradient.Horizontal
-                GradientStop { position: 0.0; color: desl.mezcla(Qt.rgba(0.04, 0.35, 0.18, 0.1), Qt.rgba(0, 0.47, 0.24, 0.1), desl.progreso) }
-                GradientStop { position: 1.0; color: desl.mezcla(Qt.rgba(0.01, 0.18, 0.09, 0.2), Qt.rgba(0, 0.24, 0.12, 0.2), desl.progreso) }
+                GradientStop { position: 0.0; color: desl.nu(0.1) }
+                GradientStop { position: 1.0; color: desl.pi(0.2) }
             }
         }
 
@@ -254,7 +260,7 @@ Item {
             gradient: Gradient {
                 orientation: Gradient.Horizontal
                 GradientStop { position: 0.0; color: desl.ac(0.3) }
-                GradientStop { position: 1.0; color: desl.mezcla(Qt.rgba(0.1, 0.7, 0.4, 0.1), Qt.rgba(0.1, 0.8, 0.5, 0.1), desl.progreso) }
+                GradientStop { position: 1.0; color: desl.ac(0.1) }
             }
         }
 
@@ -383,9 +389,9 @@ Item {
                 readonly property real mitad: (desl.width + desl.height) * 0.7071 / 2
                 x1: desl.width / 2 - mitad * 0.7071; y1: desl.height / 2 - mitad * 0.7071
                 x2: desl.width / 2 + mitad * 0.7071; y2: desl.height / 2 + mitad * 0.7071
-                GradientStop { position: 0.0; color: Qt.rgba(1, 1, 1, 0.1) }
-                GradientStop { position: 0.4; color: Qt.rgba(1, 1, 1, 0) }
-                GradientStop { position: 1.0; color: Qt.rgba(1, 1, 1, 0) }
+                GradientStop { position: 0.0; color: desl.bl(0.1) }
+                GradientStop { position: 0.4; color: desl.bl(0) }
+                GradientStop { position: 1.0; color: desl.bl(0) }
             }
             PathRectangle {
                 x: 0; y: 0; width: desl.width; height: desl.height
@@ -417,15 +423,15 @@ Item {
         DiscoRadial {
             x: -8 * desl.u; y: -8 * desl.u + 2 * desl.u
             width: parent.width + 16 * desl.u; height: width
-            centro: Qt.rgba(0, 0, 0, 0.5); borde: "transparent"; corte: 0.98
+            centro: desl.ne(0.5); borde: "transparent"; corte: 0.98
             // el degradado arranca en el borde de la manija: se ve solo hacia afuera
             opacity: 0.55
         }
         // fondo
         DiscoRadial {
             anchors.fill: parent
-            centro: desl.mezcla(Qt.rgba(0.02, 0.25, 0.13, 0.9), Qt.rgba(0.04, 0.35, 0.16, 0.9), desl.progreso)
-            borde: desl.mezcla(Qt.rgba(0, 0.13, 0.07, 0.8), Qt.rgba(0, 0.2, 0.08, 0.8), desl.progreso)
+            centro: desl.pi(0.9)
+            borde: desl.pi(0.8)
         }
 
         // contenido recortado al círculo: núcleo, centro que pulsa, barrido y partículas
@@ -442,7 +448,7 @@ Item {
                 width: 40 * desl.u; height: width
                 opacity: 0.9
                 centro: desl.ac(0.6)
-                borde: desl.mezcla(Qt.rgba(0, 0.2, 0.1, 0.2), Qt.rgba(0, 0.24, 0.1, 0.2), desl.progreso)
+                borde: desl.pi(0.2)
             }
             // thumb-inner
             DiscoRadial {
@@ -452,7 +458,7 @@ Item {
                 property real pulso: 0
                 opacity: 0.5 + 0.3 * pulso
                 scale: 0.9 + 0.2 * pulso
-                centro: Qt.rgba(1, 1, 1, 0.8)
+                centro: desl.bl(0.8)
                 borde: desl.br(0.5)
                 SequentialAnimation on pulso {
                     running: desl.animar
@@ -469,11 +475,11 @@ Item {
                 opacity: 0
                 gradient: Gradient {
                     orientation: Gradient.Horizontal
-                    GradientStop { position: 0.0; color: Qt.rgba(0, 0, 0, 0) }
+                    GradientStop { position: 0.0; color: "transparent" }
                     GradientStop { position: 0.2; color: desl.ac(0.5) }
-                    GradientStop { position: 0.5; color: Qt.rgba(1, 1, 1, 0.8) }
+                    GradientStop { position: 0.5; color: desl.bl(0.8) }
                     GradientStop { position: 0.8; color: desl.ac(0.5) }
-                    GradientStop { position: 1.0; color: Qt.rgba(0, 0, 0, 0) }
+                    GradientStop { position: 1.0; color: "transparent" }
                 }
                 ParallelAnimation {
                     running: desl.animar

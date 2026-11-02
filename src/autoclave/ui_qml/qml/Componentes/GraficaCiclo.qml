@@ -53,13 +53,13 @@ Item {
     readonly property var series: seriesEntradas && seriesEntradas.length ? seriesEntradas : _seriesPorOmision
     readonly property var _seriesPorOmision: [
         { clave: "temp_camara", texto: I18n.t("ciclo.serie_temp_camara", I18n.lang),
-          textoAbrev: I18n.t("abrev.ciclo.serie_temp_camara", I18n.lang), color: "#6599FC",
+          textoAbrev: I18n.t("abrev.ciclo.serie_temp_camara", I18n.lang), color: Colores.serieGrafica1,
           eje: "izquierdo", unidad: I18n.t("unidades.temperatura", I18n.lang) },
         { clave: "temp_ref", texto: I18n.t("ciclo.serie_temp_ref", I18n.lang),
-          textoAbrev: I18n.t("abrev.ciclo.serie_temp_ref", I18n.lang), color: "#9732DA",
+          textoAbrev: I18n.t("abrev.ciclo.serie_temp_ref", I18n.lang), color: Colores.serieGrafica2,
           eje: "izquierdo", unidad: I18n.t("unidades.temperatura", I18n.lang) },
         { clave: "pres_camara", texto: I18n.t("ciclo.serie_presion", I18n.lang),
-          textoAbrev: I18n.t("abrev.ciclo.serie_presion", I18n.lang), color: "#00CCB0",
+          textoAbrev: I18n.t("abrev.ciclo.serie_presion", I18n.lang), color: Colores.serieGrafica3,
           eje: "derecho", unidad: I18n.t("unidades.presion", I18n.lang) },
     ]
     onSeriesChanged: filaLeyenda.tam = 21
@@ -90,18 +90,25 @@ Item {
     function _valor(clave, i) { const a = raiz.datos[clave]; return a ? a[i] : null }
 
     readonly property QtObject paleta: QtObject {
-        readonly property color borde: "#E5E5E5"
-        readonly property color titulo: "#010006"
-        readonly property color texto: "#1A1A1A"
-        readonly property color separador: "#D8D8D8"
-        readonly property color cuadricula: "#D4D4D4"
-        readonly property color eje: "#DADADA"
-        readonly property color divisorFase: "#BCBCBC"
-        readonly property color iconoFase: "#505050"
-        readonly property color etiquetaEje: "#000000"
-        readonly property color tituloEje: "#333333"
-        readonly property color bordeBoton: "#C8C8C8"
-        readonly property color cursor: "#3A3A3A"
+        readonly property color borde: Colores.graficaBorde
+        readonly property color titulo: Colores.graficaTitulo
+        readonly property color texto: Colores.graficaTexto
+        readonly property color separador: Colores.graficaSeparador
+        readonly property color cuadricula: Colores.graficaCuadricula
+        readonly property color eje: Colores.graficaEje
+        readonly property color divisorFase: Colores.graficaDivisorFase
+        readonly property color iconoFase: Colores.graficaIconoFase
+        readonly property color etiquetaEje: Colores.graficaTextoEje
+        readonly property color tituloEje: Colores.graficaTituloEje
+        readonly property color bordeBoton: Colores.graficaBordeBoton
+        readonly property color cursor: Colores.graficaCursor
+    }
+
+    // OSC-05: el color de cada serie sale del tema por posición (el modo oscuro
+    // no puede elegirse en Python); modelData.color se ignora.
+    function colorSerie(i) {
+        const k = ((i % 3) + 3) % 3
+        return k === 0 ? Colores.serieGrafica1 : k === 1 ? Colores.serieGrafica2 : Colores.serieGrafica3
     }
 
     function m(v) { return v * escala }
@@ -209,11 +216,12 @@ Item {
             delegate: Row {
                 id: leyenda
                 required property var modelData
+                required property int index
                 spacing: raiz.m(8)
                 Rectangle {
                     anchors.verticalCenter: parent.verticalCenter
                     width: raiz.m(20); height: width; radius: width / 2
-                    color: leyenda.modelData.color
+                    color: raiz.colorSerie(leyenda.index)
                 }
                 Text {
                     text: raiz.textoSerie(leyenda.modelData)
@@ -261,11 +269,11 @@ Item {
         radius: raiz.m(6)
         color: Colores.fondoTarjeta
         border.width: raiz.m(1.5); border.color: raiz.paleta.bordeBoton
-        Image {
+        IconoColor {
             anchors.centerIn: parent
             width: raiz.m(40); height: width   // tinta 33 px (viewBox 4..44 de 48)
             source: raiz.iconosColor + "pantalla_completa.svg"
-            sourceSize.width: width; sourceSize.height: height
+            color: Colores.textoNegro   // OSC-06: oscuro en claro, claro en oscuro
         }
         MouseArea { anchors.fill: parent; onClicked: raiz.pantallaCompletaPulsado() }
     }
@@ -427,11 +435,12 @@ Item {
             delegate: Shape {
                 id: trazo
                 required property var modelData
+                required property int index
                 x: 0; y: -areaTrazado.y
                 width: raiz.width; height: raiz.height
                 preferredRendererType: Shape.CurveRenderer
                 ShapePath {
-                    strokeColor: trazo.modelData.color
+                    strokeColor: raiz.colorSerie(trazo.index)
                     strokeWidth: raiz.m(3)
                     fillColor: "transparent"
                     joinStyle: ShapePath.RoundJoin
@@ -486,13 +495,14 @@ Item {
             delegate: Rectangle {
                 id: punto
                 required property var modelData
+                required property int index
                 readonly property var valor: cursor.indice >= 0 ? raiz._valor(punto.modelData.clave, cursor.indice) : null
                 visible: punto.valor !== null && punto.valor !== undefined
                 x: cursor.xCursor - width / 2
                 y: (punto.visible ? raiz.yDe(punto.valor, punto.modelData.eje) : 0) - height / 2
                 width: raiz.m(18); height: width; radius: width / 2
-                color: punto.modelData.color
-                border.color: "white"; border.width: raiz.m(2)
+                color: raiz.colorSerie(punto.index)
+                border.color: Colores.graficaCursorFondo; border.width: raiz.m(2)
             }
         }
 
@@ -519,12 +529,12 @@ Item {
             x: Math.max(raiz.m(8), Math.min(cursor.xCursor - raiz.m(34), raiz.width - width - raiz.m(8)))
             y: Math.min(raiz.yAbajo - height - raiz.m(45), raiz.m(519) + raiz._extra / 2)
             radius: raiz.m(14)
-            color: Colores.fondoTarjeta
-            border.width: raiz.m(1.5); border.color: raiz.paleta.borde
+            color: Colores.graficaCursorFondo
+            border.width: raiz.m(1.5); border.color: Colores.graficaCursorBorde
             layer.enabled: true
             layer.effect: MultiEffect {
                 shadowEnabled: true
-                shadowColor: "#30000000"
+                shadowColor: Colores.sombraSuave
                 shadowVerticalOffset: raiz.m(2)
                 shadowBlur: 0.5
             }
@@ -559,7 +569,7 @@ Item {
                     Rectangle {
                         x: raiz.m(17); y: filaGlobo.bl - raiz.m(10)
                         width: raiz.m(11); height: width; radius: width / 2
-                        color: filaGlobo.modelData.color
+                        color: raiz.colorSerie(filaGlobo.index)
                     }
                     TextoAjustable {
                         id: nombreFila
@@ -629,7 +639,7 @@ Item {
         layer.enabled: true
         layer.effect: MultiEffect {
             shadowEnabled: true
-            shadowColor: "#30000000"
+            shadowColor: Colores.sombraSuave
             shadowVerticalOffset: raiz.m(3)
             shadowBlur: 0.5
         }
