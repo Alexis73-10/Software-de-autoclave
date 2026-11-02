@@ -63,4 +63,7 @@ QtObject {
     readonly property color deslizadorTexto:         "#007A29" // éxito fuerte: textos de la pista (≥ 4,5:1 sobre la pista)
     readonly property color deslizadorSombraInterior: "#007A29" // base de la sombra interior (se usa al 12 %)
     readonly property color deslizadorNucleo:        "#009933" // éxito: núcleo de la manija (triángulo blanco ≥ 3:1)
+
+    // Reportes (dashboard): verde claro de relleno (éxito 050 de tokens.css). NO es color de alarma.
+    readonly property color exitoFondo: "#E9F8EE"
 }
