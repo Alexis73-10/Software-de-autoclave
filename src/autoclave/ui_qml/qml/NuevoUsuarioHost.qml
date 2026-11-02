@@ -1,6 +1,7 @@
 pragma ComponentBehavior: Bound
 import QtQuick
 import Tema
+import Autoclave.Apariencia
 import "Pantallas"
 import "Componentes"
 
@@ -11,6 +12,9 @@ import "Componentes"
 // ella. `puente` lo inyecta la vista (setInitialProperties); textos: singleton I18n.
 Item {
     id: host
+    // Modo oscuro: el tema vigente (Apariencia) enlazado a Colores; ninguna
+    // pantalla pregunta por el tema, solo leen Colores.*
+    Binding { target: Colores; property: "oscuro"; value: Apariencia.oscuro }
 
     property QtObject puente: null
 
