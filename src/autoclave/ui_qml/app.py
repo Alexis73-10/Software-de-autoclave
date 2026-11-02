@@ -46,6 +46,7 @@ from autoclave.ui_qml.bridge.progreso_arranque import (
     ProgresoArranqueBackend, ProgresoArranqueSinPerfil, SimuladorProgresoArranque, parse_simulacion,
 )
 from autoclave.ui_qml.bridge.progreso_ciclo import ProgresoCiclo
+from autoclave.ui_qml.bridge.reporte_dashboard import ReporteDashboard
 from autoclave.ui_qml.bridge.reporte_resumen import ReporteResumen
 from autoclave.ui_qml.bridge.resumen_sistema import ResumenSistema
 from autoclave.ui_qml.bridge.standby import Standby
@@ -287,6 +288,8 @@ def main(argv=None) -> int:
     acciones = AccionesCiclos(backend)
     # Reportes: resumen de ciclos por periodo, solo lectura, bajo demanda
     reporte = ReporteResumen(backend)
+    # Dashboard de Reportes (pantalla completa): solo lectura, bajo demanda
+    reporte_dashboard = ReporteDashboard(backend)
     # Sesión de esta ventana contra el backend (token solo en memoria) y el
     # puente de Nuevo usuario de OPCIONES › Usuarios, que escribe con ese token
     sesion = sesion_backend.SesionVentana()
@@ -323,6 +326,7 @@ def main(argv=None) -> int:
         "historial": historial,
         "acciones": acciones,
         "reporte": reporte,
+        "reporteDashboard": reporte_dashboard,
         "sesion": sesion,
         "puenteNuevoUsuario": puente_nuevo_usuario,
         "progresoArranque": progreso_arranque,
