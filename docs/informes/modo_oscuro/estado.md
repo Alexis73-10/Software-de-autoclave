@@ -10,7 +10,7 @@ Rama `modo-oscuro` (desde `dev` c43b9d0b). Prompt: `docs/mis_plans/prompt_claude
 | 4 | Componentes con color propio e íconos | Parcial: chrome y fondos (A) y conjunto C (comunes, modales, teclados, alarmas) y B (Preciclo, Ciclo en curso, fases, gráfica, deslizador; OSC-20) y D (OSC-18/19) hechos |
 | 5 | Selector en Opciones (i18n Tema/Claro/Oscuro) | Hecho |
 | 6 | Pruebas automáticas (`test_tema_oscuro.py`, existentes, suite) | Parcial: `test_tema_oscuro.py` en verde; suite completa pendiente (al final) |
-| 7 | Capturas en ambos temas | Pendiente |
+| 7 | Capturas en ambos temas | Hecho (40 capturas en `capturas/`, `LEEME.md`; claro idéntico a dev salvo borde de íconos; hallazgos de oscuro: campos del Login blancos, «PUERTA CERRADA» deshabilitado, chevron de Tiempos) |
 | 8 | Riesgos, trazabilidad, CLAUDE.md, `R_informe.md` | Hecho (HAZ-OSC-01, REQ-OSC-01, sección en CLAUDE.md, `R_informe.md` borrador con «Capturas» PENDIENTE) |
 | 9 | Revisión, merge a `dev` sin push, `CERRADO.txt` | Pendiente |
 
