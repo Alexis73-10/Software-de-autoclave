@@ -157,14 +157,20 @@ def _sufijos_menu():
     # columnas de la lista (D8-5.6: la última puede ser col_operador o col_resultado)
     columnas = re.search(r'model: \[("col_\w+"(?:,\s*(?:raiz\.\w+ \? )?"col_\w+"(?: : "col_\w+")?)*)\]',
                          _qml("Componentes/ListaCiclos.qml"))
-    filtros = _segundos_qml("Componentes/SelectorPeriodo.qml", r"model: \[\[.*\]\]")
+    # filtros de periodo del Historial: claves menu.* de SelectorPeriodo (las de Reportes, con Año,
+    # son reportes.periodo_*, ver _sufijos_reportes)
+    filtros = re.findall(r'"menu\.(\w+)"', _qml("Componentes/SelectorPeriodo.qml"))
+    assert len(filtros) == 3
     return re.findall(r'"(\w+)"', columnas.group(1)) + filtros
 
 
 def _sufijos_reportes():
     from autoclave.ui_qml.domain.reporte_resumen import CLAVES
-    pestanas = _segundos_qml("Pantallas/MenuPrincipal.qml", r'model: \[\["resumen".*\]\]')
-    return list(CLAVES) + pestanas
+    # Reportes ya no tiene pestañas (pantalla completa, etapa E del dashboard): quedan los
+    # rótulos de periodo de SelectorPeriodo (Día, Semana, Mes, Año)
+    periodos = re.findall(r'"reportes\.(\w+)"', _qml("Componentes/SelectorPeriodo.qml"))
+    assert len(periodos) == 4
+    return list(CLAVES) + periodos
 
 
 def _sufijos_instalacion_pasos():

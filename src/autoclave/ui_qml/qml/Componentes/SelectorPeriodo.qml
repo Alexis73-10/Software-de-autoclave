@@ -16,6 +16,12 @@ Column {
     property string periodo: "dia"      // filtro marcado
     property string rotulo: ""          // "Octubre 2026"
     property bool esActual: true
+    // Reportes (REP-02): cuarto filtro «Año»
+    property bool conAnio: false
+    readonly property var filtros: conAnio
+        ? [["dia", "reportes.periodo_dia"], ["semana", "reportes.periodo_semana"], ["mes", "reportes.periodo_mes"],
+           ["anio", "reportes.periodo_anio"]]
+        : [["dia", "menu.filtro_diario"], ["semana", "menu.filtro_semanal"], ["mes", "menu.filtro_mensual"]]
 
     signal elegido(string periodo)
     signal movido(int pasos)
@@ -28,7 +34,7 @@ Column {
     Row {
         spacing: raiz.m(16)
         Repeater {
-            model: [["dia", "filtro_diario"], ["semana", "filtro_semanal"], ["mes", "filtro_mensual"]]
+            model: raiz.filtros
             Rectangle {
                 id: filtro
                 required property var modelData
@@ -41,7 +47,7 @@ Column {
                 border.color: Colores.bordeDivisor
                 Text {
                     anchors.centerIn: parent
-                    text: I18n.t("menu." + (filtro.modelData[1]), I18n.lang)
+                    text: I18n.t(filtro.modelData[1], I18n.lang)
                     color: filtro.marcado ? "white" : Colores.textoPrimario
                     font.family: Tipografia.familia
                     font.weight: Tipografia.pesoSemiBold

@@ -35,7 +35,6 @@ _SCRIPT = textwrap.dedent(r"""
     from autoclave.ui_qml.app import QML_DIR, _cargar_fuentes
     from autoclave.ui_qml.bridge.acciones_ciclos import AccionesCiclos
     from autoclave.ui_qml.bridge.ciclos_historial import CiclosHistorial
-    from autoclave.ui_qml.bridge.reporte_resumen import ReporteResumen
     from autoclave.ui_qml.bridge.resumen_sistema import ResumenSistema
     from autoclave.ui_qml.exportacion import correo
     from autoclave.ui_qml.exportacion.config_correo import ConfigCorreo
@@ -84,11 +83,10 @@ _SCRIPT = textwrap.dedent(r"""
         hoy = lambda: date(2026, 10, 12)
         resumen = ResumenSistema(backend, ejecutar=lambda t: t())
         historial = CiclosHistorial(backend, ejecutar=lambda t: t(), hoy=hoy)
-        reporte = ReporteResumen(backend, ejecutar=lambda t: t(), hoy=hoy)
         engine = QQmlApplicationEngine()
         engine.addImportPath(QML_DIR)
         engine.setInitialProperties({"resumen": resumen, "historial": historial,
-                                     "acciones": acciones, "reporte": reporte})
+                                     "acciones": acciones})
         engine.load(QUrl.fromLocalFile(f"{QML_DIR}/Pruebas/PruebaMenuPrincipal.qml"))
         w = engine.rootObjects()[0]
         w.setWidth(1196); w.setHeight(1917); w.show()
@@ -127,12 +125,8 @@ _SCRIPT = textwrap.dedent(r"""
         r["historial"] = aviso(vhi, "avisoAccionHistorial")
         QMetaObject.invokeMethod(vhi, "cerrar")
 
-        # Reportes: resumen del periodo a "Todos los guardados"
-        tocar(obj("tarjetaReportes"))
-        vr = obj("ventanaReportes")
-        tocar(item(vr, "botonEnviarResumen"))
-        tocar(item(item(vr, "selectorDestinoReportes"), "destinoTodos"))
-        r["reportes"] = aviso(vr, "avisoAccionReportes")
+        # Reportes ya es una pantalla completa: su rechazo parcial en rojo se prueba en
+        # test_rep_pantalla_reportes_qml.py
         r["entregados"] = [e["para"] for e in smtp.entregados]
     print("RESULTADO=" + json.dumps(r, ensure_ascii=False))
 """)
@@ -153,10 +147,10 @@ def r():
 
 
 def test_solo_llega_a_la_direccion_aceptada(r):
-    assert r["entregados"] == [["mant@x.com"], ["mant@x.com"]]
+    assert r["entregados"] == [["mant@x.com"]]
 
 
-@pytest.mark.parametrize("ventana", ["historial", "reportes"])
+@pytest.mark.parametrize("ventana", ["historial"])
 def test_rechazo_parcial_en_rojo_con_la_direccion_rechazada(r, ventana):
     a = r[ventana]
     assert a["visible"] is True

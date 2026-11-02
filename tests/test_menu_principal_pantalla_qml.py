@@ -37,7 +37,6 @@ _SCRIPT = textwrap.dedent(r"""
     from datetime import date
     from autoclave.ui_qml.bridge.acciones_ciclos import AccionesCiclos
     from autoclave.ui_qml.bridge.ciclos_historial import CiclosHistorial
-    from autoclave.ui_qml.bridge.reporte_resumen import ReporteResumen
     from autoclave.ui_qml.bridge.resumen_sistema import ResumenSistema
     from autoclave.ui_qml.exportacion.config_correo import ConfigCorreo
     from autoclave.ui_qml.exportacion.correo import ResultadoEnvio
@@ -96,7 +95,6 @@ _SCRIPT = textwrap.dedent(r"""
     _cargar_fuentes()
     resumen = ResumenSistema(backend, ejecutar=lambda t: t())
     historial = CiclosHistorial(backend, ejecutar=lambda t: t(), hoy=lambda: date(2026, 10, 12))
-    reporte = ReporteResumen(backend, ejecutar=lambda t: t(), hoy=lambda: date(2026, 10, 12))
     impresos, correos = [], []
     backend.post.side_effect = lambda ruta, body: (impresos.append((ruta, body)),
                                                    {"ok": True, "impresos": len(body.get("ids", []))})[1]
@@ -128,7 +126,7 @@ _SCRIPT = textwrap.dedent(r"""
     engine.addImportPath(QML_DIR)
     engine.setInitialProperties({"resumen": resumen,
                                  "infoEquipo": info, "historial": historial,
-                                 "acciones": acciones, "reporte": reporte})
+                                 "acciones": acciones})
     engine.load(QUrl.fromLocalFile(f"{QML_DIR}/Pruebas/PruebaMenuPrincipal.qml"))
     w = engine.rootObjects()[0]
     w.setWidth(ancho); w.setHeight(alto); w.show()
@@ -183,7 +181,7 @@ _SCRIPT = textwrap.dedent(r"""
 
     def ventanas_abiertas():
         return sorted(n for n in ("ventanaUltimoCiclo", "ventanaMantenimiento",
-                                  "ventanaCiclosHoy", "ventanaHistorial", "ventanaReportes")
+                                  "ventanaCiclosHoy", "ventanaHistorial")
                       if obj(n).property("visible"))
 
     # señales: Iniciar sesión emite. Sin engranaje en el menú.
@@ -293,67 +291,13 @@ _SCRIPT = textwrap.dedent(r"""
         r["hist_volvio"] = lista_hist.isVisible()
     QMetaObject.invokeMethod(vhi, "cerrar")
 
-    # Reportes: resumen del periodo con flechas, imprimir y enviar por correo
+    # Reportes (dashboard, REP-01): la tarjeta ya no abre una ventana flotante,
+    # emite reportesPulsado y Main.qml apila Pantallas/Reportes.qml (su
+    # contenido se prueba en test_rep_pantalla_reportes_qml.py)
+    s_rep = espia(menu, "reportesPulsado()")
     tocar(obj("tarjetaReportes"))
-    vr = obj("ventanaReportes")
-    r["rep_abierta"] = vr.property("visible")
-    r["rep_pedido"] = [p for p in pedidos if p == "/report/summary"][-1:] and reporte.property("fecha")
-    if not falla:
-        tocar(item(vr, "filtro_mes"))
-        r["rep_rotulo"] = item(vr, "rotuloPeriodo").property("text")
-        tocar(item(vr, "flechaAnterior"))
-        r["rep_anterior"] = [reporte.property("fecha"), item(vr, "rotuloPeriodo").property("text"),
-                             item(vr, "flechaSiguiente").property("habilitada")]
-        r["rep_textos"] = list(textos(vr.findChild(QObject, "resumenPeriodo")))
-        tocar(item(vr, "botonImprimirResumen"))
-        r["rep_impreso"] = list(impresos[-1])
-        r["rep_aviso"] = item(vr, "textoAvisoAccion").property("text")
-        tocar(item(vr, "botonEnviarResumen"))
-        r["rep_selector"] = item(vr, "selectorDestinoReportes").property("visible")
-        tocar(item(item(vr, "selectorDestinoReportes"), "destino_Mantenimiento"))
-        r["rep_correos"] = list(correos)
-        # D8-5.6: tocar una causa de fallo despliega sus ciclos; tocar uno abre su detalle
-        tocar(item(vr, "causa_FALLO_SECADO"))
-        listado = item(vr, "listadoFallo")
-        lista_f = item(vr, "listaFallo")
-        r["fal_pedido"] = [p for p in pedidos if p == "/report/failures"][-1:]
-        r["fal_vista"] = [listado.isVisible(), vr.findChild(QObject, "resumenPeriodo").isVisible(),
-                          item(vr, "botonImprimirResumen").isVisible(),
-                          item(vr, "paginacionFallo").isVisible()]
-        r["fal_titulo"] = item(vr, "tituloFallo").property("text")
-        r["fal_textos"] = list(textos(lista_f))
-        graficas_antes = len([p for p in pedidos if p.startswith("/cycle/history/")])
-        vista_f = lista_f.findChild(QObject, "vistaListaCiclos")
-        tocar(vista_f, QPointF(vista_f.width() / 2, lista_f.property("altoFila") * 0.5))
-        r["fal_ciclo"] = [vr.property("titulo"), listado.isVisible(),
-                          vr.findChild(QObject, "detalleCicloFallo").isVisible()]
-        r["fal_grafica"] = [p for p in pedidos if p.startswith("/cycle/history/")][graficas_antes:]
-        tocar(item(vr, "botonImprimirCicloFallo"))
-        r["fal_impreso"] = list(impresos[-1])
-        tocar(item(vr, "botonVolverFallo"))
-        r["fal_volvio"] = [listado.isVisible(), vr.property("titulo")]
-        tocar(item(vr, "botonVolverResumen"))
-        r["fal_resumen"] = [listado.isVisible(), vr.findChild(QObject, "resumenPeriodo").isVisible(),
-                            reporte.property("causaFallo")]
-        # pestaña Consolidado: mismo periodo, solo correo
-        tocar(item(vr, "pestana_consolidado"))
-        r["con_visible"] = [vr.findChild(QObject, "consolidado").isVisible(),
-                            vr.findChild(QObject, "resumenPeriodo").isVisible(),
-                            item(vr, "botonImprimirResumen").isVisible()]
-        r["con_cuenta"] = item(vr, "cuentaConsolidado").property("text")
-        r["con_rotulo"] = item(vr, "rotuloPeriodo").property("text")
-        tocar(item(vr, "botonEnviarResumen"))
-        tocar(item(item(vr, "selectorDestinoReportes"), "destino_Mantenimiento"))
-        r["con_correos"] = list(correos)
-        r["con_aviso"] = item(vr, "textoAvisoAccion").property("text")
-        # Diario conserva la fecha vista (septiembre), no vuelve a hoy
-        tocar(item(vr, "filtro_dia"))
-        r["con_dia"] = [item(vr, "rotuloPeriodo").property("text"), reporte.property("fecha")]
-    else:
-        r["rep_aviso_falla"] = item(vr, "avisoReporte").property("text")
-        r["rep_botones_falla"] = [item(vr, "botonImprimirResumen").property("habilitado"),
-                                  item(vr, "botonEnviarResumen").property("habilitado")]
-    QMetaObject.invokeMethod(vr, "cerrar")
+    r["reportes"] = {"senal": s_rep.count(), "sin_ventana": obj("ventanaReportes") is None,
+                     "ventanas": ventanas_abiertas()}
 
     # Información: abre el panel de información del equipo (el de la esquina
     # inferior izquierda de la pantalla de preciclo) y pide actualizar sus datos
@@ -592,48 +536,6 @@ def test_historial_abre_el_ciclo_con_sus_acciones(r):
     assert r["hist_volvio"] is True
 
 
-def test_reportes_resumen_del_periodo(r):
-    assert r["rep_abierta"] is True
-    assert r["rep_pedido"] == "2026-10-12"                       # Diario de hoy al abrir
-    assert r["rep_rotulo"] == "Octubre 2026"
-    assert r["rep_anterior"] == ["2026-09-01", "Septiembre 2026", True]
-    t = r["rep_textos"]
-    assert "4" in t and "75%" in t and "02 · Instrumental 134" in t and "FALLO_SECADO" in t
-
-
-def test_reportes_imprimir_y_enviar(r):
-    assert r["rep_impreso"] == ["/report/summary/print", {"periodo": "mes", "fecha": "2026-09-01"}]
-    assert "impresora" in r["rep_aviso"]
-    assert r["rep_selector"] is True
-    assert r["rep_correos"][-1] == "mant@x.com"
-
-
-def test_reportes_sin_conexion(rfalla):
-    assert rfalla["rep_abierta"] is True
-    assert rfalla["rep_aviso_falla"] == "Sin conexión con el equipo"
-    assert rfalla["rep_botones_falla"] == [False, False]
-
-
-def test_reportes_ciclos_de_un_fallo(r):
-    # D8-5.6 (tanda 8): causa -> listado (operador en vez de resultado) -> detalle con imprimir
-    assert r["fal_pedido"] == ["/report/failures"]
-    assert r["fal_vista"] == [True, False, False, False]          # una sola página: sin paginación
-    assert r["fal_titulo"] == "Ciclos con el fallo FALLO_SECADO: 1"
-    assert "Operador" in r["fal_textos"] and "Ana Pérez" in r["fal_textos"] and "90" in r["fal_textos"]
-    assert r["fal_ciclo"] == ["CICLO 90", False, True]
-    assert r["fal_grafica"] == ["/cycle/history/90/graph"]
-    assert r["fal_impreso"] == ["/cycle/history/print", {"ids": [90]}]
-    assert r["fal_volvio"] == [True, "REPORTES"]
-    assert r["fal_resumen"] == [False, True, ""]
-
-
-def test_reportes_consolidado(r):
-    # el consolidado se ve en su pestaña; el resumen y la impresión se ocultan
-    assert r["con_visible"] == [True, False, False]
-    assert r["con_cuenta"] == "4" and r["con_rotulo"] == "Septiembre 2026"   # periodo común
-    assert len(r["con_correos"]) == len(r["rep_correos"]) + 1 and r["con_correos"][-1] == "mant@x.com"
-    assert "consolidado" in r["con_aviso"] and "mant@x.com" in r["con_aviso"]
-
-
-def test_filtros_conservan_la_fecha_vista(r):
-    assert r["con_dia"] == ["Martes 1 sep 2026", "2026-09-01"]
+def test_reportes_la_tarjeta_navega_a_la_pantalla(r):
+    # REP-01: sin ventana flotante; la tarjeta emite la señal con la que Main.qml navega
+    assert r["reportes"] == {"senal": 1, "sin_ventana": True, "ventanas": []}

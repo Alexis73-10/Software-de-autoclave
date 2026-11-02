@@ -827,7 +827,22 @@
     "consolidado_grande_texto": "El consolidado incluye {n} ciclos y pesará unos {mb} MB. Puede tardar en generarse y enviarse. ¿Desea continuar?",
     "boton_inicio": "Inicio",
     "boton_salir": "Salir",
-    "lista_alarmas_titulo": "Alarmas del periodo"
+    "lista_alarmas_titulo": "Alarmas del periodo",
+    "cal_titulo": "Calendario de ejecución",
+    "cal_ver_anio": "Ver año",
+    "cal_cargando": "Cargando ciclos del día…",
+    "cal_sin_intentos": "Sin ciclos de este programa ese día.",
+    "graf_total": "Ciclos",
+    "graf_fallos": "Con fallo",
+    "graf_vacia": "Sin ciclos en el periodo",
+    "prog_vacia": "Sin programas con ciclos en el periodo",
+    "mant_correctivos": "Correctivos en el periodo",
+    "mant_repuestos": "Repuestos anotados en el periodo",
+    "mant_proximo_rotulo": "Próximo preventivo",
+    "alarmas_total": "Total de alarmas",
+    "causa_ciclos": "ciclos",
+    "accion_ocupada": "Trabajando…",
+    "pantalla_cargando": "Cargando reportes…"
   },
   "sistema": {
     "sin_conexion": "Sin conexión con el módulo E/S. Los valores mostrados no están actualizados.",

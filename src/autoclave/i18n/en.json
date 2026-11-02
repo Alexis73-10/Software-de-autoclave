@@ -827,7 +827,22 @@
     "consolidado_grande_texto": "The consolidated report includes {n} cycles and will be about {mb} MB. It may take a while to generate and send. Continue?",
     "boton_inicio": "Home",
     "boton_salir": "Exit",
-    "lista_alarmas_titulo": "Alarms of the period"
+    "lista_alarmas_titulo": "Alarms of the period",
+    "cal_titulo": "Execution calendar",
+    "cal_ver_anio": "View year",
+    "cal_cargando": "Loading the day's cycles…",
+    "cal_sin_intentos": "No cycles of this program that day.",
+    "graf_total": "Cycles",
+    "graf_fallos": "With failure",
+    "graf_vacia": "No cycles in the period",
+    "prog_vacia": "No programs with cycles in the period",
+    "mant_correctivos": "Corrective in the period",
+    "mant_repuestos": "Spare parts noted in the period",
+    "mant_proximo_rotulo": "Next preventive",
+    "alarmas_total": "Total alarms",
+    "causa_ciclos": "cycles",
+    "accion_ocupada": "Working…",
+    "pantalla_cargando": "Loading reports…"
   },
   "sistema": {
     "sin_conexion": "No connection with the controller. The values shown are not up to date.",

@@ -57,6 +57,8 @@ _ORDEN_CONTEO = ("exito", "exito_fallo_previo", "sin_exito", "falto", "no_ejecut
 _NIVELES = ("FALLO_CRITICO", "ALARMA", "AVISO", "INFORMATIVO")     # de mayor a menor
 _COLOR_NIVEL = {"FALLO_CRITICO": "alarmaAlta", "ALARMA": "alarmaMedia",
                 "AVISO": "alarmaBaja", "INFORMATIVO": "alarmaBaja"}
+_NIVEL_DETALLE = {"FALLO_CRITICO": "EMERGENCIA", "ALARMA": "FALLA", "AVISO": "ALERTA", "INFORMATIVO": "ALERTA"}
+_PRIORIDAD_DETALLE = {"FALLO_CRITICO": "alta", "ALARMA": "media", "AVISO": "baja", "INFORMATIVO": "baja"}
 _CLAVE_NIVEL = {"FALLO_CRITICO": "reportes.nivel_fallo_critico", "ALARMA": "reportes.nivel_alarma",
                 "AVISO": "reportes.nivel_aviso", "INFORMATIVO": "reportes.nivel_informativo"}
 
@@ -398,9 +400,17 @@ def alarmas(respuesta_dashboard, idioma, t=_t_defecto, maximo=MAX_ALARMAS) -> di
         codigo = _texto(a.get("codigo"))
         titulo = _textos_alarma(codigo, {}, idioma, _texto(a.get("titulo"))).get("titulo") or _texto(a.get("titulo"))
         nivel = a.get("nivel") if a.get("nivel") in _NIVELES else "FALLO_CRITICO"   # ante la duda, lo más llamativo
-        return {"codigo": codigo, "codigo_visible": _texto(a.get("codigo_visible")) or codigo_visible(codigo) or codigo,
+        visible = _texto(a.get("codigo_visible")) or codigo_visible(codigo) or codigo
+        textos = _textos_alarma(codigo, {}, idioma, _texto(a.get("titulo")))
+        return {"codigo": codigo, "codigo_visible": visible,
                 "titulo": titulo or codigo, "nivel": nivel, "nivel_rotulo": t(_CLAVE_NIVEL[nivel], idioma),
-                "color": _COLOR_NIVEL[nivel], "cantidad": _entero(a.get("cantidad"))}
+                "color": _COLOR_NIVEL[nivel], "cantidad": _entero(a.get("cantidad")),
+                # fila para VentanaDetalleAlarma (misma forma que AlarmListModel.detalle)
+                "detalle": {"id": codigo, "codigo": codigo, "codigoVisible": visible,
+                            "titulo": titulo or codigo, "level": _NIVEL_DETALLE[nivel],
+                            "priority": _PRIORIDAD_DETALLE[nivel],
+                            "description": _texto(textos.get("descripcion")),
+                            "accion": _texto(textos.get("accion"))}}
 
     todas = [fila(a) for a in ordenadas]
     niveles = []
