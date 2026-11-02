@@ -11,7 +11,7 @@ Rama `modo-oscuro` (desde `dev` c43b9d0b). Prompt: `docs/mis_plans/prompt_claude
 | 5 | Selector en Opciones (i18n Tema/Claro/Oscuro) | Hecho |
 | 6 | Pruebas automáticas (`test_tema_oscuro.py`, existentes, suite) | Parcial: `test_tema_oscuro.py` en verde; suite completa pendiente (al final) |
 | 7 | Capturas en ambos temas | Pendiente |
-| 8 | Riesgos, trazabilidad, CLAUDE.md, `R_informe.md` | Pendiente |
+| 8 | Riesgos, trazabilidad, CLAUDE.md, `R_informe.md` | Hecho (HAZ-OSC-01, REQ-OSC-01, sección en CLAUDE.md, `R_informe.md` borrador con «Capturas» PENDIENTE) |
 | 9 | Revisión, merge a `dev` sin push, `CERRADO.txt` | Pendiente |
 
 Commits del conjunto A: 658538d2 (persistencia y /theme), e2edffd0 (Colores y Apariencia), 017cf808 (selector), 937c15a6 (fondos y chrome) y el de las pruebas (ver `git log -1`).
