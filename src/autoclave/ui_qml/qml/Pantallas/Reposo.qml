@@ -1,6 +1,7 @@
 import QtQuick
 import Tema
 import Autoclave.I18n
+import "../Componentes"
 
 // Pantalla 06 · Reposo (antes Arranque.qml, ARR-01). Sin dependencias de backend: solo reloj y logo.
 // Avanza al tocar cualquier punto — es la señal más simple posible; se
@@ -20,10 +21,22 @@ Item {
     // Fondo exportado por el diseñador a 1200x1920 (reemplaza la aproximación
     // lineal de --gradient-splash). Si el archivo falta, queda vacío y se ve
     // el color de la ventana.
+    // Modo oscuro (decisión 4): gradiente radial de la paleta §1 en lugar de la imagen
     Image {
         anchors.fill: parent
+        visible: !Colores.fondoGradiente
         source: "../../assets/fondos/fondo-arranque.png"
         fillMode: Image.PreserveAspectCrop
+    }
+    FondoGradiente {
+        anchors.fill: parent
+        visible: Colores.fondoGradiente
+        centroX: 0.50; centroY: 0.42
+        radioX: 0.70; radioY: 0.45
+        color0: Colores.fondoCieloNucleo       // #1B3352 en oscuro
+        color1: Colores.fondoAzulMedio         // #0F1B2A al 55 %
+        posicion1: 0.55
+        color2: Colores.fondoReposoBorde       // #070B10
     }
 
     readonly property var _meses: I18n.valor("fecha.meses", I18n.lang) || []
@@ -52,7 +65,7 @@ Item {
                   raiz._dosDigitos(raiz._ahora.getMinutes())
             color: "transparent"
             style: Text.Outline
-            styleColor: "white"
+            styleColor: Colores.textoSobreAccion
             font.family: Tipografia.familiaReloj
             font.pixelSize: Escala.fuente(Tipografia.relojDisplayTam)
             font.weight: Tipografia.pesoLight
@@ -78,7 +91,7 @@ Item {
             text: raiz.aviso
             wrapMode: Text.WordWrap
             horizontalAlignment: Text.AlignHCenter
-            color: "white"
+            color: Colores.textoSobreAccion
             font.family: Tipografia.familia
             font.pixelSize: Escala.fuente(Tipografia.campoValorTam)
             font.weight: Tipografia.pesoMedium

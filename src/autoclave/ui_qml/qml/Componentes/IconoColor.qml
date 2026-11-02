@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Effects
+import Tema
 
 // Icono SVG pintado de un color exacto: el SVG se usa como máscara (alfa) de un
 // rectángulo del color pedido. colorization de MultiEffect da un tono aproximado
@@ -9,7 +10,7 @@ import QtQuick.Effects
 Item {
     id: raiz
     property url source
-    property color color: "black"
+    property color color: Colores.textoNegro   // negro en claro, como antes
 
     Image {
         id: forma

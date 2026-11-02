@@ -24,12 +24,12 @@ Item {
                 radius: Escala.px(12)
                 color: "transparent"
 
-                Image {
+                // íconos mono (#031225 = textoPrimario en claro): tinte del tema
+                IconoColor {
                     anchors.centerIn: parent
                     width: Escala.px(48); height: Escala.px(48)
                     source: raiz.carpetaIconos + modelData.icono + ".svg"
-                    sourceSize.width: width
-                    sourceSize.height: height
+                    color: Colores.textoPrimario
                 }
 
                 MouseArea {

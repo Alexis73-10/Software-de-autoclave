@@ -75,7 +75,7 @@ Item {
             y: raiz.m(108) - baselineOffset
             text: reloj._dosDigitos(reloj._ahora.getHours()) + ":" +
                   reloj._dosDigitos(reloj._ahora.getMinutes())
-            color: "white"
+            color: Colores.textoSobreAccion
             font.family: Tipografia.familiaReloj
             font.weight: Tipografia.pesoBold
             font.pixelSize: raiz.fuente(97)
@@ -87,7 +87,7 @@ Item {
             text: reloj._ahora.getDate() + " " +
                   (reloj._meses[reloj._ahora.getMonth()] ?? "") + "  -  " +
                   reloj._ahora.getFullYear()
-            color: "white"
+            color: Colores.textoSobreAccion
             font.family: Tipografia.familiaReloj
             font.pixelSize: raiz.fuente(26)
         }
@@ -105,7 +105,7 @@ Item {
         urgente: raiz.urgente
         enCurso: raiz.enCurso
         parpadeo: raiz.parpadeo
-        colorNormal: "#08C9F9"   // insignia medida en el mockup de ciclo (PantallaPreciclo.qml, paleta.insignia)
+        colorNormal: Colores.insignia   // insignia medida en el mockup de ciclo (OSC-08)
         tamFuente: raiz.fuente(17)
     }
     // Engranaje de OPCIONES: abre el Menú Principal. Misma caja que el de PantallaPreciclo.qml.

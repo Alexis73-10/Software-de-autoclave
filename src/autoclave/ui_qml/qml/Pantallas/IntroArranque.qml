@@ -153,8 +153,20 @@ Item {
         anchors.fill: parent
         Image {
             anchors.fill: parent
+            visible: !Colores.fondoGradiente
             source: "../../assets/fondos/fondo-arranque.png"
             fillMode: Image.PreserveAspectCrop
+        }
+        // Modo oscuro: el mismo gradiente que Reposo, para que el relevo no salte
+        FondoGradiente {
+            anchors.fill: parent
+            visible: Colores.fondoGradiente
+            centroX: 0.50; centroY: 0.42
+            radioX: 0.70; radioY: 0.45
+            color0: Colores.fondoCieloNucleo       // #1B3352 en oscuro
+            color1: Colores.fondoAzulMedio         // #0F1B2A al 55 %
+            posicion1: 0.55
+            color2: Colores.fondoReposoBorde       // #070B10
         }
     }
 
@@ -223,7 +235,7 @@ Item {
         radius: height / 2
         x: (raiz.width - width) / 2
         y: centroY - height / 2
-        color: "white"
+        color: Colores.textoSobreAccion
         opacity: raiz.lerp(0.95, 0.25, raiz.pRiel) * raiz.visibleSalida
         visible: width > 0
     }
@@ -238,7 +250,7 @@ Item {
         width: 0.72 * raiz.width * raiz.fraccionMostrada
         height: raiz.altoBarra
         radius: height / 2
-        color: "white"
+        color: Colores.textoSobreAccion
         opacity: 0.90 * raiz.visibleSalida
         visible: raiz.introCompleta && width > 0
     }
@@ -253,7 +265,7 @@ Item {
             anchors.horizontalCenter: parent.horizontalCenter
             y: raiz.height * modelData.y - height / 2 + Escala.px(10) * (1 - p)
             text: modelData.texto
-            color: "white"
+            color: Colores.textoSobreAccion
             opacity: 0.95 * p * raiz.visibleSalida
             visible: opacity > 0
             font.family: Tipografia.familia
@@ -268,7 +280,7 @@ Item {
         y: raiz.yBarra + raiz.altoBarra / 2 + Escala.px(34)
         text: I18n.existe("arranque." + raiz.procesoFuente, I18n.lang)
               ? I18n.t("arranque." + raiz.procesoFuente, I18n.lang) : ""
-        color: "white"
+        color: Colores.textoSobreAccion
         opacity: 0.90 * raiz.pTextos * raiz.visibleSalida
         visible: opacity > 0
         font.family: Tipografia.familia

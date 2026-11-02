@@ -50,14 +50,14 @@ Item {
         anchors.fill: parent
         radius: raiz.m(26)
         color: Colores.fondoTarjeta
-        border.width: raiz.m(2); border.color: "#F5F5F5"   // bordeSuave de PantallaPreciclo.qml
+        border.width: raiz.m(2); border.color: Colores.bordeSuave
     }
 
     component Divisor: Rectangle {
         property real cx: 0
         x: raiz.mx(cx) - raiz.m(1); y: raiz.m(19)
         width: raiz.m(2); height: raiz.m(106)
-        color: "#BEBEBE"   // divisorPie de PantallaPreciclo.qml
+        color: Colores.divisorPie
     }
     Divisor { cx: 313 }
     Divisor { cx: 800 }
@@ -69,12 +69,11 @@ Item {
         enabled: raiz.atrasHabilitado
         opacity: enabled ? 1.0 : 0.4   // PROVISIONAL, misma convención que PantallaPreciclo.qml
         // back_icon.svg centrada en la celda, 80 de alto
-        Image {
+        IconoColor {
             anchors.centerIn: parent
             width: raiz.m(70); height: width
             source: raiz._iconos + "back_icon.svg"
-            sourceSize.width: width
-            sourceSize.height: height
+            color: Colores.iconoBarraMenu   // trazo #231F20 del SVG en claro
         }
         MouseArea { anchors.fill: parent; onClicked: raiz.atrasPulsado() }
     }
@@ -85,12 +84,11 @@ Item {
         x: raiz.mx(800); y: 0; width: raiz.mx(1128 - 800); height: parent.height
         enabled: raiz.inicioActivo
         // home_icon.svg (viewBox 1100 x 1080, tinta casi a sangre) centrado en la celda
-        Image {
+        IconoColor {
             anchors.centerIn: parent
             width: raiz.m(70); height: width
             source: raiz._iconos + "home_icon.svg"
-            sourceSize.width: width
-            sourceSize.height: height
+            color: Colores.iconoBarraMenu   // trazo #231F20 del SVG en claro
         }
         MouseArea { anchors.fill: parent; onClicked: raiz.inicioPulsado() }
     }
@@ -100,12 +98,11 @@ Item {
         objectName: "botonCerrarSesion"
         visible: raiz.cerrarSesionVisible && !raiz.personalizada
         x: raiz.mx(313); y: 0; width: raiz.mx(800 - 313); height: parent.height
-        Image {
+        IconoColor {
             anchors.centerIn: parent
             width: raiz.m(70); height: width
             source: raiz._iconos + "logout_icon.svg"
-            sourceSize.width: width
-            sourceSize.height: height
+            color: Colores.textoNegro   // trazo #000 del SVG en claro
         }
         MouseArea { anchors.fill: parent; onClicked: raiz.cerrarSesionPulsado() }
     }
