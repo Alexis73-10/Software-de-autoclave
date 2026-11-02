@@ -153,6 +153,10 @@
     "nombre": "e-specifika"
   },
   "opciones": {
+    "cambio_revertido": "No se aplicó el cambio: {motivo}",
+    "cambio_sin_confirmar": "No se pudo confirmar el cambio; vuelva a cargar para ver el estado real.",
+    "guardando": "Guardando…",
+    "cargando": "Cargando…",
     "err_rol_sonda_no_activa": "No se puede guardar: hay un rol asignado a una sonda que no está activa en el perfil de instalación.",
     "err_coherencia_recuperacion": "No se puede guardar: con esta temperatura y brecha segura, el techo de presión de esterilización no permite salir de RECUPERACIÓN. La presión adicional de esterilización debe ser al menos {valor} kPa.",
     "equipo_err_empaque": "La presión de empaque debe quedar al menos 20 kPa sobre la atmosférica y el vacío de empaque al menos 10 kPa por debajo.",

@@ -153,6 +153,10 @@
     "nombre": "e-specifika"
   },
   "opciones": {
+    "cambio_revertido": "The change was not applied: {motivo}",
+    "cambio_sin_confirmar": "The change could not be confirmed; reload to see the actual state.",
+    "guardando": "Saving…",
+    "cargando": "Loading…",
     "err_rol_sonda_no_activa": "Cannot save: a role is assigned to a probe that is not active in the installation profile.",
     "err_coherencia_recuperacion": "Cannot save: with this temperature and safe gap, the sterilization pressure ceiling does not allow leaving RECOVERY. The additional sterilization pressure must be at least {valor} kPa.",
     "equipo_err_empaque": "Gasket pressure must stay at least 20 kPa above atmospheric and gasket vacuum at least 10 kPa below.",

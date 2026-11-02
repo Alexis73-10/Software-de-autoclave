@@ -52,25 +52,27 @@ Item {
         return I18n.existe(k, I18n.lang) ? I18n.t(k, I18n.lang) : r
     }
 
-    // contraseña temporal: dos pasos con el teclado (oculto)
+    // AJUSTES 2026-11-02 (paso 2, fase 1): envíos sin bloquear la pantalla.
+    // `pendientes` (clave -> "enviando"/"verificando"): mientras una acción
+    // está pendiente se muestra «Guardando…» y esa acción queda bloqueada.
+    function pendiente(clave) { return control.pendientes[clave] !== undefined }
+
+    // contraseña temporal: dos pasos con el teclado (oculto), en modo acción
+    // (TEC-ACC: el callback abre otro teclado y luego el diálogo)
     property string _claveTemporal: ""
     function pedirClave() {
         if (!raiz.teclado) return
-        raiz.teclado.abrirAlfanumerico(I18n.t("gestion_usuarios.clave_temporal", I18n.lang), "", 64, true,
-            (t) => raiz._claveTemporal = t,
-            () => raiz.teclado.abrirAlfanumerico(I18n.t("gestion_usuarios.clave_confirmar", I18n.lang),
-                                                 "", 64, true, (t) => raiz._confirmacion = t))
+        raiz.teclado.abrirAlfanumericoAccion(I18n.t("gestion_usuarios.clave_temporal", I18n.lang), "", 64, true,
+            (t) => {
+                raiz._claveTemporal = t
+                raiz.teclado.abrirAlfanumericoAccion(I18n.t("gestion_usuarios.clave_confirmar", I18n.lang),
+                                                     "", 64, true, (c) => {
+                    raiz._confirmacion = c
+                    confirmarClave.abrir()
+                })
+            })
     }
     property string _confirmacion: ""
-    Connections {
-        target: raiz.teclado
-        enabled: raiz.pestana === "usuarios"
-        function onTerminado() {
-            if (raiz._claveTemporal !== "" && raiz._confirmacion !== "") {
-                confirmarClave.abrir()
-            }
-        }
-    }
 
     component Boton: Rectangle {
         id: boton
@@ -177,12 +179,28 @@ Item {
                 anchors.fill: parent; anchors.margins: Escala.px(16)
                 verticalAlignment: Text.AlignVCenter
                 wrapMode: Text.WordWrap
-                text: control.mensaje !== "" ? I18n.t(control.mensaje, I18n.lang) : ""
+                fontSizeMode: Text.Fit; minimumPixelSize: Escala.fuenteMinima
+                // un cambio revertido lleva su motivo dentro de opciones.cambio_revertido
+                text: control.mensaje === "" ? ""
+                      : control.mensajeRevertido
+                        ? I18n.t("opciones.cambio_revertido", I18n.lang,
+                                 { motivo: I18n.t(control.mensaje, I18n.lang) })
+                        : I18n.t(control.mensaje, I18n.lang)
                 color: Colores.peligroTexto
                 font.family: Tipografia.familia
                 font.pixelSize: Escala.fuente(22)
             }
             MouseArea { anchors.fill: parent; onClicked: control.limpiarMensaje() }
+        }
+
+        Text {
+            objectName: "cargandoUsuarios"
+            visible: control.cargando
+            width: parent.width
+            text: I18n.t("opciones.cargando", I18n.lang)
+            color: Colores.textoGuia
+            font.family: Tipografia.familia
+            font.pixelSize: Escala.fuente(20)
         }
 
         Text {
@@ -284,6 +302,16 @@ Item {
                 font.family: Tipografia.familia
                 font.pixelSize: Escala.fuente(21)
             }
+            // cambio de activo en curso (se muestra ya el valor nuevo)
+            Text {
+                objectName: "guardandoActivoUsuario"
+                visible: raiz.seleccionado !== "" && raiz.pendiente("usuario:" + raiz.seleccionado)
+                width: parent.width
+                text: I18n.t("opciones.guardando", I18n.lang)
+                color: Colores.textoGuia
+                font.family: Tipografia.familia
+                font.pixelSize: Escala.fuente(21)
+            }
             Row {
                 width: parent.width
                 spacing: Escala.px(12)
@@ -291,9 +319,11 @@ Item {
                     objectName: "botonRestablecerClave"
                     width: (parent.width - Escala.px(12)) / 2
                     secundario: true
-                    texto: I18n.t("gestion_usuarios.restablecer", I18n.lang)
+                    texto: raiz.pendiente("clave:" + raiz.seleccionado)
+                           ? I18n.t("opciones.guardando", I18n.lang)
+                           : I18n.t("gestion_usuarios.restablecer", I18n.lang)
                     habilitado: raiz.filaSeleccionada !== null && raiz.motivoSeleccionado === ""
-                                && raiz.teclado !== null
+                                && raiz.teclado !== null && !raiz.pendiente("clave:" + raiz.seleccionado)
                     onPulsado: { raiz._claveTemporal = ""; raiz._confirmacion = ""; raiz.pedirClave() }
                 }
                 Boton {
@@ -391,21 +421,12 @@ Item {
             objectName: "botonAgregarOperador"
             anchors.bottom: parent.bottom
             width: parent.width
-            texto: I18n.t("gestion_usuarios.agregar_operador", I18n.lang)
-            habilitado: control.motivo === "" && raiz.teclado !== null
-            onPulsado: raiz.teclado.abrirAlfanumerico(I18n.t("gestion_usuarios.nombre_operador", I18n.lang),
-                                                      "", 40, false, (t) => raiz._nombreOperador = t)
-        }
-    }
-    property string _nombreOperador: ""
-    Connections {
-        target: raiz.teclado
-        enabled: raiz.pestana === "operadores"
-        function onTerminado() {
-            if (raiz._nombreOperador.trim() !== "") {
-                control.agregarOperador(raiz._nombreOperador)
-                raiz._nombreOperador = ""
-            }
+            texto: raiz.pendiente("nuevo_operador") ? I18n.t("opciones.guardando", I18n.lang)
+                                                     : I18n.t("gestion_usuarios.agregar_operador", I18n.lang)
+            habilitado: control.motivo === "" && raiz.teclado !== null && !raiz.pendiente("nuevo_operador")
+            // modo acción: una sola entrega al Confirmar (TEC-ACC)
+            onPulsado: raiz.teclado.abrirAlfanumericoAccion(I18n.t("gestion_usuarios.nombre_operador", I18n.lang),
+                                                            "", 40, false, (t) => control.agregarOperador(t))
         }
     }
 

@@ -61,3 +61,26 @@
   - `SesionVentana._llamar_con_plazo`: «Espera lenta en la GUI» solo en el hilo principal.
   - Escrituras (salidas, modo prueba, calibración): sin cambios, síncronas y confirmadas por el backend.
 - **Archivos:** `src/autoclave/cliente/ui_service_backend.py`, `src/autoclave/ui_qml/controllers/entradas_salidas_controller.py`, `src/autoclave/ui_qml/controllers/calibracion_atm_controller.py`, `src/autoclave/ui_qml/sesion_backend.py`; pruebas `tests/test_es_controlador.py`, `tests/test_calibracion_atm_controller_sondeo.py` y el doble de `tests/banco/opciones_qml_banco.py` (`_peticion`; `esperar()` en tramos de 10 ms porque `QTest.qWait` no suelta el GIL y la respuesta del hilo llegaba tarde: `test_o2f_calibracion_atm_qml` fallaba de forma intermitente).
+
+## 2026-11-02 · Paso 2, fase 1: envíos asíncronos y cambio optimista (piloto Usuarios)
+
+- **Se pidió:** que la UI no se congele por HTTP síncrono en el hilo de la GUI y que ciertos cambios de configuración se vean al instante y se reviertan si el backend falla. Fase 1 del paso 2, piloto en OPCIONES › Usuarios.
+- **Decidió:** el usuario aprobó el diseño; encargo del director. Decisiones adoptadas: plazo asíncrono 5 s (`PLAZO_S`); los textos de reversión van arriba (banda de error de la pantalla); bloquear «Atrás» con cambios pendientes no aplica aún.
+- **Cambio:**
+  - `SesionVentana.enviar_async(...)` con `_DespachadorEnvios`: el hilo de trabajo solo hace la petición y deja el resultado en una `SimpleQueue`; un QTimer de 20 ms la vacía en la GUI, vigila el plazo (reloj monotónico) y entrega: trato de 401 / 429 (`tratar_rechazo_sesion`), dueño vivo (`weakref` + `shiboken6.isValid`) y `al_terminar`. Plazo vencido → `backend_no_responde`; la respuesta tardía va a `al_tardio` o al log. Hasta 8 peticiones en vuelo (la novena se rechaza con `error_generico` y log). `cerrar_local()` sube `_gen_sesion`: lo lanzado antes entrega `sesion_invalida` sin volver a cerrar. `cancelar_envios(dueno)`. Sin conexión, sin token o tope: entrega diferida (nunca dentro de la llamada). `enviar` síncrono sin cambios. Funciones de módulo `enviar_async(sesion, ...)` (con dobles de solo `enviar`, resultado en el acto) y `cancelar_envios(sesion, dueno)`.
+  - Nuevo `ui_qml/cambio_optimista.py` (`CambioOptimista`, Python puro).
+  - `UsuariosController`: activo/desactivado de usuarios y operadores optimista con reversión; restablecer contraseña y agregar operador asíncronos con «Guardando…» y la acción bloqueada mientras está pendiente; carga asíncrona con `cargando`. Interfaz aditiva: `pendientes`, `cargando`, `cambioResuelto(clave, ok, mensaje)`, `mensajeRevertido`. Cancela sus envíos al destruirse.
+  - `OpcionesUsuarios.qml`: teclados de contraseña temporal y de operador en modo acción (`abrirAlfanumericoAccion`); se quitan los dos `Connections` a `terminado`.
+  - i18n es/en: `opciones.cambio_revertido`, `opciones.cambio_sin_confirmar`, `opciones.guardando`, `opciones.cargando`.
+- **Archivos:** `src/autoclave/ui_qml/sesion_backend.py`, `src/autoclave/ui_qml/cambio_optimista.py`, `src/autoclave/ui_qml/controllers/usuarios_controller.py`, `src/autoclave/ui_qml/qml/Pantallas/OpcionesUsuarios.qml`, `src/autoclave/i18n/es.json`, `src/autoclave/i18n/en.json`; pruebas `tests/test_envio_async_sesion.py` y `tests/test_cambio_optimista.py` (nuevas).
+
+## 2026-11-02 · Corrección tras revisión de la fase 1 (M1, M2, M3, B1)
+
+- **Qué falló (revisión):** (M1, MEDIA) un PUT de activo que tardaba más del plazo pasaba a «verificando»; si el GET de relectura llegaba antes de que el backend aplicara el PUT, leía el valor viejo y el cambio se revertía mostrando desactivado a un usuario que sí quedó activo; la respuesta tardía solo iba al log. (M2, MEDIA) `_entregar`/`_tardio` convertían en `sesion_invalida` cualquier respuesta de una generación anterior de sesión, incluso un 200, y el cambio optimista revertía contra el estado real. (M3, MEDIA) el texto `opciones.cambio_sin_confirmar` decía que se mostraba el valor guardado en el equipo, y al revertir por SIN_CONFIRMAR no se había leído el equipo. (B1, BAJA) los 409 `ultimo_ingeniero`, `autodesactivacion`, `cuenta_sistema` y `operador_existe` caían en `error_generico` por no ser códigos conocidos.
+- **Decidió:** encargo del director.
+- **Cambio:**
+  - M1: `UsuariosController._enviar` acepta `al_tardio` y `sesion_backend.enviar_async` (función de módulo) lo reenvía; `_lanzar_activo` pasa un `al_tardio` que llama a `cargar()` (la marca de `CambioOptimista` protege lo aún pendiente).
+  - M2: con generación de sesión distinta, un resultado `ok` se entrega tal cual (sin `tratar_rechazo_sesion`) y solo los no-ok pasan a `sesion_invalida`; igual en la respuesta tardía.
+  - M3: texto es «No se pudo confirmar el cambio; vuelva a cargar para ver el estado real.» y su equivalente en inglés; además `_al_revertir` por SIN_CONFIRMAR lanza `cargar()`.
+  - B1: `_CODIGOS_USUARIOS` en `sesion_backend`, reconocidos solo en `/usuarios` y `/operadores` (como `_CODIGOS_REASIGNACION`, RSB-04); los textos ya estaban en `_MENSAJES` del controlador.
+- **Archivos:** `src/autoclave/ui_qml/sesion_backend.py`, `src/autoclave/ui_qml/controllers/usuarios_controller.py`, `src/autoclave/i18n/es.json`, `src/autoclave/i18n/en.json`; pruebas en `tests/test_envio_async_sesion.py`.
