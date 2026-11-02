@@ -1999,7 +1999,8 @@
        "enum": [
         "dia",
         "semana",
-        "mes"
+        "mes",
+        "anio"
        ],
        "title": "Periodo",
        "type": "string"

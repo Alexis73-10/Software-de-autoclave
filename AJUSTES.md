@@ -30,3 +30,11 @@
 - **Rotulado del PDF en automatización:** Cristian delegó la redacción al director («cambialo a tu criterio»); queda «Automatizado por Especifika S.A.S.», pendiente de confirmación regulatoria.
 - **Fallo de `test_v8b_textos`:** `elide` en 3 QML contradecía la regla D8-5.4; el director los cambió por `HorizontalFit`/`Escala.fuenteMinima`.
 - **Cuelgue atribuido a la migración v12:** descartado (la prueba pasa sola; fue contención al correr en paralelo).
+
+## 2026-11-02 · Dashboard de Reportes, etapa H (revisión de seguridad)
+
+- **Ajuste H-1 (MEDIA):** un ciclo ya cerrado (con `resultado`) que espera CONFIRMAR se tomaba como «activo»; el día salía «En curso» o «Sin operación» y ocultaba el fallo. Plan: REP-07 (activo = sin resultado Y ciclo activo del equipo). Decidió: revisor H / director. Cambio: `_ciclo_activo` devuelve el id solo si la fila no tiene resultado (`backend/rutas/reportes.py`); el ciclo cerrado cuenta como intento real y entra en N(D).
+- **Ajuste H-2 (MEDIA):** con total 0 la tarjeta Éxito decía «0%» / «0 de 0» y una comparación «−100 pp» en rojo. Plan: REP-03. Decidió: revisor H / director. Cambio: con total 0 (actual o anterior) valor «—» y sin comparación; la minigráfica omite los días sin ciclos (`ui_qml/domain/reporte_dashboard.py`).
+- **Ajuste H-3 (MEDIA):** «Enviar consolidado» en Año daba 422 (`/cycle/list` no aceptaba `anio`) y el umbral de confirmación (300) superaba el máximo del envío (200). Plan: REP-12. Decidió: revisor H / director. Cambio: `/cycle/list` acepta `anio` (`backend/rutas/historial.py`); en `Pantallas/Reportes.qml` el umbral de confirmación pasa a 100 y por encima de `maxConsolidado` (200 = `MAX_CICLOS_CONSOLIDADO`) se muestra el aviso «demasiados ciclos» sin pedir confirmación. DECISIÓN SIN CONFIRMAR (100 y 200 por medir en el banco).
+- **Ajuste H-4 (BAJA):** `fecha` sin tope (9999-12-31 / 0001-01-01) daba 500. Plan: §8 validación. Decidió: revisor H / director. Cambio: `fecha` acotada a 2000-01-01..2100-12-31 con 422 en `/report/dashboard|calendar|day-cycles|summary|failures`, `POST /report/summary/print` y `/cycle/list` (`utils/periodos.py` FECHA_MINIMA/FECHA_MAXIMA, `rutas/reportes.py`, `rutas/historial.py`).
+- Pruebas: `tests/test_rep_correcciones_revision.py`.

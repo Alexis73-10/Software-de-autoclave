@@ -263,8 +263,10 @@ def _eje_x(periodo, filas, idioma) -> list:
 
 def _normalizar(valores: list) -> list:
     n = len(valores)
-    mx = max(valores or [0])
-    return [{"x": _x(i, n), "y": (v / mx if mx > 0 else 0.0)} for i, v in enumerate(valores)]
+    mx = max([v for v in valores if v is not None] or [0])
+    # None = día sin dato (no se dibuja como 0): se omite el punto, conservando su x
+    return [{"x": _x(i, n), "y": (v / mx if mx > 0 else 0.0)}
+            for i, v in enumerate(valores) if v is not None]
 
 
 def _comparacion(delta, bueno_si, unidad, t, idioma):
@@ -303,13 +305,15 @@ def indicadores(respuesta_dashboard, idioma, t=_t_defecto) -> list:
     excl = _entero(ind.get("duraciones_excluidas"))
 
     d_total = None if ant is None else total - _entero(ant.get("total"))
-    d_exito = None if ant is None else exito - _entero(ant.get("exito_pct"))
+    # sin ciclos en alguno de los dos periodos el porcentaje no existe: sin comparación
+    sin_exito = total == 0 or ant is None or _entero(ant.get("total")) == 0
+    d_exito = None if sin_exito else exito - _entero(ant.get("exito_pct"))
     d_fallos = None if ant is None else fallos - _entero(ant.get("fallos"))
     a_dur = _num(ant.get("duracion_media_s")) if ant is not None else None
     d_dur = None if (ant is None or dur is None or a_dur is None) else minutos - round(a_dur / 60)
 
     totales = [_entero(p.get("total")) for p in serie_filas]
-    exitos = [(_entero(p.get("completados")) / _entero(p.get("total")) if _entero(p.get("total")) else 0.0)
+    exitos = [(_entero(p.get("completados")) / _entero(p.get("total")) if _entero(p.get("total")) else None)
               for p in serie_filas]
     acum, s = [], 0
     for p in serie_filas:
@@ -328,9 +332,10 @@ def indicadores(respuesta_dashboard, idioma, t=_t_defecto) -> list:
 
     return [
         tarjeta("ciclos", str(total), "", _comparacion(d_total, None, "", t, idioma), _normalizar(totales)),
-        tarjeta("exito", f"{exito}%", t("reportes.ind_exito_pie", idioma, n=comp, total=total),
+        tarjeta("exito", f"{exito}%" if total else SIN_DATO,
+                t("reportes.ind_exito_pie", idioma, n=comp, total=total) if total else "",
                 _comparacion(d_exito, "sube", "reportes.unidad_pp", t, idioma),
-                _normalizar([round(100 * e) for e in exitos])),
+                _normalizar([None if e is None else round(100 * e) for e in exitos])),
         tarjeta("fallos", str(fallos),
                 t("reportes.ind_fallos_pie", idioma, cancelados=_entero(ind.get("cancelados")),
                   sin_cierre=_entero(ind.get("sin_cierre"))),

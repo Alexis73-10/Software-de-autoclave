@@ -7,7 +7,7 @@
 import logging
 from datetime import date, datetime, timedelta
 from datetime import time as dt_time
-from typing import Literal
+from typing import Annotated, Literal
 from fastapi import Depends, Header, Query
 from pydantic import BaseModel, Field, StrictBool, StrictInt
 from autoclave.backend.autenticacion import Sesion
@@ -30,6 +30,9 @@ from autoclave.backend.rutas.apagado import (_reinicio_lock, bloquear_para_reini
 logger = logging.getLogger("autoclave.backend.server")
 
 router = APIRouter()
+
+# `fecha` acotada a 2000-01-01..2100-12-31 (422 fuera de rango)
+FechaAcotada = Annotated[date | None, Query(ge=periodos.FECHA_MINIMA, le=periodos.FECHA_MAXIMA)]
 
 
 class _ImpresoraConfigBody(BaseModel):
@@ -281,7 +284,7 @@ def _resumen_periodo(periodo: str, fecha: date | None) -> dict:
 
 
 @router.get("/report/summary")
-def get_report_summary(periodo: Literal["dia", "semana", "mes", "anio"] = "dia", fecha: date | None = None):
+def get_report_summary(periodo: Literal["dia", "semana", "mes", "anio"] = "dia", fecha: FechaAcotada = None):
     """Resumen de los ciclos iniciados en el periodo de calendario que contiene
     `fecha` (por defecto hoy): totales por resultado, por programa y causas de
     fallo (services/domain/reportes/resumen_periodo.py). Solo lectura."""
@@ -291,7 +294,7 @@ def get_report_summary(periodo: Literal["dia", "semana", "mes", "anio"] = "dia",
 @router.get("/report/failures")
 def get_report_failures(causa: str = Query(min_length=1),
                         periodo: Literal["dia", "semana", "mes", "anio"] = "dia",
-                        fecha: date | None = None,
+                        fecha: FechaAcotada = None,
                         pagina: int = Query(1, ge=1),
                         por_pagina: int = Query(20, ge=1, le=100)):
     """D8-5.6: ciclos del periodo (por fecha de inicio, como /report/summary)
@@ -322,7 +325,7 @@ def get_report_failures(causa: str = Query(min_length=1),
 
 class _ImprimirResumenBody(BaseModel):
     periodo: Literal["dia", "semana", "mes", "anio"] = "dia"
-    fecha: date | None = None
+    fecha: date | None = Field(None, ge=periodos.FECHA_MINIMA, le=periodos.FECHA_MAXIMA)
 
 
 @router.post("/report/summary/print")
@@ -360,10 +363,18 @@ def _ciclo_activo() -> int | None:
     """Id en BD del ciclo en curso del equipo (None si no hay o ante un error)."""
     try:
         activo = _ciclo_de_pantalla()
+        if not isinstance(activo, int):
+            return None
+        # Regla del plan (REP-07): activo = sin resultado Y ciclo activo del equipo.
+        # Un ciclo ya cerrado que espera CONFIRMAR sigue en pantalla pero es un
+        # intento real (un fallo no debe quedar oculto como «En curso»).
+        fila = context.db.get_ciclo(activo)
+        if fila is not None and str(fila["resultado"] or "").strip():
+            return None
     except Exception:
         logger.exception("/report: no se pudo leer el ciclo activo")
         return None
-    return activo if isinstance(activo, int) else None
+    return activo
 
 
 def _conteo_resultados(filas) -> list[dict]:
@@ -400,7 +411,7 @@ def _titulo_alarma(codigo: str, guardado):
 
 @router.get("/report/dashboard")
 def get_report_dashboard(periodo: Literal["dia", "semana", "mes", "anio"] = "dia",
-                         fecha: date | None = None):
+                         fecha: FechaAcotada = None):
     """Dashboard de Reportes: indicadores del periodo de calendario que contiene
     `fecha` (por defecto hoy) y del inmediatamente anterior del mismo tipo,
     serie por intervalos, por programa y causas de fallo (forma de
@@ -485,7 +496,7 @@ def _lista_programas(filas_periodo, numeros: dict) -> list[dict]:
 
 @router.get("/report/calendar")
 def get_report_calendar(periodo: Literal["dia", "semana", "mes", "anio"] = "mes",
-                        fecha: date | None = None,
+                        fecha: FechaAcotada = None,
                         programa: int | None = Query(None, ge=1)):
     """Calendario de ejecución por programa (REP-07): con `periodo=anio`, los
     días del año; en los demás, los del mes que contiene `fecha`. El selector de
@@ -522,7 +533,7 @@ def get_report_calendar(periodo: Literal["dia", "semana", "mes", "anio"] = "mes"
 
 
 @router.get("/report/day-cycles")
-def get_report_day_cycles(programa: int = Query(ge=1), fecha: date | None = None):
+def get_report_day_cycles(programa: int = Query(ge=1), fecha: FechaAcotada = None):
     """Ciclos del programa `programa` (número efectivo, DR-H02) iniciados el día
     local `fecha` (por defecto hoy), en orden de inicio, con la forma de
     /cycle/list, y el estado del día en el calendario. Solo lectura."""

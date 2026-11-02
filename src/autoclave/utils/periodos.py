@@ -10,6 +10,10 @@ from datetime import date, timedelta
 
 PERIODOS = ("dia", "semana", "mes")           # Historial y pantalla Reportes actual
 PERIODOS_REPORTES = PERIODOS + ("anio",)      # /report/*: suma el año calendario (DR-H04)
+# Cota del parámetro `fecha` de las rutas (ajuste revisión H, 2026-11-02): fuera de
+# este intervalo el backend responde 422 en vez de desbordar al calcular el periodo.
+FECHA_MINIMA = date(2000, 1, 1)
+FECHA_MAXIMA = date(2100, 12, 31)
 
 
 def rango(periodo: str, fecha: date) -> tuple[date, date]:

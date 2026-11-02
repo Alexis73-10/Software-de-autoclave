@@ -5,14 +5,15 @@
 # en server.py con app.include_router.
 
 from datetime import date, timedelta
-from typing import Literal
-from fastapi import HTTPException
+from typing import Annotated, Literal
+from fastapi import HTTPException, Query
 from pydantic import BaseModel, Field
 from autoclave.core.runtime import progreso_ciclo
 from autoclave.core.runtime import sensores_ciclo as sc
 from autoclave.services.domain.logging.ticket_formatter import format_ticket
 from fastapi import APIRouter
 
+from autoclave.utils import periodos
 from autoclave.backend.dependencias import context
 from autoclave.backend.rutas._comun import (_ciclo_json, _encolar_en_impresora,
     _inicio_del_dia, _no_conforme_json, _rango_del_periodo)
@@ -34,8 +35,9 @@ def get_cycle_summary():
 
 
 @router.get("/cycle/list")
-def get_cycle_list(periodo: Literal["dia", "semana", "mes"] = "dia",
-                   fecha: date | None = None,
+def get_cycle_list(periodo: Literal["dia", "semana", "mes", "anio"] = "dia",
+                   fecha: Annotated[date | None, Query(ge=periodos.FECHA_MINIMA,
+                                                       le=periodos.FECHA_MAXIMA)] = None,
                    terminados: bool = False, limite: int = 500):
     """Ciclos del periodo de calendario que contiene `fecha` (por defecto hoy), más
     recientes primero; solo lectura. Lo usan la ventana de Ciclos hoy (periodo=dia,

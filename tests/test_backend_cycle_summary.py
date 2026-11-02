@@ -255,7 +255,7 @@ def test_endpoint_lista_terminados_y_truncado(cliente, db):
 
 
 def test_endpoint_lista_periodo_invalido(cliente):
-    assert cliente.get("/cycle/list", params={"periodo": "anio"}).status_code == 422
+    assert cliente.get("/cycle/list", params={"periodo": "trimestre"}).status_code == 422
 
 
 def test_endpoint_lista_sin_fecha_es_el_periodo_de_hoy(cliente, db):
@@ -412,3 +412,9 @@ def test_imprimir_resumen_con_la_impresora_desconectada(cliente, estado_maquina)
     r = cliente.post("/report/summary/print", json={"periodo": "mes", "fecha": "2026-09-01"})
     assert r.status_code == 503 and r.json()["detail"] == {"impresora": "desconectada"}
     estado_maquina.realtime_printer.enqueue.assert_not_called()
+
+
+# Trazabilidad (matriz REQ-37..REQ-50, dashboard de Reportes)
+import pytest as _pytest  # noqa: E402
+
+pytestmark = [_pytest.mark.req("REQ-38")]

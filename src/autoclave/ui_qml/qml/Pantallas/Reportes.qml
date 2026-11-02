@@ -45,7 +45,12 @@ Item {
 
     // Umbral de confirmación del consolidado (REP-12) y tamaño estimado por ciclo
     // (DECISIÓN SIN CONFIRMAR: a medir en el banco con el PDF real)
-    property int umbralConsolidado: 300
+    // Ajuste de revisión H (DECISIÓN SIN CONFIRMAR): el umbral de confirmación (100)
+    // queda por debajo del máximo que acepta el envío (200 = MAX_CICLOS_CONSOLIDADO de
+    // acciones_ciclos.py); por encima del máximo no se pide confirmación: se muestra
+    // el aviso «demasiados ciclos» sin enviar.
+    property int umbralConsolidado: 100
+    property int maxConsolidado: 200
     readonly property real mbPorCiclo: 0.1
 
     readonly property var rd: raiz.reporteDashboard
@@ -90,6 +95,12 @@ Item {
     function pedirEnvio(que) {
         mensaje = ""
         envioPendiente = que
+        if (que === "consolidado" && totalCiclos > maxConsolidado) {
+            mensajeExito = false
+            mensaje = I18n.t("exportacion.consolidado_demasiados", I18n.lang)
+                .replace("{n}", String(totalCiclos)).replace("{maximo}", String(maxConsolidado))
+            return
+        }
         if (que === "consolidado" && totalCiclos > umbralConsolidado)
             confirmarConsolidado.abrir()
         else
