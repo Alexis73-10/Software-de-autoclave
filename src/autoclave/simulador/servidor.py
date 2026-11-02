@@ -195,8 +195,17 @@ def crear_app(repeticion, cycle_manager, config: dict, velocidad: float = 10.0,
             fin = min(t1, t) if cerrada else None
             filas.append({"fase": f, "inicio_s": float(t0), "fin_s": fin,
                           "duracion_s": (fin - t0) if cerrada else None})
+        # Como el backend real (estado.exposicion_*): conteo propio de la
+        # esterilización activa, para que su círculo se llene con el tiempo.
+        restante_exp = total_exp = None
+        if progreso_ciclo.fase_ui(fase) == "esterilizacion":
+            for f, t0, t1 in repeticion.tramos:
+                if progreso_ciclo.fase_ui(f) == "esterilizacion" and t0 <= t < t1:
+                    total_exp, restante_exp = float(t1 - t0), float(t1 - t)
+                    break
         return {"activo": True, "ciclo_db_id": est.ciclo_id, "fase_ciclo": fase,
-                **progreso_ciclo.armar_progreso(aplicables, filas, fase, t, _referencias())}
+                **progreso_ciclo.armar_progreso(aplicables, filas, fase, t, _referencias(),
+                                                restante_exp, total_exposicion_s=total_exp)}
 
     @app.get("/cycle/current/graph")
     def graph(desde_id: int | None = None):

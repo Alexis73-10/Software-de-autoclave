@@ -90,11 +90,12 @@ Rectangle {
     function _ySuperficie(x) {
         const w = width
         const lam = w * 0.85
-        const A = amplitudOnda
+        const A = amplitudOnda + _chapoteo
         const ph = faseOnda
         const onda = (Math.sin(2 * Math.PI * x / lam + ph)
                       + 0.35 * Math.sin(2 * Math.PI * 1.7 * x / lam - 1.3 * ph)) / 1.35
-        return w * (1 - nivelVisual) + A * onda
+        // la inclinación (chapoteo) es un plano que gira alrededor del centro
+        return w * (1 - nivelVisual) + A * onda + _inclin * (x - w / 2) / (w / 2)
     }
 
     function _puntosLiquido() {
@@ -114,18 +115,158 @@ Rectangle {
         return sup.concat(inf.reverse())
     }
 
-    function _puntosChorro() {
-        const w = width, R = w / 2
-        const ys = w * (1 - nivelVisual)
-        const dy = Math.max(0, ys - R)
-        const hh = Math.sqrt(Math.max(0, R * R - dy * dy))
-        const xf = (R - hh) + 0.3 * hh + 3 * escala
-        const pts = []
-        for (let k = 0; k <= 14; k++) {
-            const t = k / 14
-            pts.push(Qt.point(xf * t, R + dy * t * t))
+    // ---- física del chorro ----
+    // El chorro sale de la boca del conector (borde izquierdo, a la altura del
+    // centro) con velocidad horizontal hacia dentro del círculo: la primera
+    // parte vuela separada de la pared por inercia y la gravedad lo curva. La
+    // velocidad de salida pulsa (borbotones: más rápido y más grueso, luego más
+    // lento y fino). Si toca la pared se desliza por ella; si llega al líquido
+    // lo golpea: gotas, olas e inclinación (resorte amortiguado) contra las
+    // paredes. Se simula como una cadena de parcelas emitidas a ritmo fijo.
+    readonly property real _boca: 7 * escala                 // alto de la boca (= conector)
+    property var _parcelas: []       // [{x, y, vx, vy, w}] de la más vieja a la más nueva
+    property var _gotas: []          // [{x, y, vx, vy}] salpicaduras
+    property real _tChorro: 0.0      // tiempo desde que empezó a salir (fase del borbotón)
+    property real _acumEmision: 0.0
+    property real _inclin: 0.0       // px: la superficie sube en un lado y baja en el otro
+    property real _velInclin: 0.0    // px/s
+    property real _chapoteo: 0.0     // px extra de amplitud de onda por el impacto
+    readonly property int _maxGotas: 14
+    readonly property int _maxParcelas: 70
+
+    readonly property real _velSalida: 68        // px/s medios (× escala)
+    readonly property real _gravedadChorro: 480  // px/s² (× escala)
+    readonly property real _gravedadGota: 420    // px/s² (× escala)
+    readonly property real _periodoEmision: 1 / 70
+
+    // pulso 0..~1.6 de la velocidad: dos armónicos incommensurables = irregular
+    function _pulso(t) {
+        const v = 1 + 0.45 * Math.sin(2 * Math.PI * 1.15 * t)
+                    + 0.15 * Math.sin(2 * Math.PI * 2.9 * t + 1.1)
+        return Math.max(0.3, v)
+    }
+
+    function _emitir() {
+        const rel = _pulso(_tChorro)
+        const hw = _boca / 2 * Math.min(1, 0.35 + 0.5 * rel)      // el borbotón rápido es más grueso
+        _parcelas.push({ x: hw, y: width / 2, vx: _velSalida * escala * rel,
+                         vy: 4 * escala * (Math.random() - 0.3), w: hw })
+    }
+
+    function _salpicarEn(x, y, vxp, vyp) {
+        if (_gotas.length >= _maxGotas) return
+        const n = 2
+        for (let i = 0; i < n && _gotas.length < _maxGotas; i++)
+            _gotas.push({ x: x, y: y - 1 * escala,
+                          vx: 0.35 * vxp + (Math.random() - 0.5) * 70 * escala,
+                          vy: -(0.25 + Math.random() * 0.35) * Math.abs(vyp) - 20 * escala })
+    }
+
+    function _pasoParcelas(dt) {
+        const R = width / 2, g = _gravedadChorro * escala
+        const vivas = []
+        for (let i = 0; i < _parcelas.length; i++) {
+            const o = _parcelas[i]
+            let vx = o.vx, vy = o.vy + g * dt
+            let x = o.x + vx * dt, y = o.y + vy * dt
+            const lim = R - o.w
+            const dx = x - R, dy = y - R, d = Math.sqrt(dx * dx + dy * dy)
+            if (d > lim && d > 0) {                  // toca la pared: se desliza (sin rebote)
+                const nx = dx / d, ny = dy / d
+                x = R + nx * lim; y = R + ny * lim
+                const vn = vx * nx + vy * ny
+                if (vn > 0) { vx -= vn * nx; vy -= vn * ny }
+                const roce = Math.max(0, 1 - 1.2 * dt)
+                vx *= roce; vy *= roce
+            }
+            if (vy > 0 && y >= _ySuperficie(x)) {    // llega al líquido: golpe
+                const v = Math.sqrt(vx * vx + vy * vy)
+                _chapoteo = Math.min(3 * escala, _chapoteo + 0.025 * (v / (100 * escala)) * escala)
+                _velInclin -= 0.018 * vx             // empuja el líquido hacia la derecha
+                if (Math.random() < 0.12) _salpicarEn(x, y, vx, vy)
+                continue
+            }
+            vivas.push({ x: x, y: y, vx: vx, vy: vy, w: o.w })
         }
-        return pts
+        _parcelas = vivas
+    }
+
+    function _pasoGotas(dt) {
+        if (_gotas.length === 0) return
+        const R = width / 2, lim = R - 2.5 * escala, g = _gravedadGota * escala
+        const vivas = []
+        for (let i = 0; i < _gotas.length; i++) {
+            const o = _gotas[i]
+            let vx = o.vx, vy = o.vy + g * dt
+            let x = o.x + vx * dt, y = o.y + vy * dt
+            const dx = x - R, dy = y - R, d = Math.sqrt(dx * dx + dy * dy)
+            if (d > lim && d > 0) {                  // rebote en la pared
+                const nx = dx / d, ny = dy / d
+                x = R + nx * lim; y = R + ny * lim
+                const vn = vx * nx + vy * ny
+                if (vn > 0) { vx -= 1.45 * vn * nx; vy -= 1.45 * vn * ny }
+            }
+            if (vy > 0 && y >= _ySuperficie(x)) {    // cae al líquido: onda local
+                _chapoteo = Math.min(3 * escala, _chapoteo + 0.35 * escala)
+                _velInclin += (x < R ? -1 : 1) * 2 * escala
+                continue
+            }
+            vivas.push({ x: x, y: y, vx: vx, vy: vy })
+        }
+        _gotas = vivas
+    }
+
+    function _paso(dt) {
+        if (instantaneo || !chorroVisible) {
+            _tChorro = 0; _acumEmision = 0
+            if (_parcelas.length > 0) _parcelas = []
+            if (_gotas.length > 0) _gotas = []
+        } else {
+            _tChorro += dt
+            _acumEmision += dt
+            while (_acumEmision >= _periodoEmision && _parcelas.length < _maxParcelas) {
+                _acumEmision -= _periodoEmision
+                _emitir()
+            }
+            if (_acumEmision > _periodoEmision) _acumEmision = 0
+            _pasoParcelas(dt)
+        }
+        _pasoGotas(dt)
+        // resorte amortiguado del chapoteo (rebota en las dos paredes)
+        const k = 48, c = 2.4
+        _velInclin += (-k * _inclin - c * _velInclin) * dt
+        _inclin = Math.max(-9 * escala, Math.min(9 * escala, _inclin + _velInclin * dt))
+        _chapoteo = Math.max(0, _chapoteo - _chapoteo * 2.2 * dt)
+        if (Math.abs(_inclin) < 0.01 && Math.abs(_velInclin) < 0.05) { _inclin = 0; _velInclin = 0 }
+        if (_chapoteo < 0.01) _chapoteo = 0
+    }
+
+    readonly property bool _hayFisica: !instantaneo && visible
+        && (chorroVisible || _parcelas.length > 0 || _gotas.length > 0
+            || _inclin !== 0 || _velInclin !== 0 || _chapoteo > 0)
+    FrameAnimation {
+        running: raiz._hayFisica
+        onTriggered: raiz._paso(Math.min(frameTime, 0.05))
+    }
+
+    // cinta del chorro: borde a cada lado de la cadena de parcelas (de la boca a la punta)
+    function _puntosChorro() {
+        // la cinta arranca dentro del tubo (fuera del círculo) para que no se vea separada
+        const ps = _parcelas.concat([{ x: -3 * escala, y: width / 2, w: _parcelas.length ? _parcelas[_parcelas.length - 1].w : 0 }])
+        const n = ps.length
+        if (n < 3) return []
+        const izq = [], der = []
+        for (let k = 0; k < n; k++) {
+            const i = n - 1 - k                      // de la más nueva (boca) a la más vieja (punta)
+            const a = ps[Math.min(n - 1, i + 1)], b = ps[Math.max(0, i - 1)]
+            let tx = b.x - a.x, ty = b.y - a.y
+            const l = Math.sqrt(tx * tx + ty * ty) || 1
+            tx /= l; ty /= l
+            const w = ps[i].w * (k === n - 1 ? 0.5 : 1)   // la punta se afina
+            izq.push(Qt.point(ps[i].x - ty * w, ps[i].y + tx * w))
+            der.push(Qt.point(ps[i].x + ty * w, ps[i].y - tx * w))
+        }
+        return izq.concat(der.reverse())
     }
 
     // (2) líquido
@@ -156,11 +297,9 @@ Rectangle {
         visible: raiz.chorroVisible
         preferredRendererType: Shape.CurveRenderer
         ShapePath {
-            fillColor: "transparent"
-            strokeColor: raiz._chorro
-            strokeWidth: Math.max(1, 3.5 * raiz.escala)
-            capStyle: ShapePath.RoundCap
-            joinStyle: ShapePath.RoundJoin
+            fillColor: raiz._chorro
+            strokeWidth: -1
+            strokeColor: "transparent"
             PathPolyline { path: raiz._puntosChorro() }
         }
     }
@@ -211,6 +350,21 @@ Rectangle {
             target: raiz; property: "nivel"
             duration: raiz._t("entradaMs", 700)
             easing.type: Easing.OutCubic
+        }
+    }
+
+    // gotas de la salpicadura
+    Repeater {
+        model: raiz._maxGotas
+        delegate: Rectangle {
+            required property int index
+            readonly property var o: index < raiz._gotas.length ? raiz._gotas[index] : null
+            z: 2
+            visible: o !== null
+            width: Math.max(2, 3.2 * raiz.escala); height: width; radius: width / 2
+            color: raiz._chorro
+            x: o ? o.x - width / 2 : 0
+            y: o ? o.y - height / 2 : 0
         }
     }
 }
