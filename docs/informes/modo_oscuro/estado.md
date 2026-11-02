@@ -19,3 +19,5 @@ Commits del conjunto A: 658538d2 (persistencia y /theme), e2edffd0 (Colores y Ap
 Para B, C y D: al migrar un archivo, quitarlo de `_PENDIENTES` en `tests/test_tema_oscuro.py` (la prueba falla si queda en la lista un archivo ya limpio).
 
 Corrección OSC-21/OSC-22 (3 defectos de oscuro de las capturas): `fondoCampo`, `iconoCampo`, `puertaCerradaTexto/Borde`; capturas de oscuro login y preciclo_preparado actualizadas; test_tema_oscuro y pruebas QML de Login/Preciclo/NuevoUsuario/IndicadorPuerta en verde. Ver `git log -1`.
+
+Cambios del revisor: `IndicadorPuerta` texto/ícono con `puertaCerradaTexto`; comentarios de color por posición (OSC-23); pruebas de `puertaCerradaTexto` y de uso único de `fondoGradiente`.

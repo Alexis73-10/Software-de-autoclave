@@ -130,6 +130,7 @@ QtObject {
     readonly property color graficaBordeBoton:  oscuro ? "#33445A" : "#C8C8C8" // = bordeCampo
 
     // Valores de sensores (tira de Preciclo/Ciclo; hoy paleta.negro)
+    // valorTempCamara/Referencia/Presion: por posición de Entradas mostradas (igual que la gráfica), no por tipo de sensor.
     readonly property color valorTempCamara:     oscuro ? "#8AB6FF" : "#000000"
     readonly property color valorTempReferencia: oscuro ? "#CFA2F7" : "#000000"
     readonly property color valorPresion:        oscuro ? "#5EE3C2" : "#000000"

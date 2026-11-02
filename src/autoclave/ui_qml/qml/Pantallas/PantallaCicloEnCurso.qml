@@ -573,6 +573,7 @@ Item {
                     clave: "ciclo.entrada_corta_" + entrada.modelData.clave
                     // 28-oct: sin sufijo "(monitoreo)" (desbordaba la casilla)
                 }
+                // Colores por posición de Entradas mostradas (coincide con la gráfica), no por tipo de sensor.
                 Valor { cx: entrada.c0 + 94.1; text: raiz.datosVigentes ? entrada.modelData.valor : "—"; tinta: [Colores.valorTempCamara, Colores.valorTempReferencia, Colores.valorPresion][entrada.index] || Colores.textoNegro }
                 Unidad { cx: entrada.c0 + (entrada.esPresion ? 109.6 : 85.1); text: entrada.modelData.unidad || "" }
             }

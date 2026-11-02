@@ -471,6 +471,19 @@ def test_e_campos_de_formulario_y_puerta_cerrada_tienen_claro_y_oscuro_legibles(
     # «PUERTA CERRADA» (IndicadorPuerta): texto e ícono legibles sobre su fondo
     assert _contraste(props["puertaCerradaTexto"][1], props["puertaCerradaFondo"][1]) >= 4.5
     assert _contraste(props["puertaCerradaBorde"][1], props["puertaCerradaFondo"][1]) >= 3.0
+    # el indicador referencia de verdad la propiedad de texto y la del borde
+    ind = (RAIZ / "src/autoclave/ui_qml/qml/Componentes/IndicadorPuerta.qml").read_text(encoding="utf-8")
+    assert "Colores.puertaCerradaTexto" in ind and "Colores.puertaCerradaBorde" in ind
+    assert re.search(r"colorTexto:[^\n]*\n?[^\n]*Colores\.puertaCerradaTexto", ind)
+    assert not re.search(r"colorTexto:[^\n]*puertaCerradaBorde", ind)
+
+
+def test_g_fondo_gradiente_solo_en_sus_archivos():
+    """Hallazgo 4: fondoGradiente solo lo usan el fondo de la app, Reposo e Intro."""
+    permitidos = {"Colores.qml", "FondoApp.qml", "Reposo.qml", "IntroArranque.qml", "FondoGradiente.qml"}
+    usan = {f.name for f in (RAIZ / "src/autoclave/ui_qml/qml").rglob("*.qml")
+            if "fondoGradiente" in f.read_text(encoding="utf-8")}
+    assert usan <= permitidos, usan - permitidos
 
 
 # ────────────────── (a) sin literales de color fuera de Tema/ ──────────────────

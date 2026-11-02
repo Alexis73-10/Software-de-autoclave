@@ -40,7 +40,7 @@ Item {
     readonly property color colorBorde: modo === "cerrada" ? Colores.puertaCerradaBorde
                                       : modo === "abierta" ? Colores.advertencia
                                       : Colores.bordeCampo
-    readonly property color colorTexto: modo === "cerrada" ? Colores.puertaCerradaBorde
+    readonly property color colorTexto: modo === "cerrada" ? Colores.puertaCerradaTexto
                                       : modo === "abierta" ? Colores.advertenciaTexto
                                       : Colores.textoGuia
 
