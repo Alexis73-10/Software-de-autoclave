@@ -26,7 +26,9 @@ from autoclave.backend.actividad_ui import ActividadUI
 from autoclave.backend.arranque.registro import ETAPAS_ARRANQUE
 from autoclave.core.runtime import progreso_ciclo
 from autoclave.services.domain.reportes import resumen_periodo
+from autoclave.services.domain.logging.db_manager import DB_DEFAULT
 from autoclave.simulador.autenticacion_simulada import registrar_autenticacion
+from autoclave.simulador.reportes_sim import registrar_reportes
 from autoclave.utils import periodos
 
 _PUERTAS = ("Puerta 1", "Puerta 2")
@@ -79,12 +81,13 @@ def _ciclo_historial(repeticion, cycle_manager, ahora: datetime) -> dict:
 
 
 def crear_app(repeticion, cycle_manager, config: dict, velocidad: float = 10.0,
-              reloj=time.monotonic, ahora=datetime.now) -> FastAPI:
+              reloj=time.monotonic, ahora=datetime.now, bd=None) -> FastAPI:
     app = FastAPI(title="Autoclave — backend SIMULADO")
     est = _Estado(repeticion, velocidad, reloj)
     historial = _ciclo_historial(repeticion, cycle_manager, ahora())
     actividad = ActividadUI()
     registrar_autenticacion(app, reloj=reloj)
+    registrar_reportes(app, cycle_manager, bd if bd is not None else DB_DEFAULT, ahora)
 
     def _referencias():
         ref = {}
@@ -192,8 +195,17 @@ def crear_app(repeticion, cycle_manager, config: dict, velocidad: float = 10.0,
             fin = min(t1, t) if cerrada else None
             filas.append({"fase": f, "inicio_s": float(t0), "fin_s": fin,
                           "duracion_s": (fin - t0) if cerrada else None})
+        # Como el backend real (estado.exposicion_*): conteo propio de la
+        # esterilización activa, para que su círculo se llene con el tiempo.
+        restante_exp = total_exp = None
+        if progreso_ciclo.fase_ui(fase) == "esterilizacion":
+            for f, t0, t1 in repeticion.tramos:
+                if progreso_ciclo.fase_ui(f) == "esterilizacion" and t0 <= t < t1:
+                    total_exp, restante_exp = float(t1 - t0), float(t1 - t)
+                    break
         return {"activo": True, "ciclo_db_id": est.ciclo_id, "fase_ciclo": fase,
-                **progreso_ciclo.armar_progreso(aplicables, filas, fase, t, _referencias())}
+                **progreso_ciclo.armar_progreso(aplicables, filas, fase, t, _referencias(),
+                                                restante_exp, total_exposicion_s=total_exp)}
 
     @app.get("/cycle/current/graph")
     def graph(desde_id: int | None = None):
@@ -233,7 +245,7 @@ def crear_app(repeticion, cycle_manager, config: dict, velocidad: float = 10.0,
         return {"ciclos_totales": 1, "ciclos_hoy": len(hoy), "ultimo_ciclo": historial}
 
     @app.get("/cycle/list")
-    def cycle_list(periodo: Literal["dia", "semana", "mes"] = "dia", fecha: date | None = None,
+    def cycle_list(periodo: Literal[periodos.PERIODOS_REPORTES] = "dia", fecha: date | None = None,
                    terminados: bool = False, limite: int = 500):
         inicio, fin, ciclos = _del_periodo(periodo, fecha)
         return {"periodo": periodo, "desde": inicio.isoformat(),
@@ -241,7 +253,7 @@ def crear_app(repeticion, cycle_manager, config: dict, velocidad: float = 10.0,
                 "ciclos": ciclos, "truncado": False}
 
     @app.get("/report/summary")
-    def report_summary(periodo: Literal["dia", "semana", "mes"] = "dia", fecha: date | None = None):
+    def report_summary(periodo: Literal[periodos.PERIODOS_REPORTES] = "dia", fecha: date | None = None):
         inicio, fin, ciclos = _del_periodo(periodo, fecha)
         filas = [{"tipo_ciclo": c["programa_id"], "nombre_ciclo": c["programa_nombre"],
                   "resultado": c["resultado"], "cantidad": 1} for c in ciclos]

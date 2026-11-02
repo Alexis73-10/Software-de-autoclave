@@ -18,6 +18,10 @@ _HOY = date(2026, 10, 6)   # martes
     ("semana", date(2026, 10, 4),  date(2026, 9, 28),  date(2026, 10, 5)),
     ("mes",    date(2026, 2, 14),  date(2026, 2, 1),   date(2026, 3, 1)),
     ("mes",    date(2026, 12, 31), date(2026, 12, 1),  date(2027, 1, 1)),
+    ("anio",   date(2026, 10, 2),  date(2026, 1, 1),   date(2027, 1, 1)),
+    ("anio",   date(2026, 1, 1),   date(2026, 1, 1),   date(2027, 1, 1)),
+    ("anio",   date(2026, 12, 31), date(2026, 1, 1),   date(2027, 1, 1)),
+    ("anio",   date(2024, 2, 29),  date(2024, 1, 1),   date(2025, 1, 1)),
 ])
 def test_rango(periodo, fecha, inicio, fin):
     assert periodos.rango(periodo, fecha) == (inicio, fin)
@@ -25,7 +29,7 @@ def test_rango(periodo, fecha, inicio, fin):
 
 def test_periodo_desconocido():
     with pytest.raises(ValueError):
-        periodos.rango("anio", _HOY)
+        periodos.rango("trimestre", _HOY)
 
 
 @pytest.mark.parametrize("periodo, fecha, pasos, esperado", [
@@ -35,12 +39,16 @@ def test_periodo_desconocido():
     ("mes",    date(2026, 1, 31), -1, date(2025, 12, 1)),     # cambio de año
     ("mes",    date(2025, 12, 1),  1, date(2026, 1, 1)),
     ("mes",    date(2026, 10, 6), -12, date(2025, 10, 1)),
+    ("anio",   date(2026, 10, 6), -1, date(2025, 1, 1)),
+    ("anio",   date(2025, 7, 15), 1, date(2026, 10, 6)),      # llegaría al año actual: hoy
+    ("anio",   date(2026, 1, 1), -3, date(2023, 1, 1)),
+    ("anio",   date(2024, 12, 31), 0, date(2024, 1, 1)),
 ])
 def test_desplazar(periodo, fecha, pasos, esperado):
     assert periodos.desplazar(periodo, fecha, pasos, _HOY) == esperado
 
 
-@pytest.mark.parametrize("periodo", ["dia", "semana", "mes"])
+@pytest.mark.parametrize("periodo", ["dia", "semana", "mes", "anio"])
 def test_desplazar_no_pasa_del_periodo_actual(periodo):
     assert periodos.desplazar(periodo, _HOY, 1, _HOY) == _HOY
     assert periodos.desplazar(periodo, _HOY, 5, _HOY) == _HOY
@@ -51,3 +59,27 @@ def test_es_actual():
     assert not periodos.es_actual("mes", date(2026, 9, 30), _HOY)
     assert periodos.es_actual("semana", date(2026, 10, 5), _HOY)
     assert not periodos.es_actual("dia", date(2026, 10, 5), _HOY)
+
+
+def test_es_actual_anio():
+    assert periodos.es_actual("anio", date(2026, 1, 1), _HOY)
+    assert periodos.es_actual("anio", date(2026, 12, 31), _HOY)
+    assert not periodos.es_actual("anio", date(2025, 12, 31), _HOY)
+
+
+def test_desplazar_anio_cruza_de_anio_bisiesto():
+    hoy = date(2028, 3, 1)
+    assert periodos.desplazar("anio", date(2028, 2, 29), -1, hoy) == date(2027, 1, 1)
+    assert periodos.desplazar("anio", date(2027, 5, 5), -2, hoy) == date(2025, 1, 1)
+
+
+def test_constantes_de_periodos():
+    # el Historial y Reportes actual siguen con tres; /report/* suma el año
+    assert periodos.PERIODOS == ("dia", "semana", "mes")
+    assert periodos.PERIODOS_REPORTES == ("dia", "semana", "mes", "anio")
+
+
+# Trazabilidad (matriz REQ-37..REQ-50, dashboard de Reportes)
+import pytest as _pytest  # noqa: E402
+
+pytestmark = [_pytest.mark.req("REQ-38")]

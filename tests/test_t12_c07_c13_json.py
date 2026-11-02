@@ -18,8 +18,8 @@ RAIZ = Path(__file__).resolve().parents[1]
 PROGRAMAS = sorted(glob.glob(str(RAIZ / "src" / "autoclave" / "cycles" / "*" / "*.json")))
 
 
-def test_son_los_8_programas():
-    assert len(PROGRAMAS) == 8
+def test_son_los_10_programas():
+    assert len(PROGRAMAS) == 10
 
 
 @pytest.mark.parametrize("ruta", PROGRAMAS, ids=lambda r: "/".join(Path(r).parts[-2:]))

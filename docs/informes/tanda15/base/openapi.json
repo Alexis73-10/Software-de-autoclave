@@ -347,7 +347,8 @@
       "enum": [
        "dia",
        "semana",
-       "mes"
+       "mes",
+       "anio"
       ],
       "title": "Periodo",
       "type": "string"
@@ -2015,7 +2016,8 @@
        "enum": [
         "dia",
         "semana",
-        "mes"
+        "mes",
+        "anio"
        ],
        "title": "Periodo",
        "type": "string"
@@ -4451,6 +4453,203 @@
     "summary": "Get Programa Seccion"
    }
   },
+  "/report/calendar": {
+   "get": {
+    "description": "Calendario de ejecución por programa (REP-07): con `periodo=anio`, los\ndías del año; en los demás, los del mes que contiene `fecha`. El selector de\nprogramas sale del periodo pedido (DR-D06). Solo lectura.",
+    "operationId": "get_report_calendar_report_calendar_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "periodo",
+      "required": false,
+      "schema": {
+       "default": "mes",
+       "enum": [
+        "dia",
+        "semana",
+        "mes",
+        "anio"
+       ],
+       "title": "Periodo",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "fecha",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "format": "date",
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Fecha"
+      }
+     },
+     {
+      "in": "query",
+      "name": "programa",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "minimum": 1,
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Programa"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Get Report Calendar"
+   }
+  },
+  "/report/dashboard": {
+   "get": {
+    "description": "Dashboard de Reportes: indicadores del periodo de calendario que contiene\n`fecha` (por defecto hoy) y del inmediatamente anterior del mismo tipo,\nserie por intervalos, por programa y causas de fallo (forma de\n/report/summary), alarmas por código y ciclos por operador. Solo lectura.",
+    "operationId": "get_report_dashboard_report_dashboard_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "periodo",
+      "required": false,
+      "schema": {
+       "default": "dia",
+       "enum": [
+        "dia",
+        "semana",
+        "mes",
+        "anio"
+       ],
+       "title": "Periodo",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "fecha",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "format": "date",
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Fecha"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Get Report Dashboard"
+   }
+  },
+  "/report/day-cycles": {
+   "get": {
+    "description": "Ciclos del programa `programa` (número efectivo, DR-H02) iniciados el día\nlocal `fecha` (por defecto hoy), en orden de inicio, con la forma de\n/cycle/list, y el estado del día en el calendario. Solo lectura.",
+    "operationId": "get_report_day_cycles_report_day_cycles_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "programa",
+      "required": true,
+      "schema": {
+       "minimum": 1,
+       "title": "Programa",
+       "type": "integer"
+      }
+     },
+     {
+      "in": "query",
+      "name": "fecha",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "format": "date",
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Fecha"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Get Report Day Cycles"
+   }
+  },
   "/report/failures": {
    "get": {
     "description": "D8-5.6: ciclos del periodo (por fecha de inicio, como /report/summary)\nque cerraron con el fallo `causa` (una de sus causas_fallo), más recientes\nprimero y paginados; una página fuera de rango da la última. Cada ciclo con\nla forma de /cycle/list, para abrir su detalle como desde el Historial.\nSolo lectura.",
@@ -4475,7 +4674,8 @@
        "enum": [
         "dia",
         "semana",
-        "mes"
+        "mes",
+        "anio"
        ],
        "title": "Periodo",
        "type": "string"
@@ -4559,7 +4759,8 @@
        "enum": [
         "dia",
         "semana",
-        "mes"
+        "mes",
+        "anio"
        ],
        "title": "Periodo",
        "type": "string"

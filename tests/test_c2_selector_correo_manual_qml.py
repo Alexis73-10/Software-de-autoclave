@@ -43,6 +43,7 @@ Window {
             escala: 0.5
             destinos: ventana.guardados
             teclado: panel
+            sesionActiva: true      // REP-13: el manual existe solo con sesión
             onElegido: correo => ventana.elegidos = ventana.elegidos.concat([correo])
             onCancelado: ventana.cancelaciones++
         }

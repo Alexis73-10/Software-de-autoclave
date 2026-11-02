@@ -29,12 +29,21 @@ Item {
     // ComandosSistema (E5): Apagar equipo en el panel de equipo
     property QtObject comandosSistema: null
     property QtObject historial: null   // CiclosHistorial: listados de Ciclos hoy e Historial
-    property QtObject acciones: null    // AccionesCiclos: imprimir / enviar por correo (Historial, Reportes)
-    property QtObject reporte: null     // ReporteResumen: resumen por periodo de Reportes
+    property QtObject acciones: null    // AccionesCiclos: imprimir / enviar por correo (Historial)
     property QtObject teclado: null     // PanelTeclado: correo de destino escrito a mano
     // Casa de la barra: activa cuando hay una pantalla a la que regresar (la de
     // preciclo o la de ciclo en curso, desde cuyo engranaje se abrió el menú)
     property bool inicioActivo: false
+    // REP-13 (DR-D10): sesión de la ventana (Main.qml, sesion_backend). Sin ella
+    // los selectores de destino solo ofrecen los guardados; sin guardados,
+    // Enviar queda deshabilitado con «No hay destinatarios guardados».
+    property bool sesionActiva: false
+    readonly property bool hayDestinoCorreo: sesionActiva || (acciones?.destinos ?? []).length > 0
+    function textoEnviarCorreo(listo) {
+        return !listo ? I18n.t("menu.correo_no_configurado", I18n.lang)
+             : !hayDestinoCorreo ? I18n.t("reportes.destino_sin_guardados", I18n.lang)
+             : I18n.t("menu.enviar_correo", I18n.lang)
+    }
 
     // ---- acciones: las resuelve quien usa la pantalla (Main.qml) ----
     signal iniciarSesionPulsado()       // abre el login QML (Main.qml)
@@ -95,7 +104,7 @@ Item {
         else if (nombre === "mantenimiento") ventanaMantenimiento.abrir()
         else if (nombre === "ciclos_hoy") ventanaCiclosHoy.abrir()
         else if (nombre === "historial") ventanaHistorial.abrir()
-        else if (nombre === "reportes") ventanaReportes.abrir()
+        else if (nombre === "reportes") raiz.reportesPulsado()
     }
 
     // La pantalla activa consulta el resumen y lo sondea cada 10 s (§6.5)
@@ -228,7 +237,7 @@ Item {
         icono: raiz.iconosMono + "reportes.svg"
         tamIcono: 85
         colorAcento: Colores.menuNaranja
-        onPulsada: { raiz.reportesPulsado(); ventanaReportes.abrir() }
+        onPulsada: raiz.reportesPulsado()
     }
     Fila2 {
         objectName: "tarjetaInformacion"
@@ -557,8 +566,7 @@ Item {
         readonly property bool ocupado: raiz.acciones?.ocupado ?? false
         readonly property var marcados: raiz.historial?.seleccionados ?? []
         readonly property bool correoListo: raiz.acciones?.correoConfigurado ?? false
-        readonly property string textoEnviar: correoListo ? I18n.t("menu.enviar_correo", I18n.lang)
-                                                          : I18n.t("menu.correo_no_configurado", I18n.lang)
+        readonly property string textoEnviar: raiz.textoEnviarCorreo(correoListo)
         titulo: seleccion ? I18n.t("menu.ciclo_titulo", I18n.lang) + " " + seleccion.numero
                           : I18n.t("menu.ventana_historial", I18n.lang)
 
@@ -678,7 +686,7 @@ Item {
                         escala: raiz.escala
                         texto: ventanaHistorial.textoEnviar
                         habilitado: barraAcciones.cuenta > 0 && !ventanaHistorial.ocupado
-                                    && ventanaHistorial.correoListo
+                                    && ventanaHistorial.correoListo && raiz.hayDestinoCorreo
                         onPulsado: ventanaHistorial.pedirDestino(ventanaHistorial.marcados)
                     }
                     BotonPildora {
@@ -712,6 +720,7 @@ Item {
                     escala: raiz.escala
                     texto: ventanaHistorial.textoEnviar
                     habilitado: !ventanaHistorial.ocupado && ventanaHistorial.correoListo
+                                && raiz.hayDestinoCorreo
                     onPulsado: ventanaHistorial.pedirDestino([ventanaHistorial.seleccion.id])
                 }
                 BotonPildora {
@@ -771,444 +780,14 @@ Item {
             escala: raiz.escala
             destinos: raiz.acciones?.destinos ?? []
             teclado: raiz.teclado
+            sesionActiva: raiz.sesionActiva
             onElegido: (correo) => ventanaHistorial.enviar(correo)
             onCancelado: ventanaHistorial.eligiendoDestino = false
         }
     }
 
-    // Reportes, con un periodo de calendario común a sus pestañas:
-    // - Resumen: totales por resultado, por programa y causas de fallo; se imprime
-    //   en la térmica o se envía por correo como PDF.
-    // - Consolidado: un solo PDF por correo con el resumen, el índice y las
-    //   páginas de cada ciclo del periodo (gráfica con consignas); sin térmica.
-    // - D8-5.6: tocar una causa de fallo del Resumen despliega los ciclos del
-    //   periodo con ese fallo (número, fecha y hora, programa, operador),
-    //   paginados; tocar un ciclo abre su detalle con imprimir y enviar, como
-    //   desde el Historial (la curva la pide el puente del Historial).
-    // Alarmas se agrega después.
-    VentanaFlotante {
-        id: ventanaReportes
-        objectName: "ventanaReportes"
-        escala: raiz.escala
-        altoTarjeta: 1500
-        titulo: seleccionFallo ? I18n.t("menu.ciclo_titulo", I18n.lang) + " " + seleccionFallo.numero
-                               : I18n.t("reportes.titulo", I18n.lang)
-        property string periodo: "dia"
-        // D8-5.6: ciclo abierto desde el listado de un fallo (null = listado o resumen)
-        property var seleccionFallo: null
-        // ciclos por enviar mientras se elige el destino (el abierto); vacío = el resumen
-        property var idsCorreo: []
-        readonly property bool enFallo: (raiz.reporte?.causaFallo ?? "") !== ""
-        property string pestana: "resumen"     // "resumen" / "consolidado"
-        property string accionEnCurso: ""      // "imprimir" / "enviar" mientras trabaja
-        property string mensaje: ""
-        property bool mensajeExito: true
-        property bool eligiendoDestino: false
-        readonly property bool ocupado: raiz.acciones?.ocupado ?? false
-        readonly property bool correoListo: raiz.acciones?.correoConfigurado ?? false
-        readonly property bool hayCiclos: raiz.reporte?.hayCiclos ?? false
-
-        // al abrir: hoy; los filtros conservan la fecha que se está viendo
-        function elegir(p) { periodo = p; mensaje = ""; raiz.reporte?.cambiarPeriodo(p) }
-        function abrirFallo(causa) { mensaje = ""; seleccionFallo = null; raiz.reporte?.abrirFallo(causa) }
-        function cerrarFallo() {
-            mensaje = ""
-            seleccionFallo = null
-            raiz.historial?.limpiarGrafica()
-            raiz.reporte?.cerrarFallo()
-        }
-        function abrirCicloFallo(fila) {
-            mensaje = ""
-            seleccionFallo = fila
-            raiz.historial?.cargarGrafica(fila.id)
-        }
-        function volverAlFallo() { mensaje = ""; seleccionFallo = null; raiz.historial?.limpiarGrafica() }
-        function imprimirCiclo(ids) {
-            mensaje = ""
-            accionEnCurso = "imprimir"
-            raiz.acciones?.imprimir(ids)
-        }
-        function pedirDestinoCiclo(ids) {
-            mensaje = ""
-            idsCorreo = ids
-            eligiendoDestino = true
-        }
-        function imprimir() {
-            mensaje = ""
-            accionEnCurso = "imprimir"
-            raiz.acciones?.imprimirResumen(raiz.reporte.periodo, raiz.reporte.fecha)
-        }
-        function enviar(correo) {
-            eligiendoDestino = false
-            accionEnCurso = "enviar"
-            if (idsCorreo.length > 0) {
-                const ids = idsCorreo
-                idsCorreo = []
-                raiz.acciones?.enviarCorreo(ids, correo)
-            } else if (pestana === "consolidado")
-                raiz.acciones?.enviarConsolidado(raiz.reporte.periodo, raiz.reporte.fecha, correo)
-            else
-                raiz.acciones?.enviarResumen(raiz.reporte.periodo, raiz.reporte.fecha, correo)
-        }
-        onMostrada: {
-            pestana = "resumen"
-            seleccionFallo = null
-            idsCorreo = []
-            eligiendoDestino = false
-            raiz.acciones?.actualizarCorreo()
-            periodo = "dia"
-            mensaje = ""
-            raiz.reporte?.consultar("dia")
-        }
-        onCerrada: {
-            eligiendoDestino = false
-            mensaje = ""
-            idsCorreo = []
-            raiz.teclado?.cerrar()
-            seleccionFallo = null
-            raiz.historial?.limpiarGrafica()
-            raiz.reporte?.cerrarFallo()
-        }
-
-        Connections {
-            target: ventanaReportes.visible ? raiz.acciones : null
-            function onAccionTerminada(exito, texto) {
-                ventanaReportes.accionEnCurso = ""
-                ventanaReportes.mensajeExito = exito
-                ventanaReportes.mensaje = texto
-            }
-        }
-
-        // Pestañas
-        Row {
-            id: pestanas
-            visible: !ventanaReportes.enFallo
-            spacing: raiz.m(40)
-            Repeater {
-                model: [["resumen", "pestana_resumen"], ["consolidado", "pestana_consolidado"]]
-                Item {
-                    id: pestana
-                    required property var modelData
-                    readonly property bool activa: ventanaReportes.pestana === modelData[0]
-                    objectName: "pestana_" + modelData[0]
-                    width: textoPestana.implicitWidth + raiz.m(16); height: raiz.m(56)
-                    Text {
-                        id: textoPestana
-                        anchors.centerIn: parent
-                        text: I18n.t("reportes." + (pestana.modelData[1]), I18n.lang)
-                        color: pestana.activa ? Colores.accionPrimarioTexto : Colores.textoSecundario
-                        font.family: Tipografia.familia
-                        font.weight: pestana.activa ? Tipografia.pesoBold : Tipografia.pesoSemiBold
-                        font.pixelSize: raiz.fuente(26)
-                    }
-                    Rectangle {
-                        visible: pestana.activa
-                        anchors.bottom: parent.bottom
-                        width: parent.width; height: raiz.m(4); radius: height / 2
-                        color: Colores.accionPrimario
-                    }
-                    MouseArea {
-                        anchors.fill: parent
-                        enabled: !ventanaReportes.ocupado
-                        onClicked: { ventanaReportes.mensaje = ""; ventanaReportes.pestana = pestana.modelData[0] }
-                    }
-                }
-            }
-        }
-
-        SelectorPeriodo {
-            id: selectorReportes
-            visible: !ventanaReportes.enFallo
-            anchors.top: pestanas.bottom
-            anchors.topMargin: raiz.m(24)
-            width: parent.width
-            escala: raiz.escala
-            periodo: ventanaReportes.periodo
-            rotulo: raiz.reporte?.rotuloPeriodo ?? ""
-            esActual: raiz.reporte?.esPeriodoActual ?? true
-            onElegido: (p) => ventanaReportes.elegir(p)
-            onMovido: (pasos) => { ventanaReportes.mensaje = ""; raiz.reporte?.moverPeriodo(pasos) }
-        }
-
-        Item {
-            visible: !ventanaReportes.enFallo
-            anchors.top: selectorReportes.bottom
-            anchors.topMargin: raiz.m(28)
-            anchors.bottom: accionesReportes.top
-            anchors.bottomMargin: raiz.m(16) + (avisoReportes.visible ? avisoReportes.height + raiz.m(16) : 0)
-            width: parent.width
-            ResumenPeriodo {
-                objectName: "resumenPeriodo"
-                anchors.fill: parent
-                visible: ventanaReportes.hayCiclos && ventanaReportes.pestana === "resumen"
-                escala: raiz.escala
-                datos: raiz.reporte?.datos ?? ({ total: "0", totales: [], por_programa: [], causas: [] })
-                onCausaElegida: (causa) => ventanaReportes.abrirFallo(causa)
-            }
-            Text {
-                objectName: "avisoReporte"
-                anchors.centerIn: parent
-                width: parent.width
-                horizontalAlignment: Text.AlignHCenter
-                wrapMode: Text.WordWrap
-                visible: text !== ""
-                text: (raiz.reporte?.cargando ?? false) && !ventanaReportes.hayCiclos ? I18n.t("menu.cargando", I18n.lang)
-                    : (raiz.reporte?.sinConexion ?? false) ? I18n.t("menu.sin_conexion", I18n.lang)
-                    : !ventanaReportes.hayCiclos ? I18n.t("reportes.sin_ciclos", I18n.lang)
-                    : ""
-                color: Colores.textoSecundario
-                font.family: Tipografia.familia
-                font.weight: Tipografia.pesoSemiBold
-                font.pixelSize: raiz.fuente(26)
-            }
-            // Consolidado: cuántos ciclos entran y qué se enviará
-            Column {
-                objectName: "consolidado"
-                visible: ventanaReportes.hayCiclos && ventanaReportes.pestana === "consolidado"
-                width: parent.width
-                spacing: raiz.m(20)
-                Row {
-                    spacing: raiz.m(16)
-                    Text {
-                        id: cuentaConsolidado
-                        objectName: "cuentaConsolidado"
-                        text: raiz.reporte?.datos?.total ?? "0"
-                        color: Colores.textoPrimario
-                        font.family: Tipografia.familia
-                        font.weight: Tipografia.pesoBold
-                        font.pixelSize: raiz.fuente(64)
-                    }
-                    Text {
-                        anchors.baseline: cuentaConsolidado.baseline
-                        text: I18n.t("reportes.consolidado_cuenta", I18n.lang)
-                        color: Colores.textoSecundario
-                        font.family: Tipografia.familia
-                        font.weight: Tipografia.pesoSemiBold
-                        font.pixelSize: raiz.fuente(28)
-                    }
-                }
-                Text {
-                    width: parent.width
-                    wrapMode: Text.WordWrap
-                    text: I18n.t("reportes.consolidado_desc", I18n.lang)
-                    color: Colores.textoSecundario
-                    font.family: Tipografia.familia
-                    font.pixelSize: raiz.fuente(24)
-                    lineHeight: 1.2
-                }
-            }
-        }
-
-        AvisoAccion {
-            id: avisoReportes
-            objectName: "avisoAccionReportes"
-            z: 2     // sobre el listado y el ciclo abierto de un fallo (D8-5.6)
-            escala: raiz.escala
-            anchors.horizontalCenter: parent.horizontalCenter
-            anchors.bottom: ventanaReportes.enFallo ? parent.bottom : accionesReportes.top
-            anchors.bottomMargin: ventanaReportes.enFallo ? 0 : raiz.m(16)
-            trabajando: ventanaReportes.accionEnCurso !== ""
-            error: !trabajando && !ventanaReportes.mensajeExito
-            // el consolidado tarda: muestra su avance (AccionesCiclos.progreso)
-            texto: ventanaReportes.eligiendoDestino ? ""
-                 : ventanaReportes.accionEnCurso !== "" && (raiz.acciones?.progreso ?? "") !== ""
-                   ? raiz.acciones.progreso
-                 : ventanaReportes.accionEnCurso === "imprimir" ? I18n.t("menu.imprimiendo", I18n.lang)
-                 : ventanaReportes.accionEnCurso === "enviar" ? I18n.t("menu.enviando", I18n.lang)
-                 : ventanaReportes.mensaje
-            onCerrado: ventanaReportes.mensaje = ""
-        }
-
-        // ---------- D8-5.6: ciclos con el fallo elegido, paginados ----------
-        Item {
-            objectName: "listadoFallo"
-            anchors.fill: parent
-            visible: ventanaReportes.enFallo && ventanaReportes.seleccionFallo === null
-            BotonPildora {
-                id: volverResumen
-                objectName: "botonVolverResumen"
-                escala: raiz.escala
-                texto: "‹  " + I18n.t("reportes.volver_resumen", I18n.lang)
-                onPulsado: ventanaReportes.cerrarFallo()
-            }
-            Text {
-                id: tituloFallo
-                objectName: "tituloFallo"
-                anchors.top: volverResumen.bottom
-                anchors.topMargin: raiz.m(24)
-                width: parent.width
-                wrapMode: Text.WordWrap
-                text: I18n.t("reportes.ciclos_con_fallo", I18n.lang)
-                      .replace("{causa}", raiz.reporte?.causaFallo ?? "")
-                      .replace("{n}", String(raiz.reporte?.totalFallo ?? 0))
-                color: Colores.textoPrimario
-                font.family: Tipografia.familia
-                font.weight: Tipografia.pesoBold
-                font.pixelSize: raiz.fuente(28)
-            }
-            ListaCiclos {
-                objectName: "listaFallo"
-                anchors.top: tituloFallo.bottom
-                anchors.topMargin: raiz.m(16)
-                anchors.bottom: paginacionFallo.top
-                anchors.bottomMargin: raiz.m(16)
-                width: parent.width
-                escala: raiz.escala
-                ciclos: raiz.reporte?.ciclosFallo ?? []
-                seleccionable: true
-                conOperador: true
-                onCicloElegido: (fila) => ventanaReportes.abrirCicloFallo(fila)
-                Text {
-                    objectName: "avisoListaFallo"
-                    anchors.centerIn: parent
-                    anchors.verticalCenterOffset: raiz.m(28)
-                    width: parent.width
-                    horizontalAlignment: Text.AlignHCenter
-                    wrapMode: Text.WordWrap
-                    visible: text !== ""
-                    text: (raiz.reporte?.cargandoFallo ?? false) ? I18n.t("menu.cargando", I18n.lang)
-                        : (raiz.reporte?.sinConexionFallo ?? false) ? I18n.t("menu.sin_conexion", I18n.lang)
-                        : (raiz.reporte?.ciclosFallo?.length ?? 0) === 0 ? I18n.t("reportes.sin_ciclos_fallo", I18n.lang)
-                        : ""
-                    color: Colores.textoSecundario
-                    font.family: Tipografia.familia
-                    font.weight: Tipografia.pesoSemiBold
-                    font.pixelSize: raiz.fuente(26)
-                }
-            }
-            // paginación: solo si hay más de una página
-            Item {
-                id: paginacionFallo
-                objectName: "paginacionFallo"
-                anchors.bottom: parent.bottom
-                width: parent.width
-                height: visible ? raiz.m(64) : 0
-                visible: (raiz.reporte?.paginasFallo ?? 1) > 1
-                BotonPildora {
-                    objectName: "botonPaginaAnterior"
-                    anchors.left: parent.left
-                    escala: raiz.escala
-                    texto: "‹  " + I18n.t("reportes.pagina_anterior", I18n.lang)
-                    habilitado: (raiz.reporte?.paginaFallo ?? 1) > 1 && !(raiz.reporte?.cargandoFallo ?? false)
-                    onPulsado: raiz.reporte?.moverPaginaFallo(-1)
-                }
-                Text {
-                    objectName: "textoPaginaFallo"
-                    anchors.centerIn: parent
-                    text: I18n.t("reportes.pagina", I18n.lang)
-                          .replace("{n}", String(raiz.reporte?.paginaFallo ?? 1))
-                          .replace("{total}", String(raiz.reporte?.paginasFallo ?? 1))
-                    color: Colores.textoSecundario
-                    font.family: Tipografia.familia
-                    font.weight: Tipografia.pesoSemiBold
-                    font.pixelSize: raiz.fuente(24)
-                }
-                BotonPildora {
-                    objectName: "botonPaginaSiguiente"
-                    anchors.right: parent.right
-                    escala: raiz.escala
-                    texto: I18n.t("reportes.pagina_siguiente", I18n.lang) + "  ›"
-                    habilitado: (raiz.reporte?.paginaFallo ?? 1) < (raiz.reporte?.paginasFallo ?? 1)
-                                && !(raiz.reporte?.cargandoFallo ?? false)
-                    onPulsado: raiz.reporte?.moverPaginaFallo(1)
-                }
-            }
-        }
-
-        // ---------- D8-5.6: ciclo abierto desde el listado del fallo ----------
-        Item {
-            anchors.fill: parent
-            visible: ventanaReportes.seleccionFallo !== null
-            BotonPildora {
-                id: volverFallo
-                objectName: "botonVolverFallo"
-                escala: raiz.escala
-                texto: "‹  " + I18n.t("menu.volver", I18n.lang)
-                onPulsado: ventanaReportes.volverAlFallo()
-            }
-            Row {
-                anchors.right: parent.right
-                spacing: raiz.m(16)
-                BotonPildora {
-                    objectName: "botonEnviarCicloFallo"
-                    escala: raiz.escala
-                    texto: ventanaReportes.correoListo ? I18n.t("menu.enviar_correo", I18n.lang)
-                                                       : I18n.t("menu.correo_no_configurado", I18n.lang)
-                    habilitado: !ventanaReportes.ocupado && ventanaReportes.correoListo
-                    onPulsado: ventanaReportes.pedirDestinoCiclo([ventanaReportes.seleccionFallo.id])
-                }
-                BotonPildora {
-                    objectName: "botonImprimirCicloFallo"
-                    escala: raiz.escala
-                    primario: true
-                    texto: I18n.t("menu.imprimir", I18n.lang)
-                    habilitado: !ventanaReportes.ocupado
-                    onPulsado: ventanaReportes.imprimirCiclo([ventanaReportes.seleccionFallo.id])
-                }
-            }
-            DetalleCiclo {
-                objectName: "detalleCicloFallo"
-                anchors.top: volverFallo.bottom
-                anchors.topMargin: raiz.m(24)
-                anchors.bottom: parent.bottom
-                anchors.bottomMargin: avisoReportes.visible ? avisoReportes.height + raiz.m(16) : 0
-                width: parent.width
-                escala: raiz.escala
-                readonly property var c: ventanaReportes.seleccionFallo ?? ({})
-                fecha: raiz.dato(c.fecha)
-                hora: raiz.dato(c.hora)
-                programa: raiz.dato(c.programa)
-                programaNombre: raiz.dato(c.programa_nombre)
-                resultadoTexto: raiz.textoDeResultado(c.resultado ?? "")
-                resultadoDetalle: c.resultado_detalle ?? ""
-                colorResultado: raiz.colorDeResultado(c.resultado ?? "")
-                noConforme: c.no_conforme === true   // P4 (D-14.4)
-                operador: raiz.dato(c.operador)
-                datosGrafica: raiz.historial?.datosGrafica ?? ({ t_min: [], temp_camara: [], temp_ref: [], pres_camara: [] })
-                fasesGrafica: raiz.historial?.fasesGrafica ?? []
-                graficaDisponible: raiz.historial?.graficaDisponible ?? false
-                onCerrarPulsado: ventanaReportes.cerrar()
-            }
-        }
-
-        Row {
-            id: accionesReportes
-            visible: !ventanaReportes.enFallo
-            anchors.right: parent.right
-            anchors.bottom: parent.bottom
-            spacing: raiz.m(16)
-            BotonPildora {
-                objectName: "botonEnviarResumen"
-                escala: raiz.escala
-                texto: ventanaReportes.correoListo ? I18n.t("menu.enviar_correo", I18n.lang)
-                                                   : I18n.t("menu.correo_no_configurado", I18n.lang)
-                habilitado: !ventanaReportes.ocupado && ventanaReportes.correoListo
-                            && !(raiz.reporte?.sinConexion ?? true)
-                            && (ventanaReportes.pestana === "resumen" || ventanaReportes.hayCiclos)
-                onPulsado: { ventanaReportes.mensaje = ""; ventanaReportes.eligiendoDestino = true }
-            }
-            BotonPildora {
-                objectName: "botonImprimirResumen"
-                visible: ventanaReportes.pestana === "resumen"   // el consolidado es solo por correo
-                escala: raiz.escala
-                primario: true
-                texto: I18n.t("menu.imprimir", I18n.lang)
-                habilitado: !ventanaReportes.ocupado && !(raiz.reporte?.sinConexion ?? true)
-                onPulsado: ventanaReportes.imprimir()
-            }
-        }
-
-        SelectorDestino {
-            objectName: "selectorDestinoReportes"
-            anchors.fill: parent
-            visible: ventanaReportes.eligiendoDestino
-            escala: raiz.escala
-            destinos: raiz.acciones?.destinos ?? []
-            teclado: raiz.teclado
-            onElegido: (correo) => ventanaReportes.enviar(correo)
-            onCancelado: ventanaReportes.eligiendoDestino = false
-        }
-    }
+    // Reportes ya no es una ventana flotante: la tarjeta navega a Pantallas/Reportes.qml
+    // (REP-01; Main.qml lo apila al recibir reportesPulsado).
 
     // ======================= paneles de la campana y de información =======================
     // Los mismos de PantallaPreciclo.qml (PROVISIONALES, sin diseño del diseñador)

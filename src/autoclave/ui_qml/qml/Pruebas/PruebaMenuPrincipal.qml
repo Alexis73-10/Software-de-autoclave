@@ -22,11 +22,12 @@ Window {
     // (con --backend, reales; sin él, sobre el backend simulado historial_ejemplo.py)
     property QtObject historial: null
     property QtObject acciones: null
-    property QtObject reporte: null
     property QtObject infoEquipo: null
     // Para capturas: ventana flotante abierta al iniciar y backend sin respuesta (ejemplo)
     property string ventanaInicial: ""
     property bool sinConexionEjemplo: false
+    // REP-13: el arnés simula una sesión abierta (con «Otro correo…»), como antes
+    property bool sesionActiva: true
 
     Binding {
         target: Escala
@@ -120,8 +121,8 @@ Window {
             resumen: ventana.resumen ?? resumenEjemplo
             historial: ventana.historial
             acciones: ventana.acciones
-            reporte: ventana.reporte
             teclado: panelTeclado
+            sesionActiva: ventana.sesionActiva
             infoEquipo: ventana.infoEquipo
 
             onIniciarSesionPulsado: console.log("MenuPrincipal: iniciar sesión")

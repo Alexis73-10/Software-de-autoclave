@@ -460,7 +460,7 @@ def revisar_main(idioma: str, ancho: int = 1024, alto: int = 1638, pasos: list |
 # Arnés del Menú (qml/Pruebas/PruebaMenuPrincipal.qml) con los datos de
 # ejemplo de ui_qml/historial_ejemplo.py (los mismos de
 # `prueba_menu_principal.py --pantalla`): resumen, Ciclos hoy, Historial,
-# Reportes, último ciclo, mantenimiento, panel del equipo y campana. Cada
+# último ciclo, mantenimiento, panel del equipo y campana. Cada
 # elemento de `ventanas` se abre, se revisa SOLO esa ventana (tapa al menú) y
 # se cierra; "" revisa el menú sin ventanas.
 
@@ -478,7 +478,6 @@ _SCRIPT_MENU = textwrap.dedent(r'''
     from autoclave.ui_qml import historial_ejemplo as ejemplo
     from autoclave.ui_qml.bridge.acciones_ciclos import AccionesCiclos
     from autoclave.ui_qml.bridge.ciclos_historial import CiclosHistorial
-    from autoclave.ui_qml.bridge.reporte_resumen import ReporteResumen
 
     cfg = json.loads(sys.argv[1])
     i18n.cargar()
@@ -493,8 +492,7 @@ _SCRIPT_MENU = textwrap.dedent(r'''
     historial = CiclosHistorial(backend, ejecutar=lambda t: t(), hoy=hoy)
     props = {"historial": historial,
              "acciones": AccionesCiclos(backend, cargar_config=ejemplo.config_correo_ejemplo,
-                                        enviar=ejemplo.enviar_ejemplo, ejecutar=lambda t: t()),
-             "reporte": ReporteResumen(backend, ejecutar=lambda t: t(), hoy=hoy)}
+                                        enviar=ejemplo.enviar_ejemplo, ejecutar=lambda t: t())}
     avisos = []
     engine = QQmlApplicationEngine()
     engine.warnings.connect(lambda ws: avisos.extend(w.toString() for w in ws))
@@ -521,16 +519,12 @@ _SCRIPT_MENU = textwrap.dedent(r'''
         raiz_revision = ventana.contentItem()
         abierta = None
         if nombre:
-            # "<ventana>:detalle" abre además el detalle del último ciclo listado;
-            # "ventanaReportes:consolidado", la pestaña Consolidado
+            # "<ventana>:detalle" abre además el detalle del último ciclo listado
             base, _, detalle = nombre.partition(":")
             abierta = ventana.findChild(QObject, base)
             QMetaObject.invokeMethod(abierta, "abrir")
             QTest.qWait(900)
-            if detalle == "consolidado":     # pestaña Consolidado de Reportes
-                abierta.setProperty("pestana", "consolidado")
-                QTest.qWait(600)
-            elif detalle:
+            if detalle:
                 ciclos = historial.property("ciclos") or []
                 if ciclos:
                     abierta.setProperty("seleccion", ciclos[-1])
@@ -554,8 +548,7 @@ _SCRIPT_MENU = textwrap.dedent(r'''
 
 VENTANAS_MENU = ("", "ventanaUltimoCiclo", "ventanaMantenimiento", "ventanaCiclosHoy",
                  "ventanaCiclosHoy:detalle", "ventanaHistorial", "ventanaHistorial:detalle",
-                 "ventanaReportes", "ventanaReportes:consolidado", "panelEquipoMenu",
-                 "panelNotificacionesMenu")
+                 "panelEquipoMenu", "panelNotificacionesMenu")
 
 
 def revisar_menu(idioma: str, ancho: int = 1024, alto: int = 1638, ventanas=VENTANAS_MENU,
@@ -570,6 +563,146 @@ def revisar_menu(idioma: str, ancho: int = 1024, alto: int = 1638, ventanas=VENT
                        timeout=240)
     linea = next((l for l in p.stdout.splitlines() if l.startswith("RESULTADO=")), None)
     assert linea, "Menu\n" + p.stdout[-2000:] + p.stderr[-3000:]
+    return json.loads(linea[len("RESULTADO="):])
+
+
+# ── Reportes (etapa E del dashboard): pantalla completa con datos de ejemplo ─
+#
+# Arnés qml/Pruebas/PruebaReportes.qml sobre tests/helpers/reportes_ejemplo.py
+# (backend real con una base temporal). Cada paso lleva la pantalla a un estado
+# y revisa SOLO ese estado con FUNCION_REVISAR.
+
+ESTADOS_REPORTES = ("base", "anio", "dia_previo", "dia_falto", "fallo", "ciclo", "alarmas",
+                    "selector", "correo")
+
+_SCRIPT_REPORTES = textwrap.dedent(r'''
+    import json, os, sys, tempfile
+    from pathlib import Path
+    from PySide6.QtCore import QMetaObject, QObject, QPointF, QUrl, Q_ARG, Q_RETURN_ARG, Qt
+    from PySide6.QtGui import QGuiApplication
+    from PySide6.QtQml import QQmlApplicationEngine, QQmlComponent
+    from PySide6.QtQuick import QQuickWindow  # noqa: F401
+    from PySide6.QtTest import QTest
+    from autoclave import i18n
+    from autoclave.ui_qml.app import QML_DIR, _cargar_fuentes
+    from autoclave.ui_qml.bridge import i18n_qml
+    from autoclave.ui_qml.bridge.acciones_ciclos import AccionesCiclos
+    from autoclave.ui_qml.bridge.ciclos_historial import CiclosHistorial
+    from autoclave.ui_qml.bridge.reporte_dashboard import ReporteDashboard
+    from autoclave.ui_qml import historial_ejemplo as ejemplo
+    from tests.helpers.reportes_ejemplo import ClienteReportes, HOY
+
+    cfg = json.loads(sys.argv[1])
+    i18n.cargar()
+    i18n.fijar_idioma(cfg["idioma"])
+    i18n_qml.instancia._consultar = lambda: None
+    qapp = QGuiApplication([])
+    _cargar_fuentes()
+
+    def config():
+        c = ejemplo.config_correo_ejemplo()
+        c.destinos = [{"nombre": "Mantenimiento", "correo": "mantenimiento@example.com"}]
+        return c
+
+    with ClienteReportes(Path(tempfile.mkdtemp())) as cli:
+        rd = ReporteDashboard(cli, ejecutar=lambda t: t(), hoy=lambda: HOY)
+        hist = CiclosHistorial(cli, ejecutar=lambda t: t(), hoy=lambda: HOY)
+        acc = AccionesCiclos(cli, cargar_config=config, enviar=ejemplo.enviar_ejemplo, ejecutar=lambda t: t())
+        avisos = []
+        engine = QQmlApplicationEngine()
+        engine.warnings.connect(lambda ws: avisos.extend(w.toString() for w in ws))
+        engine.addImportPath(QML_DIR)
+        engine.setInitialProperties({"reporteDashboard": rd, "acciones": acc, "historial": hist})
+        engine.load(QUrl.fromLocalFile(QML_DIR + "/Pruebas/PruebaReportes.qml"))
+        ventana = engine.rootObjects()[0]
+        ventana.setProperty("width", cfg["ancho"])
+        ventana.setProperty("height", cfg["alto"])
+        ventana.show()
+        revisor_c = QQmlComponent(engine)
+        revisor_c.setData(("import QtQuick\nQtObject {\n" + cfg["funcion"] + "\n}\n").encode("utf-8"),
+                          QUrl.fromLocalFile(QML_DIR + "/_revisor_textos.qml"))
+        revisor = revisor_c.create()
+        assert revisor is not None, revisor_c.errorString()
+        QTest.qWait(800)
+
+        def buscar(nombre, it=None):
+            it = it or ventana.contentItem()
+            for h in it.childItems():
+                if h.objectName() == nombre:
+                    return h
+                e = buscar(nombre, h)
+                if e is not None:
+                    return e
+            return None
+
+        def tocar(o):
+            c = o.mapToScene(o.boundingRect().center()).toPoint()
+            QTest.mouseClick(ventana, Qt.LeftButton, Qt.NoModifier, c)
+            QTest.qWait(250)
+
+        pasos = []
+        for estado in cfg["estados"]:
+            raiz_revision = ventana.contentItem()
+            if estado == "anio":
+                rd.cambiarPeriodo("anio")
+            elif estado == "dia_previo":
+                rd.elegirDia("2026-10-08")
+            elif estado == "dia_falto":
+                rd.elegirDia("2026-10-14")
+            elif estado == "fallo":
+                rd.abrirFallo("FALLO_ESTERILIZACION")
+            elif estado == "ciclo":
+                rd.abrirFallo("FALLO_ESTERILIZACION")
+                QTest.qWait(200)
+                fila = rd.property("ciclosFallo")[0]
+                buscar("pantallaReportes").abrirCiclo(fila)
+            elif estado == "alarmas":
+                buscar("listaAlarmasPeriodo").abrirTodas()
+            elif estado == "selector":
+                buscar("selectorProgramaCalendario").abrir()
+            elif estado == "correo":
+                ventana.setProperty("sesionActiva", False)
+                tocar(buscar("botonEnviarResumen"))
+            QTest.qWait(500)
+            r = json.loads(QMetaObject.invokeMethod(revisor, "revisarDesde", Q_RETURN_ARG("QVariant"),
+                                                    Q_ARG("QVariant", raiz_revision)))
+            r["estado"] = estado
+            pasos.append(r)
+            # volver al estado base
+            pantalla = buscar("pantallaReportes")
+            if estado == "selector":
+                buscar("selectorProgramaCalendario").cerrar()
+            if estado == "alarmas":
+                buscar("listaAlarmasPeriodo").cerrarTodas()
+            if estado == "ciclo":
+                pantalla.cerrarCiclo()
+            if estado in ("fallo", "ciclo"):
+                rd.cerrarFallo()
+            if estado == "correo":
+                pantalla.setProperty("eligiendoDestino", False)
+                ventana.setProperty("sesionActiva", True)
+            if estado == "anio":
+                rd.cambiarPeriodo("mes")
+            if estado in ("dia_previo", "dia_falto"):
+                rd.cerrarDia()
+            QTest.qWait(200)
+        print("RESULTADO=" + json.dumps({"pasos": pasos,
+                                         "avisos": [a for a in avisos if "Binding loop" not in a][:30]},
+                                        ensure_ascii=False))
+''')
+
+
+def revisar_reportes(idioma: str, ancho: int = 1024, alto: int = 1638, estados=ESTADOS_REPORTES) -> dict:
+    """Pantalla Reportes con datos de ejemplo; revisa cada estado de `estados`."""
+    cfg = {"idioma": idioma, "ancho": ancho, "alto": alto, "estados": list(estados),
+           "funcion": FUNCION_REVISAR}
+    env = {**os.environ, "QT_QPA_PLATFORM": "offscreen",
+           "PYTHONPATH": str(RAIZ / "src") + os.pathsep + str(RAIZ)}
+    p = subprocess.run([sys.executable, "-X", "utf8", "-c", _SCRIPT_REPORTES, json.dumps(cfg, ensure_ascii=False)],
+                       capture_output=True, text=True, encoding="utf-8", env=env, cwd=RAIZ,
+                       timeout=420)
+    linea = next((l for l in p.stdout.splitlines() if l.startswith("RESULTADO=")), None)
+    assert linea, "Reportes\n" + p.stdout[-2000:] + p.stderr[-3000:]
     return json.loads(linea[len("RESULTADO="):])
 
 

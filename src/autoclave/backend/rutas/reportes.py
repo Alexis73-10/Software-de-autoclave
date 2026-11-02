@@ -6,17 +6,20 @@
 
 import logging
 from datetime import date, datetime, timedelta
-from typing import Literal
+from datetime import time as dt_time
+from typing import Annotated, Literal
 from fastapi import Depends, Header, Query
 from pydantic import BaseModel, Field, StrictBool, StrictInt
 from autoclave.backend.autenticacion import Sesion
 from autoclave.services.domain.reportes import resumen_periodo
+from autoclave.services.domain.reportes.consultas import armar_calendario, armar_dashboard, armar_dia
+from autoclave.utils import periodos
 from autoclave.auth.roles import ROL_ADMIN, ROL_INGENIERO, ROL_TECNICO
 from fastapi import APIRouter
 
 from autoclave.backend.dependencias import (DISTINTO_DE_CICLO, RechazoApi, _auditar,
     _log_desarrollo, _rechazar, _token_de, context, guard_estado, requiere_rol, tokens)
-from autoclave.backend.rutas._comun import (_LEEN_CONECTIVIDAD, _ciclo_json,
+from autoclave.backend.rutas._comun import (_LEEN_CONECTIVIDAD, _ciclo_de_pantalla, _ciclo_json,
     _encolar_en_impresora, _inicio_del_dia, _meta_equipo, _rango_del_periodo)
 from autoclave.installation.identidad import (
     identidad_de_meta, identidad_de_perfil, meta_con_originales, rotulo_serial_especifika)
@@ -28,6 +31,9 @@ from autoclave.backend.rutas.apagado import (_reinicio_lock, bloquear_para_reini
 logger = logging.getLogger("autoclave.backend.server")
 
 router = APIRouter()
+
+# `fecha` acotada a 2000-01-01..2100-12-31 (422 fuera de rango)
+FechaAcotada = Annotated[date | None, Query(ge=periodos.FECHA_MINIMA, le=periodos.FECHA_MAXIMA)]
 
 
 class _ImpresoraConfigBody(BaseModel):
@@ -279,7 +285,7 @@ def _resumen_periodo(periodo: str, fecha: date | None) -> dict:
 
 
 @router.get("/report/summary")
-def get_report_summary(periodo: Literal["dia", "semana", "mes"] = "dia", fecha: date | None = None):
+def get_report_summary(periodo: Literal["dia", "semana", "mes", "anio"] = "dia", fecha: FechaAcotada = None):
     """Resumen de los ciclos iniciados en el periodo de calendario que contiene
     `fecha` (por defecto hoy): totales por resultado, por programa y causas de
     fallo (services/domain/reportes/resumen_periodo.py). Solo lectura."""
@@ -288,8 +294,8 @@ def get_report_summary(periodo: Literal["dia", "semana", "mes"] = "dia", fecha: 
 
 @router.get("/report/failures")
 def get_report_failures(causa: str = Query(min_length=1),
-                        periodo: Literal["dia", "semana", "mes"] = "dia",
-                        fecha: date | None = None,
+                        periodo: Literal["dia", "semana", "mes", "anio"] = "dia",
+                        fecha: FechaAcotada = None,
                         pagina: int = Query(1, ge=1),
                         por_pagina: int = Query(20, ge=1, le=100)):
     """D8-5.6: ciclos del periodo (por fecha de inicio, como /report/summary)
@@ -319,8 +325,8 @@ def get_report_failures(causa: str = Query(min_length=1),
 
 
 class _ImprimirResumenBody(BaseModel):
-    periodo: Literal["dia", "semana", "mes"] = "dia"
-    fecha: date | None = None
+    periodo: Literal["dia", "semana", "mes", "anio"] = "dia"
+    fecha: date | None = Field(None, ge=periodos.FECHA_MINIMA, le=periodos.FECHA_MAXIMA)
 
 
 @router.post("/report/summary/print")
@@ -332,3 +338,63 @@ def print_report_summary(body: _ImprimirResumenBody):
         r, r["desde"], r["hasta"], serie=r["serie"], modelo=r["modelo"],
         serial_especifika=r.get("serial_especifika"))])
     return {"ok": True}
+
+
+# ---------------------------------------------------------------- dashboard
+# Etapa D de planeacion_dashboard_reportes.md (REP-03..11). Solo lectura, sin
+# token, como /report/summary; la lógica vive en services/domain/reportes/dashboard.py.
+
+def _hoy() -> date:
+    return date.fromisoformat(_inicio_del_dia()[:10])
+
+
+def _numeros_programas() -> dict:
+    return {tipo: getattr(c, "number", None) for tipo, c in list(context.cycle_manager.cycles.items())}
+
+
+def _ciclo_activo() -> int | None:
+    """Id en BD del ciclo en curso del equipo (None si no hay o ante un error)."""
+    try:
+        activo = _ciclo_de_pantalla()
+        if not isinstance(activo, int):
+            return None
+        # Regla del plan (REP-07): activo = sin resultado Y ciclo activo del equipo.
+        # Un ciclo ya cerrado que espera CONFIRMAR sigue en pantalla pero es un
+        # intento real (un fallo no debe quedar oculto como «En curso»).
+        fila = context.db.get_ciclo(activo)
+        if fila is not None and str(fila["resultado"] or "").strip():
+            return None
+    except Exception:
+        logger.exception("/report: no se pudo leer el ciclo activo")
+        return None
+    return activo
+
+
+@router.get("/report/dashboard")
+def get_report_dashboard(periodo: Literal["dia", "semana", "mes", "anio"] = "dia",
+                         fecha: FechaAcotada = None):
+    """Dashboard de Reportes: indicadores del periodo de calendario que contiene
+    `fecha` (por defecto hoy) y del inmediatamente anterior del mismo tipo,
+    serie por intervalos, por programa y causas de fallo (forma de
+    /report/summary), alarmas por código y ciclos por operador. Solo lectura."""
+    return armar_dashboard(context.db, periodo, fecha or _hoy(), _numeros_programas())
+
+
+@router.get("/report/calendar")
+def get_report_calendar(periodo: Literal["dia", "semana", "mes", "anio"] = "mes",
+                        fecha: FechaAcotada = None,
+                        programa: int | None = Query(None, ge=1)):
+    """Calendario de ejecución por programa (REP-07): con `periodo=anio`, los
+    días del año; en los demás, los del mes que contiene `fecha`. El selector de
+    programas sale del periodo pedido (DR-D06). Solo lectura."""
+    return armar_calendario(context.db, periodo, fecha or _hoy(), programa, _numeros_programas(),
+                            context.cycle_manager.cycles, _ciclo_activo(), _hoy())
+
+
+@router.get("/report/day-cycles")
+def get_report_day_cycles(programa: int = Query(ge=1), fecha: FechaAcotada = None):
+    """Ciclos del programa `programa` (número efectivo, DR-H02) iniciados el día
+    local `fecha` (por defecto hoy), en orden de inicio, con la forma de
+    /cycle/list, y el estado del día en el calendario. Solo lectura."""
+    return armar_dia(context.db, programa, fecha or _hoy(), _numeros_programas(),
+                     _ciclo_activo(), _hoy(), _ciclo_json)

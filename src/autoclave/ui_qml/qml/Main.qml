@@ -46,6 +46,8 @@ Window {
     property QtObject acciones: null
     // reporte: resumen de ciclos por periodo de Reportes (ReporteResumen)
     property QtObject reporte: null
+    // reporteDashboard: dashboard de Reportes (ReporteDashboard)
+    property QtObject reporteDashboard: null
     // sesion: sesión de esta ventana contra el backend (SesionVentana, T-8):
     // vigilancia de conexión, cierre por desconexión y 401
     property QtObject sesion: null
@@ -425,14 +427,34 @@ Window {
             resumen: ventana.resumen
             historial: ventana.historial
             acciones: ventana.acciones
-            reporte: ventana.reporte
             teclado: panelTeclado
+            // REP-13: sesión de esta ventana (notifica login y cierre)
+            sesionActiva: ventana.sesion?.sesionActiva ?? false
             infoEquipo: ventana.infoEquipo
             comandosSistema: ventana.comandosSistema
             inicioActivo: true
             onAtrasPulsado: ventana.atras()
             onInicioPulsado: ventana.volverAPrincipal()
             onIniciarSesionPulsado: ventana.abrirConfiguracion()
+            onReportesPulsado: pila.push(reportesComp)
+        }
+    }
+    // Reportes (dashboard de solo lectura, planeacion_dashboard_reportes.md REP-01):
+    // pantalla completa sobre el Menú Principal. Inicio vuelve al menú; Salir
+    // regresa a la pantalla principal del equipo. Visible sin sesión (DR-D09).
+    Component {
+        id: reportesComp
+        Reportes {
+            puente: ventana.puente
+            reporteDashboard: ventana.reporteDashboard
+            acciones: ventana.acciones
+            historial: ventana.historial
+            teclado: panelTeclado
+            comandosSistema: ventana.comandosSistema
+            // REP-13: sesión de esta ventana (notifica login y cierre)
+            sesionActiva: ventana.sesion?.sesionActiva ?? false
+            onInicioPulsado: ventana.atras()
+            onSalirPulsado: ventana.volverAPrincipal()
         }
     }
     Component {

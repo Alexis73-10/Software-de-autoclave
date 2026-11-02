@@ -223,6 +223,7 @@ def _servidor():
     ("mes",    (2026, 10, 2), "2026-10-01T00:00:00", "2026-11-01T00:00:00"),
     ("mes",    (2026, 12, 31), "2026-12-01T00:00:00", "2027-01-01T00:00:00"),
     ("semana", (2026, 12, 31), "2026-12-28T00:00:00", "2027-01-04T00:00:00"),
+    ("anio",   (2026, 10, 2), "2026-01-01T00:00:00", "2027-01-01T00:00:00"),
 ])
 def test_rango_del_periodo_de_calendario(periodo, fecha, desde, hasta):
     from datetime import date
@@ -254,7 +255,7 @@ def test_endpoint_lista_terminados_y_truncado(cliente, db):
 
 
 def test_endpoint_lista_periodo_invalido(cliente):
-    assert cliente.get("/cycle/list", params={"periodo": "anio"}).status_code == 422
+    assert cliente.get("/cycle/list", params={"periodo": "trimestre"}).status_code == 422
 
 
 def test_endpoint_lista_sin_fecha_es_el_periodo_de_hoy(cliente, db):
@@ -358,7 +359,34 @@ def test_resumen_sin_fecha_es_el_periodo_de_hoy(cliente):
 
 
 def test_resumen_periodo_invalido(cliente):
-    assert cliente.get("/report/summary", params={"periodo": "anio"}).status_code == 422
+    assert cliente.get("/report/summary", params={"periodo": "trimestre"}).status_code == 422
+    assert cliente.get("/report/failures", params={"periodo": "trimestre", "causa": "X"}).status_code == 422
+    assert cliente.post("/report/summary/print", json={"periodo": "trimestre"}).status_code == 422
+
+
+def test_resumen_de_un_anio(cliente, db):
+    _fechas(db, _crear(db), "2025-12-31T23:00:00", "2025-12-31T23:40:00", "COMPLETADO")   # fuera
+    _fechas(db, _crear(db), "2026-01-01T08:00:00", "2026-01-01T08:40:00", "COMPLETADO")
+    _fechas(db, _crear(db), "2026-12-31T08:00:00", "2026-12-31T08:40:00", "FALLO_SECADO")
+    _fechas(db, _crear(db), "2027-01-01T00:00:00", "2027-01-01T00:40:00", "COMPLETADO")   # fuera
+    r = cliente.get("/report/summary", params={"periodo": "anio", "fecha": "2026-06-15"}).json()
+    assert (r["periodo"], r["desde"], r["hasta"]) == ("anio", "2026-01-01", "2026-12-31")
+    assert r["totales"]["total"] == 2 and r["totales"]["fallos"] == 1
+
+
+def test_fallos_de_un_anio(cliente, db):
+    _fechas(db, _crear(db), "2026-03-03T08:00:00", "2026-03-03T08:40:00", "FALLO_SECADO")
+    _fechas(db, _crear(db), "2025-03-03T08:00:00", "2025-03-03T08:40:00", "FALLO_SECADO")
+    j = cliente.get("/report/failures", params={"periodo": "anio", "fecha": "2026-06-15",
+                                                "causa": "FALLO_SECADO"}).json()
+    assert (j["periodo"], j["desde"], j["hasta"], j["total"]) == ("anio", "2026-01-01", "2026-12-31", 1)
+
+
+def test_imprimir_resumen_de_un_anio(cliente, db, estado_maquina):
+    _fechas(db, _crear(db), "2026-02-02T08:00:00", "2026-02-02T08:40:00", "COMPLETADO")
+    r = cliente.post("/report/summary/print", json={"periodo": "anio", "fecha": "2026-06-15"})
+    assert r.status_code == 200 and r.json() == {"ok": True}
+    assert "Desde: 01/01/2026" in estado_maquina.realtime_printer.enqueue.call_args.args[0]
 
 
 def test_imprimir_resumen(cliente, db, estado_maquina):
@@ -384,3 +412,9 @@ def test_imprimir_resumen_con_la_impresora_desconectada(cliente, estado_maquina)
     r = cliente.post("/report/summary/print", json={"periodo": "mes", "fecha": "2026-09-01"})
     assert r.status_code == 503 and r.json()["detail"] == {"impresora": "desconectada"}
     estado_maquina.realtime_printer.enqueue.assert_not_called()
+
+
+# Trazabilidad (matriz REQ-37..REQ-50, dashboard de Reportes)
+import pytest as _pytest  # noqa: E402
+
+pytestmark = [_pytest.mark.req("REQ-38")]

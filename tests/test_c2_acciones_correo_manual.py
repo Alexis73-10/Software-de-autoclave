@@ -63,7 +63,8 @@ class _Entorno:
 
         self.a = AccionesCiclos(self.backend, cargar_config=lambda: self.config,
                                 ejecutar=lambda t: t(), generar_pdf=generar_pdf,
-                                enviar=lambda c, m: correo.enviar(c, m, smtp=smtp))
+                                enviar=lambda c, m: correo.enviar(c, m, smtp=smtp),
+                                sesion_activa=lambda: True)   # REP-13: con sesión
         self.terminadas = QSignalSpy(self.a.accionTerminada)
 
     def resultado(self):

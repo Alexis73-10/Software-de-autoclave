@@ -155,7 +155,10 @@ def test_menu_y_ventanas_sin_textos_fuera_de_su_cuadro(menu):
 
 def test_menu_abreviado_solo_si_el_completo_no_cabe(menu):
     ajustables = [a for paso in menu["pasos"] for a in paso["ajustables"]]
-    assert ajustables, "Reportes usa TextoAjustable en el encabezado de su tabla"
+    # (la ventana flotante de Reportes era la única del menú con TextoAjustable, en el
+    # encabezado de su tabla; la pantalla Reportes baja la letra con fontSizeMode y se
+    # revisa en test_rep_pantalla_reportes_qml.py. Los TextoAjustable de Preciclo, los
+    # cubre test_u10a_textos_caben_qml.py.)
     for a in ajustables:
         cabe = a["anchoCompleto"] <= a["anchoDisponible"]
         assert a["mostrado"] == (a["completo"] if cabe or not a["abreviado"] else a["abreviado"]), a

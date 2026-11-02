@@ -72,7 +72,8 @@ class _Entorno:
 
         self.a = AccionesCiclos(self.backend, cargar_config=lambda: self.config,
                                 ejecutar=lambda t: t(), generar_pdf=generar_pdf,
-                                enviar=enviar or self._enviar_aceptado)
+                                enviar=enviar or self._enviar_aceptado,
+                                sesion_activa=lambda: True)   # REP-13: con sesión
         self.terminadas = QSignalSpy(self.a.accionTerminada)
 
     def _enviar_aceptado(self, config, m):

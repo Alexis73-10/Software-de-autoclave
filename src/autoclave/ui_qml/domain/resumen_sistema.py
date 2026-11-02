@@ -203,4 +203,6 @@ def rotulo_periodo(periodo: str, fecha: date, idioma: str | None = None) -> str:
         ultimo = fin - timedelta(days=1)
         desde = corta(inicio) + (f" {inicio.year}" if inicio.year != ultimo.year else "")
         return f"{desde} – {corta(ultimo)} {ultimo.year}"
+    if periodo == "anio":
+        return str(inicio.year)
     return f"{meses[inicio.month - 1]} {inicio.year}"

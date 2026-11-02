@@ -78,6 +78,8 @@ Regla: en modo claro todo queda idéntico a hoy. Ningún valor de este archivo s
 - `deslizadorTexto` — #007A29 → #5ED68C
 - `deslizadorSombraInterior` — #007A29 → #000000 (al 12 %)
 - `deslizadorNucleo` — #009933 → #2DBE66
+- `deslizadorManija` — #009933 → #12301F (fondo de la manija; oscuro = la pista, como en el tema oscuro previo a la unión)
+- `deslizadorManijaListo` — #009933 → #18402A
 - `exitoFondo` — #E9F8EE → #12301F
 
 ## 8. Contraste mínimo (verificar con script)

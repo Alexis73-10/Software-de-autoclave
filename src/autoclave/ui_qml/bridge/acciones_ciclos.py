@@ -35,6 +35,7 @@ import requests
 from PySide6.QtCore import Property, QObject, Signal, Slot
 
 from autoclave import i18n
+from autoclave.cliente.session_manager import SessionManager
 from autoclave.core.runtime.progreso_ciclo import FASES_UI
 from autoclave.core.runtime import alarmas_i18n
 from autoclave.installation.identidad import identidad_de_ciclo, rotulo_serial_especifika
@@ -177,9 +178,12 @@ class AccionesCiclos(QObject):
                  ejecutar=_en_hilo, generar_pdf=_generar_pdf, enviar=correo.enviar,
                  generar_pdf_resumen=_generar_pdf_resumen,
                  generar_pdf_consolidado=_generar_pdf_consolidado,
-                 presentacion=_presentacion_vigente):
+                 presentacion=_presentacion_vigente,
+                 sesion_activa=lambda: SessionManager.is_authenticated()):
         super().__init__(parent)
         self._presentacion = presentacion
+        # REP-13 (DR-H08): sin sesión solo se envía a los guardados
+        self._sesion_activa = sesion_activa
         self._backend = backend_client
         self._cargar_config = cargar_config
         self._ejecutar = ejecutar
@@ -429,6 +433,16 @@ class AccionesCiclos(QObject):
         """Direcciones del envío ("a@x.com,b@y.com" o lista), todas con formato
         válido; si una no lo tiene, no se envía a ninguna y el aviso la nombra."""
         destinos = correo.separar_destinos(destino)
+        if destinos and not self._hay_sesion():
+            # REP-13 (DR-H08): la pantalla no ofrece escribir una dirección sin
+            # sesión; si llega una, se ignora y solo quedan las guardadas
+            manuales = self._manuales(config, destinos)
+            if manuales:
+                logger.warning("Envío sin sesión: se ignoran %d dirección(es) escrita(s) a mano",
+                               len(manuales))
+                destinos = [d for d in destinos if d not in manuales]
+                if not destinos:
+                    raise _ErrorConMensaje(i18n.t("reportes.destino_inicie_sesion"))
         if not destinos or len(destinos) > MAX_DESTINOS_ENVIO:
             raise _ErrorConMensaje(i18n.t("exportacion.correo_invalido"))
         invalidas = [d for d in destinos if not config_correo.correo_valido(d)]
@@ -479,6 +493,14 @@ class AccionesCiclos(QObject):
             return False, texto + ". " + i18n.t("correo_c2.rechazados_parcial",
                                                  correos=", ".join(r.rechazados))
         return True, texto
+
+    def _hay_sesion(self) -> bool:
+        """Sesión de esta ventana; ante un error, sin sesión (falla cerrado)."""
+        try:
+            return bool(self._sesion_activa())
+        except Exception:
+            logger.exception("No se pudo consultar la sesión para el envío de correo")
+            return False
 
     @staticmethod
     def _manuales(config, destinos: list) -> list:

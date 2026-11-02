@@ -262,11 +262,18 @@ _ORIGEN_CLARO = {
     "graficaTituloEje": (_GRA, "tituloEje"), "graficaBordeBoton": (_GRA, "bordeBoton"),
     "valorTempCamara": (_PRE, "negro"), "valorTempReferencia": (_PRE, "negro"),
     "valorPresion": (_PRE, "negro"),
-    "deslizadorPista": (_DES, 208, 0), "deslizadorPistaListo": (_DES, 208, 1),
-    "deslizadorAcento": (_DES, "verdeReposo"), "deslizadorAcentoListo": (_DES, "verdeListo"),
-    "deslizadorBrillo": (_DES, "brilloReposo"), "deslizadorBrilloListo": (_DES, "brilloListo"),
-    "deslizadorTexto": (_DES, "verdeReposo"), "deslizadorSombraInterior": (_DES, 224),
-    "deslizadorNucleo": ("paleta_claro",), "exitoFondo": ("paleta_claro",),
+    "deslizadorPista": ("paleta_claro",),
+    "deslizadorPistaListo": ("paleta_claro",),
+    "deslizadorAcento": ("paleta_claro",),
+    "deslizadorAcentoListo": ("paleta_claro",),
+    "deslizadorBrillo": ("paleta_claro",),
+    "deslizadorBrilloListo": ("paleta_claro",),
+    "deslizadorTexto": ("paleta_claro",),
+    "deslizadorSombraInterior": ("paleta_claro",),
+    "deslizadorNucleo": ("paleta_claro",),
+    "deslizadorManija": ("paleta_claro",),
+    "deslizadorManijaListo": ("paleta_claro",),
+    "exitoFondo": ("paleta_claro",),
     "abrirPuertaArriba": (_PRE, 731), "abrirPuertaAbajo": (_PRE, 732),
     "abrirPuertaBorde": ("sin_color",), "abrirPuertaTexto": ("blanco",),
     "cancelarArriba": (_CIC, "cancelarArriba"), "cancelarAbajo": (_CIC, "cancelarAbajo"),
@@ -372,8 +379,6 @@ def test_c_claros_existentes_son_los_de_la_base_y_los_de_la_paleta():
     for nombre, (claro,) in base.items():
         assert props[nombre][0] == claro, nombre
     for nombre, (claro, _osc) in _paleta_pares().items():
-        if nombre.startswith("deslizador") or nombre == "exitoFondo":
-            continue                     # OSC-01: la §7 trae claros de dashboard-reportes
         assert props[nombre][0] == claro, nombre
 
 

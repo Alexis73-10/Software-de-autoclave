@@ -135,18 +135,26 @@ QtObject {
     readonly property color valorTempReferencia: oscuro ? "#CFA2F7" : "#000000"
     readonly property color valorPresion:        oscuro ? "#5EE3C2" : "#000000"
 
-    // Deslizador de inicio AJ-01 y éxito (paleta §7; OSC-01: claro = literales de
-    // DeslizadorInicio.qml en dev, no los de la §7, que son de dashboard-reportes)
-    readonly property color deslizadorPista:          oscuro ? "#12301F" : "#052A17" // pista (mezcla reposo)
-    readonly property color deslizadorPistaListo:     oscuro ? "#18402A" : "#063A1F" // pista (mezcla listo)
-    readonly property color deslizadorAcento:         oscuro ? "#2DBE66" : "#28BE5F" // verdeReposo
-    readonly property color deslizadorAcentoListo:    oscuro ? "#5ED68C" : "#6EFFA0" // verdeListo
-    readonly property color deslizadorBrillo:         oscuro ? "#732DBE66" : "#9BE8B4" // brilloReposo; oscuro al 45 %
-    readonly property color deslizadorBrilloListo:    oscuro ? "#735ED68C" : "#C8FFD8" // brilloListo; oscuro al 45 %
-    readonly property color deslizadorTexto:          oscuro ? "#5ED68C" : "#28BE5F" // hoy el texto es el acento con alfa 0,85
-    readonly property color deslizadorSombraInterior: oscuro ? "#1F000000" : "#CC000000" // Qt.rgba(0, 0, 0, 0.8); oscuro al 12 %
-    readonly property color deslizadorNucleo:         oscuro ? "#2DBE66" : "#009933" // sin literal en dev: claro de la §7 (OSC-01)
-    readonly property color exitoFondo:               oscuro ? "#12301F" : "#E9F8EE" // sin uso en dev: claro de la §7 (OSC-01)
+    // Deslizador de inicio AJ-01 (verde pastel en claro; paleta §7) y éxito. NO son colores de alarma.
+    // Oscuro: lo que el deslizador ya mostraba en el tema oscuro (rama modo-oscuro).
+    readonly property color deslizadorPista:          oscuro ? "#12301F" : "#E9F8EE" // pista (mezcla reposo); claro = éxito 050
+    readonly property color deslizadorPistaListo:     oscuro ? "#18402A" : "#D3F1DD" // pista (mezcla listo)
+    readonly property color deslizadorAcento:         oscuro ? "#2DBE66" : "#2DBE66" // verdeReposo
+    readonly property color deslizadorAcentoListo:    oscuro ? "#5ED68C" : "#5ED68C" // verdeListo
+    readonly property color deslizadorBrillo:         oscuro ? "#732DBE66" : "#BDEBCB" // brilloReposo; oscuro al 45 %
+    readonly property color deslizadorBrilloListo:    oscuro ? "#735ED68C" : "#DDF7E5" // brilloListo; oscuro al 45 %
+    readonly property color deslizadorTexto:          oscuro ? "#5ED68C" : "#007A29" // éxito fuerte: texto de la pista (≥ 4,5:1 en claro)
+    readonly property color deslizadorSombraInterior: oscuro ? "#1F000000" : "#007A29" // base de la sombra interior; se usa al 12 % (Qt.alpha)
+    readonly property color deslizadorNucleo:         oscuro ? "#2DBE66" : "#009933" // éxito: núcleo de la manija (triángulo blanco ≥ 3:1) y velo del fondo
+    // Fondo de la manija (mezcla reposo → listo): claro = núcleo de éxito; oscuro = la pista, como ya se veía
+    readonly property color deslizadorManija:         oscuro ? "#12301F" : "#009933"
+    readonly property color deslizadorManijaListo:    oscuro ? "#18402A" : "#009933"
+    // Magnitudes (no colores) del deslizador que cambian con el tema: el oscuro conserva las de siempre
+    readonly property real deslizadorBordeAlfa:       oscuro ? 0.3 : 0.45  // alfa del borde de la pista (acento)
+    readonly property real deslizadorSombraOpacidad:  oscuro ? 0.4 : 0.2   // opacidad del brillo exterior de la pista
+    readonly property real deslizadorTextoAcento:     oscuro ? 0.85 : 0    // >0: el texto es el acento con ese alfa y halo; 0: usa deslizadorTexto
+    // Reportes (dashboard): relleno verde de éxito; oscuro = misma superficie verde oscura de la pista (paleta §7)
+    readonly property color exitoFondo:               oscuro ? "#12301F" : "#E9F8EE"
 
     // Botones con degradado (OSC-10/11)
     readonly property color abrirPuertaArriba:  oscuro ? "#16305E" : "#2F58FB" // Preciclo Qt.rgba(47, 88, 251)

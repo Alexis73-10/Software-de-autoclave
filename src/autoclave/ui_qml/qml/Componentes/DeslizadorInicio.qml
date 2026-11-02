@@ -54,6 +54,9 @@ Item {
     // decoración del tema: verde de pista, núcleo, blanco y negro con alfa
     readonly property color pistaMezcla: mezcla(Colores.deslizadorPista, Colores.deslizadorPistaListo, progreso)
     function pi(alfa) { return Qt.rgba(pistaMezcla.r, pistaMezcla.g, pistaMezcla.b, alfa) }
+    // fondo de la manija: núcleo de éxito en claro, la pista en oscuro (Colores.deslizadorManija*)
+    readonly property color manijaMezcla: mezcla(Colores.deslizadorManija, Colores.deslizadorManijaListo, progreso)
+    function ma(alfa) { return Qt.rgba(manijaMezcla.r, manijaMezcla.g, manijaMezcla.b, alfa) }
     function nu(alfa) { const c = Colores.deslizadorNucleo; return Qt.rgba(c.r, c.g, c.b, alfa) }
     function bl(alfa) { const c = Colores.textoSobreAccion; return Qt.rgba(c.r, c.g, c.b, alfa) }
     function ne(alfa) { const c = Colores.sombra; return Qt.rgba(c.r, c.g, c.b, alfa) }
@@ -213,21 +216,21 @@ Item {
         radius: height / 2
         color: desl.pistaMezcla
         border.width: Math.max(1, desl.u)
-        border.color: desl.ac(0.3)
+        border.color: desl.ac(Colores.deslizadorBordeAlfa)
         layer.enabled: true
         layer.effect: MultiEffect {
             shadowEnabled: true
             shadowColor: desl.ac(1)
-            shadowOpacity: 0.4
+            shadowOpacity: Colores.deslizadorSombraOpacidad
             shadowBlur: 0.6
             paddingRect: Qt.rect(24 * desl.u, 24 * desl.u, 24 * desl.u, 24 * desl.u)
         }
     }
 
-    // sombra interior de la pista (inset 0 0 10px negro .8)
+    // sombra interior de la pista (inset 0 0 10px verde oscuro suave)
     SombraInterior {
         anchors.fill: parent
-        color: Colores.deslizadorSombraInterior
+        color: Qt.alpha(Colores.deslizadorSombraInterior, 0.12)
         grosor: 10 * desl.u
         desenfoque: 0.55
     }
@@ -301,7 +304,12 @@ Item {
         anchors.verticalCenter: parent.verticalCenter
         horizontalAlignment: Text.AlignRight
         text: desl.texto
-        color: desl.ac(0.85)
+        color: Colores.deslizadorTextoAcento > 0 ? desl.ac(Colores.deslizadorTextoAcento) : Colores.deslizadorTexto
+        layer.enabled: Colores.deslizadorTextoAcento > 0
+        layer.effect: MultiEffect {
+            shadowEnabled: true; shadowColor: desl.ac(1); shadowOpacity: 0.5; shadowBlur: 0.35
+            paddingRect: Qt.rect(8 * desl.u, 8 * desl.u, 8 * desl.u, 8 * desl.u)
+        }
         opacity: 1.0 - desl.progreso
         font.family: Tipografia.familia
         font.weight: Tipografia.pesoMedium
@@ -309,11 +317,6 @@ Item {
         font.letterSpacing: desl.u
         fontSizeMode: Text.HorizontalFit
         minimumPixelSize: Math.min(font.pixelSize, Escala.fuenteMinima)
-        layer.enabled: true
-        layer.effect: MultiEffect {
-            shadowEnabled: true; shadowColor: desl.ac(1); shadowOpacity: 0.5; shadowBlur: 0.35
-            paddingRect: Qt.rect(8 * desl.u, 8 * desl.u, 8 * desl.u, 8 * desl.u)
-        }
     }
     Item {
         id: puntoReposo
@@ -347,7 +350,12 @@ Item {
         anchors.verticalCenter: parent.verticalCenter
         horizontalAlignment: Text.AlignLeft
         text: desl.textoCompletado
-        color: desl.ac(0.85)
+        color: Colores.deslizadorTextoAcento > 0 ? desl.ac(Colores.deslizadorTextoAcento) : Colores.deslizadorTexto
+        layer.enabled: Colores.deslizadorTextoAcento > 0
+        layer.effect: MultiEffect {
+            shadowEnabled: true; shadowColor: desl.ac(1); shadowOpacity: 0.5; shadowBlur: 0.35
+            paddingRect: Qt.rect(8 * desl.u, 8 * desl.u, 8 * desl.u, 8 * desl.u)
+        }
         opacity: desl.progreso
         font.family: Tipografia.familia
         font.weight: Tipografia.pesoMedium
@@ -355,11 +363,6 @@ Item {
         font.letterSpacing: desl.u
         fontSizeMode: Text.HorizontalFit
         minimumPixelSize: Math.min(font.pixelSize, Escala.fuenteMinima)
-        layer.enabled: true
-        layer.effect: MultiEffect {
-            shadowEnabled: true; shadowColor: desl.ac(1); shadowOpacity: 0.5; shadowBlur: 0.35
-            paddingRect: Qt.rect(8 * desl.u, 8 * desl.u, 8 * desl.u, 8 * desl.u)
-        }
     }
     Item {
         width: 10 * desl.u; height: width
@@ -412,6 +415,71 @@ Item {
         Anillo { anchors.centerIn: parent; diam: 30 * desl.u; angulo: 135; duracion: 1500 }
     }
 
+    // ======================= estela de gota (detrás de la manija) =======================
+    // La manija se ve como una gota al deslizarse: la cola se estira hacia atrás y su
+    // largo sigue la velocidad (rápido = cola larga, lento = corta, quieta = sin cola).
+    // La velocidad se mide por cuadro y se suaviza; al soltar, la cola se encoge sola
+    // mientras la manija vuelve al inicio.
+    property real _vel: 0          // px/s con signo (+ hacia la derecha), suavizada
+    property real _xPrevia: 0
+    readonly property real _largoMax: 2.2 * diametro
+    readonly property real _largoCola: Math.min(_largoMax, Math.abs(_vel) * 0.4)
+
+    FrameAnimation {
+        running: desl.animar && (arrastre.active || regreso.running || Math.abs(desl._vel) > 1)
+        onRunningChanged: if (running) desl._xPrevia = manija.x
+        onTriggered: {
+            const dt = Math.max(0.001, frameTime)
+            const inst = (manija.x - desl._xPrevia) / dt
+            desl._xPrevia = manija.x
+            const v = desl._vel * 0.5 + inst * 0.5
+            desl._vel = Math.abs(v) < 5 ? 0 : v
+        }
+    }
+
+    Shape {
+        id: estela
+        objectName: "estelaDeslizadorInicio"
+        // el origen es el centro de la manija; la cola va al lado opuesto del movimiento
+        readonly property real s: desl._vel >= 0 ? -1 : 1
+        readonly property real cx: manija.x + desl.diametro / 2
+        readonly property real cy: manija.y + desl.diametro / 2
+        readonly property real r: desl.diametro / 2
+        // la cola no sale de la pista
+        readonly property real largo: Math.max(0, Math.min(desl._largoCola,
+            s < 0 ? cx - desl.margen : desl.width - desl.margen - cx))
+        visible: largo > 1
+        opacity: Math.min(1, largo / (desl.diametro * 0.5))
+        preferredRendererType: Shape.CurveRenderer
+        ShapePath {
+            strokeWidth: 0
+            fillGradient: LinearGradient {
+                x1: estela.cx; y1: estela.cy
+                x2: estela.cx + estela.s * Math.max(1, estela.largo); y2: estela.cy
+                GradientStop { position: 0.0; color: desl.ac(0.55) }
+                GradientStop { position: 1.0; color: desl.ac(0) }
+            }
+            startX: estela.cx; startY: estela.cy - estela.r
+            // medio círculo del lado de avance (la cabeza de la gota)
+            PathArc {
+                x: estela.cx; y: estela.cy + estela.r
+                radiusX: estela.r; radiusY: estela.r
+                direction: estela.s < 0 ? PathArc.Clockwise : PathArc.Counterclockwise
+            }
+            // flancos que se afinan hasta la punta
+            PathQuad {
+                x: estela.cx + estela.s * estela.largo; y: estela.cy
+                controlX: estela.cx + estela.s * estela.largo * 0.5
+                controlY: estela.cy + estela.r * 0.85
+            }
+            PathQuad {
+                x: estela.cx; y: estela.cy - estela.r
+                controlX: estela.cx + estela.s * estela.largo * 0.5
+                controlY: estela.cy - estela.r * 0.85
+            }
+        }
+    }
+
     // ======================= manija (toggle-thumb) =======================
     Item {
         id: manija
@@ -430,8 +498,8 @@ Item {
         // fondo
         DiscoRadial {
             anchors.fill: parent
-            centro: desl.pi(0.9)
-            borde: desl.pi(0.8)
+            centro: desl.ma(0.9)
+            borde: desl.ma(0.8)
         }
 
         // contenido recortado al círculo: núcleo, centro que pulsa, barrido y partículas
@@ -448,7 +516,7 @@ Item {
                 width: 40 * desl.u; height: width
                 opacity: 0.9
                 centro: desl.ac(0.6)
-                borde: desl.pi(0.2)
+                borde: desl.ma(0.2)
             }
             // thumb-inner
             DiscoRadial {
