@@ -279,7 +279,7 @@ def _resumen_periodo(periodo: str, fecha: date | None) -> dict:
 
 
 @router.get("/report/summary")
-def get_report_summary(periodo: Literal["dia", "semana", "mes"] = "dia", fecha: date | None = None):
+def get_report_summary(periodo: Literal["dia", "semana", "mes", "anio"] = "dia", fecha: date | None = None):
     """Resumen de los ciclos iniciados en el periodo de calendario que contiene
     `fecha` (por defecto hoy): totales por resultado, por programa y causas de
     fallo (services/domain/reportes/resumen_periodo.py). Solo lectura."""
@@ -288,7 +288,7 @@ def get_report_summary(periodo: Literal["dia", "semana", "mes"] = "dia", fecha: 
 
 @router.get("/report/failures")
 def get_report_failures(causa: str = Query(min_length=1),
-                        periodo: Literal["dia", "semana", "mes"] = "dia",
+                        periodo: Literal["dia", "semana", "mes", "anio"] = "dia",
                         fecha: date | None = None,
                         pagina: int = Query(1, ge=1),
                         por_pagina: int = Query(20, ge=1, le=100)):
@@ -319,7 +319,7 @@ def get_report_failures(causa: str = Query(min_length=1),
 
 
 class _ImprimirResumenBody(BaseModel):
-    periodo: Literal["dia", "semana", "mes"] = "dia"
+    periodo: Literal["dia", "semana", "mes", "anio"] = "dia"
     fecha: date | None = None
 
 

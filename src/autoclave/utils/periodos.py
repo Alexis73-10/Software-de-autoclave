@@ -8,7 +8,8 @@
 
 from datetime import date, timedelta
 
-PERIODOS = ("dia", "semana", "mes")
+PERIODOS = ("dia", "semana", "mes")           # Historial y pantalla Reportes actual
+PERIODOS_REPORTES = PERIODOS + ("anio",)      # /report/*: suma el año calendario (DR-H04)
 
 
 def rango(periodo: str, fecha: date) -> tuple[date, date]:
@@ -21,6 +22,8 @@ def rango(periodo: str, fecha: date) -> tuple[date, date]:
     if periodo == "mes":
         inicio = fecha.replace(day=1)
         return inicio, (inicio + timedelta(days=32)).replace(day=1)
+    if periodo == "anio":
+        return date(fecha.year, 1, 1), date(fecha.year + 1, 1, 1)
     raise ValueError(f"Periodo desconocido: {periodo!r}")
 
 
@@ -37,6 +40,8 @@ def desplazar(periodo: str, fecha: date, pasos: int, hoy: date) -> date:
         destino = inicio + timedelta(days=pasos)
     elif periodo == "semana":
         destino = inicio + timedelta(weeks=pasos)
+    elif periodo == "anio":
+        destino = date(inicio.year + pasos, 1, 1)
     else:
         meses = inicio.year * 12 + inicio.month - 1 + pasos
         destino = date(meses // 12, meses % 12 + 1, 1)
