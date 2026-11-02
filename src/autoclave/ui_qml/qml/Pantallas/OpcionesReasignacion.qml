@@ -72,7 +72,7 @@ Item {
             horizontalAlignment: Text.AlignHCenter
             wrapMode: Text.WordWrap
             text: boton.texto
-            color: "white"
+            color: Colores.textoSobreAccion
             font.family: Tipografia.familia
             font.weight: Tipografia.pesoSemiBold
             font.pixelSize: Escala.fuente(21)
@@ -403,7 +403,7 @@ Item {
         z: 50
         Rectangle {
             anchors.fill: parent
-            color: "#99000000"
+            color: Colores.velo
             MouseArea { anchors.fill: parent; onClicked: selector.visible = false }
         }
         Rectangle {
@@ -456,7 +456,7 @@ Item {
                                         width: parent.width
                                         horizontalAlignment: Text.AlignHCenter
                                         text: chip.modelData.etiqueta
-                                        color: chip.modelData.actual ? "white" : Colores.textoPrimario
+                                        color: chip.modelData.actual ? Colores.textoSobreAccion : Colores.textoPrimario
                                         font.family: Tipografia.familia
                                         font.weight: Tipografia.pesoBold
                                         font.pixelSize: Escala.fuente(22)
@@ -470,7 +470,7 @@ Item {
                                                 ? raiz.nombre(chip.modelData.ocupadoPor)
                                                 : chip.modelData.fabrica ? I18n.t("reasignacion.puerto_de_fabrica", I18n.lang)
                                                 : I18n.t("reasignacion.puerto_libre", I18n.lang)
-                                        color: chip.modelData.actual ? "white"
+                                        color: chip.modelData.actual ? Colores.textoSobreAccion
                                                : chip.modelData.ocupadoPor !== "" ? Colores.advertenciaTexto
                                                : Colores.textoGuia
                                         font.family: Tipografia.familia

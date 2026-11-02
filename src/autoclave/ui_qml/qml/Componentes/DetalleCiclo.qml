@@ -82,7 +82,7 @@ Item {
             horizontalAlignment: Text.AlignHCenter
             wrapMode: Text.WordWrap
             text: I18n.t("ciclo.no_conforme_franja", I18n.lang)
-            color: "white"
+            color: Colores.textoSobreAccion
             font.family: Tipografia.familia
             font.weight: Tipografia.pesoBold
             font.pixelSize: raiz.fuente(24)

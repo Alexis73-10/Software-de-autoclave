@@ -90,7 +90,7 @@ Item {
             horizontalAlignment: Text.AlignHCenter
             fontSizeMode: Text.HorizontalFit; minimumPixelSize: Escala.fuenteMinima
             text: boton.texto
-            color: boton.secundario ? Colores.textoPrimario : "white"
+            color: boton.secundario ? Colores.textoPrimario : Colores.textoSobreAccion
             font.family: Tipografia.familia
             font.weight: Tipografia.pesoSemiBold
             font.pixelSize: Escala.fuente(26)
@@ -139,7 +139,7 @@ Item {
                         anchors.centerIn: parent
                         text: pes.modelData === "usuarios" ? I18n.t("gestion_usuarios.pestana_usuarios", I18n.lang)
                                                            : I18n.t("gestion_usuarios.pestana_operadores", I18n.lang)
-                        color: pes.activa ? "white" : Colores.textoPrimario
+                        color: pes.activa ? Colores.textoSobreAccion : Colores.textoPrimario
                         font.family: Tipografia.familia
                         font.weight: Tipografia.pesoSemiBold
                         font.pixelSize: Escala.fuente(26)

@@ -128,7 +128,7 @@ Item {
     Rectangle {
         anchors.fill: parent
         radius: raiz.m(24)
-        color: "#000000"
+        color: Colores.textoNegro
         opacity: raiz.interactiva && raiz.presionada ? 0.08 : 0.0
     }
 

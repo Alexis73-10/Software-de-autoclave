@@ -6,8 +6,8 @@ Rama `modo-oscuro` (desde `dev` c43b9d0b). Prompt: `docs/mis_plans/prompt_claude
 |---|---|---|
 | 1 | Inventario y plan (sin tocar código) | Hecho |
 | 2 | Mecanismo de tema (Colores + Apariencia + persistencia + slot) | Hecho (conjunto A) |
-| 3 | Eliminar literales de color fuera de `Tema/` | Parcial: conjuntos A y B (ciclo) hechos; C y D pendientes (`_PENDIENTES` de `tests/test_tema_oscuro.py`) |
-| 4 | Componentes con color propio e íconos | Parcial: chrome y fondos (A) y conjunto C (comunes, modales, teclados, alarmas) y B (Preciclo, Ciclo en curso, fases, gráfica, deslizador; OSC-20) hechos; D pendiente |
+| 3 | Eliminar literales de color fuera de `Tema/` | Parcial: conjuntos A, B (ciclo) y D (menú, sesión, instalación, Opciones) hechos; C pendiente (`_PENDIENTES` de `tests/test_tema_oscuro.py`) |
+| 4 | Componentes con color propio e íconos | Parcial: chrome y fondos (A) y conjunto C (comunes, modales, teclados, alarmas) y B (Preciclo, Ciclo en curso, fases, gráfica, deslizador; OSC-20) y D (OSC-18/19) hechos |
 | 5 | Selector en Opciones (i18n Tema/Claro/Oscuro) | Hecho |
 | 6 | Pruebas automáticas (`test_tema_oscuro.py`, existentes, suite) | Parcial: `test_tema_oscuro.py` en verde; suite completa pendiente (al final) |
 | 7 | Capturas en ambos temas | Pendiente |

@@ -263,7 +263,7 @@ Item {
         objectName: "panelCrearPrograma"
         visible: false
         anchors.fill: parent
-        color: "#99000000"   // PROVISIONAL: misma atenuación que DialogoConfirmacion
+        color: Colores.velo   // PROVISIONAL: misma atenuación que DialogoConfirmacion
         MouseArea { anchors.fill: parent; onClicked: panelCrear.visible = false }
 
         Rectangle {

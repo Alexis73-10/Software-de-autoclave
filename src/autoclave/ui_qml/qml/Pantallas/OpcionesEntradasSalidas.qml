@@ -147,7 +147,7 @@ Item {
         Text {
             anchors.centerIn: parent
             text: boton.texto
-            color: "white"
+            color: Colores.textoSobreAccion
             font.family: Tipografia.familia
             font.weight: Tipografia.pesoSemiBold
             font.pixelSize: Escala.fuente(22)

@@ -90,7 +90,7 @@ Item {
             horizontalAlignment: Text.AlignHCenter
             fontSizeMode: Text.HorizontalFit; minimumPixelSize: Escala.fuenteMinima
             text: boton.texto
-            color: "white"
+            color: Colores.textoSobreAccion
             font.family: Tipografia.familia
             font.weight: Tipografia.pesoSemiBold
             font.pixelSize: Escala.fuente(28)
@@ -172,12 +172,12 @@ Item {
                             Rectangle {
                                 x: Escala.px(1); y: Escala.px(12)
                                 width: Escala.px(11); height: Escala.px(4); radius: height / 2
-                                rotation: 45; color: "white"
+                                rotation: 45; color: Colores.textoSobreAccion
                             }
                             Rectangle {
                                 x: Escala.px(6); y: Escala.px(9)
                                 width: Escala.px(19); height: Escala.px(4); radius: height / 2
-                                rotation: -50; color: "white"
+                                rotation: -50; color: Colores.textoSobreAccion
                             }
                         }
                         Text {

@@ -230,18 +230,17 @@ Flickable {
                     colores: [Colores.textoPrimario, Colores.peligroTexto]
                     Rectangle {
                         anchors.fill: parent
-                        color: "#000000"
+                        color: Colores.textoNegro
                         opacity: zonaCausa.pressed ? 0.06 : 0.0
                     }
                     // tinta de chevron_derecha.svg = [12.8, 4.3, 35.2, 43.8]: 22 de alto
-                    Image {
+                    IconoColor {
                         readonly property real _k: raiz.m(22) / (43.8 - 4.3)
                         width: 48 * _k; height: width
                         x: parent.width - raiz.m(8) - 35.2 * _k
                         anchors.verticalCenter: parent.verticalCenter
                         source: "../../assets/iconos/mono/chevron_derecha.svg"
-                        sourceSize.width: width
-                        sourceSize.height: height
+                        color: Colores.textoPrimario
                     }
                     MouseArea {
                         id: zonaCausa

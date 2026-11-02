@@ -605,13 +605,12 @@ Item {
                             font.pixelSize: Escala.fuente(Tipografia.botonEtiquetaTam)
                             font.weight: Tipografia.pesoBold
                         }
-                        Image {
+                        IconoColor {
                             anchors.right: parent.right; anchors.rightMargin: Escala.px(28)
                             anchors.verticalCenter: parent.verticalCenter
                             width: Escala.px(36); height: width
                             source: "../../assets/iconos/color/candado.svg"
-                            sourceSize.width: width
-                            sourceSize.height: height
+                            color: Colores.bordeCampo
                         }
                     }
                     Titulo { id: tituloTipo; y: Escala.px(204); width: parent.width; text: I18n.t("instalacion.puertas_tipo", I18n.lang) }
@@ -1030,12 +1029,11 @@ Item {
                         y: Escala.px(200)
                         width: Escala.px(220); height: width; radius: width / 2
                         color: Colores.accionFondoTenue
-                        Image {
+                        IconoColor {
                             anchors.centerIn: parent
                             width: parent.width * 0.5; height: width
                             source: "../../assets/iconos/color/confirmar.svg"
-                            sourceSize.width: width
-                            sourceSize.height: height
+                            color: Colores.textoPrimario
                         }
                     }
                     Text {

@@ -146,15 +146,14 @@ Item {
                         Rectangle {
                             anchors.horizontalCenter: parent.horizontalCenter
                             width: Escala.px(336); height: Escala.px(336); radius: width / 2
-                            color: "#E6E6E6"
+                            color: Colores.avatarFondo
 
-                            Image {
+                            IconoColor {
                                 anchors.centerIn: parent
                                 width: parent.width * 0.5
                                 height: width
                                 source: "../../assets/iconos/color/usuario.svg"
-                                sourceSize.width: width
-                                sourceSize.height: height
+                                color: Colores.textoGuia
                             }
                         }
 
@@ -182,15 +181,14 @@ Item {
                                                                          : Colores.bordeCampo
                             border.width: raiz.campoActivo === "usuario" ? 2 : 1
 
-                            Image {
+                            IconoColor {
                                 id: iconoUsuario
                                 anchors.left: parent.left
                                 anchors.leftMargin: Escala.px(16)
                                 anchors.verticalCenter: parent.verticalCenter
                                 width: Escala.px(24); height: Escala.px(24)
                                 source: raiz.iconos + "usuario.svg"
-                                sourceSize.width: width
-                                sourceSize.height: height
+                                color: Colores.textoGuia
                             }
 
                             TextField {
@@ -225,20 +223,19 @@ Item {
                                                                        : Colores.bordeCampo
                             border.width: raiz.campoActivo === "clave" ? 2 : 1
 
-                            Image {
+                            IconoColor {
                                 id: iconoCandado
                                 anchors.left: parent.left
                                 anchors.leftMargin: Escala.px(16)
                                 anchors.verticalCenter: parent.verticalCenter
                                 width: Escala.px(24); height: Escala.px(24)
                                 source: raiz.iconos + "candado.svg"
-                                sourceSize.width: width
-                                sourceSize.height: height
+                                color: Colores.bordeCampo
                             }
 
                             // Alterna ver/ocultar la contraseña. Muestra "ojo_mostrar"
                             // mientras está oculta (la acción disponible es mostrarla).
-                            Image {
+                            IconoColor {
                                 id: iconoOjo
                                 anchors.right: parent.right
                                 anchors.rightMargin: Escala.px(16)
@@ -246,8 +243,7 @@ Item {
                                 width: Escala.px(24); height: Escala.px(24)
                                 source: raiz.iconos + (campoClave.echoMode === TextInput.Password
                                                        ? "ojo_mostrar.svg" : "ojo_ocultar.svg")
-                                sourceSize.width: width
-                                sourceSize.height: height
+                                color: Colores.textoSecundario
 
                                 MouseArea {
                                     anchors.fill: parent
@@ -360,7 +356,7 @@ Item {
                                 Text {
                                     anchors.verticalCenter: parent.verticalCenter
                                     text: I18n.t("acciones.iniciar_sesion", I18n.lang)
-                                    color: "white"
+                                    color: Colores.textoSobreAccion
                                     font.family: Tipografia.familia
                                     font.pixelSize: Escala.fuente(Tipografia.botonEtiquetaTam)
                                     font.weight: Tipografia.pesoSemiBold
@@ -442,7 +438,7 @@ Item {
                                 id: textoSinOperador
                                 anchors.centerIn: parent
                                 text: I18n.t("sesion.continuar_sin_operador", I18n.lang)
-                                color: "white"
+                                color: Colores.textoSobreAccion
                                 font.family: Tipografia.familia
                                 font.weight: Tipografia.pesoSemiBold
                                 font.pixelSize: Escala.fuente(22)
