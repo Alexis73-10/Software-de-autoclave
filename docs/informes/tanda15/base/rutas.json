@@ -764,6 +764,36 @@
   "response_model": null
  },
  {
+  "path": "/report/dashboard",
+  "methods": [
+   "GET"
+  ],
+  "name": "get_report_dashboard",
+  "dependencias": [],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/report/calendar",
+  "methods": [
+   "GET"
+  ],
+  "name": "get_report_calendar",
+  "dependencias": [],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/report/day-cycles",
+  "methods": [
+   "GET"
+  ],
+  "name": "get_report_day_cycles",
+  "dependencias": [],
+  "status_code": null,
+  "response_model": null
+ },
+ {
   "path": "/cycle/history/{ciclo_id}/graph",
   "methods": [
    "GET"

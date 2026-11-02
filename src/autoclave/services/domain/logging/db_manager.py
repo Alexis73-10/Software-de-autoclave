@@ -1228,6 +1228,32 @@ class DbManager:
             ).fetchall()
         return filas, total
 
+    def get_ciclos_periodo(self, desde: str, hasta: str) -> list[dict]:
+        """Dashboard de Reportes (REP-03..11): una fila por ciclo iniciado en
+        [desde, hasta) (ISO local sin zona; usa idx_ciclos_fecha), por fecha de
+        inicio y luego id. Solo lectura, una consulta."""
+        with self._lock:
+            filas = self._conn.execute(
+                "SELECT id, numero_ciclo, fecha_inicio, fecha_fin, tipo_ciclo, nombre_ciclo,"
+                " numero_programa, resultado, operador, avisos_ticket"
+                " FROM ciclos WHERE fecha_inicio >= ? AND fecha_inicio < ?"
+                " ORDER BY fecha_inicio, id",
+                (desde, hasta),
+            ).fetchall()
+        return [dict(f) for f in filas]
+
+    def get_alarmas_periodo(self, desde: str, hasta: str) -> list[dict]:
+        """Dashboard de Reportes (REP-10): código, nivel y título de las alarmas
+        con `aparecida` en [desde, hasta) (usa idx_alarmas_aparecida). Solo
+        lectura, una consulta."""
+        with self._lock:
+            filas = self._conn.execute(
+                "SELECT codigo, nivel, titulo FROM alarmas_historial"
+                " WHERE aparecida >= ? AND aparecida < ? ORDER BY aparecida, id",
+                (desde, hasta),
+            ).fetchall()
+        return [dict(f) for f in filas]
+
     # ------------------------------------------------------------------
     # Lecturas
     # ------------------------------------------------------------------
