@@ -65,7 +65,6 @@ Item {
                 objectName: "cargandoRespaldo"
                 visible: control.cargando
                 width: parent.width
-                height: visible ? implicitHeight : 0
                 text: I18n.t("opciones.cargando", I18n.lang)
                 color: Colores.textoGuia
                 font.family: Tipografia.familia
