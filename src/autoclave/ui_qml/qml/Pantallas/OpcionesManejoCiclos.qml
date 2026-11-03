@@ -124,12 +124,27 @@ Item {
                 anchors.margins: Escala.px(14)
                 anchors.verticalCenter: parent.verticalCenter
                 wrapMode: Text.WordWrap
-                text: raiz.texto(control.mensaje, control.detalleMensaje)
+                // un cambio revertido lleva su motivo dentro de opciones.cambio_revertido
+                text: control.mensajeRevertido
+                      ? I18n.t("opciones.cambio_revertido", I18n.lang,
+                               { motivo: raiz.texto(control.mensaje, control.detalleMensaje) })
+                      : raiz.texto(control.mensaje, control.detalleMensaje)
                 color: control.exito ? Colores.menuVerdeTexto : Colores.peligroTexto
                 font.family: Tipografia.familia
                 font.pixelSize: Escala.fuente(20)
             }
             MouseArea { anchors.fill: parent; onClicked: control.limpiarMensaje() }
+        }
+
+        // AJUSTES 2026-11-02 (paso 2, fase 4): lectura sin bloquear la pantalla
+        Text {
+            objectName: "cargandoManejoCiclos"
+            visible: control.cargando
+            width: parent.width
+            text: I18n.t("opciones.cargando", I18n.lang)
+            color: Colores.textoGuia
+            font.family: Tipografia.familia
+            font.pixelSize: Escala.fuente(20)
         }
 
         BotonFormulario {

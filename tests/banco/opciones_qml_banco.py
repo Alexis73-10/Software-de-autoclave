@@ -20,7 +20,7 @@ RAIZ = Path(__file__).resolve().parents[2]
 CAPTURAS = RAIZ / "docs" / "informes" / "tanda6" / "capturas"
 
 _SCRIPT = textwrap.dedent(r'''
-    import json, os, sys
+    import json, os, sys, time
     from PySide6.QtCore import QObject, QUrl
     from PySide6.QtGui import QGuiApplication
     from PySide6.QtQml import QQmlApplicationEngine
@@ -45,6 +45,9 @@ _SCRIPT = textwrap.dedent(r'''
                 return sesion_backend.Resultado("ok", datos, estado)
             causa = (datos or {}).get("codigo") or "error_generico"
             return sesion_backend.Resultado(causa, datos, estado)
+        # sondeo en hilo de trabajo (Calibración atmosférica, AJUSTES 2026-11-02)
+        def _peticion(self, metodo, ruta, cuerpo=None, token=None, plazo=None):
+            return lambda: self.enviar(metodo, ruta, cuerpo)
         def __getattr__(self, n):
             return lambda *a, **k: sesion_backend.Resultado("ok", {}, 200)
 
@@ -92,7 +95,12 @@ _SCRIPT = textwrap.dedent(r'''
         return r if r is not None else (desde or raiz).findChild(QObject, nombre)
 
     def esperar(ms=200):
-        QTest.qWait(ms)
+        # en tramos cortos: entre tramos corre Python y los hilos de trabajo
+        # (sondeo de Calibración atmosférica) obtienen el GIL y entregan
+        fin = time.monotonic() + ms / 1000.0
+        while time.monotonic() < fin:
+            QTest.qWait(10)
+            time.sleep(0.001)
 
     # U10b (tanda 10, D10-1.5): con `revisar`, cada capturar() revisa además
     # los textos de la ventana (tests/helpers/textos_caben_qml.FUNCION_REVISAR) y deja

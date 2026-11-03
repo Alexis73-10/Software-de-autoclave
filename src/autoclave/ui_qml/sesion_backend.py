@@ -23,6 +23,9 @@
 #     SESION_INACTIVIDAD_S sin toques ni teclas en ESTA ventana, en cualquier
 #     estado del equipo (SAF-01: el standby no actúa en CICLO, FALLA ni
 #     EMERGENCIA y toma la actividad de las dos pantallas).
+#   - SesionVentana.enviar_async (AJUSTES 2026-11-02, paso 2 fase 1): la misma
+#     escritura con token sin bloquear la GUI (_DespachadorEnvios); el
+#     resultado y el trato de 401 / 429 llegan en el hilo de la GUI.
 #
 # El token nunca se registra: los logs llevan causa, ruta y código HTTP.
 
@@ -31,8 +34,10 @@ import math
 import queue
 import threading
 import time
+import weakref
 from dataclasses import dataclass, field
 
+import shiboken6
 from PySide6.QtCore import Property, QEvent, QObject, QTimer, Signal, Slot
 
 from autoclave.core.runtime.sesion_inactividad import (  # plazo único (B7)
@@ -45,8 +50,13 @@ PLAZO_AVISO_CIERRE_S = 0.5
 
 logger = logging.getLogger(__name__)
 
+# Umbral (s) a partir del cual una llamada síncrona se registra como espera lenta.
+_UMBRAL_ESPERA_LENTA_S = 0.1
+
 PLAZO_S = 5.0                 # plazo total de login, logout y cambio de contraseña
 PLAZO_SALIDA_S = 1.0          # logout al cerrar la aplicación: no retrasar el cierre
+MAX_ENVIOS_EN_VUELO = 8       # enviar_async: peticiones simultáneas (las vencidas no cuentan)
+_GUARDA_TARDIAS_S = 60.0      # cuánto se espera una respuesta tardía tras vencer el plazo
 SIN_CONEXION_CIERRE_S = 15    # sin conexión continua con token en uso -> cerrar sesión
 # SESION_INACTIVIDAD_S (importado arriba): sin actividad en esta ventana -> cerrar sesión (SAF-01).
 # El backend caduca el token con ese plazo más dos avisos (B7); mientras el
@@ -144,7 +154,47 @@ _CODIGOS_REASIGNACION = frozenset({
     "reinicio_pendiente", "no_pendiente", "sin_cambio_observado",
     "sin_prueba_de_salida", "sin_lectura", "error",
 })
-_CODIGOS_POR_RUTA = (("/io/assignment", _CODIGOS_REASIGNACION),)
+# Opciones › Usuarios (corrección tras revisión de la fase 1, B1): 409 propios
+# de PUT /usuarios/{u}/activo y POST /operadores; solo en /usuarios y
+# /operadores. Su texto lo pone UsuariosController (_MENSAJES).
+_CODIGOS_USUARIOS = frozenset({
+    "ultimo_ingeniero", "autodesactivacion", "cuenta_sistema", "operador_existe",
+})
+# AJUSTES 2026-11-02 (revisión de las fases 2 a 5): rechazos propios de otras
+# pantallas de Opciones que llegaban como "error_generico"; solo en su ruta.
+# El texto lo pone el controlador de cada pantalla (_MENSAJES);
+# tests/test_t25_codigos_rutas_async.py lo comprueba.
+_CODIGOS_EMAIL = frozenset({     # ConectividadController
+    "correo_invalido", "duplicado", "demasiados", "nombre_largo",
+    "sin_destinatarios", "correo_no_configurado", "envio_fallido",
+    "envio_desactivado", "ARCHIVO_NO_ESCRIBIBLE",
+})
+_CODIGOS_MANTENIMIENTO = frozenset({     # MantenimientoController
+    "reloj_invalido", "reloj_adelantado", "calibracion_en_curso",
+})
+_CODIGOS_PROGRAMAS = frozenset({     # ManejoCiclosController
+    "nombre_repetido", "programa_activo", "programa_no_encontrado",
+    "programa_existente",
+})
+_CODIGOS_GLOBAL_PARAMS = frozenset({     # ParametrosEquipoController
+    "no_existe", "solo_lectura", "tipo_invalido", "fuera_de_rango",
+    "incoherente", "calibracion_en_curso",
+})
+_CODIGOS_ARCHIVO = frozenset({"ARCHIVO_NO_ESCRIBIBLE"})     # /language, /units
+_CODIGOS_IMPRESORA = frozenset({     # ParametrosEquipoController
+    "ARCHIVO_NO_ESCRIBIBLE", "reinicio_no_disponible", "estado_seguro_activo",
+    "confirmacion_pendiente", "modo_prueba_activo",
+})
+_CODIGOS_POR_RUTA = (("/io/assignment", _CODIGOS_REASIGNACION),
+                     ("/usuarios", _CODIGOS_USUARIOS),
+                     ("/operadores", _CODIGOS_USUARIOS),
+                     ("/email", _CODIGOS_EMAIL),
+                     ("/maintenance", _CODIGOS_MANTENIMIENTO),
+                     ("/programas", _CODIGOS_PROGRAMAS),
+                     ("/global_params", _CODIGOS_GLOBAL_PARAMS),
+                     ("/language", _CODIGOS_ARCHIVO),
+                     ("/units", _CODIGOS_ARCHIVO),
+                     ("/printer/config", _CODIGOS_IMPRESORA))
 
 
 def codigos_conocidos(ruta: str = "") -> frozenset:
@@ -352,6 +402,156 @@ class OperacionSesion(QObject):
             al_tardio(resultado)
 
 
+# ── Envíos asíncronos (AJUSTES 2026-11-02, paso 2 fase 1) ────────────────────
+
+def _referencia(dueno):
+    """weakref al dueño (None si no hay); un objeto sin weakref se retiene."""
+    if dueno is None:
+        return None
+    try:
+        return weakref.ref(dueno)
+    except TypeError:
+        return lambda: dueno
+
+
+def _dueno_vivo(ref) -> bool:
+    if ref is None:
+        return True
+    dueno = ref()
+    if dueno is None:
+        return False
+    try:
+        return shiboken6.isValid(dueno) if isinstance(dueno, QObject) else True
+    except Exception:
+        return False
+
+
+class _Envio:
+    __slots__ = ("metodo", "ruta", "usuario", "gen", "al_terminar", "al_tardio",
+                 "dueno", "dueno_id", "limite", "vencido", "cancelado")
+
+    def __init__(self, metodo, ruta, usuario, gen, al_terminar, al_tardio, dueno, limite):
+        self.metodo, self.ruta, self.usuario, self.gen = metodo, ruta, usuario, gen
+        self.al_terminar, self.al_tardio = al_terminar, al_tardio
+        self.dueno = _referencia(dueno)
+        self.dueno_id = None if dueno is None else id(dueno)
+        self.limite = limite
+        self.vencido = False
+        self.cancelado = False
+
+
+class _DespachadorEnvios(QObject):
+    """Peticiones con token sin bloquear la GUI (SesionVentana.enviar_async).
+
+    El hilo de trabajo solo hace la petición y deja (id, Resultado) en una
+    cola de Python; un QTimer de la GUI la vacía, vigila el plazo de cada
+    envío (reloj monotónico) y entrega en el hilo de la GUI: primero el trato
+    de sesión (401 / 429, una sola vez por generación de sesión), luego, si el
+    dueño sigue vivo, `al_terminar`. Al vencer el plazo se entrega
+    backend_no_responde y la respuesta que llegue después va a `al_tardio`
+    (si lo hay y el dueño vive) o solo al log."""
+
+    def __init__(self, sesion: "SesionVentana", ejecutar, reloj):
+        super().__init__(sesion)
+        self._sesion = sesion
+        self._ejecutar = ejecutar
+        self._reloj = reloj
+        self._envios: dict[int, _Envio] = {}
+        self._siguiente = 0
+        self._cola = queue.SimpleQueue()
+        self._timer = QTimer(self)
+        self._timer.setInterval(20)
+        self._timer.timeout.connect(self._vaciar)
+
+    def en_vuelo(self) -> int:
+        return sum(1 for e in self._envios.values() if not e.vencido)
+
+    def lanzar(self, tarea, envio: _Envio) -> bool:
+        if self.en_vuelo() >= MAX_ENVIOS_EN_VUELO:
+            logger.warning("Envío rechazado: %d peticiones en vuelo (%s %s)",
+                           MAX_ENVIOS_EN_VUELO, envio.metodo, envio.ruta)
+            return False
+        self._siguiente += 1
+        ident = self._siguiente
+        self._envios[ident] = envio
+        cola = self._cola
+
+        def trabajo():                     # hilo de trabajo: sin Qt
+            try:
+                resultado = tarea()
+            except Exception:
+                logger.exception("Envío asíncrono fallido")
+                resultado = Resultado(ERROR_GENERICO)
+            cola.put((ident, resultado))
+
+        self._ejecutar(trabajo)
+        if not self._timer.isActive():
+            self._timer.start()
+        return True
+
+    def cancelar(self, dueno_id: int) -> int:
+        n = 0
+        for envio in self._envios.values():
+            if envio.dueno_id == dueno_id and not envio.cancelado:
+                envio.cancelado = True
+                n += 1
+        if n:
+            logger.info("Envíos cancelados por su dueño: %d", n)
+        return n
+
+    def _vaciar(self) -> None:
+        while True:
+            try:
+                ident, resultado = self._cola.get_nowait()
+            except queue.Empty:
+                break
+            envio = self._envios.pop(ident, None)
+            if envio is None:
+                continue
+            if envio.vencido:
+                self._tardio(envio, resultado)
+            else:
+                self._entregar(envio, resultado)
+        ahora = self._reloj()
+        for ident, envio in list(self._envios.items()):
+            if not envio.vencido and ahora >= envio.limite:
+                envio.vencido = True
+                logger.warning("Envío sin respuesta en el plazo: %s %s", envio.metodo, envio.ruta)
+                self._entregar(envio, Resultado(BACKEND_NO_RESPONDE))
+            elif envio.vencido and ahora >= envio.limite + _GUARDA_TARDIAS_S:
+                del self._envios[ident]    # hilo que nunca volvió
+        if not self._envios:
+            self._timer.stop()
+
+    def _entregar(self, envio: _Envio, r: Resultado) -> None:
+        if envio.gen != self._sesion._gen_sesion:
+            # la sesión se cerró después de lanzar: un 200 es un hecho del
+            # backend y se entrega tal cual; lo demás ya no vale (sin tratar
+            # el rechazo: la sesión actual no es la del envío)
+            if not r.ok:
+                r = Resultado("sesion_invalida")
+        else:
+            self._sesion.tratar_rechazo_sesion(r, envio.metodo, envio.ruta, envio.usuario)
+        if envio.cancelado or envio.al_terminar is None or not _dueno_vivo(envio.dueno):
+            return
+        try:
+            envio.al_terminar(r)
+        except Exception:
+            logger.exception("Error al entregar %s %s", envio.metodo, envio.ruta)
+
+    def _tardio(self, envio: _Envio, r: Resultado) -> None:
+        logger.warning("Respuesta tardía de %s %s: %s", envio.metodo, envio.ruta, r.causa)
+        if envio.cancelado or envio.al_tardio is None or not _dueno_vivo(envio.dueno):
+            return
+        if envio.gen != self._sesion._gen_sesion and not r.ok:
+            r = Resultado("sesion_invalida")
+        try:
+            envio.al_tardio(r)
+        except Exception:
+            logger.exception("Error al entregar la respuesta tardía de %s %s",
+                             envio.metodo, envio.ruta)
+
+
 # ── Sesión de la ventana ─────────────────────────────────────────────────────
 
 class SesionVentana(QObject):
@@ -384,7 +584,11 @@ class SesionVentana(QObject):
         self.operacion.ocupadoChanged.connect(self.ocupadoChanged)
         # la validación al reconectar no compite con login ni cambio de clave
         self._validacion = OperacionSesion(self, ejecutar=ejecutar, plazo_s=plazo_s)
-        self._aviso = None                 # (clave es.json, segundos | None) para el login
+        # enviar_async: generación de la sesión (sube en cada cerrar_local) y
+        # despachador que entrega en el hilo de la GUI
+        self._gen_sesion = 0
+        self._envios = _DespachadorEnvios(self, ejecutar, reloj)
+        self._aviso = None                # (clave es.json, segundos | None) para el login
         self._sin_conexion_desde = None    # reloj() del primer sondeo fallido
         # logout que no llegó: se reintenta al reconectar. Lo llena también el
         # hilo de trabajo (sin Qt), por eso va con candado propio.
@@ -510,6 +714,9 @@ class SesionVentana(QObject):
         login responde después, su token se invalida en vez de abrir sesión."""
         if aviso is not None:
             self._aviso = aviso
+        # los envíos asíncronos de antes de este cierre entregan sesion_invalida
+        # sin volver a cerrar la sesión
+        self._gen_sesion += 1
         self.operacion.cancelar()
         self._timer_inactividad.stop()
         # P1 (revisión SAF-01): sin token válido ya no se puede salir del modo
@@ -629,18 +836,73 @@ class SesionVentana(QObject):
             return Resultado("sesion_invalida")
         usuario = (SessionManager.current_user() or {}).get("usuario", "")
         r = self._llamar_con_plazo(metodo, ruta, cuerpo, token)
-        if r.causa in ("sesion_invalida", "usuario_bloqueado"):
-            if r.causa == "usuario_bloqueado":
-                logger.warning("Usuario bloqueado en %s %s: sesión cerrada en esta ventana",
-                               metodo, ruta)
-                self.cerrar_local(("sesion.usuario_bloqueado",
-                                   r.datos.get("segundos_restantes"), usuario))
-            else:
-                self.cerrar_local(("sesion.sesion_invalida", None))
-            # en diferido: la pantalla que llamó aún espera este valor de retorno;
-            # con este objeto como contexto, Qt lo cancela si se destruye antes
-            QTimer.singleShot(0, self, self.sesionInvalida.emit)
+        self.tratar_rechazo_sesion(r, metodo, ruta, usuario)
         return r
+
+    def enviar_async(self, metodo: str, ruta: str, cuerpo: dict | None = None,
+                     al_terminar=None, *, dueno=None, al_tardio=None,
+                     plazo_s: float | None = None) -> bool:
+        """Como `enviar`, sin bloquear la GUI. Solo desde el hilo de la GUI.
+        `al_terminar(Resultado)` corre siempre en el hilo de la GUI y nunca
+        dentro de esta llamada: sin conexión (backend_no_responde), sin token
+        (sesion_invalida, sin cerrar nada, como `enviar`) o por encima de
+        MAX_ENVIOS_EN_VUELO (error_generico) se entrega en diferido. Con
+        `dueno`, nada se entrega si ese objeto se destruyó o si se llamó a
+        `cancelar_envios(dueno)`. Plazo total PLAZO_S (o `plazo_s`); la
+        respuesta que llega después va a `al_tardio` o solo al log.
+        Devuelve True si la petición salió."""
+        ref = _referencia(dueno)
+        if self.sinConexion:
+            self._diferir(al_terminar, Resultado(BACKEND_NO_RESPONDE), ref)
+            return False
+        token = SessionManager.token()
+        if not token:
+            self._diferir(al_terminar, Resultado("sesion_invalida"), ref)
+            return False
+        usuario = (SessionManager.current_user() or {}).get("usuario", "")
+        plazo = self._plazo_s if plazo_s is None else plazo_s
+        tarea = self._peticion(metodo, ruta, cuerpo, token, plazo)
+        envio = _Envio(metodo, ruta, usuario, self._gen_sesion, al_terminar, al_tardio,
+                       dueno, self._reloj() + plazo)
+        if not self._envios.lanzar(tarea, envio):
+            self._diferir(al_terminar, Resultado(ERROR_GENERICO), ref)
+            return False
+        return True
+
+    def cancelar_envios(self, dueno) -> int:
+        """Los envíos en vuelo de `dueno` (objeto o su id()) ya no entregan
+        nada; su respuesta solo va al log."""
+        return self._envios.cancelar(dueno if isinstance(dueno, int) else id(dueno))
+
+    def _diferir(self, al_terminar, r: Resultado, ref) -> None:
+        if al_terminar is None:
+            return
+
+        def entregar():
+            if _dueno_vivo(ref):
+                al_terminar(r)
+        # con este objeto como contexto, Qt lo cancela si se destruye antes
+        QTimer.singleShot(0, self, entregar)
+
+    def tratar_rechazo_sesion(self, r: Resultado, metodo: str, ruta: str,
+                              usuario: str = "") -> None:
+        """Tratamiento de `enviar` ante 401 o 429 usuario_bloqueado: cierra la
+        sesión local y avisa. Solo en el hilo de la GUI; lo usan también los
+        sondeos que hacen la petición en un hilo de trabajo y entregan el
+        resultado a la GUI (AJUSTES 2026-11-02)."""
+        if r.causa not in ("sesion_invalida", "usuario_bloqueado"):
+            return
+        if r.causa == "usuario_bloqueado":
+            logger.warning("Usuario bloqueado en %s %s: sesión cerrada en esta ventana",
+                           metodo, ruta)
+            datos = r.datos if isinstance(r.datos, dict) else {}
+            self.cerrar_local(("sesion.usuario_bloqueado",
+                               datos.get("segundos_restantes"), usuario))
+        else:
+            self.cerrar_local(("sesion.sesion_invalida", None))
+        # en diferido: la pantalla que llamó aún espera este valor de retorno;
+        # con este objeto como contexto, Qt lo cancela si se destruye antes
+        QTimer.singleShot(0, self, self.sesionInvalida.emit)
 
     def enviar_al_cerrar(self, metodo: str, ruta: str, cuerpo: dict | None = None) -> Resultado:
         """Escritura de un aviso previo al cierre de sesión (P1, revisión
@@ -661,8 +923,16 @@ class SesionVentana(QObject):
         hilo = threading.Thread(daemon=True, name="sesion-escritura",
                                 target=lambda: resultado.append(peticion()))
         plazo_s = self._plazo_s if plazo_s is None else plazo_s
+        t0 = time.monotonic()
         hilo.start()
         hilo.join(plazo_s)
+        espera_s = time.monotonic() - t0
+        if (espera_s > _UMBRAL_ESPERA_LENTA_S
+                and threading.current_thread() is threading.main_thread()):
+            # Diagnóstico de lag: esta espera congela la interfaz entera (en
+            # otro hilo no afecta a la GUI y no se registra).
+            logger.warning("Espera lenta en la GUI: %.0f ms en %s %s",
+                           espera_s * 1000, metodo, ruta)
         if not resultado:
             logger.warning("Escritura sin respuesta en %.1f s: %s %s", plazo_s, metodo, ruta)
             return Resultado(BACKEND_NO_RESPONDE)
@@ -794,6 +1064,30 @@ def ventana() -> SesionVentana:
     if _ventana is None:
         _ventana = SesionVentana()
     return _ventana
+
+
+def enviar_async(sesion, metodo: str, ruta: str, cuerpo: dict | None, al_terminar,
+                 dueno=None, al_tardio=None) -> bool:
+    """Envío asíncrono para los controladores. Con una sesión que no tiene
+    `enviar_async` (dobles de prueba que solo tienen `enviar`) se llama a
+    `enviar` y se entrega el resultado en el acto. Se mira el tipo y no la
+    instancia para que un MagicMock no pase por asíncrono. `al_tardio` solo
+    se pasa si se pidió (dobles con la firma anterior siguen valiendo)."""
+    if callable(getattr(type(sesion), "enviar_async", None)):
+        if al_tardio is None:
+            return sesion.enviar_async(metodo, ruta, cuerpo, al_terminar, dueno=dueno)
+        return sesion.enviar_async(metodo, ruta, cuerpo, al_terminar, dueno=dueno,
+                                   al_tardio=al_tardio)
+    al_terminar(sesion.enviar(metodo, ruta, cuerpo))
+    return True
+
+
+def cancelar_envios(sesion, dueno) -> None:
+    """`cancelar_envios` de la sesión si la tiene (sin sesión, la del
+    proceso si ya existe; nunca la crea)."""
+    sesion = sesion if sesion is not None else _ventana
+    if callable(getattr(type(sesion), "cancelar_envios", None)):
+        sesion.cancelar_envios(dueno)
 
 
 def instalar(sesion: SesionVentana | None) -> None:

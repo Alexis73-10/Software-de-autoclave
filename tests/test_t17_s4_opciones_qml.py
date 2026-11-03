@@ -60,6 +60,14 @@ class Sesion:
         return Resultado("ok", datos, estado)
 
 sesion_backend.instalar(Sesion())
+
+class FuenteStatus:   # caché de /status de UIServiceBackend (AJUSTES 2026-11-02)
+    def status_vigente(self):
+        estado, datos = cfg["rutas"].get("GET /status", [200, {}])
+        return (datos, True, 0.0) if estado < 400 else ({}, False, None)
+
+from autoclave.cliente import ui_service_backend
+ui_service_backend.instalar_servicio(FuenteStatus())
 qml_dir = sys.argv[1]
 app = QGuiApplication([])
 engine = QQmlEngine()

@@ -120,6 +120,9 @@ Item {
         // Motivos y avisos (banda como la de Entradas / Salidas)
         Repeater {
             model: [
+                // primera carga (después, el dato anterior se queda a la vista)
+                { visible: control.cargando && !control.cargado && control.mensaje === "",
+                  texto: "opciones.cargando", peligro: false },
                 { visible: control.bloqueado, texto: "reasignacion.bloqueo", peligro: true },
                 { visible: control.cargado && !control.editable && control.motivo !== "",
                   texto: control.motivo, peligro: false },

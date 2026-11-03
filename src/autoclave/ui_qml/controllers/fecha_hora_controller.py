@@ -36,10 +36,15 @@ def zona_de(dt: datetime) -> str:
     return f"{base} ({nombre})" if nombre and not nombre.startswith("UTC") else base
 
 
+def _cancelar_al_destruir(sesion, ident):
+    return lambda *_: sesion_backend.cancelar_envios(sesion, ident)
+
+
 class FechaHoraController(QObject):
     relojChanged = Signal()
     datosChanged = Signal()
     mensajeChanged = Signal()
+    cargandoChanged = Signal()
 
     def __init__(self, parent=None, sesion=None, reloj=_ahora):
         super().__init__(parent)
@@ -50,6 +55,9 @@ class FechaHoraController(QObject):
         self._anterior = False
         self._zona_backend = ""
         self._mensaje = ""
+        self._gen = 0
+        self._cargando = False
+        self.destroyed.connect(_cancelar_al_destruir(sesion, id(self)))
         self._timer = QTimer(self)
         self._timer.setInterval(1000)
         self._timer.timeout.connect(self.tic)
@@ -63,9 +71,29 @@ class FechaHoraController(QObject):
         self._ahora = self._reloj()
         self.relojChanged.emit()
 
+    @Property(bool, notify=cargandoChanged)
+    def cargando(self) -> bool:
+        return self._cargando
+
+    def _fijar_cargando(self, v: bool) -> None:
+        if v != self._cargando:
+            self._cargando = v
+            self.cargandoChanged.emit()
+
     @Slot()
     def cargar(self) -> None:
-        r = self._s().enviar("GET", "/system/time")
+        # GET asíncrono (AJUSTES 2026-11-02, fase 5): solo manda la última
+        # consulta y un error conserva los datos ya mostrados
+        self._gen += 1
+        gen = self._gen
+        self._fijar_cargando(True)
+        sesion_backend.enviar_async(self._s(), "GET", "/system/time", None,
+                                    lambda r: self._al_cargar(r, gen), dueno=self)
+
+    def _al_cargar(self, r, gen: int) -> None:
+        if gen != self._gen:
+            return
+        self._fijar_cargando(False)
         if r.ok and isinstance(r.datos, dict):
             self._instalacion = str(r.datos.get("instalacion") or "")
             self._anterior = r.datos.get("reloj_anterior_instalacion") is True

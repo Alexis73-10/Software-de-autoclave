@@ -135,13 +135,31 @@ Item {
                     x: Escala.px(14); width: parent.width - Escala.px(28); anchors.verticalCenter: parent.verticalCenter
                     verticalAlignment: Text.AlignVCenter
                     wrapMode: Text.WordWrap
-                    text: control.mensaje !== "" ? I18n.t(control.mensaje, I18n.lang) : ""
+                    // un cambio revertido lleva su motivo dentro de opciones.cambio_revertido
+                    text: control.mensaje === "" ? ""
+                          : control.mensajeRevertido
+                            ? I18n.t("opciones.cambio_revertido", I18n.lang,
+                                     { motivo: I18n.t(control.mensaje, I18n.lang) })
+                            : I18n.t(control.mensaje, I18n.lang)
                     color: control.mensaje === "conectividad.prueba_enviada" ? Colores.accionPrimarioTexto
                                                                              : Colores.peligroTexto
                     font.family: Tipografia.familia
                     font.pixelSize: Escala.fuente(22)
                 }
                 MouseArea { anchors.fill: parent; onClicked: control.limpiarMensaje() }
+            }
+
+            // AJUSTES 2026-11-02 (paso 2, fase 4): envíos sin bloquear la pantalla
+            Text {
+                objectName: "estadoEnvioConectividad"
+                visible: control.cargando || control.pendientes.email !== undefined
+                         || control.pendientes.prueba !== undefined
+                width: parent.width
+                text: control.cargando ? I18n.t("opciones.cargando", I18n.lang)
+                                       : I18n.t("opciones.guardando", I18n.lang)
+                color: Colores.textoGuia
+                font.family: Tipografia.familia
+                font.pixelSize: Escala.fuente(20)
             }
 
             // ── red (solo lectura) ────────────────────────────────────
@@ -311,6 +329,7 @@ Item {
                     width: (parent.width - parent.spacing) / 2
                     texto: I18n.t("conectividad.prueba", I18n.lang)
                     habilitado: raiz.editable && control.envioActivo && control.destinatarios.length > 0
+                                && control.pendientes.prueba === undefined
                     onPulsado: control.enviarPrueba()
                 }
             }

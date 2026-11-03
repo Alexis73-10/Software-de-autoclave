@@ -5,6 +5,10 @@
 # lista de respaldos (Válido / Rechazado con el motivo) y "Restaurar
 # seleccionado" con confirmación. El backend valida todo (manifiesto, versión,
 # número de serie) y decide (403/409/422/428).
+#
+# Sin HTTP síncrono en la GUI (AJUSTES 2026-11-02, paso 2 fase 5): la lectura
+# de la USB (GET) y exportar (POST) son asíncronos (`cargando`, `guardando`;
+# un error de lectura conserva la última lista). Restaurar SIGUE SÍNCRONO.
 
 from PySide6.QtCore import Property, QObject, Signal, Slot
 from PySide6.QtQml import qmlRegisterType
@@ -31,10 +35,16 @@ def mensaje_de(causa: str) -> str:
     return _MENSAJES.get(causa, "respaldo.err_invalido")
 
 
+def _cancelar_al_destruir(sesion, ident):
+    return lambda *_: sesion_backend.cancelar_envios(sesion, ident)
+
+
 class RespaldoController(QObject):
     datosChanged = Signal()
     mensajeChanged = Signal()
     seleccionChanged = Signal()
+    cargandoChanged = Signal()
+    guardandoChanged = Signal()
 
     def __init__(self, parent=None, sesion=None):
         super().__init__(parent)
@@ -45,6 +55,30 @@ class RespaldoController(QObject):
                         "usuarios": True, "historial": False}
         self._seleccion = ""
         self._reinicio = False
+        self._resuelto = None
+        self._gen = 0
+        self._cargando = False
+        self._guardando = False
+        self.destroyed.connect(_cancelar_al_destruir(sesion, id(self)))
+
+    @Property(bool, notify=cargandoChanged)
+    def cargando(self) -> bool:
+        return self._cargando
+
+    @Property(bool, notify=guardandoChanged)
+    def guardando(self) -> bool:
+        """Exportación en vuelo («guardando…», botón bloqueado)."""
+        return self._guardando
+
+    def _fijar_cargando(self, v: bool) -> None:
+        if v != self._cargando:
+            self._cargando = v
+            self.cargandoChanged.emit()
+
+    def _fijar_guardando(self, v: bool) -> None:
+        if v != self._guardando:
+            self._guardando = v
+            self.guardandoChanged.emit()
 
     def _s(self):
         return self._sesion or sesion_backend.ventana()
@@ -56,11 +90,20 @@ class RespaldoController(QObject):
 
     @Slot()
     def cargar(self) -> None:
-        r = self._s().enviar("GET", "/backup/usb")
+        self._gen += 1
+        gen = self._gen
+        self._fijar_cargando(True)
+        sesion_backend.enviar_async(self._s(), "GET", "/backup/usb", None,
+                                    lambda r: self._al_cargar(r, gen), dueno=self)
+
+    def _al_cargar(self, r, gen: int) -> None:
+        if gen != self._gen:
+            return                         # una lectura posterior manda
+        self._fijar_cargando(False)
         if r.ok and isinstance(r.datos, dict):
             self._d = r.datos
         else:
-            self._d = {}
+            # se conserva la última lista válida
             self._fijar_mensaje(mensaje_de(r.causa))
         if self._seleccion and not any(f["archivo"] == self._seleccion for f in self.respaldos):
             self._seleccion = ""
@@ -84,16 +127,31 @@ class RespaldoController(QObject):
 
     @Slot(result=bool)
     def exportar(self) -> bool:
+        """False si no se puede lanzar (sin USB, o ya hay una exportación en
+        vuelo). Con el resultado en el acto (sesión de prueba) devuelve el
+        `ok` real; en vuelo, True («aceptado»): el desenlace llega por
+        `mensaje`."""
+        if self._guardando:
+            return False
         if not self.unidad:
             self._fijar_mensaje("respaldo.err_usb")
             return False
-        r = self._s().enviar("POST", "/backup/export", {"unidad": self.unidad, **self._partes})
+        self._resuelto = None
+        self._fijar_guardando(True)
+        sesion_backend.enviar_async(
+            self._s(), "POST", "/backup/export", {"unidad": self.unidad, **self._partes},
+            self._al_exportar, dueno=self)
+        return True if self._resuelto is None else self._resuelto
+
+    def _al_exportar(self, r) -> None:
+        self._fijar_guardando(False)
         if r.ok:
             self._fijar_mensaje("respaldo.exportado")
+            self._resuelto = True
             self.cargar()
-            return True
-        self._fijar_mensaje(mensaje_de(r.causa))
-        return False
+        else:
+            self._fijar_mensaje(mensaje_de(r.causa))
+            self._resuelto = False
 
     # ── restaurar ─────────────────────────────────────────────────────
     @Slot(str)

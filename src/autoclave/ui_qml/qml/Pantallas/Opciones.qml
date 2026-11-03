@@ -48,7 +48,11 @@ Item {
 
     readonly property bool usaToken: true
     // O2f (tanda 6): durante la calibración atmosférica solo Cancelar está activo
-    readonly property bool navegacionBloqueada: mantenimiento.itemActivo?.navegacionBloqueada ?? false
+    // M1 (SAF-05): también mientras un parámetro se guarda (como máximo el
+    // plazo del envío), para no perder su desenlace ni el aviso de arrastres
+    readonly property bool navegacionBloqueada: (mantenimiento.itemActivo?.navegacionBloqueada ?? false)
+                                                || (parametrosCiclo.itemActivo?.guardandoParametro ?? false)
+                                                || (parametrosEquipo.itemActivo?.guardandoParametro ?? false)
 
     // Nombre de la sección en una línea (cajón y título, §5.0)
     function nombreSeccion(clave) {
@@ -274,7 +278,7 @@ Item {
         parpadeo: panelNotificaciones.parpadeo
         conEngranaje: true
         onCampanaPulsada: panelNotificaciones.abrir()
-        onEngranajePulsado: raiz.menuPulsado()
+        onEngranajePulsado: if (!raiz.navegacionBloqueada) raiz.menuPulsado()
     }
 
     // ======================= tarjeta blanca =======================

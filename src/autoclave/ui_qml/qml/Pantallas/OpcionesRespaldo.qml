@@ -61,6 +61,17 @@ Item {
             width: parent.width
             spacing: Escala.px(8)
 
+            Text {
+                objectName: "cargandoRespaldo"
+                visible: control.cargando
+                width: parent.width
+                height: visible ? implicitHeight : 0
+                text: I18n.t("opciones.cargando", I18n.lang)
+                color: Colores.textoGuia
+                font.family: Tipografia.familia
+                font.pixelSize: Escala.fuente(20)
+            }
+
             Rectangle {
                 objectName: "mensajeRespaldo"
                 visible: control.mensaje !== ""
@@ -147,8 +158,9 @@ Item {
             Boton {
                 objectName: "botonExportar"
                 width: parent.width
-                texto: I18n.t("respaldo.exportar", I18n.lang)
-                habilitado: raiz.edicionPermitida && raiz.hayUsb
+                texto: control.guardando ? I18n.t("opciones.guardando", I18n.lang)
+                                         : I18n.t("respaldo.exportar", I18n.lang)
+                habilitado: raiz.edicionPermitida && raiz.hayUsb && !control.guardando
                 onPulsado: control.exportar()
             }
 

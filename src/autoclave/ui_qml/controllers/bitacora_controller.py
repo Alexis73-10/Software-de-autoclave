@@ -8,6 +8,11 @@
 # las de core.runtime.bitacora.CATEGORIAS o las de la respuesta `categorias`). El backend entrega cada fila con su clave de texto y los valores
 # ya en la unidad vigente; la pantalla arma la frase en el idioma vigente.
 # Nadie edita ni borra (audit_log es de solo anexar, migración v4).
+#
+# Sin HTTP síncrono en la GUI (AJUSTES 2026-11-02, paso 2 fase 5): el GET es
+# asíncrono con `cargando`; cada consulta lleva un contador de generación y
+# solo manda la última (varios filtros seguidos no apilan respuestas viejas);
+# un error conserva las filas ya mostradas.
 
 import re
 from datetime import date
@@ -29,10 +34,15 @@ POR_PAGINA = 12
 _FECHA = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 
+def _cancelar_al_destruir(sesion, ident):
+    return lambda *_: sesion_backend.cancelar_envios(sesion, ident)
+
+
 class BitacoraController(QObject):
     datosChanged = Signal()
     filtrosChanged = Signal()
     mensajeChanged = Signal()
+    cargandoChanged = Signal()
 
     def __init__(self, parent=None, sesion=None):
         super().__init__(parent)
@@ -50,9 +60,22 @@ class BitacoraController(QObject):
         self._usuario = ""
         self._categoria = ""
         self._mensaje = ""
+        self._gen = 0
+        self._cargando = False
+        # sin referencia a self: el destructor de C++ ya está en marcha
+        self.destroyed.connect(_cancelar_al_destruir(sesion, id(self)))
 
     def _s(self):
         return self._sesion or sesion_backend.ventana()
+
+    def _fijar_cargando(self, v: bool) -> None:
+        if v != self._cargando:
+            self._cargando = v
+            self.cargandoChanged.emit()
+
+    @Property(bool, notify=cargandoChanged)
+    def cargando(self) -> bool:
+        return self._cargando
 
     def _fijar_mensaje(self, clave: str) -> None:
         if clave != self._mensaje:
@@ -83,7 +106,16 @@ class BitacoraController(QObject):
         if self._hoy() != self._hoy_visto:
             self._hoy_visto = self._hoy()
             self.filtrosChanged.emit()
-        r = self._s().enviar("GET", self.ruta())
+        self._gen += 1
+        gen = self._gen
+        self._fijar_cargando(True)
+        sesion_backend.enviar_async(self._s(), "GET", self.ruta(), None,
+                                    lambda r: self._al_cargar(r, gen), dueno=self)
+
+    def _al_cargar(self, r, gen: int) -> None:
+        if gen != self._gen:
+            return                         # una consulta posterior manda
+        self._fijar_cargando(False)
         d = r.datos if r.ok and isinstance(r.datos, dict) else None
         if d is not None and isinstance(d.get("filas"), list):
             self._filas = [f for f in d["filas"] if isinstance(f, dict)]

@@ -49,6 +49,14 @@ _SCRIPT = textwrap.dedent(r'''
             return lambda *a, **k: sesion_backend.Resultado("ok", {}, 200)
 
     sesion_backend.ventana = lambda: Sesion()
+
+    class FuenteStatus:   # caché de /status de UIServiceBackend (AJUSTES 2026-11-02)
+        def status_vigente(self):
+            estado, datos = rutas.get("GET /status", (200, {}))
+            return (datos, True, 0.0) if 200 <= estado < 300 else ({}, False, None)
+
+    from autoclave.cliente import ui_service_backend
+    ui_service_backend.instalar_servicio(FuenteStatus())
     i18n.fijar_idioma(cfg["lang"])
     qapp = QGuiApplication([])
     _cargar_fuentes()
