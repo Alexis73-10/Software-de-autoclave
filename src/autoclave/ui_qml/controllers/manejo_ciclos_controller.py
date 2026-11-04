@@ -18,14 +18,19 @@
 #   - Habilitar / deshabilitar: cambio optimista con reversión (CambioOptimista;
 #     clave "habilitado:<n>"); el optimismo es solo local de esta pantalla.
 #   - Lista: GET asíncrono con `cargando`.
-#   - Crear, duplicar y borrar siguen síncronos (operaciones raras y con
-#     confirmación; el resultado manda la lista que se relee).
-# Los slots devuelven el `ok` real si el resultado llegó en el acto (sesión de
-# prueba con solo `enviar`); en vuelo, True («aceptado»).
+#   - Crear, duplicar y borrar (FASE 6, P1): `OperacionCritica` sin optimismo,
+#     una a la vez (clave "programa"), plazo 10 s, bloquean la navegación. Solo
+#     un 200 o una relectura de GET /programas que lo demuestre (aparece el
+#     programa nuevo / ya no está el borrado) es éxito; sin respuesta y sin
+#     esa prueba queda «sin confirmar»; no hay reintento automático. El slot
+#     devuelve True = «enviado»; el resultado llega por `operacionResuelta`.
+# Habilitar / deshabilitar devuelve el `ok` real si el resultado llegó en el
+# acto (sesión de prueba con solo `enviar`); en vuelo, True («aceptado»).
 
 from PySide6.QtCore import Property, QObject, Signal, Slot
 from PySide6.QtQml import qmlRegisterType
 
+from autoclave.ui_qml import operacion_critica as oc
 from autoclave.ui_qml import sesion_backend
 from autoclave.ui_qml.cambio_optimista import SIN_CONFIRMAR, SIN_LECTURA, CambioOptimista
 
@@ -47,6 +52,9 @@ _MENSAJES = {
 
 
 MENSAJE_SIN_CONFIRMAR = "opciones.cambio_sin_confirmar"
+CLAVE_PROGRAMA = "programa"          # crear, duplicar y borrar: una a la vez
+PLAZO_PROGRAMA_S = 10.0
+MENSAJE_PROGRAMA_SIN_CONFIRMAR = "manejo_ciclos.err_sin_respuesta"
 
 
 def mensaje_de(causa: str) -> str:
@@ -84,6 +92,9 @@ class ManejoCiclosController(QObject):
     cargandoChanged = Signal()
     # clave del cambio, aceptado, clave i18n del mensaje ("" si aceptado)
     cambioResuelto = Signal(str, bool, str)
+    operacionEnCursoChanged = Signal()
+    # clave, estado final (confirmada|rechazada|sin_confirmar), clave i18n del mensaje
+    operacionResuelta = Signal(str, str, str)
 
     def __init__(self, parent=None, sesion=None):
         super().__init__(parent)
@@ -96,6 +107,9 @@ class ManejoCiclosController(QObject):
         self._gen_carga = 0
         self._cargando = False
         self._resuelto = None              # desenlace síncrono del último slot
+        self._op = oc.OperacionCritica(self, self._s)
+        self._op.operacionEnCursoChanged.connect(self.operacionEnCursoChanged)
+        self._op.operacionResuelta.connect(self._al_resolver)
         self._opt = CambioOptimista(self._lanzar_habilitado, self._al_cambiar,
                                     self._al_revertir, self._releer,
                                     al_confirmar=self._al_confirmar,
@@ -175,24 +189,90 @@ class ManejoCiclosController(QObject):
 
     # ── operaciones ──────────────────────────────────────────────────
 
-    def _tras(self, r, clave_ok: str, detalle: dict) -> bool:
-        self.cargar()         # sin respuesta el resultado es incierto: se relee siempre
-        if r.ok:
-            self._fijar_mensaje(clave_ok, detalle, exito=True)
-            return True
-        self._fijar_mensaje(mensaje_de(r.causa))
-        return False
+    @Property(bool, notify=operacionEnCursoChanged)
+    def operacionEnCurso(self) -> bool:
+        """Hay un crear / duplicar / borrar en vuelo (la pantalla bloquea los botones)."""
+        return self._op.operacionEnCurso
+
+    @Slot(str, result=str)
+    def estadoDe(self, clave: str) -> str:
+        """inactiva | enviando | verificando."""
+        return self._op.estado(clave)
+
+    def _releer_programas(self, al_leido) -> None:
+        """Relectura de la operación crítica: aplica la lista si es válida (una
+        lectura fallida no vacía la que se muestra) y entrega las filas."""
+        def leido(r) -> None:
+            filas = _filas(r.datos) if r.ok else None
+            if filas is not None:
+                self._gen_carga += 1       # manda sobre cargas lanzadas antes
+                self._fijar_cargando(False)
+                self._programas = filas
+                self.programasChanged.emit()
+            al_leido(SIN_LECTURA if filas is None else filas)
+        self._enviar("GET", "/programas", None, leido)
+
+    def _iniciar_programa(self, metodo, ruta, cuerpo, ok_clave, detalle, conciliar,
+                          nombre_ok=None, borra=None) -> bool:
+        if self._op.en_curso(CLAVE_PROGRAMA):
+            return False                   # una a la vez
+        # MAYOR-1 (corrección tras revisión): el contexto va con SU operación
+        # (contexto_resuelta), no en el controlador: un 200 tardío de un
+        # duplicar no reescribe lo que anuncia la vigente
+        ctx = {"clave": ok_clave, "detalle": dict(detalle), "borra": borra}
+
+        def al_ok(r) -> None:
+            datos = r.datos if isinstance(r.datos, dict) else {}
+            if nombre_ok is not None:
+                ctx["detalle"] = {"nombre": datos.get("nombre", nombre_ok),
+                                  "numero": datos.get("numero")}
+            self.cargar()
+
+        return self._op.iniciar(
+            CLAVE_PROGRAMA, metodo, ruta, cuerpo, plazo_s=PLAZO_PROGRAMA_S, al_ok=al_ok,
+            al_rechazo=lambda r: mensaje_de(r.causa), releer=self._releer_programas,
+            conciliar=conciliar, bloquea_navegacion=True,
+            msg_sin_confirmar=MENSAJE_PROGRAMA_SIN_CONFIRMAR, contexto=ctx)
+
+    @Slot(int, result=bool)
+    def borrando(self, numero: int) -> bool:
+        return self._borrando(int(numero))
+
+    def _borrando(self, numero) -> bool:
+        """MENOR-6: hay un borrado del programa `numero` en vuelo."""
+        ctx = self._op.contexto_de(CLAVE_PROGRAMA)
+        return isinstance(ctx, dict) and ctx.get("borra") == numero
+
+    def _al_resolver(self, clave: str, estado: str, mensaje: str) -> None:
+        ctx = self._op.contexto_resuelta if isinstance(self._op.contexto_resuelta, dict) else {}
+        if estado == oc.CONFIRMADA:
+            self._fijar_mensaje(ctx.get("clave", ""), ctx.get("detalle"), exito=True)
+        else:
+            self._fijar_mensaje(mensaje)
+            self.cargar()         # sin éxito demostrado: se muestra el estado real
+        self.operacionResuelta.emit(clave, estado, mensaje)
 
     def _duplicar(self, numero: int, nombre: str, crear: bool) -> bool:
+        """True = enviada; False sin enviar (nombre vacío, o ya hay una en curso)."""
         nombre = " ".join(str(nombre or "").split())
         if not nombre:
             self._fijar_mensaje("manejo_ciclos.err_nombre_invalido")
             return False
         cuerpo = {"nombre": nombre, "crear": True} if crear else {"nombre": nombre}
-        r = self._s().enviar("POST", f"/programas/{int(numero)}/duplicar", cuerpo)
-        datos = r.datos if r.ok and isinstance(r.datos, dict) else {}
-        return self._tras(r, "manejo_ciclos.ok_creado",
-                          {"nombre": datos.get("nombre", nombre), "numero": datos.get("numero")})
+        # MENOR-5: la prueba «aparece uno nuevo» solo vale contra una lista
+        # previa cargada; sin ella (cargando o vacía) no se concilia
+        lista_valida = not self._cargando and bool(self._programas)
+        previos = {p.get("numero") for p in self._programas}
+
+        def conciliar(filas):
+            # el programa nuevo aparece en la lista releída
+            aparece = any(f.get("nombre") == nombre and f.get("numero") not in previos
+                          for f in filas)
+            return oc.CONFIRMADA if aparece else oc.SIN_CONFIRMAR
+
+        return self._iniciar_programa("POST", f"/programas/{int(numero)}/duplicar", cuerpo,
+                                      "manejo_ciclos.ok_creado", {"nombre": nombre},
+                                      conciliar if lista_valida else None, nombre_ok=nombre)
 
     @Slot(int, str, result=bool)
     def crear(self, numero_base: int, nombre: str) -> bool:
@@ -255,6 +335,8 @@ class ManejoCiclosController(QObject):
 
     @Slot(int, bool, result=bool)
     def fijarHabilitado(self, numero: int, habilitado: bool) -> bool:
+        if self._borrando(int(numero)):
+            return False                   # MENOR-6: no con el borrado de ese programa en vuelo
         clave = self._clave(int(numero))
         fila = next((p for p in self._programas if p.get("numero") == int(numero)), None)
         self._resuelto = None
@@ -267,9 +349,20 @@ class ManejoCiclosController(QObject):
 
     @Slot(int, result=bool)
     def borrar(self, numero: int) -> bool:
+        """True = enviada; False sin enviar (ya hay una operación en curso, o
+        un habilitar / deshabilitar de ese programa en vuelo: MENOR-6)."""
         nombre = self._nombre(numero)
-        r = self._s().enviar("DELETE", f"/programas/{int(numero)}")
-        return self._tras(r, "manejo_ciclos.ok_borrado", {"nombre": nombre})
+        n = int(numero)
+        if self._clave(n) in self._opt.pendientes():
+            return False
+
+        def conciliar(filas):
+            # el programa borrado ya no está en la lista releída
+            return oc.SIN_CONFIRMAR if any(f.get("numero") == n for f in filas) else oc.CONFIRMADA
+
+        return self._iniciar_programa("DELETE", f"/programas/{n}", None,
+                                      "manejo_ciclos.ok_borrado", {"nombre": nombre}, conciliar,
+                                      borra=n)
 
     # ── mensajes ─────────────────────────────────────────────────────
 

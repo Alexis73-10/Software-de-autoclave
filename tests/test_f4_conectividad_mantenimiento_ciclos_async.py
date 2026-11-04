@@ -31,7 +31,8 @@ class SesionManual:
         self.sincronos.append((metodo, ruta))
         return Resultado("ok", {})
 
-    def enviar_async(self, metodo, ruta, cuerpo=None, al_terminar=None, *, dueno=None, al_tardio=None):
+    def enviar_async(self, metodo, ruta, cuerpo=None, al_terminar=None, *, dueno=None, al_tardio=None,
+                     plazo_s=None):
         self.vuelo.append((metodo, ruta, cuerpo, al_terminar))
         return True
 
@@ -362,11 +363,12 @@ def test_manejo_ciclos_lectura_anterior_no_pisa_el_cambio_pendiente():
     assert _habilitado(c, 1) is False
 
 
-def test_manejo_ciclos_crear_y_borrar_siguen_sincronos():
+def test_manejo_ciclos_crear_y_borrar_son_asincronos():
     s = SesionManual()
     c = _mc_cargado(s)
-    assert c.borrar(5) is True                                   # enviar sincrono del doble
-    assert ("DELETE", "/programas/5") in s.sincronos
+    assert c.borrar(5) is True                                   # True = enviada (FASE 6)
+    assert ("DELETE", "/programas/5") not in s.sincronos
+    assert ("DELETE", "/programas/5") in s.rutas()
 
 
 def test_manejo_ciclos_doble_solo_enviar_devuelve_el_resultado_real():

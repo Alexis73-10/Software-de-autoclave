@@ -137,9 +137,14 @@ def test_rsb04_interpretar_deja_pasar_los_codigos_en_sus_rutas(ruta):
 
 
 def test_rsb04_fuera_de_la_reasignacion_no_cambia_nada():
+    # /backup/restore tiene códigos propios (FASE 6): archivo_invalido y
+    # confirmacion_requerida se reconocen allí; el resto sigue genérico
+    propios_restaurar = {"archivo_invalido", "confirmacion_requerida"}
     for codigo in ("conflicto", "confirmacion_requerida", "archivo_invalido", "sin_lectura"):
-        assert interpretar(428, {"codigo": codigo}, "/backup/restore").causa == "error_generico"
+        esperado = codigo if codigo in propios_restaurar else "error_generico"
+        assert interpretar(428, {"codigo": codigo}, "/backup/restore").causa == esperado
         assert interpretar(428, {"codigo": codigo}, "/io/assignmentX").causa == "error_generico"
+        assert interpretar(428, {"codigo": codigo}, "/backup/restoreX").causa == "error_generico"
     assert codigos_conocidos("/io/assignment?x=1") == codigos_conocidos("/io/assignment")
 
 
@@ -208,13 +213,17 @@ def test_rsb04_cada_codigo_muestra_su_texto(ruta, metodo):
         res = interpretar(409, {"codigo": codigo}, ruta)
         assert res.causa == codigo
         c = _ctrl(extra={("POST", ruta): res})
+        resueltos = []
+        c.operacionResuelta.connect(lambda *a: resueltos.append(a))
+        # FASE 6: True = enviado; el rechazo llega por operacionResuelta
         if metodo == "aplicar":
             c.elegirPuerto("vapor_camara", 7)
-            assert c.aplicar("clave") is False
+            assert c.aplicar("clave") is True
         elif metodo == "verificar":
-            assert c.verificar("temp_camara", "clave", "") is False
+            assert c.verificar("temp_camara", "clave", "") is True
         else:
-            assert c.restaurarFabrica("clave") is False
+            assert c.restaurarFabrica("clave") is True
+        assert [x[1] for x in resueltos] == ["rechazada"], codigo
         assert c.mensaje == rc._MENSAJES[codigo] != "reasignacion.err_generico", codigo
 
 
@@ -224,15 +233,15 @@ def test_rsb04_estado_no_permitido_muestra_el_motivo(motivo):
     res = interpretar(409, {"codigo": "estado_no_permitido", "motivo": motivo}, "/io/assignment")
     c = _ctrl(extra={("POST", "/io/assignment"): res})
     c.elegirPuerto("vapor_camara", 7)
-    assert c.aplicar("clave") is False
-    assert c.mensaje == f"reasignacion.motivo_{motivo}"
+    assert c.aplicar("clave") is True                 # FASE 6: enviado
+    assert c.mensaje == f"reasignacion.motivo_{motivo}" and not c.reiniciando
 
 
 def test_rsb04_desconocido_sigue_siendo_generico():
     c = _ctrl(extra={("POST", "/io/assignment"): interpretar(409, {"codigo": "otro_raro"},
                                                             "/io/assignment")})
     c.elegirPuerto("vapor_camara", 7)
-    assert c.aplicar("clave") is False
+    assert c.aplicar("clave") is True                 # FASE 6: enviado
     assert c.mensaje == "reasignacion.err_generico"
 
 

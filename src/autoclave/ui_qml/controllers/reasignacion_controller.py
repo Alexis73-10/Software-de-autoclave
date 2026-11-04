@@ -9,6 +9,14 @@
 # backend es la autoridad (rol, estado, conflictos, puertos inexistentes,
 # confirmaciones y reautenticación; 403/409/422/428/429). Aplicar reinicia el
 # control (el backend se relanza): la pantalla lo anuncia y vuelve a cargar.
+#
+# FASE 6 (AJUSTES 2026-11-02, P1): aplicar, restaurar fábrica y verificar son
+# operaciones críticas asíncronas SIN optimismo (OperacionCritica) que
+# bloquean la navegación hasta la respuesta o el plazo. Nada se da por bueno
+# sin un 200 o sin una relectura de GET /io/assignment que coincida; sin
+# respuesta queda «sin confirmar» y se relee. `reiniciando` solo se activa con
+# la confirmación. Los slots devuelven True = enviado (el desenlace llega por
+# `operacionResuelta(clave, estado, mensaje)`) y False = rechazo local.
 
 import logging
 
@@ -17,6 +25,8 @@ from PySide6.QtQml import qmlRegisterType
 
 from autoclave.cliente.session_manager import SessionManager
 from autoclave.ui_qml import sesion_backend
+from autoclave.ui_qml.cambio_optimista import SIN_LECTURA
+from autoclave.ui_qml.operacion_critica import CONFIRMADA, SIN_CONFIRMAR, OperacionCritica
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +78,70 @@ _MOTIVOS = {"ciclo", "estado", "modo_prueba", "apagando"}
 _FALTAS = {"sin_cambio_observado", "sin_prueba_de_salida", "sin_lectura",
            "puerto_sin_calibracion", "error"}
 _ESTADOS_VERIF = {"pendiente", "trama_presente", "sin_respuesta", "verificada"}
+
+# FASE 6: claves de las operaciones críticas y sus plazos (s)
+OP_APLICAR, OP_FABRICA, OP_VERIFICAR = "aplicar", "fabrica", "verificar"
+GRUPO_OPERACIONES = "reasignacion"   # MAYOR-1: las tres se excluyen entre sí
+PLAZO_REINICIO_S = 30.0          # aplicar y restaurar fábrica
+PLAZO_VERIFICAR_S = 10.0
+_MSG_NO_COINCIDE = "reasignacion.err_sin_respuesta"
+
+
+def conciliar_aplicar(leido, cambios: dict):
+    """Relectura tras «sin respuesta» de POST /io/assignment: CONFIRMADA solo
+    si cada función pedida quedó guardada en el puerto pedido. Si no coincide
+    NO es un rechazo (MAYOR-3, corrección tras revisión): el POST puede seguir
+    esperando el lock del backend; queda SIN_CONFIRMAR y un 200 tardío aún se
+    procesa."""
+    filas = leido.get("filas") if isinstance(leido, dict) else None
+    if not isinstance(filas, list) or not cambios:
+        return SIN_CONFIRMAR
+    guardado = {f.get("funcion"): f.get("puerto_guardado") for f in filas if isinstance(f, dict)}
+    if all(f in guardado and guardado[f] == p for f, p in cambios.items()):
+        return CONFIRMADA
+    return (SIN_CONFIRMAR, _MSG_NO_COINCIDE)
+
+
+def es_fabrica(leido) -> bool:
+    """La lectura muestra la asignación de fábrica guardada y sana: sin
+    cambios guardados, cada puerto guardado igual al de fábrica y sin
+    error_archivo (con el archivo dañado el backend devuelve la de fábrica)."""
+    filas = leido.get("filas") if isinstance(leido, dict) else None
+    if not isinstance(filas, list) or leido.get("error_archivo"):
+        return False
+    return (not leido.get("cambios_guardados")
+            and all(f.get("puerto_guardado") == f.get("puerto_fabrica")
+                    for f in filas if isinstance(f, dict)))
+
+
+def conciliar_fabrica(leido, antes=None):
+    """Relectura tras «sin respuesta» de /factory. MAYOR-2 (corrección tras
+    revisión): la relectura solo prueba algo si ANTES no se cumplía ya la
+    condición de fábrica; con el archivo dañado, un reinicio pendiente o la
+    fábrica ya guardada (`antes`, lo mostrado al pedir) queda SIN_CONFIRMAR.
+    `antes` None = no se sabe: SIN_CONFIRMAR. Lo que no coincide tampoco es
+    un rechazo (MAYOR-3): SIN_CONFIRMAR."""
+    filas = leido.get("filas") if isinstance(leido, dict) else None
+    if not isinstance(filas, list):
+        return SIN_CONFIRMAR
+    if (not isinstance(antes, dict) or not antes or antes.get("error_archivo")
+            or antes.get("reinicio_pendiente") is True or es_fabrica(antes)):
+        return (SIN_CONFIRMAR, _MSG_NO_COINCIDE)
+    if es_fabrica(leido):
+        return CONFIRMADA
+    return (SIN_CONFIRMAR, _MSG_NO_COINCIDE)
+
+
+def conciliar_verificar(leido, funcion: str):
+    """Relectura tras «sin respuesta» de /verify: CONFIRMADA solo si la
+    función figura verificada; si no, SIN_CONFIRMAR (MAYOR-3)."""
+    v = leido.get("verificacion") if isinstance(leido, dict) else None
+    funciones = v.get("funciones") if isinstance(v, dict) else None
+    if not isinstance(funciones, dict):
+        return SIN_CONFIRMAR
+    dato = funciones.get(funcion)
+    estado = dato.get("estado") if isinstance(dato, dict) else dato
+    return CONFIRMADA if estado == "verificada" else (SIN_CONFIRMAR, _MSG_NO_COINCIDE)
 
 
 def mensaje_de(causa: str) -> str:
@@ -168,6 +242,8 @@ class ReasignacionController(QObject):
     mensajeChanged = Signal()
     reiniciandoChanged = Signal()
     cargandoChanged = Signal()
+    operacionEnCursoChanged = Signal()
+    operacionResuelta = Signal(str, str, str)   # clave, estado final, clave i18n
 
     def __init__(self, parent=None, sesion=None):
         super().__init__(parent)
@@ -179,13 +255,26 @@ class ReasignacionController(QObject):
         self._reiniciando = False
         self._gen = 0
         self._cargando = False
+        self._respuesta_ok: dict[int, dict] = {}   # datos del 200 por id de operación
+        self._op = OperacionCritica(self, self._s)
+        self._op.operacionEnCursoChanged.connect(self.operacionEnCursoChanged)
+        self._op.operacionResuelta.connect(self._al_resolver)
         self.destroyed.connect(_cancelar_al_destruir(sesion, id(self)))
 
     @Property(bool, notify=cargandoChanged)
     def cargando(self) -> bool:
-        """Lectura de /io/assignment en vuelo (fase 5: solo el GET es
-        asíncrono; aplicar, verificar y restaurar fábrica siguen síncronos)."""
+        """Lectura de /io/assignment en vuelo."""
         return self._cargando
+
+    # ── operaciones críticas (FASE 6) ─────────────────────────────────
+    @Property(bool, notify=operacionEnCursoChanged)
+    def operacionEnCurso(self) -> bool:
+        return self._op.en_curso()
+
+    @Slot(str, result=str)
+    def estadoDe(self, clave: str) -> str:
+        """inactiva | enviando | verificando de la operación `clave`."""
+        return self._op.estado(clave)
 
     def _fijar_cargando(self, v: bool) -> None:
         if v != self._cargando:
@@ -214,22 +303,46 @@ class ReasignacionController(QObject):
             return                         # una lectura posterior manda
         self._fijar_cargando(False)
         if r.ok and isinstance(r.datos, dict):
-            self._d = r.datos
             if self._reiniciando:
                 self._reiniciando = False
                 self.reiniciandoChanged.emit()
                 self._fijar_mensaje("")
-            # un cambio pendiente que ya rige deja de serlo
+            self._aplicar_lectura(r.datos)
+            return
+        if not self._reiniciando:
+            self._d = {}
+            self._fijar_mensaje(_texto_rechazo(r))
+        self.datosChanged.emit()
+
+    def _aplicar_lectura(self, datos: dict) -> None:
+        """Lo vigente del backend a la vista (no toca `reiniciando`)."""
+        self._d = datos
+        if not self._op.en_curso():
+            # un cambio pendiente que ya rige deja de serlo (no durante un
+            # envío: los cambios pedidos se conservan hasta el desenlace)
             guardado = {f["funcion"]: f.get("puerto_guardado") for f in self.filas}
             antes = dict(self._pendientes)
             self._pendientes = {f: p for f, p in self._pendientes.items()
                                 if f in guardado and guardado[f] != p}
             if self._pendientes != antes:
                 self.pendientesChanged.emit()
-        elif not self._reiniciando:
-            self._d = {}
-            self._fijar_mensaje(_texto_rechazo(r))
         self.datosChanged.emit()
+
+    def _releer(self, al_leido) -> None:
+        """Relectura de una operación crítica: GET /io/assignment ->
+        al_leido(datos) o al_leido(SIN_LECTURA). Una lectura anterior ya no
+        pisa la vista; un fallo no borra la tabla."""
+        self._gen += 1
+        gen = self._gen
+
+        def leido(r):
+            if r.ok and isinstance(r.datos, dict):
+                if gen == self._gen:
+                    self._aplicar_lectura(r.datos)
+                al_leido(r.datos)
+            else:
+                al_leido(SIN_LECTURA)
+        sesion_backend.enviar_async(self._s(), "GET", "/io/assignment", None, leido, dueno=self)
 
     # ── propiedades de la tabla ───────────────────────────────────────
     @Property("QVariantList", notify=datosChanged)
@@ -346,7 +459,7 @@ class ReasignacionController(QObject):
     @Slot(str, int)
     def elegirPuerto(self, funcion: str, puerto: int) -> None:
         fila = self._fila(funcion)
-        if not fila or not self.editable:
+        if not fila or not self.editable or self._op.en_curso():
             return
         if puerto == fila.get("puerto_guardado"):
             self._pendientes.pop(funcion, None)
@@ -358,6 +471,8 @@ class ReasignacionController(QObject):
 
     @Slot()
     def descartar(self) -> None:
+        if self._op.en_curso():
+            return                         # lo pedido se conserva hasta el desenlace
         if self._pendientes or self._nombres:
             self._pendientes, self._nombres = {}, {}
             self.pendientesChanged.emit()
@@ -399,60 +514,95 @@ class ReasignacionController(QObject):
     def fijarNombre(self, funcion: str, texto: str) -> None:
         self._nombres[funcion] = texto
 
-    # ── aplicar / restaurar ───────────────────────────────────────────
-    def _tras_envio(self, r) -> bool:
+    # ── aplicar / restaurar / verificar (operaciones críticas) ────────
+    def _iniciar(self, clave_op: str, ruta: str, cuerpo: dict, plazo_s: float, conciliar) -> bool:
         # una lectura lanzada antes de esta escritura ya no vale
         self._gen += 1
         self._fijar_cargando(False)
-        if r.ok:
-            datos = r.datos if isinstance(r.datos, dict) else {}
-            self._pendientes, self._nombres = {}, {}
-            self.pendientesChanged.emit()
-            if datos.get("reinicio") is True:
+        self._fijar_mensaje("")
+
+        def al_ok(r):
+            # MAYOR-1: por operación (id), no por clave: un 200 tardío no pisa
+            # la respuesta de la vigente
+            self._respuesta_ok[self._op.id_resuelta] = r.datos if isinstance(r.datos, dict) else {}
+        # grupo único: aplicar, fábrica y verificar se excluyen entre sí, así
+        # que un 200 tardío de una con otra en vuelo solo se registra y relee
+        return self._op.iniciar(clave_op, "POST", ruta, cuerpo, plazo_s=plazo_s, al_ok=al_ok,
+                                al_rechazo=_texto_rechazo, releer=self._releer,
+                                conciliar=conciliar, bloquea_navegacion=True,
+                                grupo=GRUPO_OPERACIONES)
+
+    def _al_resolver(self, clave_op: str, estado: str, mensaje: str) -> None:
+        self._gen += 1                     # nada anterior al desenlace pisa la vista
+        datos = self._respuesta_ok.pop(self._op.id_resuelta, None)
+        if estado == CONFIRMADA:
+            if clave_op == OP_VERIFICAR:
+                self._fijar_mensaje("reasignacion.verificada_ok")
+                self.cargar()
+            else:
+                self._confirmar_guardado(datos)
+        else:
+            self._fijar_mensaje(mensaje or _MSG_NO_COINCIDE)
+            if clave_op != OP_VERIFICAR:
+                self._nombres = {}
+            # se muestra lo real; si no hay lectura, se conserva el motivo
+            self._releer(lambda _leido: None)
+        self.operacionResuelta.emit(clave_op, estado, mensaje)
+
+    def _confirmar_guardado(self, datos) -> None:
+        """Guardado confirmado (200 o relectura que coincide): flujo de
+        reinicio de siempre. Sin el cuerpo del 200 (confirmado por relectura)
+        el reinicio se da por pedido salvo que el backend diga que no hay."""
+        self._pendientes, self._nombres = {}, {}
+        self.pendientesChanged.emit()
+        if datos is None:
+            reinicio = self._d.get("reinicio_disponible") is not False
+        else:
+            reinicio = datos.get("reinicio") is True
+        if reinicio:
+            if not self._reiniciando:
                 self._reiniciando = True
                 self.reiniciandoChanged.emit()
-                self._fijar_mensaje("reasignacion.reiniciando")
-            else:
-                self._fijar_mensaje("reasignacion.guardado_sin_reinicio")
-            self.datosChanged.emit()
-            return True
-        self._fijar_mensaje(_texto_rechazo(r))
-        self._nombres = {}
-        self.cargar()
-        return False
+            self._fijar_mensaje("reasignacion.reiniciando")
+        else:
+            self._fijar_mensaje("reasignacion.guardado_sin_reinicio")
+        self.datosChanged.emit()
 
     @Slot(str, result=bool)
     def aplicar(self, clave: str) -> bool:
+        if self._op.en_curso():
+            return False                   # una operación a la vez: sin segundo envío
         if not self._pendientes:
             self._fijar_mensaje("reasignacion.err_sin_cambios")
             return False
         if self.conflictos:
             self._fijar_mensaje("reasignacion.err_conflicto")
             return False
-        r = self._s().enviar("POST", "/io/assignment",
-                             {"cambios": dict(self._pendientes), "clave": clave, "confirmar": True,
-                              "nombres": dict(self._nombres)})
-        return self._tras_envio(r)
+        cambios = dict(self._pendientes)
+        return self._iniciar(OP_APLICAR, "/io/assignment",
+                             {"cambios": cambios, "clave": clave, "confirmar": True,
+                              "nombres": dict(self._nombres)},
+                             PLAZO_REINICIO_S, lambda leido: conciliar_aplicar(leido, cambios))
 
     @Slot(str, str, str, result=bool)
     def verificar(self, funcion: str, clave: str, nombre: str) -> bool:
         """El ingeniero da por verificada una función reasignada. El backend
         exige la evidencia (cambio observado, prueba de salida o, en una
         analógica, lectura válida en el puerto nuevo: RSB-07)."""
-        r = self._s().enviar("POST", "/io/assignment/verify",
-                             {"funcion": funcion, "clave": clave, "nombre": nombre})
-        if r.ok:
-            self._fijar_mensaje("reasignacion.verificada_ok")
-            self.cargar()
-            return True
-        self._fijar_mensaje(_texto_rechazo(r))
-        self.cargar()
-        return False
+        if self._op.en_curso():
+            return False
+        return self._iniciar(OP_VERIFICAR, "/io/assignment/verify",
+                             {"funcion": funcion, "clave": clave, "nombre": nombre},
+                             PLAZO_VERIFICAR_S, lambda leido: conciliar_verificar(leido, funcion))
 
     @Slot(str, result=bool)
     def restaurarFabrica(self, clave: str) -> bool:
-        r = self._s().enviar("POST", "/io/assignment/factory", {"clave": clave, "confirmar": True})
-        return self._tras_envio(r)
+        if self._op.en_curso():
+            return False
+        antes = dict(self._d)              # MAYOR-2: lo que regía al pedir
+        return self._iniciar(OP_FABRICA, "/io/assignment/factory",
+                             {"clave": clave, "confirmar": True},
+                             PLAZO_REINICIO_S, lambda leido: conciliar_fabrica(leido, antes))
 
     @Property(bool, notify=reiniciandoChanged)
     def reiniciando(self) -> bool:

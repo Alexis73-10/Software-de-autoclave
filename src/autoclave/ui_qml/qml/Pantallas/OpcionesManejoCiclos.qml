@@ -14,6 +14,9 @@ import Autoclave.I18n
 // Técnico e ingeniero, solo fuera de ciclo (`motivo` lo calcula
 // permisos_opciones.motivo_manejo_ciclos). El backend es la autoridad y
 // registra cada cambio en la bitácora.
+// Crear / duplicar / borrar (FASE 6): operación crítica sin optimismo, una a
+// la vez; los botones se bloquean con `operacionEnCurso`, se muestra
+// «Procesando…» / «Verificando…» y el resultado llega por `operacionResuelta`.
 Item {
     id: raiz
     objectName: "opcionesManejoCiclos"
@@ -21,6 +24,8 @@ Item {
     property QtObject teclado: null       // PanelTeclado de la ventana
     property string motivo: ""            // "" | "rol" | "ciclo" | "estado"
     readonly property bool puedeOperar: motivo === ""
+    // crear / duplicar / borrar en curso: solo una a la vez
+    readonly property bool ocupado: control.operacionEnCurso
     readonly property alias controlador: control
     readonly property bool cambiosPendientes: false
 
@@ -41,7 +46,7 @@ Item {
 
     // ---- acciones (también las usan las pruebas) ----
     function abrirCrear() {
-        if (!puedeOperar)
+        if (!puedeOperar || ocupado)
             return
         control.limpiarMensaje()
         panelCrear.visible = true
@@ -55,7 +60,7 @@ Item {
                                             (v) => control.crear(raiz.baseElegida, String(v)))
     }
     function pedirDuplicar(numero) {
-        if (!puedeOperar)
+        if (!puedeOperar || ocupado)
             return
         control.limpiarMensaje()
         if (teclado)
@@ -63,7 +68,7 @@ Item {
                                             (v) => control.duplicar(numero, String(v)))
     }
     function pedirBorrar(numero, nombre) {
-        if (!puedeOperar)
+        if (!puedeOperar || ocupado)
             return
         _numeroABorrar = numero
         _nombreABorrar = nombre
@@ -136,6 +141,19 @@ Item {
             MouseArea { anchors.fill: parent; onClicked: control.limpiarMensaje() }
         }
 
+        // Operación crítica en vuelo (FASE 6): procesando / verificando
+        Text {
+            objectName: "operacionManejoCiclos"
+            visible: raiz.ocupado
+            width: parent.width
+            text: raiz.ocupado ? I18n.t(control.estadoDe("programa") === "verificando"
+                                        ? "operacion.verificando" : "operacion.procesando", I18n.lang) : ""
+            color: Colores.textoGuia
+            font.family: Tipografia.familia
+            font.weight: Tipografia.pesoSemiBold
+            font.pixelSize: Escala.fuente(22)
+        }
+
         // AJUSTES 2026-11-02 (paso 2, fase 4): lectura sin bloquear la pantalla
         Text {
             objectName: "cargandoManejoCiclos"
@@ -152,7 +170,7 @@ Item {
             width: Escala.px(420)
             primario: true
             texto: raiz.texto("manejo_ciclos.crear")
-            habilitado: raiz.puedeOperar && control.bases.length > 0
+            habilitado: raiz.puedeOperar && !raiz.ocupado && control.bases.length > 0
             onPulsado: if (habilitado) raiz.abrirCrear()
         }
     }
@@ -247,7 +265,7 @@ Item {
                     objectName: "botonDuplicar_" + (tarjeta.modelData.numero ?? 0)
                     width: Escala.px(250)
                     texto: raiz.texto("manejo_ciclos.duplicar")
-                    habilitado: raiz.puedeOperar && tarjeta.modelData.duplicable === true
+                    habilitado: raiz.puedeOperar && !raiz.ocupado && tarjeta.modelData.duplicable === true
                     onPulsado: if (habilitado) raiz.pedirDuplicar(tarjeta.modelData.numero)
                 }
                 BotonFormulario {
@@ -255,7 +273,9 @@ Item {
                     width: Escala.px(250)
                     texto: raiz.texto(tarjeta.modelData.habilitado ? "manejo_ciclos.deshabilitar"
                                                                    : "manejo_ciclos.habilitar")
+                    // MENOR-6: no mientras se borra este mismo programa
                     habilitado: raiz.puedeOperar
+                                && !(raiz.ocupado && control.borrando(tarjeta.modelData.numero ?? 0))
                     onPulsado: if (habilitado) control.fijarHabilitado(tarjeta.modelData.numero,
                                                                         !tarjeta.modelData.habilitado)
                 }
@@ -264,7 +284,9 @@ Item {
                     visible: tarjeta.modelData.borrable === true      // nunca los de fábrica
                     width: Escala.px(250)
                     texto: raiz.texto("manejo_ciclos.borrar")
-                    habilitado: raiz.puedeOperar
+                    // MENOR-6: ni con su habilitar / deshabilitar en vuelo
+                    habilitado: raiz.puedeOperar && !raiz.ocupado
+                                && control.pendientes["habilitado:" + (tarjeta.modelData.numero ?? 0)] === undefined
                     onPulsado: if (habilitado) raiz.pedirBorrar(tarjeta.modelData.numero,
                                                                  tarjeta.modelData.nombre)
                 }

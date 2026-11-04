@@ -583,6 +583,7 @@ Item {
                     readonly property string rol: raiz._roles[modelData.id] ?? "no_en_uso"
                     readonly property bool conSenal: modelData.estado === "disponible"
                     readonly property bool editable: control.sensoresEditable && raiz.edicionPermitida
+                                                     && !control.operacionEnCurso
                     objectName: "sensor_" + modelData.id
                     width: parent.width
                     height: Escala.px(170)
@@ -642,10 +643,26 @@ Item {
             anchors.right: parent.right
             // O11: sin ancho (BotonFormulario no tiene implícito) quedaba en 0 y no se veía
             width: Escala.px(320)
-            texto: I18n.t("acciones.guardar", I18n.lang)
+            // FASE 6: sin optimismo; mientras el backend no confirme se ve
+            // «Procesando…» / «Verificando…» y no se puede volver a pulsar
+            readonly property string _estadoOp: control.operacionEnCurso
+                                                ? control.estadoDe(control.claveSensores()) : "inactiva"
+            texto: _estadoOp === "enviando" ? I18n.t("operacion.procesando", I18n.lang)
+                   : _estadoOp === "verificando" ? I18n.t("operacion.verificando", I18n.lang)
+                   : I18n.t("acciones.guardar", I18n.lang)
             primario: true
             habilitado: raiz._sensoresModificados && raiz._rolesValidos && control.sensoresEditable && raiz.edicionPermitida
+                        && !control.operacionEnCurso
             onPulsado: if (habilitado) control.guardarSensores(raiz._roles)
+        }
+        // FASE 6: solo un guardado confirmado (200 o relectura que coincide)
+        // deja la vista sin cambios; en otro caso se vuelve a lo vigente
+        Connections {
+            target: control
+            function onOperacionResuelta(clave, estado, mensaje) {
+                if (clave === control.claveSensores() && estado !== "confirmada")
+                    raiz._prepararSensores()
+            }
         }
     }
 

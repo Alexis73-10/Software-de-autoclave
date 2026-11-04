@@ -153,6 +153,7 @@
     "nombre": "e-specifika"
   },
   "opciones": {
+    "equipo_reinicio_sin_confirmar": "Restart not confirmed",
     "cambio_revertido": "The change was not applied: {motivo}",
     "cambio_sin_confirmar": "The change could not be confirmed; reload to see the actual state.",
     "guardando": "Saving…",
@@ -1320,7 +1321,16 @@
     "estado_sin_senal": "No signal",
     "estado_no_instalado": "Not installed"
   },
+  "operacion": {
+    "procesando": "Processing…",
+    "verificando": "Checking with the unit…",
+    "sin_confirmar": "Could not be confirmed. Check the state before retrying.",
+    "confirmada_tarde": "The operation was confirmed late."
+  },
   "io": {
+    "prueba_sin_confirmar": "Test mode not confirmed: outputs disabled.",
+    "err_dueno_vigente": "Another session is using test mode and is still active.",
+    "err_confirmacion_requerida": "Confirm the action to continue.",
     "err_vapor_puerta_abierta": "Chamber steam cannot be opened: a door is open or not confirmed closed.",
     "err_puerta_camara_presurizada": "The door cannot be opened or unlocked: the chamber is pressurized or under vacuum, or there is no pressure reading.",
     "err_rechazado": "The equipment rejected the command.",
@@ -1603,6 +1613,10 @@
     }
   },
   "calibracion_atm": {
+    "err_sin_calibracion": "No calibration in progress.",
+    "err_sin_pendiente": "There is no result waiting for confirmation.",
+    "err_no_aplicada": "The calibration could not be applied.",
+    "err_incoherente": "The value is not consistent with the packing pressure and vacuum.",
     "boton_calibrar": "Calibrate atmospheric pressure",
     "boton_prueba": "Printer test page",
     "boton_ganancias": "Print gains and offsets",
@@ -1685,6 +1699,14 @@
     "cuerpo_prueba": "This is a test email from autoclave {modelo}, serial number {serie}, sent on {fecha}. If you receive it, email sending works."
   },
   "respaldo": {
+    "restaurar_sin_confirmar": "Restore not confirmed. Check the log before retrying.",
+    "err_formato": "The backup has an unknown format.",
+    "err_otra_serie": "The backup belongs to another unit.",
+    "err_version": "The backup is from an incompatible software version.",
+    "err_parametros": "The backup parameters are not valid.",
+    "err_calibracion": "The backup calibration is not valid.",
+    "err_calibracion_otro_enlace": "The backup calibration is for another type of I/O module.",
+    "err_asignacion": "The backup I/O assignment is not valid.",
     "usb_detectada": "USB detected: {unidad} ({libre} free)",
     "usb_no_detectada": "No USB drive detected. Plug it in and tap Refresh.",
     "actualizar": "Refresh",
@@ -1712,7 +1734,8 @@
     "err_usb": "The USB drive is not detected.",
     "err_usb_escritura": "Could not write to the USB drive.",
     "err_sin_partes": "Choose at least one part to export.",
-    "err_invalido": "The backup is damaged or invalid."
+    "err_invalido": "The backup is damaged or invalid.",
+    "err_confirmacion": "The restore has not been confirmed."
   },
   "puerta": {
     "desconocida": "Unknown door",

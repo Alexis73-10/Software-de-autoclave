@@ -45,14 +45,36 @@ Item {
         ? controlador.calcular(lecturaBaja, realBajo, lecturaAlta, realAlto) : ({ valido: false })
     readonly property var cal: controlador.calibracion
     readonly property bool puedeAplicar: controlador.puedeCalibrar && resultado.valido === true
+                                         && !controlador.operacionEnCurso
 
+    // FASE 6: aplicar y restaurar son asíncronos y sin optimismo; el resultado
+    // llega por operacionResuelta y los puntos se limpian solo con "confirmada"
     function aplicar(confirmar) {
-        if (controlador.aplicarPuntos(lecturaBaja, realBajo, lecturaAlta, realAlto,
-                                      origenBajo, origenAlto, confirmar)) {
-            realBajo = Number.NaN; lecturaBaja = Number.NaN
-            realAlto = Number.NaN; lecturaAlta = Number.NaN
-        } else if (controlador.requiereConfirmacion) {
-            dialogoRango.abrir()
+        // C1 (revision FASE 6): el sensor de ESTA pantalla; el controlador
+        // rechaza si no es el de la calibracion cargada
+        controlador.aplicarPuntos(lecturaBaja, realBajo, lecturaAlta, realAlto,
+                                  origenBajo, origenAlto, confirmar, raiz.segmento, raiz.sensor)
+    }
+    function textoOperacion(clave, normal) {
+        var enCurso = controlador.operacionEnCurso     // dependencia del enlace
+        var e = controlador.estadoDe(clave)
+        if (enCurso && e === "enviando") return I18n.t("operacion.procesando", I18n.lang)
+        if (enCurso && e === "verificando") return I18n.t("operacion.verificando", I18n.lang)
+        return normal
+    }
+    Connections {
+        target: raiz.controlador
+        function onOperacionResuelta(clave, estado, mensaje) {
+            if (clave !== "cal_puntos") return
+            // H4 (3.er ciclo): una confirmación tardía puede ser de otro sensor
+            // o de puntos anteriores: no borra lo que se está escribiendo
+            if (mensaje === "operacion.confirmada_tarde") return
+            if (estado === "confirmada") {
+                raiz.realBajo = Number.NaN; raiz.lecturaBaja = Number.NaN
+                raiz.realAlto = Number.NaN; raiz.lecturaAlta = Number.NaN
+            } else if (estado === "rechazada" && raiz.controlador.requiereConfirmacion) {
+                dialogoRango.abrir()
+            }
         }
     }
 
@@ -186,7 +208,10 @@ Item {
                         color: Colores.textoPrimario
                         font.pixelSize: Escala.fuente(48)
                     }
-                    MouseArea { anchors.fill: parent; onClicked: raiz.volver() }
+                    // FASE 6: no se sale con una calibración en vuelo
+                    opacity: raiz.controlador.operacionEnCurso ? 0.4 : 1.0
+                    MouseArea { anchors.fill: parent; enabled: !raiz.controlador.operacionEnCurso
+                                onClicked: raiz.volver() }
                 }
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
@@ -352,16 +377,20 @@ Item {
                     objectName: "botonRestaurarUltimo"
                     width: (parent.width - parent.spacing) / 2; height: Escala.px(84)
                     relleno: Colores.menuNaranja
-                    habilitado: raiz.controlador.puedeCalibrar
-                    texto: I18n.t("io.ui.cal_restaurar_ultimo", I18n.lang)
+                    habilitado: raiz.controlador.puedeCalibrar && !raiz.controlador.operacionEnCurso
+                    texto: raiz.accionPendiente === "ultimo"
+                           ? raiz.textoOperacion("cal_restaurar", I18n.t("io.ui.cal_restaurar_ultimo", I18n.lang))
+                           : I18n.t("io.ui.cal_restaurar_ultimo", I18n.lang)
                     onPulsado: { raiz.accionPendiente = "ultimo"; dialogoRestaurar.abrir() }
                 }
                 BotonCal {
                     objectName: "botonRestaurarDefecto"
                     width: (parent.width - parent.spacing) / 2; height: Escala.px(84)
                     relleno: Colores.menuNaranja
-                    habilitado: raiz.controlador.puedeCalibrar
-                    texto: I18n.t("io.ui.cal_restaurar_defecto", I18n.lang)
+                    habilitado: raiz.controlador.puedeCalibrar && !raiz.controlador.operacionEnCurso
+                    texto: raiz.accionPendiente === "defecto"
+                           ? raiz.textoOperacion("cal_restaurar", I18n.t("io.ui.cal_restaurar_defecto", I18n.lang))
+                           : I18n.t("io.ui.cal_restaurar_defecto", I18n.lang)
                     onPulsado: { raiz.accionPendiente = "defecto"; dialogoRestaurar.abrir() }
                 }
             }
@@ -369,7 +398,7 @@ Item {
                 objectName: "botonAplicarCalibracion"
                 width: parent.width; height: Escala.px(96)
                 habilitado: raiz.puedeAplicar
-                texto: I18n.t("io.ui.cal_aplicar", I18n.lang)
+                texto: raiz.textoOperacion("cal_puntos", I18n.t("io.ui.cal_aplicar", I18n.lang))
                 onPulsado: raiz.aplicar(false)
             }
             Item { width: 1; height: Escala.px(10) }
@@ -396,6 +425,6 @@ Item {
                         : I18n.t("io.ui.cal_restaurar_defecto", I18n.lang)
         textoCancelar: I18n.t("acciones.cancelar", I18n.lang)
         colorConfirmar: Colores.advertencia
-        onConfirmado: { cerrar(); raiz.controlador.restaurar(raiz.accionPendiente) }
+        onConfirmado: { cerrar(); raiz.controlador.restaurar(raiz.accionPendiente, raiz.segmento, raiz.sensor) }
     }
 }

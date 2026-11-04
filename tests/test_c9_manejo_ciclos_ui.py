@@ -112,7 +112,7 @@ def test_nombre_vacio_no_llega_al_backend():
 ])
 def test_rechazos_muestran_el_motivo(codigo, clave):
     c, s = _ctrl({("DELETE", "/programas/5"): Resultado(codigo, {}, 409)})
-    assert not c.borrar(5)
+    assert c.borrar(5)                       # True = enviada; el rechazo llega por el mensaje
     assert c.mensaje == clave and c.exito is False
     # sin respuesta el resultado es incierto: se relee la lista igual
     assert s.enviados[-1] == ("GET", "/programas", None)

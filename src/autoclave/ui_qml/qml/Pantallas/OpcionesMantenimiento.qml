@@ -46,8 +46,11 @@ Item {
     // O2f (tanda 6): subpantalla de calibración atmosférica. Mientras mide,
     // `navegacionBloqueada` deja activo solo Cancelar (Opciones.qml lo aplica).
     property string vista: ""          // "" = principal, "calibracion_atm"
-    readonly property bool navegacionBloqueada: vista === "calibracion_atm"
-                                                && (calibracionAtm.itemActivo?.bloqueada ?? false)
+    // MENOR-8 (FASE 6): también con una impresión en vuelo (como mucho su
+    // plazo, 15 s): salir y volver crearía otra instancia que imprimiría otra vez
+    readonly property bool navegacionBloqueada: (vista === "calibracion_atm"
+                                                 && (calibracionAtm.itemActivo?.bloqueada ?? false))
+                                                || impresiones.bloqueaNavegacion
     // Atrás: de la calibración vuelve a Mantenimiento (no durante la medición)
     function retroceder() {
         if (vista === "")
@@ -60,6 +63,8 @@ Item {
         id: impresiones
         objectName: "impresionesMantenimiento"
     }
+    // FASE 6: el mensaje (impreso / error / sin confirmar) lo fija el
+    // controlador al resolverse la impresión; no hace falta Connections aquí
     readonly property alias controlador: control
     Component.onCompleted: control.cargar()
 
@@ -252,7 +257,13 @@ Item {
                 id: accion
                 required property var modelData
                 objectName: "botonMant_" + modelData.clave
+                // FASE 6: impresión asíncrona; sin doble envío mientras una está en vuelo
+                readonly property string claveOperacion: modelData.clave === "prueba" ? "imprimir_prueba"
+                                                       : modelData.clave === "ganancias" ? "imprimir_ganancias" : ""
+                readonly property string estadoOperacion: impresiones.operacionEnCurso && claveOperacion !== ""
+                                                          ? impresiones.estadoDe(claveOperacion) : "inactiva"
                 readonly property bool habilitado: raiz.edicionPermitida
+                                                   && (claveOperacion === "" || !impresiones.operacionEnCurso)
                 width: columnaMant.width; height: Escala.px(88)
                 radius: Escala.px(12)
                 color: Colores.fondoSutil
@@ -266,7 +277,9 @@ Item {
                     height: parent.height; verticalAlignment: Text.AlignVCenter
                     wrapMode: Text.Wrap
                     fontSizeMode: Text.Fit; minimumPixelSize: Escala.fuenteMinima
-                    text: I18n.t(accion.modelData.texto, I18n.lang)
+                    text: accion.estadoOperacion === "enviando" ? I18n.t("operacion.procesando", I18n.lang)
+                          : accion.estadoOperacion === "verificando" ? I18n.t("operacion.verificando", I18n.lang)
+                          : I18n.t(accion.modelData.texto, I18n.lang)
                     color: Colores.textoPrimario
                     font.family: Tipografia.familia
                     font.weight: Tipografia.pesoSemiBold

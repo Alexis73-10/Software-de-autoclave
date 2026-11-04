@@ -43,12 +43,24 @@ def _ventana(respuestas=None):
     return s, llamadas, SessionManager
 
 
+def _esperar(condicion, plazo_s=3.0):
+    """FASE 6: la entrada y la salida del modo prueba son asíncronas (el
+    despachador de SesionVentana entrega desde un QTimer de la GUI)."""
+    import time
+    from PySide6.QtCore import QCoreApplication
+    fin = time.monotonic() + plazo_s
+    while not condicion() and time.monotonic() < fin:
+        QCoreApplication.processEvents()
+        time.sleep(0.005)
+    return condicion()
+
+
 def _ctrl_en_prueba(s):
     from autoclave.ui_qml.controllers.entradas_salidas_controller import (
         EntradasSalidasController)
     c = EntradasSalidasController(sesion=s)
     assert c.entrarModoPrueba()
-    assert c.modoPrueba
+    assert _esperar(lambda: c.modoPrueba)
     return c
 
 
@@ -88,6 +100,7 @@ def test_tras_salir_normal_el_logout_no_repite_la_salida():
     try:
         c = _ctrl_en_prueba(s)
         assert c.salirModoPrueba("salida solicitada")
+        assert _esperar(lambda: not c.modoPrueba)
         llamadas.clear()
         s.cerrar_sesion()
         assert ("POST", "/io/test/exit") not in [(m, r) for m, r, _ in llamadas]

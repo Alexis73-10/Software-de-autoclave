@@ -153,6 +153,7 @@
     "nombre": "e-specifika"
   },
   "opciones": {
+    "equipo_reinicio_sin_confirmar": "Reinicio sin confirmar",
     "cambio_revertido": "No se aplicó el cambio: {motivo}",
     "cambio_sin_confirmar": "No se pudo confirmar el cambio; vuelva a cargar para ver el estado real.",
     "guardando": "Guardando…",
@@ -1320,7 +1321,16 @@
     "estado_sin_senal": "Sin señal",
     "estado_no_instalado": "No instalado"
   },
+  "operacion": {
+    "procesando": "Procesando…",
+    "verificando": "Verificando con el equipo…",
+    "sin_confirmar": "No se pudo confirmar. Revise el estado antes de repetir.",
+    "confirmada_tarde": "La operación se confirmó con retraso."
+  },
   "io": {
+    "prueba_sin_confirmar": "Modo prueba sin confirmar: salidas deshabilitadas.",
+    "err_dueno_vigente": "Otra sesión está usando el modo prueba y sigue activa.",
+    "err_confirmacion_requerida": "Confirme la acción para continuar.",
     "err_vapor_puerta_abierta": "No se puede abrir el vapor de cámara: hay una puerta abierta o sin confirmación de cerrada.",
     "err_puerta_camara_presurizada": "No se puede abrir ni desbloquear la puerta: la cámara está presurizada o en vacío, o no hay lectura de presión.",
     "err_rechazado": "El equipo rechazó la orden.",
@@ -1603,6 +1613,10 @@
     }
   },
   "calibracion_atm": {
+    "err_sin_calibracion": "No hay una calibración en curso.",
+    "err_sin_pendiente": "No hay un resultado pendiente de confirmar.",
+    "err_no_aplicada": "No se pudo aplicar la calibración.",
+    "err_incoherente": "El valor no es coherente con la presión y el vacío de empaque.",
     "boton_calibrar": "Calibrar presión atmosférica",
     "boton_prueba": "Página de prueba de impresora",
     "boton_ganancias": "Imprimir ganancias y compensaciones",
@@ -1685,6 +1699,14 @@
     "cuerpo_prueba": "Este es un correo de prueba del autoclave {modelo}, número de serie {serie}, enviado el {fecha}. Si lo recibe, el envío de correo funciona."
   },
   "respaldo": {
+    "restaurar_sin_confirmar": "No se pudo confirmar la restauración. Revise la bitácora antes de repetir.",
+    "err_formato": "El respaldo tiene un formato desconocido.",
+    "err_otra_serie": "El respaldo es de otro equipo.",
+    "err_version": "El respaldo es de una versión de software incompatible.",
+    "err_parametros": "Los parámetros del respaldo no son válidos.",
+    "err_calibracion": "La calibración del respaldo no es válida.",
+    "err_calibracion_otro_enlace": "La calibración del respaldo es de otro tipo de módulo E/S.",
+    "err_asignacion": "La asignación de E/S del respaldo no es válida.",
     "usb_detectada": "USB detectada: {unidad} ({libre} libres)",
     "usb_no_detectada": "No se detecta ninguna USB. Conéctela y toque Actualizar.",
     "actualizar": "Actualizar",
@@ -1712,7 +1734,8 @@
     "err_usb": "No se detecta la USB.",
     "err_usb_escritura": "No se pudo escribir en la USB.",
     "err_sin_partes": "Elija al menos una parte para exportar.",
-    "err_invalido": "El respaldo está dañado o no es válido."
+    "err_invalido": "El respaldo está dañado o no es válido.",
+    "err_confirmacion": "Falta confirmar la restauración."
   },
   "puerta": {
     "desconocida": "Puerta desconocida",

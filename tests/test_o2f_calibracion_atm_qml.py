@@ -93,6 +93,9 @@ def test_calibracion_atm_pantalla_tecnico():
 
 
 PASOS_IMPRESION = r'''
+# FASE 6: el doble del banco no tiene `generacion` (su __getattr__ daría una
+# lambda nueva en cada lectura y OperacionCritica vería la sesión cambiada)
+Sesion.generacion = 0
 raiz.setProperty("seccionActiva", "mantenimiento"); esperar()
 mant = buscar("opcionesMantenimiento")
 imp = mant.findChild(QObject, "impresionesMantenimiento")
@@ -111,7 +114,8 @@ capturar("O2f_7_impresion_sin_papel.png") if False else None
 def test_impresiones_mensajes():
     d = correr("ingeniero", PASOS_IMPRESION, RUTAS)
     assert d["prueba"] is True and d["msg_ok"] == "calibracion_atm.impreso"
-    assert d["ganancias"] is False and d["msg_503"] == "calibracion_atm.err_impresora"
+    # FASE 6: el slot devuelve True = «enviado»; el rechazo llega como mensaje
+    assert d["ganancias"] is True and d["msg_503"] == "calibracion_atm.err_impresora"
     assert d["msg_409"] == "calibracion_atm.err_impresion_ciclo"
     assert ["POST", "/printer/test-page", None] in d["enviados"]
 

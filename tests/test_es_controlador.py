@@ -69,12 +69,16 @@ def _ctrl(respuestas, status=None):
     return c, s
 
 
-def _con_datos(extra=None):
+def _con_datos(extra=None, prueba=False):
+    """prueba=True: el /status trae el modo prueba activo y el controlador lo
+    adopta (FASE 6: encender una salida exige el modo prueba confirmado)."""
     resp = {("GET", "/io/channels"): _ok(_CANALES)}
     resp.update(extra or {})
-    c, s = _ctrl(resp)
+    c, s = _ctrl(resp, {**_STATUS, "test_mode_active": True} if prueba else None)
     c.cargarCanales()
     c.actualizar()
+    if prueba:
+        assert c.modoPrueba is True and c.salidasHabilitadas is True
     return c, s
 
 
@@ -214,7 +218,7 @@ def test_salir_sin_parpadeo_ni_salidas_viejas():
 
 
 def test_status_anterior_a_accionar_conserva_lo_mostrado():
-    c, _ = _con_datos({("PATCH", "/io/test/output/vapor_camara"): _ok()})
+    c, _ = _con_datos({("PATCH", "/io/test/output/vapor_camara"): _ok()}, prueba=True)
     assert c.salidas[0]["encendida"] is False
     assert c.accionar("vapor_camara", True, False) is True
     _viejo(c)                                # vapor_camara aún en 0: no es dato nuevo
@@ -231,7 +235,7 @@ def test_status_anterior_a_accionar_conserva_lo_mostrado():
 @pytest.mark.parametrize("caso", ["desconectado", "vencido"])
 def test_tras_una_orden_vencido_o_desconectado_sigue_dando_sin_datos(caso):
     from autoclave.ui_qml.controllers import entradas_salidas_controller as m
-    c, _ = _con_datos({("PATCH", "/io/test/output/vapor_camara"): _ok()})
+    c, _ = _con_datos({("PATCH", "/io/test/output/vapor_camara"): _ok()}, prueba=True)
     c.accionar("vapor_camara", True, False)
     _viejo(c)
     if caso == "desconectado":
@@ -247,7 +251,7 @@ def test_fuente_sin_instante_de_envio_se_acepta():
     class _Tres:
         def status_vigente(self):
             return {**_STATUS, "machine_state": "FALLA"}, True, 0.1
-    c, _ = _con_datos({("PATCH", "/io/test/output/vapor_camara"): _ok()})
+    c, _ = _con_datos({("PATCH", "/io/test/output/vapor_camara"): _ok()}, prueba=True)
     c.accionar("vapor_camara", True, False)
     c._fuente_estado = _Tres()
     c.actualizar()
@@ -259,7 +263,11 @@ def test_entrar_modo_prueba_ok_y_rechazo_con_motivo():
     assert c.entrarModoPrueba() is True and c.modoPrueba is True
     c2, _ = _con_datos({("POST", "/io/test/enter"): Resultado(
         "modo_prueba_rechazado", {"detail": "Paro de emergencia activo"}, 409)})
-    assert c2.entrarModoPrueba() is False and c2.modoPrueba is False
+    # FASE 6: True = enviada; el rechazo llega por operacionResuelta
+    resueltos = []
+    c2.operacionResuelta.connect(lambda *a: resueltos.append(a))
+    assert c2.entrarModoPrueba() is True and c2.modoPrueba is False
+    assert resueltos == [("modo_prueba", "rechazada", "io.err_rechazado")]
     assert c2.mensaje == "io.err_rechazado" and "Paro" in c2.detalle
 
 
@@ -279,7 +287,7 @@ def test_salir_sin_modo_prueba_no_llama_al_backend():
 
 def test_accionar_sostenida_y_momentanea():
     c, s = _con_datos({("PATCH", "/io/test/output/vapor_camara"): _ok(),
-                       ("PATCH", "/io/test/output/bomba_vacio"): _ok()})
+                       ("PATCH", "/io/test/output/bomba_vacio"): _ok()}, prueba=True)
     assert c.accionar("vapor_camara", True, False) is True
     assert c.accionar("bomba_vacio", True, True) is True
     assert c.accionar("bomba_vacio", False, True) is True
@@ -289,7 +297,7 @@ def test_accionar_sostenida_y_momentanea():
 
 def test_accionar_rechazado_muestra_motivo():
     c, _ = _con_datos({("PATCH", "/io/test/output/vapor_camara"): Resultado(
-        "fuente_vapor_no_instalada", {"detail": "No la usa este equipo"}, 409)})
+        "fuente_vapor_no_instalada", {"detail": "No la usa este equipo"}, 409)}, prueba=True)
     assert c.accionar("vapor_camara", True, False) is False
     assert c.detalle == "No la usa este equipo"
 
@@ -315,7 +323,11 @@ def test_calibracion_requiere_confirmacion_y_reenvio():
                        ("PATCH", "/calibration/pressure/pres_camara"): Resultado(
                            "CALIBRACION_REQUIERE_CONFIRMACION", {"detail": "fuera de rango"}, 409)})
     c.cargarCalibracion("presion", "pres_camara")
-    assert c.aplicarPuntos(1.0, 2.0, 5.0, 9.0, "escrita", "escrita", False) is False
+    # FASE 6: True = enviada; el 409 llega por operacionResuelta
+    resueltos = []
+    c.operacionResuelta.connect(lambda *a: resueltos.append(a[:2]))
+    assert c.aplicarPuntos(1.0, 2.0, 5.0, 9.0, "escrita", "escrita", False) is True
+    assert resueltos[-1] == ("cal_puntos", "rechazada")
     assert c.requiereConfirmacion is True
     s.respuestas[("PATCH", "/calibration/pressure/pres_camara")] = _ok()
     assert c.aplicarPuntos(1.0, 2.0, 5.0, 9.0, "escrita", "escrita", True) is True

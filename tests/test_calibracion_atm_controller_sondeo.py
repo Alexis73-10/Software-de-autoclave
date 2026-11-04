@@ -1,6 +1,8 @@
 """Calibración atmosférica (O2f): el sondeo de 1 s va en un hilo de trabajo, no
 en el de la GUI, y datosChanged solo se emite si el estado cambió
-(AJUSTES 2026-11-02). Las órdenes siguen síncronas."""
+(AJUSTES 2026-11-02). Las órdenes van asíncronas desde la FASE 6
+(tests/test_f6_calibracion_atm_async.py); este doble solo tiene `enviar`, así
+que se resuelven en el acto."""
 
 import os
 import sys
