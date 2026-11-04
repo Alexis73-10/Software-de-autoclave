@@ -249,10 +249,12 @@ class preparacion_state:
 
         # Suministro eléctrico: mismo patrón que PREPARADO.verificar_suministros
         # (2026-11-04, usuario). Se omite si el perfil no tiene la entrada;
-        # sin la entrada en la trama = sin suministro, no "presente" (A-9)
+        # sin la entrada en la trama = sin suministro, no "presente" (A-9).
+        # Misma condición que corta la chaqueta (flag FALLO_SUMINISTRO_ELECTRICO
+        # o DI ausente/0; 2026-11-04, usuario), para que no diverjan
         if not entrada_requerida(self.profile, "suministro_electrico"):
             pass
-        elif not self.estado.sensores_di.get("suministro_electrico"):
+        elif self._sin_suministro_electrico():
             self.alarm_manager.activar(SUM_02)
             ok = False
         else:

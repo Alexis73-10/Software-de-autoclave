@@ -119,6 +119,49 @@ def test_sin_entrada_en_el_perfil_no_vigila():
         mod.entrada_requerida = original
 
 
+# 2026-11-04 (usuario): SUM-02 también mira el flag FALLO_SUMINISTRO_ELECTRICO,
+# con la misma condición que corta la chaqueta (_sin_suministro_electrico)
+
+_AMBOS = [preparacion_state, preparado_state]
+
+
+@pytest.mark.parametrize("clase", _AMBOS)
+def test_flag_con_di_en_uno_activa_sum02_y_corta_chaqueta(clase):
+    obj, alarmas, set_do = _make(clase, flags={"FALLO_SUMINISTRO_ELECTRICO": True},
+                                 suministro_electrico=1)
+    assert obj.run() is False
+    assert len(_sum02(alarmas)) == 1
+    assert obj.verificar_suministros() is False
+    set_do.vapor_chaqueta_off.assert_called()
+    set_do.vapor_chaqueta_on.assert_not_called()
+
+
+@pytest.mark.parametrize("clase", _AMBOS)
+def test_sin_flag_y_di_en_uno_sin_alarma(clase):
+    obj, alarmas, _ = _make(clase, flags={"FALLO_SUMINISTRO_ELECTRICO": False},
+                            suministro_electrico=1)
+    obj.run()
+    assert _sum02(alarmas) == []
+    assert obj.verificar_suministros() is True
+
+
+@pytest.mark.parametrize("clase", _AMBOS)
+def test_flag_sin_duplicados_y_despeje_al_restablecer_ambos(clase):
+    flags = {"FALLO_SUMINISTRO_ELECTRICO": True}
+    obj, alarmas, _ = _make(clase, flags=flags, suministro_electrico=0)
+    for _ in range(5):
+        obj.run()
+    assert len(_sum02(alarmas)) == 1
+    # Solo la DI vuelve: el flag sigue y la alarma también
+    obj.estado.sensores_di["suministro_electrico"] = 1
+    obj.run()
+    assert len(_sum02(alarmas)) == 1
+    # Ambos restablecidos: despeje automático
+    flags["FALLO_SUMINISTRO_ELECTRICO"] = False
+    obj.run()
+    assert _sum02(alarmas) == []
+
+
 @pytest.mark.parametrize("di", [{"suministro_electrico": 0}, {}])
 def test_misma_decision_que_preparado(di):
     resultados = []

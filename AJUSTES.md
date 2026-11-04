@@ -138,3 +138,8 @@
 - **Decidió:** el usuario.
 - **Archivos:** `src/autoclave/state_machine/states/preparacion.py`, `tests/test_preparacion_sum02_electrico.py`, `docs/riesgos/registro_riesgos.md` (HAZ-PRE-01).
 - **Pendiente:** `tests/test_preparacion_suministro.py` y `tests/test_e1_supply_inputs.py` (3 pruebas) suponen que PREPARACION no vigila el eléctrico; hay que ajustar sus dobles.
+## 2026-11-04 — SUM-02 también con el flag FALLO_SUMINISTRO_ELECTRICO (PREPARACION/PREPARADO)
+
+- **Qué:** `verificar_suministros` de PREPARACION y PREPARADO activa SUM-02 con `_sin_suministro_electrico()` (flag `FALLO_SUMINISTRO_ELECTRICO` o DI ausente/0), la misma condición que corta la chaqueta; antes, con el flag en True y la DI en 1, la chaqueta se apagaba sin alarma. Sin entrada en el perfil sigue sin vigilarse; misma clave SUM-02 sin duplicados; despeje automático con ambos restablecidos. Supervisor y gate sin otro cambio.
+- **Decidió:** el usuario.
+- **Archivos:** `src/autoclave/state_machine/states/preparacion.py`, `src/autoclave/state_machine/states/preparado.py`, `tests/test_preparacion_sum02_electrico.py`, `docs/riesgos/registro_riesgos.md` (HAZ-PRE-01).
