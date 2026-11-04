@@ -9,6 +9,72 @@ Una entrada por **entrega** (compilación con Setup que se instala en el equipo)
 
 <!-- entradas: las agrega compilar_entrega.py debajo de esta línea, la más nueva primero -->
 
+## 1.0.0-alpha.15 — 2026-11-04
+
+- Etiqueta: `v1.0.0-alpha.15` (commit `chore(ver): 1.0.0-alpha.15`, sobre `9ff9127`)
+- AppVerNum: `1.0.0.1015`
+- SHA-256 del Setup y del zip: en el mensaje de la etiqueta y en `entrega/v1.0.0-alpha.15_2026-11-04/SHA256SUMS.txt` (solo existen después de compilar)
+- Commits desde `v1.0.0-alpha.14`:
+  - 9ff9127c test(preparado): doble de test_t12_c05 con D-CHQ 375 y suministro electrico en 1
+  - 2b108861 test(automatizacion): activar pruebas contra vectores INSA/REIA finales (AUT-R3)
+  - 5f8151b7 chore: ignorar /.archify/ (diagramas de la skill archify)
+  - 794c3366 test(ui): pruebas de modo prueba sin cierre de sesion y corte de 5 min
+  - bc7db824 feat(ui): operaciones criticas de Opciones asincronas sin optimismo (fase 6)
+  - 7dc806bb fix(preparacion): SUM-02 mira tambien el flag FALLO_SUMINISTRO_ELECTRICO
+  - 6522693a feat(preparacion): alarma SUM-02 del suministro electrico tambien en PREPARACION
+  - 97e61695 feat(arranque): el ticket de arranque sale al terminar la animacion
+  - 3307915f feat(ui): sin cierre de sesion por inactividad en modo prueba
+  - e94807d4 feat(preparacion): la chaqueta deja de depender del supervisor global
+  - dae00178 fix(ui): bucle de enlace de height en el texto de carga de OpcionesRespaldo
+  - 08f578ca docs(riesgos): HAZ-UIA-01..05, UI de Opciones sin espera sincrona al backend
+  - 04471d8c feat(ui): Opciones sin HTTP sincrono en el hilo de la GUI (paso 2, fases 2 a 5)
+  - 84aa572d feat(ui): envio asincrono de sesion y cambios optimistas con reversion (paso 2, fase 1: Usuarios)
+  - 1e46a37f fix(ui): sondeo de Entradas/Salidas y Calibracion atmosferica sin HTTP sincrono en el hilo de la GUI
+  - 28e409dd chore(agentes): versiona subagentes de revision y corrige referencias obsoletas
+  - 2886034f docs(claude): corrige reglas obsoletas de ESTERILIZACION y rutas (prompt-audit)
+  - b99f9c78 docs(dashboard-reportes): estado, CERRADO y resultado de la suite
+  - b80c7217 fix(oscuro): PUERTA CERRADA usa puertaCerradaTexto; comentarios de color por posicion (OSC-23); pruebas de fondoGradiente
+  - 9cddb26c fix(tema): campos de formulario y PUERTA CERRADA legibles en modo oscuro (OSC-21, OSC-22)
+  - 03fa1a4e docs(modo-oscuro): capturas en ambos temas, arnes osc_capturas y comparacion contra dev y mockups (paso 7)
+  - 43dbedbd feat(programas): programa Textiles (n.5) y asignacion de numero de programa a ciclos importados de Tuttnauer
+  - 6309d3e3 docs(modo-oscuro): riesgo HAZ-OSC-01, trazabilidad, CLAUDE.md e informe (paso 8)
+  - 717c1c37 feat(modo-oscuro): conjunto D (menu, sesion, instalacion y Opciones) sin literales de color (pasos 3-4)
+  - edab3cac fix(ui): chorro con fisica en la barra de fases y progreso de esterilizacion en el simulador
+  - f3652c7e feat(tema): conjunto B (ciclo) sin literales de color; fases, grafica, deslizador y botones por Colores
+  - 46d55b24 docs(modo-oscuro): OSC-17 y pendientes del conjunto C
+  - 9fae9c3f feat(modo-oscuro): conjunto C sin literales de color (componentes comunes, modales, teclados, alarmas)
+  - 53ddbfda feat(simulador): rutas de Reportes sobre data/autoclave.db en solo lectura; consultas.py compartido; lista blanca MES-03.3
+  - 1c751485 test(modo-oscuro): test_tema_oscuro (paso 6, esqueleto) y estado
+  - 937c15a6 feat(modo-oscuro): fondos con gradiente en oscuro y chrome sin literales
+  - 017cf808 feat(modo-oscuro): selector Tema/Claro/Oscuro en Parámetros del equipo
+  - e2edffd0 feat(modo-oscuro): Colores claro/oscuro y singleton Apariencia
+  - 45027426 docs(reportes): riesgos HAZ-REP-01..03, trazabilidad REQ-37..50, CLAUDE.md, textos prohibidos (etapa G)
+  - 1e6c3e3a fix(reportes): correcciones de la revision H (ciclo cerrado pendiente, exito sin ciclos, consolidado anio, tope de fecha)
+  - 658538d2 feat(modo-oscuro): persistencia del tema y GET/PUT /theme sin bitácora (OSC-02)
+  - ea9fc9ad feat(reportes): pantalla completa Reportes, listas, retiro de ventanaReportes, arnes y capturas (etapa E3)
+  - 56d3b1a6 docs(modo-oscuro): inventario y plan (paso 1)
+  - c14be24c feat(ui): estela de gota en el deslizador de inicio y 10 % mas ancho
+  - 0588dacf feat(reportes): calendario de ejecucion QML (etapa E2b)
+  - 6f78861c feat(reportes): componentes graficos QML (etapa E2a)
+  - 96a28ed5 feat(reportes): textos reportes.* es/en (etapa E/G)
+  - 6acd3b3e feat(reportes): dominio UI y puente ReporteDashboard (etapa E1)
+  - c091e9dd feat(correo): REP-13 envio sin sesion solo a guardados; diagnostico DR-H06 (etapa F)
+  - 9e43c02d style(preciclo): AJ-01 deslizador de inicio en verde pastel (commit separado, revertible)
+  - d2d3f304 feat(reportes): endpoints /report/dashboard, /calendar y /day-cycles (etapa D)
+  - 782d2d6c feat(reportes): servicio puro dashboard.py (etapa C)
+  - 287bec29 docs(dashboard-reportes): estado
+  - e13950c4 feat(reportes): periodo anio en utils/periodos y rutas /report/* (etapas A y B)
+  - c43b9d0b test(movimiento-ui): tarjetaAjuste y tarjetaPrueba en la lista blanca de MES-03.3 (recuadro de interfaz)
+  - 8ae3807b fix(simulador): GET /arranque y estado_modulo_es en /status para la UI
+  - b5856b2e feat(preciclo): deslizar para iniciar el ciclo (DeslizadorInicio)
+  - ade99e74 feat(movimiento-ui): elemento compartido en tarjetas y crossfade en las secciones de Opciones
+  - b0708c93 feat(instalacion): instalación por automatización (equipo de otro fabricante)
+  - 9f56725d docs(llf): riesgo HAZ-LLF-01, REQ-36, CLAUDE.md e informe de cierre
+  - a7217b59 feat(llf): barra de fases con llenado líquido, conector y demostración animada
+  - 44b941a3 feat(llenado-fases): fraccion y referencia_s por fase en el progreso (backend, dominio y puente)
+  - c6be906f docs(llenado-fases): planeacion y decisiones con contrato A-1..A-3
+
+
 ## 1.0.0-alpha.14 — 2026-10-30
 
 - Etiqueta: `v1.0.0-alpha.14` (commit `chore(ver): 1.0.0-alpha.14`, sobre `233fa4f`)
