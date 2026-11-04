@@ -24,7 +24,6 @@ NEG = {n["id"]: n for n in VECTORES["negativos"]}
 AUT = VECTORES["automatizacion"]
 POS_A = {v["id"]: v for v in AUT["positivos"]}
 K_E = {(k["serial"], k["generacion"]): bytes.fromhex(k["k_e_hex"]) for k in VECTORES["k_e"]}
-SKIP_A = pytest.mark.skip(reason="esperan vectores INSA/REIA finales del generador")
 
 SERIE = "ab-12 34"
 MODELO = "Tuttnauer  2540 eka"
@@ -324,8 +323,7 @@ def test_modo_acepta_su_valor_de_texto(modo):
     assert Modo(modo).value == modo and Modo(modo) == modo
 
 
-# vectores finales de automatización del generador (VA1-VA3, NA1-NA7): esperan la versión final
-@SKIP_A
+# vectores finales de automatización del generador (VA1-VA3, NA1-NA7)
 @pytest.mark.parametrize("id_", ["VA1", "VA2", "VA3"])
 def test_vectores_positivos_automatizacion(id_):
     v = POS_A[id_]
@@ -338,7 +336,6 @@ def test_vectores_positivos_automatizacion(id_):
     assert r.motivo == "etiqueta"
 
 
-@SKIP_A
 @pytest.mark.parametrize("id_", ["NA1", "NA2", "NA3", "NA4", "NA5", "NA6", "NA7"])
 def test_vectores_negativos_automatizacion(id_):
     n = next(x for x in AUT["negativos"] if x["id"] == id_)
@@ -353,7 +350,6 @@ def test_vectores_negativos_automatizacion(id_):
     assert (r.ok, r.motivo) == (False, n["esperado"])
 
 
-@SKIP_A
 @pytest.mark.parametrize("i", range(5))
 def test_normalizacion_de_originales_contra_el_generador(i):
     n = AUT["normalizacion"][i]
@@ -361,7 +357,6 @@ def test_normalizacion_de_originales_contra_el_generador(i):
     assert v2.huella_originales(n["serie_tecleada"], n["modelo_tecleado"]) == n["h_orig"]
 
 
-@SKIP_A
 @pytest.mark.parametrize("r", AUT["rechazos_normalizacion"], ids=lambda r: r["id"])
 def test_rechazos_de_normalizacion_contra_el_generador(r):
     with pytest.raises(v2.OriginalInvalido) as e:
