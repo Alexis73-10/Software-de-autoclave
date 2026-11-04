@@ -117,3 +117,11 @@
 - **Decidió:** el usuario (a pedido del revisor). Sin cambios de alarmas ni de `ConfigManager`.
 - **Archivos:** `src/autoclave/state_machine/states/preparacion.py`, `src/autoclave/state_machine/states/preparado.py`, `tests/test_preparacion_chaqueta_independiente.py`.
 - **Pendiente:** `tests/test_vaciado_chaqueta.py` (9 pruebas) necesita `"suministro_electrico": 1` en sus dobles (`_preparado` y `_maquina`).
+## 2026-11-04 · Modo prueba: sin cierre de sesión por inactividad y corte de 5 min solo sin salidas ON
+
+- **Qué se pidió:** (1) en modo prueba (`/status.test_mode_active`) la UI no cierra la sesión por inactividad y renueva el token con el keepalive existente; al salir el plazo se reinicia. (2) El corte de 5 min de Entradas/Salidas «solo aplica si no hay salidas ON. Estado desconocido: si no se puede leer el estado de las salidas, el corte aplica igual (falla cerrada). No toca: el corte de 90 s del backend (`backend/rutas/io.py`), el keepalive de 30 s ni los cierres por abandonar o cambiar de sección.»
+- **Decidió:** el usuario.
+- **Cambio:** `SesionVentana.modoPrueba` (propiedad con setter, enlazada desde `Main.qml` a `puente.modoPrueba`); `_revisar_inactividad` no cierra y renueva por `_renovar_en_servidor` mientras sea True; al pasar a False reinicia `_ultima_actividad`. En `OpcionesEntradasSalidas.qml`, `hayAlgunaSalidaOn(salidas)` (solo `encendida === true` cuenta) y `plazoInactividadMs`: con salida ON el temporizador se rearma, si no (todas OFF, null o sin lista) corta.
+- **Archivos:** `src/autoclave/ui_qml/sesion_backend.py`, `src/autoclave/ui_qml/qml/Main.qml`, `src/autoclave/ui_qml/qml/Pantallas/OpcionesEntradasSalidas.qml`; pruebas `tests/test_modo_prueba_sin_cierre_sesion.py`.
+- **Pendiente:** riesgo residual (equipo en modo prueba con salidas ON sin operador: lo acota el corte de 90 s del backend); prueba de banco.
+

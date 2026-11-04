@@ -632,6 +632,7 @@ class SesionVentana(QObject):
         bloqueado]); lo consume."""
         aviso, self._aviso = self._aviso, None
         return aviso
+    modoPruebaChanged = Signal()
 
     def _peticion(self, metodo: str, ruta: str, cuerpo: dict | None = None,
                   token: str | None = None, plazo: float | None = None):
@@ -670,6 +671,9 @@ class SesionVentana(QObject):
             al_terminar(r)
 
         def tardio(r: Resultado):
+        # Equipo en modo prueba (/status.test_mode_active): no se cierra la
+        # sesión por inactividad y el token se renueva (ajuste 2026-11-04).
+        self._modo_prueba = False
             token = r.datos.get("token") if r.ok else None
             if token:
                 logger.warning("Login respondido tras el plazo o cancelado: se invalida ese token")
@@ -1035,9 +1039,31 @@ class SesionVentana(QObject):
                 with self._lock_tokens:
                     self._tokens_por_invalidar.append(SessionManager.token())
             logger.warning("Sesión cerrada tras %s s sin conexión con el equipo", self._cierre_s)
+    @Property(bool, notify=modoPruebaChanged)
+    def modoPrueba(self) -> bool:
+        return self._modo_prueba
+
+    @modoPrueba.setter
+    def modoPrueba(self, valor: bool) -> None:
+        valor = bool(valor)
+        if valor == self._modo_prueba:
+            return
+        self._modo_prueba = valor
+        if not valor:
+            # al salir el plazo de inactividad empieza de cero: no cierra al instante
+            self._ultima_actividad = self._reloj()
+        self.modoPruebaChanged.emit()
+
             self.cerrar_local()
             self.cierrePorDesconexion.emit("principal")
 
+        if self._modo_prueba:
+            # sin cierre por inactividad; el token del backend se renueva con el
+            # keepalive existente (limitado a una vez cada KEEPALIVE_S)
+            ahora = self._reloj()
+            self._ultima_actividad = ahora
+            self._renovar_en_servidor(ahora)
+            return
     def _validar_sesion(self) -> None:
         """Una sola vez al reconectar: GET /auth/sesion. 401 cierra la sesión."""
         token = SessionManager.token()

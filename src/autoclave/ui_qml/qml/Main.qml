@@ -164,6 +164,13 @@ Window {
     // llega cuando su pantalla ya salió (Atrás, Home, cambio de estado) no
     // navega: si no, reemplazaría la pantalla principal
     function esActual(item) { return item !== null && pila.currentItem === item }
+    // Modo prueba: la sesión no se cierra por inactividad (SesionVentana.modoPrueba)
+    Binding {
+        target: ventana.sesion
+        property: "modoPrueba"
+        value: ventana.puente?.modoPrueba ?? false
+        when: ventana.sesion !== null
+    }
     Connections {
         target: ventana.sesion
         // 15 s sin conexión: el cambio obligatorio vuelve al login (token
