@@ -175,14 +175,14 @@ def test_la_consigna_se_registra_en_el_log_al_iniciar(caplog):
 def test_preparado_sigue_usando_presion_chaqueta():
     from autoclave.state_machine.states.preparado import preparado_state
     estado = MagicMock()
-    estado.sensores_di = {"vapor_suministro": 1}
+    estado.sensores_di = {"vapor_suministro": 1, "suministro_electrico": 1}
     estado.sensores_pres = {"pres_chaqueta": 340.0}
     set_do = MagicMock()
     cycle = Cycle("p", "Programa", _params(esterilizacion__presion_add_esterilizacion=9.0,
                                            globals__presion_chaqueta=350,
                                            globals__rango_presion_chaqueta=25), 2)
     config = MagicMock()
-    config.get.return_value = 5
+    config.get.side_effect = lambda k, *a: 375 if k == "presion_max_chaqueta_control" else 5
     p = preparado_state(MagicMock(), estado, set_do, cycle, config)
     p.mantener_chaqueta()
     # 340 < presion_chaqueta (350): la válvula abre en PREPARADO (en CICLO,

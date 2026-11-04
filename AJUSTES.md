@@ -169,3 +169,8 @@
 - **Qué:** `verificar_suministros` de PREPARACION y PREPARADO activa SUM-02 con `_sin_suministro_electrico()` (flag `FALLO_SUMINISTRO_ELECTRICO` o DI ausente/0), la misma condición que corta la chaqueta; antes, con el flag en True y la DI en 1, la chaqueta se apagaba sin alarma. Sin entrada en el perfil sigue sin vigilarse; misma clave SUM-02 sin duplicados; despeje automático con ambos restablecidos. Supervisor y gate sin otro cambio.
 - **Decidió:** el usuario.
 - **Archivos:** `src/autoclave/state_machine/states/preparacion.py`, `src/autoclave/state_machine/states/preparado.py`, `tests/test_preparacion_sum02_electrico.py`, `docs/riesgos/registro_riesgos.md` (HAZ-PRE-01).
+## 2026-11-04 — Prueba roja de la suite antes de compilar alpha.15 (`test_t12_c05_chaqueta`)
+
+- **Qué:** `test_preparado_sigue_usando_presion_chaqueta` fallaba tras el ajuste de la chaqueta: el doble de `config` (`get.return_value = 5`) recortaba `presion_max_chaqueta_control` a 300 kPa (340 kPa disparaba el corte D-CHQ) y faltaba la DI `suministro_electrico` (ahora falla cerrada). Solo cambió el doble de la prueba, no el código de control.
+- **Decidió:** el director (dentro del alcance aprobado, mismo defecto de doble ya corregido en `test_preparado_chaqueta`).
+- **Archivos:** `tests/test_t12_c05_chaqueta.py`.
