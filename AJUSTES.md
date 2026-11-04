@@ -98,3 +98,22 @@
   - Códigos de rechazo por ruta en `sesion_backend._CODIGOS_POR_RUTA` (`/email`, `/maintenance`, `/programas`, `/global_params`, `/language`, `/units`, `/printer/config`) con prueba `tests/test_t25_codigos_rutas_async.py`; textos nuevos `conectividad.err_archivo`, `opciones.mant_err_calibracion_en_curso`, `opciones.equipo_err_calibracion_en_curso` (es/en).
 - **Archivos:** controladores `parametros_equipo`, `parametros_ciclo`, `conectividad`, `mantenimiento`, `manejo_ciclos`, `bitacora`, `fecha_hora`, `info_sistema`, `respaldo`, `reasignacion`; QML `Opciones`, `OpcionesParametrosEquipo`, `OpcionesParametrosCiclo`, `OpcionesConectividad`, `OpcionesMantenimiento`, `OpcionesManejoCiclos`, `OpcionesBitacora`, `OpcionesFechaHora`, `OpcionesInfoSistema`, `OpcionesRespaldo`, `OpcionesReasignacion`; `sesion_backend.py`; i18n es/en; pruebas `tests/test_f2_*`, `test_f3_*`, `test_f4_*`, `test_f5_*`, `test_t25_codigos_rutas_async.py`.
 - **Pendiente:** verificación visual en el equipo (fila «sin confirmar», bloqueo de navegación con backend lento, píldoras «Guardando…»); entrada de riesgo en `docs/riesgos/registro_riesgos.md` (presentar un valor no vigente, SAF-05) y trazabilidad; solicitud de cambio formal (IEC 62304 8.2.1).
+## 2026-11-04 · PREPARACION/PREPARADO: la chaqueta ya no se corta por sensores ajenos (revierte A-2.2/P4)
+
+- **Qué se pidió:** que un sensor ajeno caído (drenaje, empaque, cámara, Referencia) o un suministro ajeno (agua, aire) ya no apague `vapor_chaqueta` en PREPARACION/PREPARADO: la chaqueta tarda en calentar y, fría, el drenaje no se enfría y puede sobrecalentarse. La chaqueta solo se corta por causas propias: `pres_chaqueta` sin lectura o en 0, paro, estado seguro, vaciado de chaqueta, suministro eléctrico caído y suministro de vapor (SUM-06). `vapor_camara` sigue OFF con el supervisor en falla; el gate de listo/inicio y PREPARACION→PREPARADO siguen exigiendo el supervisor. Además: (a) en estado seguro activo corre el lazo de drenaje (`agua_intercambiador` ya no queda con la última orden), sin chaqueta ni venteo; (b) corte único D-CHQ (`presion_max_chaqueta_control`) también en PREPARACION/PREPARADO; (c) el ConfirmadorApagado de la chaqueta ya no se reinicia en las salidas seguras del supervisor.
+- **Decidió:** el usuario. FALLA (`falla.py`) queda fuera.
+- **Archivos:** `src/autoclave/state_machine/states/preparacion.py`, `src/autoclave/state_machine/states/preparado.py`; pruebas `tests/test_adenda_estados.py`, `tests/test_adenda_decisiones.py`, `tests/test_preparacion_chaqueta_independiente.py` (nueva).
+- **Pendiente:** actualizar `tests/test_e0_lecturas_invalidas.py` (afirma el comportamiento anterior) y `tests/test_preparado_chaqueta.py` (su config doble devuelve 5 para todo, con lo que el corte D-CHQ queda en 300 kPa); riesgo y trazabilidad; prueba de banco.
+
+## 2026-11-04 — Pruebas y riesgo de la chaqueta independiente (PREPARACION/PREPARADO)
+
+- **Qué:** `tests/test_e0_lecturas_invalidas.py` (con `temp_drenaje` caído la chaqueta ya no se apaga: `vapor_chaqueta_off` no se llama) y `tests/test_preparado_chaqueta.py` (el doble de config devuelve 375 para `presion_max_chaqueta_control`, 5 para el resto); entrada HAZ-PRE-01 en `docs/riesgos/registro_riesgos.md`. Sin cambios en `src/`.
+- **Decidió:** el usuario. Prueba de banco pendiente.
+- **Archivos:** los cuatro citados.
+
+## 2026-11-04 — Correcciones del revisor: suministro eléctrico de la chaqueta (PREPARACION/PREPARADO)
+
+- **Qué:** `_sin_suministro_electrico` falla cerrado como A-9: sin la DI `suministro_electrico` (o en 0) = sin suministro, además del flag `FALLO_SUMINISTRO_ELECTRICO`. `_vapor_vaciado_permitido` exige suministro eléctrico: el vaciado EN_CURSO ya no vuelve a encender `vapor_chaqueta` sin él. Pruebas nuevas: DI ausente, vaciado con flag/DI eléctrica caída, vaciado con supervisor en falla, alternancia estado seguro → normal → supervisor con el `ConfirmadorApagado`.
+- **Decidió:** el usuario (a pedido del revisor). Sin cambios de alarmas ni de `ConfigManager`.
+- **Archivos:** `src/autoclave/state_machine/states/preparacion.py`, `src/autoclave/state_machine/states/preparado.py`, `tests/test_preparacion_chaqueta_independiente.py`.
+- **Pendiente:** `tests/test_vaciado_chaqueta.py` (9 pruebas) necesita `"suministro_electrico": 1` en sus dobles (`_preparado` y `_maquina`).

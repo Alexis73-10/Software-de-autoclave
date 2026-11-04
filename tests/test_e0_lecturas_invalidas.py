@@ -137,10 +137,9 @@ def test_temperatura_none_run_no_lanza_y_no_queda_listo(clase, sensor):
     obj, alarm_mgr, set_do = _make(clase, **{sensor: None})
     assert obj.run() is False
     assert f"ERROR_AI_{sensor.upper()}" in _reportadas(alarm_mgr)
-    # Adenda A-2.2: con un sensor caído el vapor de chaqueta va a OFF (antes
-    # las salidas quedaban congeladas) y nunca se enciende por ese None.
-    set_do.vapor_chaqueta_off.assert_called()
-    set_do.vapor_chaqueta_on.assert_not_called()
+    # Reversión de A-2.2/P4 (2026-11-04): un sensor ajeno caído ya no corta la
+    # chaqueta; sigue su lazo (con pres_chaqueta válida) y no se apaga por esa causa.
+    set_do.vapor_chaqueta_off.assert_not_called()
     # A-4: si el caído es el drenaje, se enfría; nunca se apaga el intercambiador
     set_do.agua_intercambiador_off.assert_not_called()
     if sensor == "temp_drenaje":

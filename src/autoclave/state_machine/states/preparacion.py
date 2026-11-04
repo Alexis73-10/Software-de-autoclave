@@ -5,6 +5,7 @@ from autoclave.state_machine.alarms.catalogo import (
     SUM_03, SUM_04, SUM_05, SUM_06, nombre_legible,
 )
 from autoclave.state_machine.states.control_banda import evaluar_banda, ConfirmadorApagado
+from autoclave.core.managers import limites_equipo
 from autoclave.core.runtime.lectura import lectura_valida
 from autoclave.core.runtime import presion_sin_lectura
 from autoclave.core.runtime.sensores_ciclo import (
@@ -76,26 +77,59 @@ class preparacion_state:
             # Sin venteo propio (la rápida está prohibida en líquidos calientes),
             # sin chaqueta y sin avanzar: el estado seguro maneja la cámara
             self.supervisor()
-            self.set_do.vapor_chaqueta_off()
+            self._chaqueta_off_forzada()
             self.set_do.vapor_camara_off()
+            # 2026-11-04 (usuario): el enfriamiento del drenaje sigue, para que
+            # agua_intercambiador no quede con la última orden
+            self.verificar_temperatura_drenaje()
             return False
+
+        # Suministro eléctrico caído: causa propia de la chaqueta (2026-11-04)
+        controlar_chaqueta = not self._sin_suministro_electrico()
+        if not controlar_chaqueta:
+            self._chaqueta_off_forzada()
 
         if not self.supervisor():
-            self._salidas_seguras_supervisor()
+            self._salidas_seguras_supervisor(controlar_chaqueta)
             return False
 
-        return self.ejecutor()
+        return self.ejecutor(controlar_chaqueta=controlar_chaqueta)
 
-    def _salidas_seguras_supervisor(self):
-        """Supervisor falló por un sensor analógico (adenda E0/E1, A-2) o por
-        un suministro (decisión P4): las salidas no pueden quedar
-        congeladas. Vapor de chaqueta y de cámara a OFF; siguen los lazos que no aportan energía (presión de cámara,
-        drenaje de cámara y enfriamiento del drenaje, este con A-4)."""
+    def _chaqueta_off_forzada(self):
+        """vapor_chaqueta OFF ya, sin el ConfirmadorApagado; su cuenta vuelve
+        a cero para cuando retome el lazo."""
         self.set_do.vapor_chaqueta_off()
         self._confirmador_chaqueta.reset()
+
+    def _sin_suministro_electrico(self) -> bool:
+        """True si el perfil declara la entrada de suministro eléctrico y no
+        hay suministro (flag FALLO_SUMINISTRO_ELECTRICO o la DI ausente o en 0).
+        Un error = sin suministro (falla cerrada)."""
+        if not entrada_requerida(self.profile, "suministro_electrico"):
+            return False
+        try:
+            if self.estado.get_flag("FALLO_SUMINISTRO_ELECTRICO") is True:
+                return True
+            # 2026-11-04 (revisor, decidió el usuario): falla cerrada como A-9
+            # de PREPARADO.verificar_suministros: sin la entrada = sin suministro
+            return not self.estado.sensores_di.get("suministro_electrico")
+        except Exception:
+            logger.exception("PREPARACION: no se pudo leer el suministro eléctrico; chaqueta OFF")
+            return True
+
+    def _salidas_seguras_supervisor(self, controlar_chaqueta=True):
+        """Supervisor falló por un sensor analógico (adenda E0/E1, A-2) o por
+        un suministro (P4): las salidas no pueden quedar congeladas.
+        Vapor de cámara a OFF; siguen los demás lazos (presión de cámara,
+        drenaje de cámara y enfriamiento del drenaje, este con A-4).
+        2026-11-04 (usuario, revierte A-2.2/P4 para la chaqueta): la chaqueta
+        sigue con su propio lazo; solo la cortan sus causas propias
+        (pres_chaqueta sin lectura o en 0, D-CHQ, suministro de vapor o
+        eléctrico, paro, estado seguro). Así un sensor ajeno caído no deja
+        la chaqueta fría ni el drenaje sin enfriar."""
         self.set_do.vapor_camara_off()
-        self.ejecutor(controlar_chaqueta=False)
-        
+        self.ejecutor(controlar_chaqueta=controlar_chaqueta)
+
             
     def supervisor(self) -> bool:
         ok = True
@@ -231,9 +265,10 @@ class preparacion_state:
 
             # Sin dato: no lista y vapor OFF; la alarma ERROR_AI_PRES_CHAQUETA
             # la emite verificar_sensores() (E0-3, A-5)
-            if not lectura_valida(presion):
-                self.set_do.vapor_chaqueta_off()
-                self._confirmador_chaqueta.reset()
+            # 0 = sensor sin señal (como en verificar_sensores): también OFF,
+            # ya que la chaqueta sigue aunque el supervisor esté en falla
+            if not lectura_valida(presion) or presion <= 0:
+                self._chaqueta_off_forzada()
                 return False
 
             # Verificar suministro. Si no hay vapor, no insistir en abrir la
@@ -255,7 +290,10 @@ class preparacion_state:
             r = evaluar_banda(presion, pres_obj, rango, activar_si_bajo=True)
 
             # Válvula: reacciona en el objetivo, sin esperar a cruzar la banda.
-            if r.debe_activar:
+            # Corte único D-CHQ: en o sobre presion_max_chaqueta_control, OFF ya
+            if presion >= limites_equipo.presion_max_chaqueta_control(self.config):
+                self._chaqueta_off_forzada()
+            elif r.debe_activar:
                 self.set_do.vapor_chaqueta_on()
                 self._confirmador_chaqueta.reset()
             elif self._confirmador_chaqueta.confirmar(True):

@@ -260,18 +260,20 @@ def test_preparado_sin_sondas_opcionales_queda_listo():
 
 
 # ---------------------------------------------------------------------------
-# A-2.2: supervisor falla por sensor -> energía OFF, lazos independientes siguen
+# A-2.2: supervisor falla por sensor -> vapor de cámara OFF, lazos siguen.
+# 2026-11-04 (usuario): revertido para la chaqueta; un sensor ajeno caído ya
+# no la corta (ver test_preparacion_chaqueta_independiente.py)
 # ---------------------------------------------------------------------------
 
 @pytest.mark.parametrize("clase", _ESTADOS)
 @pytest.mark.parametrize("sensor", _TEMPS_BLOQUEAN)
-def test_sonda_caida_apaga_vapor_de_chaqueta_y_camara(clase, sensor):
-    # chaqueta fría: sin la corrección, el lazo la habría dejado en ON
+def test_sonda_caida_apaga_vapor_de_camara_y_la_chaqueta_sigue(clase, sensor):
+    # chaqueta fría: su lazo la enciende aunque el supervisor esté en falla
     obj, _, set_do = _make(clase, None, pres_chaqueta=200.0, **{sensor: None})
     assert obj.run() is False
-    set_do.vapor_chaqueta_off.assert_called()
     set_do.vapor_camara_off.assert_called()
-    set_do.vapor_chaqueta_on.assert_not_called()
+    set_do.vapor_chaqueta_on.assert_called()
+    set_do.vapor_chaqueta_off.assert_not_called()
 
 
 @pytest.mark.parametrize("clase", _ESTADOS)

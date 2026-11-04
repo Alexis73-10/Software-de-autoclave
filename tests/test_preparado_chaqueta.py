@@ -16,7 +16,8 @@ def _make_preparado(vapor=1, pres_chaqueta=300.0):
         "presion_chaqueta": 300.0, "rango_presion_chaqueta": 20.0,
     }[key]
     config = MagicMock()
-    config.get.return_value = 5
+    # presion_max_chaqueta_control no puede valer 5 (se recorta a 300 y dispararía el corte D-CHQ)
+    config.get.side_effect = lambda k, *a: 375 if k == "presion_max_chaqueta_control" else 5
     p = preparado_state(alarm_manager, estado, set_do, cycle, config)
     return p, alarm_manager, set_do
 

@@ -107,22 +107,37 @@ class preparado_state:
             # está pendiente, se cancela sin reintento
             self._cancelar_vaciado_si_corre_o_abre(vaciado, datos_vigentes, "estado seguro activo")
             self.set_do.vapor_chaqueta_off()
+            self._confirmador_chaqueta.reset()
             self.set_do.vapor_camara_off()
+            # 2026-11-04 (usuario): el enfriamiento del drenaje sigue, para que
+            # agua_intercambiador no quede con la última orden
+            self.mantener_drenaje()
             self.timer_estabilidad = None
             return False
 
+        # Suministro eléctrico caído: causa propia de la chaqueta (2026-11-04)
+        sin_electrico = self._sin_suministro_electrico()
+        if sin_electrico:
+            self.set_do.vapor_chaqueta_off()
+            self._confirmador_chaqueta.reset()
+
         if not self.supervisor():
             self.timer_estabilidad = None
-            if vaciado is not None and vaciado.activo:
+            # El tick en que el vaciado termina ya dejó el vapor en OFF;
+            # mantener_chaqueta() vuelve desde el tick siguiente
+            vaciado_termina = vaciado is not None and vaciado.activo
+            if vaciado_termina:
                 vaciado.terminar("supervisor en falla")
                 self._apagar_salidas_vaciado()
-            self._salidas_seguras_supervisor()
+            self._salidas_seguras_supervisor(
+                controlar_chaqueta=not (sin_electrico or vaciado_termina))
             return False
 
         # Vaciado de chaqueta tras ciclo líquido 4/5: mientras esté pendiente
         # o en curso es el único dueño de vapor_chaqueta (la chaqueta no
         # queda lista); al terminar vuelve mantener_chaqueta()
-        controlar_chaqueta = not self._vaciado_chaqueta(vaciado, datos_vigentes)
+        controlar_chaqueta = (not self._vaciado_chaqueta(vaciado, datos_vigentes)
+                              and not sin_electrico)
 
         # R1-P2 (tanda 7): cada lazo corre una sola vez por tick; la validación
         # final usa su resultado (antes los volvía a llamar y el debounce del
@@ -226,10 +241,13 @@ class preparado_state:
 
     def _vapor_vaciado_permitido(self) -> bool:
         """vapor_chaqueta en el vaciado: lectura válida y positiva de
-        pres_chaqueta, bajo el corte D-CHQ y con suministro de vapor (SUM-06).
-        Un error = no (falla cerrada)."""
+        pres_chaqueta, bajo el corte D-CHQ, con suministro de vapor (SUM-06)
+        y con suministro eléctrico (2026-11-04, revisor). Un error = no
+        (falla cerrada)."""
         try:
             suministro = self._vigilar_suministro_vaciado()
+            if self._sin_suministro_electrico():
+                return False
             pres = self.estado.sensores_pres.get("pres_chaqueta")
             # 0 = sensor sin señal (como en verificar_sensores)
             if not lectura_valida(pres) or pres <= 0:
@@ -267,15 +285,34 @@ class preparado_state:
         drenaje = self.mantener_drenaje()
         return (chaqueta is True, presion is True, drenaje is True)
 
-    def _salidas_seguras_supervisor(self):
+    def _sin_suministro_electrico(self) -> bool:
+        """True si el perfil declara la entrada de suministro eléctrico y no
+        hay suministro (flag FALLO_SUMINISTRO_ELECTRICO o la DI ausente o en 0).
+        Un error = sin suministro (falla cerrada)."""
+        if not entrada_requerida(self.profile, "suministro_electrico"):
+            return False
+        try:
+            if self.estado.get_flag("FALLO_SUMINISTRO_ELECTRICO") is True:
+                return True
+            # 2026-11-04 (revisor, decidió el usuario): falla cerrada como A-9
+            # en verificar_suministros: sin la entrada = sin suministro
+            return not self.estado.sensores_di.get("suministro_electrico")
+        except Exception:
+            logger.exception("PREPARADO: no se pudo leer el suministro eléctrico; chaqueta OFF")
+            return True
+
+    def _salidas_seguras_supervisor(self, controlar_chaqueta=True):
         """Supervisor falló por un sensor analógico (adenda E0/E1, A-2) o por
-        un suministro (decisión P4): las salidas no pueden quedar
-        congeladas. Vapor de chaqueta y de cámara a OFF; siguen los lazos que no aportan energía (presión de cámara
-        y enfriamiento del drenaje, este con A-4)."""
-        self.set_do.vapor_chaqueta_off()
-        self._confirmador_chaqueta.reset()
+        un suministro (P4): las salidas no pueden quedar congeladas.
+        Vapor de cámara a OFF; siguen los demás lazos (presión de cámara y
+        enfriamiento del drenaje, este con A-4).
+        2026-11-04 (usuario, revierte A-2.2/P4 para la chaqueta): la chaqueta
+        sigue con su propio lazo; solo la cortan sus causas propias
+        (pres_chaqueta sin lectura o en 0, D-CHQ, suministro de vapor o
+        eléctrico, paro, estado seguro, vaciado). Así un sensor ajeno caído no
+        deja la chaqueta fría ni el drenaje sin enfriar."""
         self.set_do.vapor_camara_off()
-        self.ejecutor(controlar_chaqueta=False)
+        self.ejecutor(controlar_chaqueta=controlar_chaqueta)
 
     # ==============================
     # CONTROL CHAQUETA
@@ -286,8 +323,9 @@ class preparado_state:
         rango=self.cycle.get_param("globals","rango_presion_chaqueta")
 
         # Sin dato: no lista y vapor OFF; la alarma ERROR_AI_PRES_CHAQUETA la
-        # emite verificar_sensores() (E0-3, A-5)
-        if not lectura_valida(press_chaqueta):
+        # emite verificar_sensores() (E0-3, A-5). 0 = sensor sin señal: también
+        # OFF, ya que la chaqueta sigue aunque el supervisor esté en falla
+        if not lectura_valida(press_chaqueta) or press_chaqueta <= 0:
             self.set_do.vapor_chaqueta_off()
             self._confirmador_chaqueta.reset()
             return False
@@ -310,7 +348,11 @@ class preparado_state:
         r = evaluar_banda(press_chaqueta, press_obj, rango, activar_si_bajo=True)
 
         # Válvula: reacciona en el objetivo, sin esperar a cruzar la banda.
-        if r.debe_activar:
+        # Corte único D-CHQ: en o sobre presion_max_chaqueta_control, OFF ya
+        if press_chaqueta >= limites_equipo.presion_max_chaqueta_control(self.config):
+            self.set_do.vapor_chaqueta_off()
+            self._confirmador_chaqueta.reset()
+        elif r.debe_activar:
             self.set_do.vapor_chaqueta_on()
             self._confirmador_chaqueta.reset()
         elif self._confirmador_chaqueta.confirmar(True):

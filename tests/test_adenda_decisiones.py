@@ -6,7 +6,9 @@
 #   P3  tras (re)conectar, la máquina de estados no corre hasta la primera
 #       trama DI de la nueva conexión (máximo _VIGENCIA_DI_SEG).
 #   P4  las salidas seguras del supervisor (A-2.2) se aplican también cuando
-#       falla un suministro, no solo un sensor.
+#       falla un suministro, no solo un sensor. 2026-11-04 (usuario): la
+#       chaqueta ya no entra en esas salidas seguras; solo la corta el
+#       suministro eléctrico o el de vapor (causas propias).
 
 import json
 from types import SimpleNamespace
@@ -175,11 +177,13 @@ def _make(clase, **di_overrides):
 @pytest.mark.parametrize("clase", [preparacion_state, preparado_state])
 @pytest.mark.parametrize("suministro", ["agua_bomba", "agua_generador", "aire_comprimido"])
 def test_falla_de_suministro_apaga_vapor_y_sigue_con_los_demas_lazos(clase, suministro):
+    # 2026-11-04 (usuario): revierte P4 para la chaqueta; agua y aire
+    # comprimido no son causas propias de la chaqueta, que sigue su lazo
     obj, set_do = _make(clase, **{suministro: 0})
     assert obj.run() is False
-    set_do.vapor_chaqueta_off.assert_called()
     set_do.vapor_camara_off.assert_called()
-    set_do.vapor_chaqueta_on.assert_not_called()          # chaqueta fría, pero sin control
+    set_do.vapor_chaqueta_on.assert_called()              # chaqueta fría: su lazo la enciende
+    set_do.vapor_chaqueta_off.assert_not_called()
     set_do.aire_admosferico_camara_on.assert_called()     # presión de cámara sigue
     set_do.agua_intercambiador_on.assert_called()         # enfriamiento de drenaje sigue
 

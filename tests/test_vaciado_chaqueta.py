@@ -53,6 +53,7 @@ def _preparado(puertas=(1, 1), pres_chaqueta=250.0, vapor=1, flags=None, estado_
     flags = flags if flags is not None else {}
     di = {f"puerta_{n}_cerrada": v for n, v in enumerate(puertas, start=1)}
     di["vapor_suministro"] = vapor
+    di["suministro_electrico"] = 1  # sin la DI se toma como suministro caído (A-9)
     estado = SimpleNamespace(sensores_di=di, sensores_pres={"pres_chaqueta": pres_chaqueta},
                              get_flag=lambda f: flags.get(f, False))
     estado.vaciado_chaqueta = vc.VaciadoChaqueta()
@@ -441,7 +442,7 @@ def _maquina(set_do):
     for f in ("PARO_EMERGENCIA", "PARO_REAL", "FALLO_SUMINISTRO_ELECTRICO"):
         estado.set_flag(f, False)
     estado.sensores_di.update({"puerta_1_cerrada": 1, "puerta_2_cerrada": 1,
-                               "vapor_suministro": 1})
+                               "vapor_suministro": 1, "suministro_electrico": 1})
     estado.sensores_pres["pres_chaqueta"] = 250.0
     cycle = MagicMock()
     cycle.copia.return_value = cycle
