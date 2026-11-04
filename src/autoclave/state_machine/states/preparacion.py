@@ -2,7 +2,7 @@
 from autoclave.state_machine.machine.parametros_globales import parametros_globales
 from autoclave.state_machine.alarms.catalogo import (
     PRE_01, PRE_02, PRE_03, PRE_04, PRE_05, PRE_06, SEN_01, SIS_01,
-    SUM_03, SUM_04, SUM_05, SUM_06, nombre_legible,
+    SUM_02, SUM_03, SUM_04, SUM_05, SUM_06, nombre_legible,
 )
 from autoclave.state_machine.states.control_banda import evaluar_banda, ConfirmadorApagado
 from autoclave.core.managers import limites_equipo
@@ -246,6 +246,17 @@ class preparacion_state:
                 ok = False
             else:
                 self.alarm_manager.resolver(codigo)
+
+        # Suministro eléctrico: mismo patrón que PREPARADO.verificar_suministros
+        # (2026-11-04, usuario). Se omite si el perfil no tiene la entrada;
+        # sin la entrada en la trama = sin suministro, no "presente" (A-9)
+        if not entrada_requerida(self.profile, "suministro_electrico"):
+            pass
+        elif not self.estado.sensores_di.get("suministro_electrico"):
+            self.alarm_manager.activar(SUM_02)
+            ok = False
+        else:
+            self.alarm_manager.resolver(SUM_02)
 
         return ok
                 

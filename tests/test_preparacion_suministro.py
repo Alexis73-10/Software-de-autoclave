@@ -12,6 +12,7 @@ def _make_preparacion(vapor=1, agua_bomba=1, agua_generador=1, aire_comprimido=1
         "agua_bomba": agua_bomba,
         "agua_generador": agua_generador,
         "aire_comprimido": aire_comprimido,
+        "suministro_electrico": 1,  # PREPARACION lo vigila (SUM-02); ausente = sin suministro
     }
     set_do = MagicMock()
     cycle = MagicMock()

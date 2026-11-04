@@ -132,3 +132,9 @@
 - **3.2:** `exe_unico.py` ya no importa `autoclave.ui_qml.app` (constante `BACKEND_URL` propia); el backend (limpieza + Popen + vigilancia) se prepara en un hilo en paralelo con el lanzamiento de las pantallas; `lanzador.log` registra la hora de cada lanzamiento.
 - **Archivos:** `backend/main.py`, `backend/server.py`, `backend/rutas/sistema.py`, `backend/arranque/registro.py`, `devices/printer/arranque_equipo.py`, `ui_qml/bridge/progreso_arranque.py`, `ui_qml/app.py`, `exe_unico.py`, `docs/informes/tanda15/base/{rutas,openapi}.json`, `tests/test_arranque_interfaz_lista.py`, `tests/test_r1_arranque_equipo.py`, `tests/test_t15_rutas_equivalentes.py` (docstring).
 
+## 2026-11-04 — SUM-02 (suministro eléctrico) también en PREPARACION
+
+- **Qué:** `preparacion.verificar_suministros` emite SUM-02 con el mismo patrón que PREPARADO (A-9: DI `suministro_electrico` ausente o en 0 = sin suministro; se omite si el perfil no tiene la entrada); el supervisor falla y bloquea PREPARACION→PREPARADO. Chaqueta sin cambio (sigue OFF con el eléctrico caído). Misma clave sin origen: no hay doble alarma entre PREPARACION y PREPARADO.
+- **Decidió:** el usuario.
+- **Archivos:** `src/autoclave/state_machine/states/preparacion.py`, `tests/test_preparacion_sum02_electrico.py`, `docs/riesgos/registro_riesgos.md` (HAZ-PRE-01).
+- **Pendiente:** `tests/test_preparacion_suministro.py` y `tests/test_e1_supply_inputs.py` (3 pruebas) suponen que PREPARACION no vigila el eléctrico; hay que ajustar sus dobles.

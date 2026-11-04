@@ -178,12 +178,14 @@ def test_preparacion_verificar_suministros_por_combinacion(supply):
     estado = _estado(di_suministro=0)
     p = preparacion_state(alarm_mgr, estado, MagicMock(), _cycle(), _config(),
                           profile=_perfil(supply_inputs=supply))
-    revisadas = ["agua_bomba", "agua_generador", "aire_comprimido"]
+    # PREPARACION vigila también el eléctrico (SUM-02, igual que PREPARADO)
+    revisadas = ["agua_bomba", "agua_generador", "aire_comprimido", "suministro_electrico"]
     requeridas = [k for k in revisadas if supply is None or supply[k]]
     assert p.verificar_suministros() is (not requeridas)
     ids = _reportadas(alarm_mgr)
     for k in revisadas:
-        assert (f"SUMINISTRO_{k.upper()}" in ids) is (k in requeridas)
+        alarma = "SUMINISTRO_ELECTRICO" if k == "suministro_electrico" else f"SUMINISTRO_{k.upper()}"
+        assert (alarma in ids) is (k in requeridas)
 
 
 @pytest.mark.parametrize("supply", _COMBINACIONES + [None],
