@@ -76,9 +76,28 @@ def _validar(puente, **cambios):
 
 
 def _guardar(puente, activo=True, **cambios):
+    """FASE 6: `guardar` solo envía; el desenlace llega por guardadoResuelto.
+    Se bombea la sesión real hasta que llega y se devuelve {ok, errores}."""
     d = {**VALIDOS, **cambios}
-    return puente.guardar(d["nombre"], d["usuario"], d["password"],
-                          d["confirmacion"], d["rol"], activo)
+    resueltos = []
+
+    def anotar(estado, errores):
+        resueltos.append((estado, errores))
+    puente.guardadoResuelto.connect(anotar)
+    try:
+        r = puente.guardar(d["nombre"], d["usuario"], d["password"],
+                           d["confirmacion"], d["rol"], activo)
+        if not r["enviado"]:
+            return {"ok": False, "errores": r["errores"]}
+        for _ in range(20):
+            if resueltos:
+                break
+            QCoreApplication.processEvents()
+            puente._sesion._envios._vaciar()
+        estado, errores = resueltos[-1]
+        return {"ok": estado == "confirmada", "errores": errores}
+    finally:
+        puente.guardadoResuelto.disconnect(anotar)
 
 
 # ── Propiedades ───────────────────────────────────────────────────────────────
@@ -212,7 +231,9 @@ def test_guardar_exito_envia_al_backend_con_token(puente, backend):
     puente.usuarioCreado.connect(creados.append)
     r = _guardar(puente, nombre="  Ana Ruiz  ")
     assert r == {"ok": True, "errores": {}}
-    assert backend.llamadas == [("/usuarios", {
+    # MENOR-4: antes del POST va la lectura de la lista previa (GET, sin cuerpo)
+    assert backend.llamadas[0] == ("/usuarios", None, "tok-admin")
+    assert backend.llamadas[1:] == [("/usuarios", {
         "nombre": "Ana Ruiz", "usuario": "anar", "clave": "clave1234",
         "confirmacion": "clave1234", "rol": "tecnico", "activo": True,
     }, "tok-admin")]
@@ -222,7 +243,7 @@ def test_guardar_exito_envia_al_backend_con_token(puente, backend):
 def test_guardar_inactivo(puente, backend):
     SessionManager.login(ADMIN)
     assert _guardar(puente, activo=False)["ok"] is True
-    assert backend.llamadas[0][1]["activo"] is False
+    assert backend.llamadas[1][1]["activo"] is False       # [0]: lista previa (MENOR-4)
 
 
 def test_guardar_con_errores_no_llama_al_backend(puente, backend):
@@ -244,6 +265,8 @@ def test_guardar_sin_token_en_la_sesion(puente, backend):
 @pytest.mark.parametrize("respuesta,errores", [
     ((409, {"detail": "El usuario ya existe", "codigo": "usuario_existe"}),
      {"usuario": _e("usuarios.usuario_existe")}),
+    # MENOR-4: el 401 llega ya en la lectura previa y cierra la sesión; el POST
+    # no sale (sin token) y queda rechazado por sesión inválida
     ((401, {"detail": "x", "codigo": "sesion_invalida"}), {"general": _e("sesion.sesion_invalida")}),
     ((403, {"detail": "Su rol no puede crear usuarios con ese rol", "codigo": "rol_no_creable"}),
      {"general": _e("usuarios.rol_no_creable")}),
@@ -270,7 +293,9 @@ def test_guardar_backend_caido_no_expone_detalles():
     p = _puente(BackendFalso(ConnectionError("http://127.0.0.1:8000 interno")))
     r = _guardar(p)
     assert r["ok"] is False
-    assert r["errores"]["general"] == _e("sesion.backend_no_responde")
+    # FASE 6: sin respuesta y sin relectura posible, el alta queda sin confirmar
+    assert r["errores"]["general"] == _e("operacion.sin_confirmar")
+    assert "127.0.0.1" not in str(r)
 
 
 def test_guardar_sin_conexion_no_sale_a_la_red(backend):
@@ -316,3 +341,15 @@ def _recolectar():
     import gc
     gc.collect()
     QCoreApplication.processEvents()
+
+
+def test_h2_sin_sesion_al_pedir_la_lista_previa_rechazo_local(puente, backend):
+    """H2 (3.er ciclo): si la lectura previa no puede pedirse (sesión None),
+    el alta no queda en curso para siempre y se rechaza en local."""
+    SessionManager.login(ADMIN)
+    puente._sesion = None
+    r = puente.guardar(VALIDOS["nombre"], VALIDOS["usuario"], VALIDOS["password"],
+                       VALIDOS["confirmacion"], VALIDOS["rol"], True)
+    assert r == {"enviado": False, "errores": {"general": _e("usuarios.guardado_error")}}
+    assert puente.operacionEnCurso is False
+    assert backend.llamadas == []

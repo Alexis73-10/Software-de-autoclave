@@ -120,8 +120,8 @@ def test_reasignacion_muestra_contrasena_incorrecta():
     s = _sesion(t)
     SessionManager.login(USUARIO_OK, token=TOKEN)
     c = ReasignacionController(sesion=s)
-    assert not c.restaurarFabrica("mala")
-    assert c.mensaje == "reasignacion.err_clave"
+    assert c.restaurarFabrica("mala") is True             # FASE 6: enviado (asíncrono)
+    assert _esperar(lambda: c.mensaje == "reasignacion.err_clave")
     assert SessionManager.is_authenticated()
 
 
@@ -162,7 +162,8 @@ def test_reasignacion_bloqueada_deja_la_sesion_cerrada_sin_mas_peticiones():
     s = _sesion(t)
     SessionManager.login(USUARIO_OK, token=TOKEN)
     c = ReasignacionController(sesion=s)
-    assert not c.restaurarFabrica("mala")
+    assert c.restaurarFabrica("mala") is True             # FASE 6: enviado (asíncrono)
+    assert _esperar(lambda: not c.operacionEnCurso)
     assert not SessionManager.is_authenticated()
     # la recarga posterior no sale a la red sin token
     assert t.rutas() == [("POST", "/io/assignment/factory")]

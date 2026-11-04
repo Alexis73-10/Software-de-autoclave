@@ -39,16 +39,58 @@ Item {
 
     // Cierra el modo prueba (D-ES-08): al abandonar la seccion, cambiar de
     // segmento o por inactividad. Lo llama tambien Opciones al salir.
-    function cerrarModoPrueba(causa) {
-        if (control.modoPrueba) control.salirModoPrueba(causa)
+    // FASE 6: el controlador decide si hay algo que cerrar (modo prueba activo,
+    // entrada en vuelo o sin confirmar). Al destruirse la pantalla la salida se
+    // lanza igual y se quita el gancho de cierre de sesion (abandonar).
+    function cerrarModoPrueba(causa, destruyendo) {
+        if (destruyendo === true) control.abandonar(causa)
+        else control.salirModoPrueba(causa)
     }
     function marcarActividad() { ultimaActividad = Date.now() }
+    // Corte de 5 min por inactividad de la interfaz: solo aplica si no hay
+    // salidas ON. Estado desconocido (sin lista, o sin ninguna salida confirmada
+    // ON, p. ej. todas null por enlace caído): el corte aplica (falla cerrada).
+    property int plazoInactividadMs: 5 * 60 * 1000
+    function hayAlgunaSalidaOn(salidas) {
+        var lista = salidas || []
+        for (var i = 0; i < lista.length; i++)
+            if (lista[i] && lista[i].encendida === true) return true
+        return false
+    }
+    // FASE 6: texto de un boton mientras su operacion va en vuelo
+    function textoOperacion(clave, normal) {
+        var enCurso = control.operacionEnCurso     // dependencia del enlace
+        var e = control.estadoDe(clave)
+        if (enCurso && e === "enviando") return I18n.t("operacion.procesando", I18n.lang)
+        if (enCurso && e === "verificando") return I18n.t("operacion.verificando", I18n.lang)
+        return normal
+    }
+    // FASE 6: sensor pedido; la calibracion se abre solo con la lectura confirmada
+    property string calibracionPedidaTipo: ""
+    property string calibracionPedidaSensor: ""
+    Connections {
+        target: control
+        function onOperacionResuelta(clave, estado, mensaje) {
+            if (clave !== "cal_cargar") return
+            // C1 (revision FASE 6): una confirmacion tardia es de un pedido
+            // anterior: no abre nada ni toca el pedido en curso
+            if (mensaje === "operacion.confirmada_tarde") return
+            // y solo se abre si la calibracion cargada es la del sensor pedido
+            if (estado === "confirmada" && raiz.calibracionPedidaSensor !== ""
+                    && control.calibracionEs(raiz.calibracionPedidaTipo, raiz.calibracionPedidaSensor)) {
+                raiz.segmentoOrigen = raiz.calibracionPedidaTipo
+                raiz.sensorEnCalibracion = raiz.calibracionPedidaSensor
+            }
+            raiz.calibracionPedidaTipo = ""
+            raiz.calibracionPedidaSensor = ""
+        }
+    }
 
     onSegmentoChanged: {
         if (segmento !== "salidas") cerrarModoPrueba("abandono de la sección")
     }
     Component.onCompleted: { control.cargarCanales(); control.actualizar() }
-    Component.onDestruction: cerrarModoPrueba("abandono de la sección")
+    Component.onDestruction: cerrarModoPrueba("abandono de la sección", true)
     // P1: otra pantalla encima (Menú principal, ciclo, falla) la oculta en la
     // pila: el modo prueba no sigue sin su ventana a la vista
     onVisibleChanged: if (!visible) cerrarModoPrueba("abandono de la sección")
@@ -61,15 +103,18 @@ Item {
         running: raiz.visible
         onTriggered: {
             control.actualizar()
-            if (control.modoPrueba && Date.now() - raiz.ultimaActividad > 5 * 60 * 1000)
-                control.salirModoPrueba("inactividad de la interfaz")
+            if (control.salidasHabilitadas && Date.now() - raiz.ultimaActividad > raiz.plazoInactividadMs) {
+                if (raiz.hayAlgunaSalidaOn(control.salidas)) raiz.marcarActividad()   // se rearma
+                else control.salirModoPrueba("inactividad de la interfaz")
+            }
         }
     }
-    // Keepalive del modo prueba cada 30 s (P-ES-4)
+    // Keepalive del modo prueba cada 30 s (P-ES-4); FASE 6: detenido mientras
+    // una orden de modo prueba va en vuelo o quedo sin confirmar
     Timer {
         interval: 30000
         repeat: true
-        running: raiz.visible && control.modoPrueba
+        running: raiz.visible && control.salidasHabilitadas
         onTriggered: control.keepalive()
     }
 
@@ -225,11 +270,17 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
             width: Escala.px(170); height: Escala.px(72)
             habilitado: control.puedeCalibrar && tarjetaSensor.modelData.valido
-            texto: I18n.t("io.ui.calibrar", I18n.lang)
+                        && !control.operacionEnCurso
+            texto: raiz.calibracionPedidaSensor === tarjetaSensor.modelData.name
+                   ? raiz.textoOperacion("cal_cargar", I18n.t("io.ui.calibrar", I18n.lang))
+                   : I18n.t("io.ui.calibrar", I18n.lang)
+            // FASE 6: se abre en onOperacionResuelta("cal_cargar", "confirmada")
             onPulsado: {
-                if (control.cargarCalibracion(tarjetaSensor.tipo, tarjetaSensor.modelData.name)) {
-                    raiz.segmentoOrigen = tarjetaSensor.tipo
-                    raiz.sensorEnCalibracion = tarjetaSensor.modelData.name
+                raiz.calibracionPedidaTipo = tarjetaSensor.tipo
+                raiz.calibracionPedidaSensor = tarjetaSensor.modelData.name
+                if (!control.cargarCalibracion(tarjetaSensor.tipo, tarjetaSensor.modelData.name)) {
+                    raiz.calibracionPedidaTipo = ""
+                    raiz.calibracionPedidaSensor = ""
                 }
             }
         }
@@ -439,7 +490,10 @@ Item {
                         anchors.verticalCenter: parent.verticalCenter
                         width: Escala.px(270); height: Escala.px(70)
                         relleno: Colores.peligroTexto
-                        texto: I18n.t("io.ui.salir_prueba", I18n.lang)
+                        // FASE 6: sin una orden de modo prueba en vuelo (tambien
+                        // tras una salida sin confirmar, para reintentar)
+                        habilitado: !control.operacionEnCurso || control.estadoDe("modo_prueba") === "inactiva"
+                        texto: raiz.textoOperacion("modo_prueba", I18n.t("io.ui.salir_prueba", I18n.lang))
                         onPulsado: control.salirModoPrueba("salida solicitada")
                     }
                 }
@@ -478,7 +532,8 @@ Item {
                     visible: !control.modoPrueba
                     width: parent.width; height: Escala.px(84)
                     habilitado: control.puedeProbar
-                    texto: I18n.t("io.ui.habilitar_prueba", I18n.lang)
+                                && (!control.operacionEnCurso || control.estadoDe("modo_prueba") === "inactiva")
+                    texto: raiz.textoOperacion("modo_prueba", I18n.t("io.ui.habilitar_prueba", I18n.lang))
                     onPulsado: dialogoPrueba.abrir()
                 }
                 Text {
@@ -512,7 +567,15 @@ Item {
                         width: cuadriculaSalidas.ancho
                         nombre: raiz.nombreCanal(modelData.i18n)
                         idFisico: modelData.id + (modelData.bloqueada ? " · " + I18n.t("io.ui.bloqueada", I18n.lang) : "")
-                        readonly property bool libre: control.modoPrueba && !modelData.bloqueada
+                        // FASE 6: solo con el modo prueba confirmado y sin orden de
+                        // modo prueba en vuelo ni sin confirmar
+                        readonly property bool libre: control.salidasHabilitadas && !modelData.bloqueada
+                        // M1 (revision FASE 6): el APAGADO de una sostenida encendida
+                        // se ofrece siempre con modo prueba o con dudas (salida o
+                        // entrada sin confirmar); encender sigue exigiendo `libre`
+                        readonly property bool puedeApagar: !modelData.momentanea
+                                                            && modelData.encendida === true
+                                                            && (control.modoPrueba || control.pruebaSinConfirmar)
                         // P1 (tanda 7, SAF-01): salida momentánea fijada al pulsar; la
                         // renovación y el apagado usan ese nombre aunque cambien los datos
                         property string pulsada: ""
@@ -523,8 +586,10 @@ Item {
                             pulsada = ""
                             control.accionar(nombre, false, true)
                         }
-                        // sin modo prueba el backend ya apagó todo: solo se deja de renovar
-                        onLibreChanged: if (!libre) { renovacion.stop(); pulsada = "" }
+                        // FASE 6: al deshabilitarse (salida del modo prueba en curso,
+                        // orden sin confirmar) se deja de renovar y se suelta la
+                        // momentánea con su OFF síncrono (apagar siempre sale)
+                        onLibreChanged: if (!libre) soltarMomentanea()
                         Component.onDestruction: if (pulsada !== "" && control) control.accionar(pulsada, false, true)
                         Column {
                             anchors.right: parent.right
@@ -544,7 +609,7 @@ Item {
                             Boton {
                                 objectName: "botonSalida_" + tarjetaSalida.modelData.name
                                 width: Escala.px(190); height: Escala.px(56)
-                                habilitado: tarjetaSalida.libre
+                                habilitado: tarjetaSalida.libre || tarjetaSalida.puedeApagar
                                 relleno: tarjetaSalida.modelData.momentanea ? Colores.menuNaranja
                                          : (tarjetaSalida.modelData.encendida === true ? Colores.peligroTexto : Colores.accionPrimario)
                                 texto: tarjetaSalida.modelData.momentanea
@@ -576,7 +641,7 @@ Item {
                                     interval: 500
                                     repeat: true
                                     onTriggered: {
-                                        if (tarjetaSalida.pulsada === ""
+                                        if (tarjetaSalida.pulsada === "" || !control.salidasHabilitadas
                                                 || !control.accionar(tarjetaSalida.pulsada, true, true)) {
                                             stop()
                                             tarjetaSalida.pulsada = ""

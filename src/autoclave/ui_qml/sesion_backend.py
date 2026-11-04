@@ -185,6 +185,60 @@ _CODIGOS_IMPRESORA = frozenset({     # ParametrosEquipoController
     "ARCHIVO_NO_ESCRIBIBLE", "reinicio_no_disponible", "estado_seguro_activo",
     "confirmacion_pendiente", "modo_prueba_activo",
 })
+# AJUSTES 2026-11-02, FASE 6 (P1, operaciones críticas): rechazos propios de
+# las rutas que pasan a OperacionCritica; aquí el texto sí lo da sesion_backend
+# (`clave_mensaje(causa, ruta)`), por ruta. Los demás códigos que emiten esas
+# rutas (/calibration, /cycle/sensor-roles, el resto de /io/test) ya son
+# globales; /printer/test-page y /maintenance/print/calibration responden con
+# HTTPException sin "codigo". tests/test_f6_codigos_rutas.py lo comprueba.
+# /backup/restore también emite "archivo_invalido" y "confirmacion_requerida":
+# se reconocen solo en esa ruta (fuera de ella y de las rutas con códigos
+# propios siguen siendo error_generico: tests/test_t24_codigos_reasignacion.py).
+_CLAVES_IO_TEST = {
+    "modo_prueba_dueno_vigente": "io.err_dueno_vigente",
+    "confirmacion_requerida": "io.err_confirmacion_requerida",
+}
+_CLAVES_CALIBRACION_ATM = {
+    "calibracion_en_curso": "calibracion_atm.err_en_curso",
+    "precondicion": "calibracion_atm.err_precondicion",
+    "puerta_abierta": "calibracion_atm.err_precondicion",
+    "temp_baja": "calibracion_atm.err_precondicion",
+    "fuera_de_ciclo": "calibracion_atm.err_precondicion",
+    "lecturas_validas": "calibracion_atm.err_precondicion",
+    "sin_calibracion": "calibracion_atm.err_sin_calibracion",
+    "sin_pendiente": "calibracion_atm.err_sin_pendiente",
+    "no_aplicada": "calibracion_atm.err_no_aplicada",
+    "no_existe": "opciones.err_valor_invalido",
+    "tipo_invalido": "opciones.err_valor_invalido",
+    "fuera_de_rango": "opciones.err_valor_invalido",
+    "incoherente": "calibracion_atm.err_incoherente",
+}
+_CLAVES_RESTAURAR = {
+    "usb_no_detectada": "respaldo.err_usb",
+    "demasiado_grande": "respaldo.err_invalido",
+    "sin_manifiesto": "respaldo.err_invalido",
+    "manifiesto_invalido": "respaldo.err_invalido",
+    "manifiesto_alterado": "respaldo.err_invalido",
+    "archivo_faltante": "respaldo.err_invalido",
+    "hash_invalido": "respaldo.err_invalido",
+    "ilegible": "respaldo.err_invalido",
+    "formato": "respaldo.err_formato",
+    "otra_serie": "respaldo.err_otra_serie",
+    "version": "respaldo.err_version",
+    "parametros_invalidos": "respaldo.err_parametros",
+    "calibracion_invalida": "respaldo.err_calibracion",
+    "calibracion_implausible": "respaldo.err_calibracion",
+    "calibracion_otro_enlace": "respaldo.err_calibracion_otro_enlace",
+    "asignacion_io_invalida": "respaldo.err_asignacion",
+    "archivo_invalido": "respaldo.err_invalido",
+    "confirmacion_requerida": "respaldo.err_confirmacion",
+}
+_CLAVES_TEMA = {"ARCHIVO_NO_ESCRIBIBLE": "opciones.equipo_err_guardar"}
+_CLAVES_POR_RUTA = (("/io/test", _CLAVES_IO_TEST),
+                    ("/maintenance/atm-calibration", _CLAVES_CALIBRACION_ATM),
+                    ("/backup/restore", _CLAVES_RESTAURAR),
+                    ("/theme", _CLAVES_TEMA))
+
 _CODIGOS_POR_RUTA = (("/io/assignment", _CODIGOS_REASIGNACION),
                      ("/usuarios", _CODIGOS_USUARIOS),
                      ("/operadores", _CODIGOS_USUARIOS),
@@ -194,7 +248,12 @@ _CODIGOS_POR_RUTA = (("/io/assignment", _CODIGOS_REASIGNACION),
                      ("/global_params", _CODIGOS_GLOBAL_PARAMS),
                      ("/language", _CODIGOS_ARCHIVO),
                      ("/units", _CODIGOS_ARCHIVO),
-                     ("/printer/config", _CODIGOS_IMPRESORA))
+                     ("/printer/config", _CODIGOS_IMPRESORA)) + tuple(
+    (prefijo, frozenset(claves)) for prefijo, claves in _CLAVES_POR_RUTA)
+
+
+def _en_ruta(ruta: str, prefijo: str) -> bool:
+    return ruta == prefijo or ruta.startswith(prefijo + "/")
 
 
 def codigos_conocidos(ruta: str = "") -> frozenset:
@@ -203,14 +262,21 @@ def codigos_conocidos(ruta: str = "") -> frozenset:
     ruta = (ruta or "").split("?", 1)[0]
     extra = frozenset()
     for prefijo, codigos in _CODIGOS_POR_RUTA:
-        if ruta == prefijo or ruta.startswith(prefijo + "/"):
+        if _en_ruta(ruta, prefijo):
             extra |= codigos
     return _CODIGOS_CONOCIDOS | extra
 
 
-def clave_mensaje(causa: str) -> str:
-    """Clave de es.json para una causa; las desconocidas, el mensaje genérico."""
-    return _CLAVES.get(causa, _CLAVES[ERROR_GENERICO])
+def clave_mensaje(causa: str, ruta: str = "") -> str:
+    """Clave de es.json para una causa; las desconocidas, el mensaje genérico.
+    Con `ruta`, también los textos propios de esa ruta (FASE 6)."""
+    if causa in _CLAVES:
+        return _CLAVES[causa]
+    ruta = (ruta or "").split("?", 1)[0]
+    for prefijo, claves in _CLAVES_POR_RUTA:
+        if _en_ruta(ruta, prefijo) and causa in claves:
+            return claves[causa]
+    return _CLAVES[ERROR_GENERICO]
 
 
 def formato_tiempo(segundos: float) -> str:
@@ -566,6 +632,7 @@ class SesionVentana(QObject):
     cierrePorDesconexion = Signal(str)
     # SESION_INACTIVIDAD_S sin actividad en esta ventana: la sesión ya se cerró
     cierrePorInactividad = Signal()
+    modoPruebaChanged = Signal()
 
     def __init__(self, parent=None, transporte=None, ejecutar=_en_hilo,
                  plazo_s: float = PLAZO_S, reloj=time.monotonic,
@@ -604,6 +671,9 @@ class SesionVentana(QObject):
         self._inactividad_s = inactividad_s
         self._ultima_actividad = reloj()
         self._ultimo_keepalive = float("-inf")
+        # Equipo en modo prueba (/status.test_mode_active): no se cierra la
+        # sesión por inactividad y el token se renueva (ajuste 2026-11-04).
+        self._modo_prueba = False
         # Hay una pantalla con token a la vista (vigilar()). Fuera de ellas los
         # toques no prolongan la sesión (revisión de U2, tanda 2: Atrás/Home ya
         # no la cierran y la preciclo la usa cualquiera). True hasta el primer
@@ -614,6 +684,12 @@ class SesionVentana(QObject):
         self._timer_inactividad.timeout.connect(self._revisar_inactividad)   # solo con sesión
 
     # ── estado ───────────────────────────────────────────────────────
+
+    @property
+    def generacion(self) -> int:
+        """Generación de la sesión (sube en cada cerrar_local); solo lectura.
+        La usa OperacionCritica para saber si la sesión cambió en vuelo."""
+        return self._gen_sesion
 
     @Property(bool, notify=ocupadoChanged)
     def ocupado(self) -> bool:
@@ -632,7 +708,6 @@ class SesionVentana(QObject):
         bloqueado]); lo consume."""
         aviso, self._aviso = self._aviso, None
         return aviso
-    modoPruebaChanged = Signal()
 
     def _peticion(self, metodo: str, ruta: str, cuerpo: dict | None = None,
                   token: str | None = None, plazo: float | None = None):
@@ -671,9 +746,6 @@ class SesionVentana(QObject):
             al_terminar(r)
 
         def tardio(r: Resultado):
-        # Equipo en modo prueba (/status.test_mode_active): no se cierra la
-        # sesión por inactividad y el token se renueva (ajuste 2026-11-04).
-        self._modo_prueba = False
             token = r.datos.get("token") if r.ok else None
             if token:
                 logger.warning("Login respondido tras el plazo o cancelado: se invalida ese token")
@@ -967,8 +1039,30 @@ class SesionVentana(QObject):
             self.registrarActividad()
         return False   # nunca consume el evento
 
+    @Property(bool, notify=modoPruebaChanged)
+    def modoPrueba(self) -> bool:
+        return self._modo_prueba
+
+    @modoPrueba.setter
+    def modoPrueba(self, valor: bool) -> None:
+        valor = bool(valor)
+        if valor == self._modo_prueba:
+            return
+        self._modo_prueba = valor
+        if not valor:
+            # al salir el plazo de inactividad empieza de cero: no cierra al instante
+            self._ultima_actividad = self._reloj()
+        self.modoPruebaChanged.emit()
+
     def _revisar_inactividad(self) -> None:
         if not SessionManager.is_authenticated():
+            return
+        if self._modo_prueba:
+            # sin cierre por inactividad; el token del backend se renueva con el
+            # keepalive existente (limitado a una vez cada KEEPALIVE_S)
+            ahora = self._reloj()
+            self._ultima_actividad = ahora
+            self._renovar_en_servidor(ahora)
             return
         if self._reloj() - self._ultima_actividad < self._inactividad_s:
             return
@@ -1039,31 +1133,9 @@ class SesionVentana(QObject):
                 with self._lock_tokens:
                     self._tokens_por_invalidar.append(SessionManager.token())
             logger.warning("Sesión cerrada tras %s s sin conexión con el equipo", self._cierre_s)
-    @Property(bool, notify=modoPruebaChanged)
-    def modoPrueba(self) -> bool:
-        return self._modo_prueba
-
-    @modoPrueba.setter
-    def modoPrueba(self, valor: bool) -> None:
-        valor = bool(valor)
-        if valor == self._modo_prueba:
-            return
-        self._modo_prueba = valor
-        if not valor:
-            # al salir el plazo de inactividad empieza de cero: no cierra al instante
-            self._ultima_actividad = self._reloj()
-        self.modoPruebaChanged.emit()
-
             self.cerrar_local()
             self.cierrePorDesconexion.emit("principal")
 
-        if self._modo_prueba:
-            # sin cierre por inactividad; el token del backend se renueva con el
-            # keepalive existente (limitado a una vez cada KEEPALIVE_S)
-            ahora = self._reloj()
-            self._ultima_actividad = ahora
-            self._renovar_en_servidor(ahora)
-            return
     def _validar_sesion(self) -> None:
         """Una sola vez al reconectar: GET /auth/sesion. 401 cierra la sesión."""
         token = SessionManager.token()
@@ -1093,17 +1165,20 @@ def ventana() -> SesionVentana:
 
 
 def enviar_async(sesion, metodo: str, ruta: str, cuerpo: dict | None, al_terminar,
-                 dueno=None, al_tardio=None) -> bool:
+                 dueno=None, al_tardio=None, plazo_s: float | None = None) -> bool:
     """Envío asíncrono para los controladores. Con una sesión que no tiene
     `enviar_async` (dobles de prueba que solo tienen `enviar`) se llama a
     `enviar` y se entrega el resultado en el acto. Se mira el tipo y no la
-    instancia para que un MagicMock no pase por asíncrono. `al_tardio` solo
-    se pasa si se pidió (dobles con la firma anterior siguen valiendo)."""
+    instancia para que un MagicMock no pase por asíncrono. `al_tardio` y
+    `plazo_s` solo se pasan si se pidieron (dobles con la firma anterior
+    siguen valiendo)."""
     if callable(getattr(type(sesion), "enviar_async", None)):
-        if al_tardio is None:
-            return sesion.enviar_async(metodo, ruta, cuerpo, al_terminar, dueno=dueno)
-        return sesion.enviar_async(metodo, ruta, cuerpo, al_terminar, dueno=dueno,
-                                   al_tardio=al_tardio)
+        extra = {}
+        if al_tardio is not None:
+            extra["al_tardio"] = al_tardio
+        if plazo_s is not None:
+            extra["plazo_s"] = plazo_s
+        return sesion.enviar_async(metodo, ruta, cuerpo, al_terminar, dueno=dueno, **extra)
     al_terminar(sesion.enviar(metodo, ruta, cuerpo))
     return True
 

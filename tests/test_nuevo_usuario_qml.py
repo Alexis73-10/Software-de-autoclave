@@ -144,12 +144,27 @@ _SCRIPT = textwrap.dedent(r"""
         p.setProperty(k, v)
     proc()
     llamar("pulsarGuardar")
+    # FASE 6: el alta es asíncrona; se bombea la sesión hasta el desenlace
+    r["guardando"] = p.property("guardando")
+    for _ in range(20):
+        proc()
+        vista.puente._sesion._envios._vaciar()
     envio = enviados[-1] if enviados else {}
     r["exito"] = {"destino": list(destinos), "ruta": envio.get("ruta"),
                   "usuario": envio.get("cuerpo", {}).get("usuario"),
                   "rol": envio.get("cuerpo", {}).get("rol"), "token": envio.get("token"),
                   "limpio": p.property("clave") == ""
                   and p.property("usuario") == ""}
+
+    # H1 (3.er ciclo): un 'confirmada_tarde' de un alta que no es la actual
+    # no navega ni limpia lo escrito
+    destinos.clear()
+    p.setProperty("usuario", "betop"); proc()
+    vista.puente.guardadoResuelto.emit("confirmada", {}, "operacion.confirmada_tarde",
+                                       vista.puente.altaActual + 7)
+    proc()
+    r["tardio_ajeno"] = {"destino": list(destinos), "usuario": p.property("usuario")}
+    llamar("limpiar")
 
     # sin sesión admin: al mostrarse vuelve al menú
     vista.hide(); proc()
@@ -236,6 +251,27 @@ def test_exito_guarda_limpia_y_navega(resultado):
     assert resultado["exito"] == {"destino": ["admin_menu"], "ruta": "/usuarios",
                                   "usuario": "anar", "rol": "tecnico", "token": "tok-admin",
                                   "limpio": True}
+
+
+def test_guardar_queda_en_curso_hasta_el_desenlace(resultado):
+    # FASE 6: tras pulsar Guardar, Guardar y Cancelar quedan bloqueados
+    assert resultado["guardando"] is True
+
+
+def test_h1_confirmada_tarde_ajena_no_navega(resultado):
+    assert resultado["tardio_ajeno"] == {"destino": [], "usuario": "betop"}
+
+
+def test_h1_h3_texto_qml():
+    """La QML filtra el 'confirmada_tarde' ajeno y, al destruirse, abandona la
+    lectura previa (el POST ya no sale)."""
+    from pathlib import Path
+    qml = (Path(__file__).resolve().parents[1]
+           / "src/autoclave/ui_qml/qml/Pantallas/NuevoUsuario.qml").read_text(encoding="utf-8")
+    assert "function onGuardadoResuelto(estado, errores, mensaje, alta)" in qml
+    assert 'mensaje === "operacion.confirmada_tarde"' in qml
+    assert "alta !== raiz.puente.altaActual" in qml
+    assert "Component.onDestruction: if (puente) puente.abandonarPreparacion()" in qml
 
 
 def test_sin_admin_vuelve_al_menu(resultado):

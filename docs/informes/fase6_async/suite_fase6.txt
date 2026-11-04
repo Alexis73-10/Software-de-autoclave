@@ -1,0 +1,58 @@
+=== LOTE lote_00
+867 passed, 27 skipped, 1 warning in 119.84s (0:01:59)
+exit lote lote_00 done
+=== LOTE lote_01
+622 passed, 2 skipped, 3 xfailed, 1 warning in 186.37s (0:03:06)
+exit lote lote_01 done
+=== LOTE lote_02
+ERROR tests/test_config.py
+!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 14.16s
+exit lote lote_02 done
+=== LOTE lote_03
+1018 passed, 1 skipped, 4 xfailed in 201.55s (0:03:21)
+exit lote lote_03 done
+=== LOTE lote_04
+872 passed, 4 warnings in 236.85s (0:03:56)
+exit lote lote_04 done
+=== LOTE lote_05
+829 passed, 1 warning in 521.95s (0:08:41)
+exit lote lote_05 done
+=== LOTE lote_06
+527 passed, 1 warning in 195.14s (0:03:15)
+exit lote lote_06 done
+=== LOTE lote_07
+478 passed, 2 skipped in 163.18s (0:02:43)
+exit lote lote_07 done
+=== LOTE lote_08
+ERROR tests/test_rutas.py
+!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 14.31s
+exit lote lote_08 done
+=== LOTE lote_09
+ERROR    autoclave.core.managers.limites_equipo:limites_equipo.py:107 Límites de presión del equipo incoherentes LimitesPresion(fondo_escala=100.0, suministro=100.0, alivio_camara=100.0, alivio_chaqueta=100.0): rigen los de fábrica
+FAILED tests/test_t12_c05_chaqueta.py::test_preparado_sigue_usando_presion_chaqueta
+1 failed, 619 passed, 2 warnings in 48.04s
+exit lote lote_09 done
+=== LOTE lote_10
+982 passed, 1 warning in 179.01s (0:02:59)
+exit lote lote_10 done
+=== LOTE lote_11
+733 passed, 2 skipped, 1 warning in 303.31s (0:05:03)
+exit lote lote_11 done
+=== LOTE lote_12
+787 passed, 1 skipped in 92.29s (0:01:32)
+exit lote lote_12 done
+=== LOTE lote_13
+1044 passed in 682.32s (0:11:22)
+exit lote lote_13 done
+=== LOTE lote_14
+55 passed in 8.72s
+exit lote lote_14 done
+FIN
+=== REINTENTO lote_02 (con --continue-on-collection-errors)
+ERROR tests/test_config.py
+402 passed, 1 warning, 1 error in 42.75s
+=== REINTENTO lote_08 (con --continue-on-collection-errors)
+ERROR tests/test_rutas.py
+777 passed, 3 skipped, 1 error in 290.29s (0:04:50)

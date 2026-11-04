@@ -439,7 +439,7 @@ def test_pantalla_espera_cambio_resuelto_y_bloquea_atras():
     assert "if (control.parametroPendiente)\n            return true" in texto
     assert 'raiz.pendiente("param:" + modelData.clave)' in texto
     assert "control.mensajeRevertido" in texto and "opciones.cargando" in texto
-    assert "control.fijarImpresoraYReiniciar(v)" in texto   # sigue síncrono
+    assert "control.fijarImpresoraYReiniciar(v)" in texto   # FASE 6: operación crítica asíncrona
 
 
 def test_pantalla_expone_guardando_parametro_para_opciones():

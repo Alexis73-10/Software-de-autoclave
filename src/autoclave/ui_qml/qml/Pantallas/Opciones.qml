@@ -4,6 +4,7 @@ import Tema
 import Autoclave.Controllers
 import "../Componentes"
 import Autoclave.I18n
+import Autoclave.Operaciones
 
 // OPCIONES, Fase 1: marco (planeacion_opciones_parametros_ciclo.md, rev. 3, §5.0,
 // U-2, U-5, U-6, U-19 y §7). Referencia: src/autoclave/images/opciones_cajon_comparativo.png
@@ -53,6 +54,8 @@ Item {
     readonly property bool navegacionBloqueada: (mantenimiento.itemActivo?.navegacionBloqueada ?? false)
                                                 || (parametrosCiclo.itemActivo?.guardandoParametro ?? false)
                                                 || (parametrosEquipo.itemActivo?.guardandoParametro ?? false)
+                                                // FASE 6: operación crítica en curso (como mucho plazo + 5 s)
+                                                || Operaciones.bloqueaNavegacion
 
     // Nombre de la sección en una línea (cajón y título, §5.0)
     function nombreSeccion(clave) {

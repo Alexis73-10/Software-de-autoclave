@@ -10,6 +10,9 @@ import Autoclave.I18n
 // respaldos de la USB con chip Válido / Rechazado (otro número de serie,
 // versión, dañado) y "Restaurar seleccionado" con confirmación. Técnico e
 // ingeniero, solo fuera de ciclo (`edicionPermitida` y el backend, 409).
+// Restaurar (FASE 6): operación crítica sin optimismo; los botones se bloquean
+// mientras está en curso (`operacionEnCurso`), se muestra «Procesando…» /
+// «Verificando…» y el resultado llega por `operacionResuelta`.
 Item {
     id: raiz
     objectName: "opcionesRespaldo"
@@ -24,6 +27,13 @@ Item {
     Component.onCompleted: control.cargar()
 
     readonly property bool hayUsb: control.unidad !== ""
+    readonly property bool restaurando: control.operacionEnCurso
+
+    // Procesando / verificando según el estado de la operación (sin optimismo)
+    function textoOperacion() {
+        return I18n.t(control.estadoDe("restaurar") === "verificando" ? "operacion.verificando"
+                                                                       : "operacion.procesando", I18n.lang)
+    }
 
     function textoMotivo(m) {
         return I18n.existe("respaldo.motivo_" + m, I18n.lang) ? I18n.t("respaldo.motivo_" + m, I18n.lang)
@@ -60,6 +70,17 @@ Item {
             id: columna
             width: parent.width
             spacing: Escala.px(8)
+
+            Text {
+                objectName: "operacionRespaldo"
+                visible: raiz.restaurando
+                width: parent.width
+                text: raiz.restaurando ? raiz.textoOperacion() : ""
+                color: Colores.textoGuia
+                font.family: Tipografia.familia
+                font.weight: Tipografia.pesoSemiBold
+                font.pixelSize: Escala.fuente(22)
+            }
 
             Text {
                 objectName: "cargandoRespaldo"
@@ -159,7 +180,7 @@ Item {
                 width: parent.width
                 texto: control.guardando ? I18n.t("opciones.guardando", I18n.lang)
                                          : I18n.t("respaldo.exportar", I18n.lang)
-                habilitado: raiz.edicionPermitida && raiz.hayUsb && !control.guardando
+                habilitado: raiz.edicionPermitida && raiz.hayUsb && !control.guardando && !raiz.restaurando
                 onPulsado: control.exportar()
             }
 
@@ -248,8 +269,10 @@ Item {
             Boton {
                 objectName: "botonRestaurar"
                 width: parent.width
-                texto: I18n.t("respaldo.restaurar", I18n.lang)
-                habilitado: raiz.edicionPermitida && control.seleccion !== ""
+                texto: raiz.restaurando ? raiz.textoOperacion() : I18n.t("respaldo.restaurar", I18n.lang)
+                // MENOR-6 (FASE 6): no con una exportación en vuelo
+                habilitado: raiz.edicionPermitida && control.seleccion !== "" && !raiz.restaurando
+                            && !control.guardando
                 onPulsado: dialogoRestaurar.abrir()
             }
             Text {
@@ -270,6 +293,8 @@ Item {
         textoConfirmar: I18n.t("respaldo.restaurar", I18n.lang)
         textoCancelar: I18n.t("acciones.cancelar", I18n.lang)
         colorConfirmar: Colores.peligroTexto
+        // se cierra al confirmar: el avance («Procesando…») y el resultado
+        // (`operacionResuelta` -> banda de mensaje) se ven en la pantalla
         onConfirmado: { cerrar(); control.restaurar() }
     }
 }

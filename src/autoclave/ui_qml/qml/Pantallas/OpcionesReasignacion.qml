@@ -54,6 +54,31 @@ Item {
     }
     readonly property bool _verificando: control.cantidadSinVerificar > 0
 
+    // FASE 6: aplicar, restaurar fábrica y verificar son operaciones críticas
+    // sin optimismo; mientras alguna está en curso no se pulsa nada más y la
+    // banda dice «Procesando…» o «Verificando…» (el desenlace lo da el
+    // controlador en `mensaje`; `reiniciando` solo tras la confirmación)
+    readonly property bool _ocupado: control.operacionEnCurso
+    readonly property string _textoOperacion: {
+        if (!control.operacionEnCurso)
+            return ""
+        for (const k of ["aplicar", "fabrica", "verificar"])
+            if (control.estadoDe(k) === "verificando")
+                return "operacion.verificando"
+        return "operacion.procesando"
+    }
+    Connections {
+        target: control
+        // con una confirmación se cierra lo que quede abierto del flujo
+        function onOperacionResuelta(clave, estado, mensaje) {
+            if (estado !== "confirmada")
+                return
+            selector.visible = false
+            if (clave === "verificar")
+                raiz._enVerificacion = ({})
+        }
+    }
+
     function nombre(clave) { return clave ? I18n.t(clave, I18n.lang) : "" }
 
     // ------------------------------------------------------------ componentes
@@ -131,7 +156,9 @@ Item {
                 { visible: control.cantidadSinVerificar > 0,
                   texto: "reasignacion.sin_verificar_aviso", peligro: true },
                 { visible: control.mensaje !== "", texto: control.mensaje,
-                  peligro: control.mensaje.indexOf(".err_") >= 0 }
+                  peligro: control.mensaje.indexOf(".err_") >= 0 },
+                // FASE 6: operación crítica sin desenlace (sin optimismo)
+                { visible: control.operacionEnCurso, texto: raiz._textoOperacion, peligro: false }
             ]
             delegate: Rectangle {
                 id: banda
@@ -222,7 +249,7 @@ Item {
                         anchors.verticalCenter: parent.verticalCenter
                         width: Escala.px(220); height: Escala.px(60)
                         relleno: Colores.accionPrimario
-                        habilitado: control.editable && itemVerif.modelData.falta === ""
+                        habilitado: control.editable && itemVerif.modelData.falta === "" && !raiz._ocupado
                         texto: I18n.t("reasignacion.verificar", I18n.lang)
                         onPulsado: raiz.iniciarVerificacion(itemVerif.modelData)
                     }
@@ -368,7 +395,7 @@ Item {
             objectName: "botonDescartarReasignacion"
             width: acciones.ancho; height: parent.height
             relleno: Colores.textoSecundario
-            habilitado: control.cantidadCambios > 0
+            habilitado: control.cantidadCambios > 0 && !raiz._ocupado
             texto: I18n.t("reasignacion.descartar", I18n.lang)
             onPulsado: control.descartar()
         }
@@ -376,8 +403,8 @@ Item {
             objectName: "botonRestaurarFabrica"
             width: acciones.ancho; height: parent.height
             relleno: Colores.menuNaranja
-            habilitado: control.editable && (control.hayCambiosGuardados || control.bloqueado
-                                             || control.reinicioPendiente)
+            habilitado: control.editable && !raiz._ocupado
+                        && (control.hayCambiosGuardados || control.bloqueado || control.reinicioPendiente)
             texto: I18n.t("reasignacion.restaurar_fabrica", I18n.lang)
             onPulsado: { control.cargar(); dialogoFabrica.abrir() }   // aviso al día (SAF-05)
         }
@@ -386,6 +413,7 @@ Item {
             width: acciones.ancho; height: parent.height
             relleno: Colores.peligroTexto
             habilitado: control.editable && control.cantidadCambios > 0 && control.conflictos.length === 0
+                        && !raiz._ocupado
             texto: I18n.t("reasignacion.aplicar", I18n.lang)
             onPulsado: raiz.iniciarAplicar()
         }
@@ -504,7 +532,7 @@ Item {
     // --------------------------------------------------------- confirmaciones
     // 1) Alerta de criticidad
     function iniciarAplicar() {
-        if (control.cantidadCambios === 0 || control.conflictos.length > 0)
+        if (control.cantidadCambios === 0 || control.conflictos.length > 0 || raiz._ocupado)
             return
         dialogoAlerta.abrir()
     }

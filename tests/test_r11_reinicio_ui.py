@@ -74,7 +74,8 @@ def test_confirmado_envia_reiniciar_y_queda_reiniciando_sin_releer():
 def test_rechazado_muestra_el_motivo_relee_y_no_reinicia(causa, clave):
     s = SesionReinicio(put=Resultado(causa))
     c = _ctrl(s)
-    assert not c.fijarImpresoraYReiniciar(False)
+    assert c.fijarImpresoraYReiniciar(False)               # True = enviada (FASE 6)
+    assert not c.operacionEnCurso
     assert c.mensaje == clave and c.reiniciando is False
     assert c.impresoraHabilitada is True                   # releído del backend
     assert s.enviados[-1][0] == "GET"

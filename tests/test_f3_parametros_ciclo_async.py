@@ -7,7 +7,8 @@
 #      del modo de descompresión; una sola relectura.
 #   C  entradas mostradas (PUT /cycle/display-inputs): optimista con reversión.
 #   D  lecturas asíncronas con `cargando`.
-#   guardarSensores sigue síncrono.
+#   guardarSensores: desde la FASE 6, asíncrono sin optimismo (ver
+#   tests/test_f6_roles_sensores_async.py).
 # El doble entrega a mano (`entregar`), como lo haría la sesión real más tarde.
 
 import os
@@ -354,16 +355,18 @@ def test_entradas_sin_respuesta_pero_aplicadas_se_confirman():
     assert c.entradas == ["pres_camara"] and resueltos == [("entradas:4", True, "")]
 
 
-# ── sensores: sigue síncrono ──────────────────────────────────────────────
+# ── sensores: FASE 6, asíncrono sin optimismo (detalle en
+# tests/test_f6_roles_sensores_async.py) ───────────────────────────────────
 
-def test_guardar_sensores_sigue_sincrono():
+def test_guardar_sensores_ya_no_es_sincrono():
     sensores = {"asignacion": {"temp_camara": "principal"}, "editable": True,
                 "sensores": [{"id": "temp_camara"}]}
     c, s, _, _ = _control({("GET", "/cycle/sensors"): _ok(sensores),
                            ("PUT", "/cycle/sensor-roles"): _ok({"ok": True})})
+    _plazo = s.enviar_async
+    s.enviar_async = lambda *a, plazo_s=None, **kw: _plazo(*a, **kw)   # OperacionCritica pasa plazo_s
     assert c.guardarSensores({"temp_camara": "principal"}) is True
-    assert [m for m, *_ in s.sincronos] == ["PUT", "GET"]
-    assert ("PUT", "/cycle/sensor-roles") not in s.pendientes()
+    assert s.sincronos == [] and ("PUT", "/cycle/sensor-roles") in s.pendientes()
 
 
 def test_al_destruirse_cancela_los_envios():

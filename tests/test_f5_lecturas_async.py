@@ -31,7 +31,8 @@ class SesionManual:
         self.sincronos.append((metodo, ruta))
         return Resultado("ok", {})
 
-    def enviar_async(self, metodo, ruta, cuerpo=None, al_terminar=None, *, dueno=None, al_tardio=None):
+    def enviar_async(self, metodo, ruta, cuerpo=None, al_terminar=None, *, dueno=None, al_tardio=None,
+                     plazo_s=None):
         self.vuelo.append((metodo, ruta, cuerpo, al_terminar))
         return True
 
@@ -204,21 +205,32 @@ def test_respaldo_exportar_error_y_doble_sincrono():
     assert d.exportar() is False
 
 
-def test_respaldo_restaurar_sigue_sincrono():
+def test_respaldo_restaurar_es_asincrono_y_no_toca_el_hilo_de_la_gui():
     s = SesionManual()
     c = _resp(s)
     c.cargar()
     s.entregar(0, datos={"unidades": [{"ruta": "E:/", "respaldos": [{"archivo": "a", "valido": True}]}]})
     c.seleccionar("a")
-    assert c.restaurar() is True
-    assert ("POST", "/backup/restore") in s.sincronos
+    assert c.restaurar() is True                  # True = enviada (FASE 6)
+    assert ("POST", "/backup/restore") not in s.sincronos
+    assert any(v[:2] == ("POST", "/backup/restore") for v in s.vuelo)
+    assert c.operacionEnCurso
 
 
 # -- Reasignacion (solo el GET) -----------------------------------------
 
-def test_reasignacion_cargar_async_obsoleta_y_aplicar_sigue_sincrono():
+class _SesionManualPlazo(SesionManual):
+    """FASE 6: OperacionCritica pasa `plazo_s`."""
+
+    def enviar_async(self, metodo, ruta, cuerpo=None, al_terminar=None, *, dueno=None,
+                     al_tardio=None, plazo_s=None):
+        return super().enviar_async(metodo, ruta, cuerpo, al_terminar, dueno=dueno,
+                                    al_tardio=al_tardio)
+
+
+def test_reasignacion_cargar_async_obsoleta_y_aplicar_asincrono():
     from autoclave.ui_qml.controllers.reasignacion_controller import ReasignacionController
-    s = SesionManual()
+    s = _SesionManualPlazo()
     c = ReasignacionController(sesion=s)
     c.cargar()
     c.cargar()
@@ -228,17 +240,17 @@ def test_reasignacion_cargar_async_obsoleta_y_aplicar_sigue_sincrono():
     s.entregar(0, causa="error_generico")
     assert c.cargado                               # la vieja no borra lo nuevo
     c._pendientes = {"f": 3}
-    c.aplicar("clave")
-    assert ("POST", "/io/assignment") in s.sincronos
+    assert c.aplicar("clave") is True              # FASE 6: asincrono
+    assert s.vuelo[-1][1] == "/io/assignment" and s.sincronos == []
 
 
 def test_reasignacion_lectura_previa_a_escritura_no_pisa():
     from autoclave.ui_qml.controllers.reasignacion_controller import ReasignacionController
-    s = SesionManual()
+    s = _SesionManualPlazo()
     c = ReasignacionController(sesion=s)
     c.cargar()                                     # en vuelo
     c._pendientes = {"f": 3}
-    c.aplicar("clave")                             # escritura sincrona
+    c.aplicar("clave")                             # escritura (operacion critica)
     assert not c.cargando
     s.entregar(0, datos={"filas": [], "editable": True})
     assert not c.cargado                           # la lectura anterior a la escritura se descarta

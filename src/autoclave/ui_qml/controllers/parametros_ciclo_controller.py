@@ -27,12 +27,18 @@
 #     cambio optimista con reversión (CambioOptimista, clave "entradas:<n>").
 #   - Lecturas (programas, sección, entradas, sensores): GET asíncronos con
 #     `cargando`; una respuesta anterior a la última no pisa la vista.
-#   - Roles de sensores (PUT /cycle/sensor-roles): SIGUE síncrono y
-#     confirmado por el backend, con su relectura síncrona.
+#   - Roles de sensores (PUT /cycle/sensor-roles; FASE 6, P1): operación
+#     crítica asíncrona SIN optimismo (OperacionCritica, clave
+#     "sensores:<n>", plazo 10 s, bloquea la navegación). La asignación
+#     mostrada es la vigente del backend hasta el 200 o hasta una relectura
+#     de GET /cycle/sensors que coincida con lo pedido; sin respuesta y sin
+#     coincidencia queda «sin confirmar» (ya no hay atajo que la dé por buena).
+#     El desenlace llega por `operacionResuelta(clave, estado, mensaje)`.
 # Los slots devuelven False si falla la validación local (o la clave sigue
 # pendiente); si el resultado llegó en el acto (sesión de prueba con solo
 # `enviar`), el `ok` real; si quedó en vuelo, True («aceptado»). El desenlace
-# llega por `cambioResuelto(clave, ok, mensaje)`.
+# llega por `cambioResuelto(clave, ok, mensaje)`. Excepción: guardarSensores
+# devuelve siempre True = enviado (o False = rechazo local).
 
 import logging
 
@@ -42,6 +48,7 @@ from PySide6.QtQml import qmlRegisterType
 from autoclave.ui_qml import sesion_backend
 from autoclave.ui_qml.cambio_optimista import (
     ENVIANDO, SIN_CONFIRMAR, SIN_LECTURA, VERIFICANDO, CambioOptimista)
+from autoclave.ui_qml import operacion_critica as oc
 
 # Código del backend -> clave de es.json (opciones §5.4)
 _MENSAJES = {
@@ -87,6 +94,24 @@ _ADVERTENCIAS = {
 
 MENSAJE_SIN_CONFIRMAR = "opciones.cambio_sin_confirmar"
 MENSAJE_ERROR_INTERNO = "opciones.err_generico"   # un callback de guardado falló
+PLAZO_SENSORES_S = 10.0          # FASE 6: PUT /cycle/sensor-roles
+
+
+def clave_sensores(numero) -> str:
+    """Clave de la operación crítica de roles de sensores del programa."""
+    return f"sensores:{int(numero)}"
+
+
+def conciliar_sensores(leido, pedida: dict):
+    """Relectura tras «sin respuesta» del PUT de roles: CONFIRMADA solo si la
+    asignación vigente es la pedida. Si no coincide NO es un rechazo (MAYOR-3,
+    corrección tras revisión): el PUT puede seguir en el backend; queda
+    SIN_CONFIRMAR y un 200 tardío aún se procesa."""
+    if not isinstance(leido, dict):
+        return oc.SIN_CONFIRMAR
+    if dict(leido) == dict(pedida):
+        return oc.CONFIRMADA
+    return (oc.SIN_CONFIRMAR, mensaje_de(sesion_backend.BACKEND_NO_RESPONDE))
 
 logger = logging.getLogger(__name__)
 
@@ -160,6 +185,9 @@ class ParametrosCicloController(QObject):
     cargandoChanged = Signal()
     # clave del cambio, aceptado, clave i18n del mensaje ("" si aceptado)
     cambioResuelto = Signal(str, bool, str)
+    # FASE 6: operación crítica (roles de sensores): clave, estado, mensaje
+    operacionResuelta = Signal(str, str, str)
+    operacionEnCursoChanged = Signal()
 
     def __init__(self, parent=None, sesion=None):
         super().__init__(parent)
@@ -195,6 +223,9 @@ class ParametrosCicloController(QObject):
                                     self._al_revertir_entradas, self._releer_entradas,
                                     al_confirmar=self._al_confirmar_entradas,
                                     al_pendientes=self.pendientesChanged.emit)
+        self._op = oc.OperacionCritica(self, self._s)
+        self._op.operacionEnCursoChanged.connect(self.operacionEnCursoChanged)
+        self._op.operacionResuelta.connect(self._al_resolver_operacion)
         # sin referencia a self: el destructor de C++ ya está en marcha
         self.destroyed.connect(_cancelar_al_destruir(sesion, id(self)))
 
@@ -641,11 +672,20 @@ class ParametrosCicloController(QObject):
                 self._aplicar_sensores(r)
         self._leer(f"/cycle/sensors?programa={numero}", leido)
 
-    def _cargar_sensores_sincrono(self) -> None:
-        """Relectura de guardarSensores, que sigue síncrono y confirmado por
-        el backend; descarta cualquier lectura asíncrona anterior."""
-        self._nueva_gen("sensores")
-        self._aplicar_sensores(self._s().enviar("GET", f"/cycle/sensors?programa={self._numero}"))
+    def _releer_sensores(self, numero: int, al_leido) -> None:
+        """Relectura de la operación crítica de roles: GET /cycle/sensors ->
+        al_leido(asignación vigente) o al_leido(SIN_LECTURA). Descarta las
+        lecturas anteriores; un fallo no borra la vista."""
+        gen = self._nueva_gen("sensores")
+
+        def leido(r):
+            if r.ok and isinstance(r.datos, dict):
+                if gen == self._gen["sensores"] and numero == self._numero:
+                    self._aplicar_sensores(r)
+                al_leido(dict(r.datos.get("asignacion") or {}))
+            else:
+                al_leido(SIN_LECTURA)
+        self._leer(f"/cycle/sensors?programa={numero}", leido)
 
     def _aplicar_sensores(self, r) -> None:
         if r.ok and isinstance(r.datos, dict):
@@ -669,21 +709,48 @@ class ParametrosCicloController(QObject):
     def sensoresEditable(self) -> bool:
         return self._sensores_editable
 
+    @Property(bool, notify=operacionEnCursoChanged)
+    def operacionEnCurso(self) -> bool:
+        return self._op.en_curso()
+
+    @Slot(str, result=str)
+    def estadoDe(self, clave: str) -> str:
+        """inactiva | enviando | verificando de la operación crítica `clave`."""
+        return self._op.estado(clave)
+
+    @Slot(result=str)
+    def claveSensores(self) -> str:
+        return clave_sensores(self._numero)
+
     @Slot("QVariantMap", result=bool)
     def guardarSensores(self, asignacion) -> bool:
-        cuerpo = {"programa": self._numero, "asignacion": dict(asignacion),
+        """FASE 6: True = enviado (desenlace por `operacionResuelta`); False =
+        ya hay un guardado de roles en curso (sin segundo envío)."""
+        numero, pedida = self._numero, dict(asignacion)
+        cuerpo = {"programa": numero, "asignacion": pedida,
                   "asignacion_anterior_esperada": dict(self._asignacion)}
-        r = self._s().enviar("PUT", "/cycle/sensor-roles", cuerpo)
-        self._cargar_sensores_sincrono()
-        if r.ok:
-            self._fijar_mensaje("")
-            self.cargar()
-            return True
-        if r.causa == sesion_backend.BACKEND_NO_RESPONDE and self._asignacion == dict(asignacion):
-            self._fijar_mensaje("")
-            return True
-        self._fijar_mensaje(mensaje_de(r.causa))
-        return False
+        if self._op.en_curso(clave_sensores(numero)):
+            return False
+        self._nueva_gen("sensores")         # una lectura anterior ya no pisa la vista
+        self._fijar_mensaje("")
+        return self._op.iniciar(
+            clave_sensores(numero), "PUT", "/cycle/sensor-roles", cuerpo,
+            plazo_s=PLAZO_SENSORES_S, al_rechazo=lambda r: mensaje_de(r.causa),
+            releer=lambda al_leido: self._releer_sensores(numero, al_leido),
+            conciliar=lambda leido: conciliar_sensores(leido, pedida),
+            bloquea_navegacion=True)
+
+    def _al_resolver_operacion(self, clave: str, estado: str, mensaje: str) -> None:
+        if clave.startswith("sensores:"):
+            numero = int(clave.split(":", 1)[1])
+            if estado == oc.CONFIRMADA:
+                self._fijar_mensaje(mensaje)    # "" o operacion.confirmada_tarde
+                self.cargar()
+            else:
+                self._fijar_mensaje(mensaje or MENSAJE_SIN_CONFIRMAR)
+            # lo vigente del backend (sin borrar la vista si no hay lectura)
+            self._releer_sensores(numero, lambda _leido: None)
+        self.operacionResuelta.emit(clave, estado, mensaje)
 
     # ── mensajes ─────────────────────────────────────────────────────
 

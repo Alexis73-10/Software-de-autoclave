@@ -20,6 +20,9 @@ Item {
 
     property QtObject teclado: null
     property QtObject puente: null
+    // H3 (3.er ciclo): cerrada la pantalla durante la lectura previa, el alta
+    // no se envía (un alta ya enviada sigue su curso en el puente)
+    Component.onDestruction: if (puente) puente.abandonarPreparacion()
     // Errores del puente por clave de es.json (T-8): {clave: "seccion.clave", valores}
     // Pantalla con token en uso (OPCIONES › Usuarios): la vigila Main.qml
     readonly property bool usaToken: true
@@ -106,6 +109,8 @@ Item {
     }
     // Abandona la pantalla: pide confirmación solo si hay datos capturados
     function _abandonar(accion) {
+        if (guardando)
+            return               // alta en vuelo: no se sale hasta su desenlace
         if (teclado)
             teclado.cerrar()
         listaRoles.visible = false
@@ -129,13 +134,39 @@ Item {
         if (teclado)
             teclado.cerrar()   // lo escrito sin Confirmar ya quedó en el campo
         listaRoles.visible = false
+        if (guardando)
+            return               // alta en vuelo: sin segundo envío
         const r = puente.guardar(nombre, usuario, clave, confirmacion, rol, activo)
-        if (r.ok) {
-            _irA("admin_menu")   // el host muestra "Usuario creado"
+        if (r.enviado) {
+            errores = ({})       // el desenlace llega por guardadoResuelto
             return
         }
+        if (Object.keys(r.errores).length === 0)
+            return
         errores = r.errores
         _enfocarPrimerError()
+    }
+    // FASE 6: alta asíncrona sin optimismo; Guardar y Cancelar quedan
+    // bloqueados mientras corre y solo 'confirmada' limpia y navega
+    readonly property bool guardando: puente ? puente.operacionEnCurso : false
+    readonly property string estadoGuardado: guardando && puente ? puente.estadoDe("alta_usuario") : ""
+    Connections {
+        target: raiz.puente
+        function onGuardadoResuelto(estado, errores, mensaje, alta) {
+            // H1 (3.er ciclo): una confirmación tardía que no es del alta
+            // actual (otra en curso o enviada después) ni navega ni avisa
+            if (mensaje === "operacion.confirmada_tarde"
+                    && (raiz.guardando || alta !== raiz.puente.altaActual))
+                return
+            if (estado === "confirmada") {
+                // confirmación tardía con la pantalla ya cerrada: no se navega
+                if (raiz.visible)
+                    raiz._irA("admin_menu")   // el host muestra "Usuario creado"
+                return
+            }
+            raiz.errores = errores
+            raiz._enfocarPrimerError()
+        }
     }
     function _enfocarPrimerError() {
         const orden = ["nombre", "usuario", "clave", "confirmacion", "rol"]
@@ -483,6 +514,7 @@ Item {
                         width: Escala.px(433); height: Escala.px(97)
                         radius: Escala.px(8)
                         border.color: Colores.bordeDivisor; border.width: 1
+                        opacity: raiz.guardando ? 0.4 : 1.0
                         Text {
                             anchors.centerIn: parent
                             text: I18n.t("acciones.cancelar", I18n.lang)
@@ -491,13 +523,19 @@ Item {
                             font.pixelSize: Escala.fuente(Tipografia.botonEtiquetaTam)
                             font.weight: Tipografia.pesoMedium
                         }
-                        MouseArea { anchors.fill: parent; onClicked: raiz.pulsarCancelar() }
+                        MouseArea {
+                            anchors.fill: parent
+                            enabled: !raiz.guardando
+                            onClicked: raiz.pulsarCancelar()
+                        }
                     }
                     Rectangle {
                         x: Escala.px(567); y: Escala.px(1177)
                         width: Escala.px(508); height: Escala.px(97)
+                        objectName: "botonGuardarUsuario"
                         radius: Escala.px(8)
                         color: Colores.accionPrimario
+                        opacity: raiz.guardando ? 0.4 : 1.0
                         Row {
                             anchors.centerIn: parent
                             spacing: Escala.px(40)
@@ -510,14 +548,20 @@ Item {
                             }
                             Text {
                                 anchors.verticalCenter: parent.verticalCenter
-                                text: I18n.t("acciones.guardar_usuario", I18n.lang)
+                                text: raiz.estadoGuardado === "verificando" ? I18n.t("operacion.verificando", I18n.lang)
+                                      : raiz.estadoGuardado === "enviando" ? I18n.t("operacion.procesando", I18n.lang)
+                                      : I18n.t("acciones.guardar_usuario", I18n.lang)
                                 color: Colores.textoSobreAccion
                                 font.family: Tipografia.familia
                                 font.pixelSize: Escala.fuente(Tipografia.botonEtiquetaTam)
                                 font.weight: Tipografia.pesoSemiBold
                             }
                         }
-                        MouseArea { anchors.fill: parent; onClicked: raiz.pulsarGuardar() }
+                        MouseArea {
+                            anchors.fill: parent
+                            enabled: !raiz.guardando
+                            onClicked: raiz.pulsarGuardar()
+                        }
                     }
                     // Error que no es de un campo (permiso, sesión, sin conexión, ...)
                     Text {

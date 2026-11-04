@@ -140,7 +140,7 @@ def test_aplicar_envia_cambios_clave_confirmacion_y_nombres():
 def test_rechazo_del_backend_muestra_el_motivo_y_conserva_los_cambios():
     c, _ = _ctrl(extra={("POST", "/io/assignment"): Resultado("reautenticacion_fallida", {}, 403)})
     c.elegirPuerto("vapor_camara", 7)
-    assert c.aplicar("mala") is False
+    assert c.aplicar("mala") is True           # FASE 6: enviado; el rechazo llega después
     assert c.mensaje == "reasignacion.err_clave"
     assert c.cantidadCambios == 1
 
@@ -256,5 +256,5 @@ def test_verificar_envia_funcion_clave_y_nombre():
 def test_verificar_rechazado_muestra_lo_que_falta():
     c, _ = _ctrl(_VERIF, extra={("POST", "/io/assignment/verify"):
                                 Resultado("sin_prueba_de_salida", {}, 409)})
-    assert c.verificar("vapor_camara", "secreta", "") is False
+    assert c.verificar("vapor_camara", "secreta", "") is True    # FASE 6: enviado
     assert c.mensaje == "reasignacion.falta_sin_prueba_de_salida"

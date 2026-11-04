@@ -14,7 +14,12 @@
 # resultado vuelve por señal y datosChanged solo se emite si cambió. Una
 # respuesta de sondeo que llega después de una orden (start/cancel/...) se
 # descarta (contador de generación) para no pisar el estado confirmado por la
-# orden. Las órdenes siguen síncronas y confirmadas por el backend.
+# orden.
+# FASE 6 (paso 2): las órdenes (start/cancel/confirm/discard) y las dos
+# impresiones van asíncronas y sin optimismo (OperacionCritica): el slot
+# devuelve True = «enviado» y el desenlace llega por `operacionResuelta`; nunca
+# se da éxito sin un 200 o una relectura que muestre la fase esperada. Las
+# impresiones no se releen ni se reintentan (una repetición imprimiría dos veces).
 # Corrección tras revisión (mismo día): en el hilo solo va la petición HTTP;
 # el 401 / 429 usuario_bloqueado se trata en la GUI (tratar_rechazo_sesion).
 
@@ -28,9 +33,31 @@ from PySide6.QtQml import qmlRegisterType
 
 from autoclave.cliente.session_manager import SessionManager
 from autoclave.ui_qml import sesion_backend
+from autoclave.ui_qml.cambio_optimista import SIN_LECTURA
+from autoclave.ui_qml.operacion_critica import CONFIRMADA, SIN_CONFIRMAR, OperacionCritica
 
 RUTA = "/maintenance/atm-calibration"
 SONDEO_MS = 1000
+PLAZO_ORDEN_S = 10.0
+PLAZO_IMPRESION_S = 15.0
+CLAVE_ORDEN = {"start": "atm_start", "cancel": "atm_cancel", "confirm": "atm_confirm",
+               "discard": "atm_discard"}
+CLAVE_IMPRESION = {"prueba": "imprimir_prueba", "ganancias": "imprimir_ganancias"}
+GRUPO_ORDEN = "atm_orden"     # MAYOR-1: las cuatro órdenes se excluyen entre sí
+
+
+def _fase_esperada(accion: str, leido: dict) -> bool:
+    """La relectura muestra el efecto de la orden (core/runtime/calibracion_atm):
+    start -> midiendo; confirm -> ok; discard -> rechazada/descartada; cancel
+    -> abortada/cancelada (o rechazada/descartada si estaba por confirmar)."""
+    estado, motivo = leido.get("estado"), leido.get("motivo")
+    if accion == "start":
+        return estado == "midiendo"
+    if accion == "confirm":
+        return estado == "ok"
+    if accion == "discard":
+        return estado == "rechazada" and motivo == "descartada"
+    return (estado, motivo) in (("abortada", "cancelada"), ("rechazada", "descartada"))
 
 
 def _en_hilo(tarea) -> None:
@@ -65,6 +92,8 @@ class CalibracionAtmController(QObject):
     datosChanged = Signal()
     mensajeChanged = Signal()
     _recibido = Signal(int, object, str)   # (generación, Resultado, usuario) desde el hilo de trabajo
+    operacionResuelta = Signal(str, str, str)   # clave, estado final, clave i18n
+    operacionEnCursoChanged = Signal()
 
     def __init__(self, parent=None, sesion=None, ejecutar=_en_hilo):
         super().__init__(parent)
@@ -73,9 +102,15 @@ class CalibracionAtmController(QObject):
         self._d: dict = {}
         self._mensaje = ""
         self._gen = 0              # sube con cada orden: invalida sondeos en vuelo
+        # H5 (3.er ciclo): sube con cada relectura tras un 200 tardío y con
+        # cada orden nueva; solo se aplica la última relectura tardía lanzada
+        self._gen_tardia = 0
         self._en_vuelo = False     # un solo GET de sondeo a la vez
         self._pendiente = False    # se pidió otro mientras había uno en vuelo
         self._recibido.connect(self._al_recibir)
+        self._op = OperacionCritica(self, self._s)
+        self._op.operacionResuelta.connect(self._al_resolver)
+        self._op.operacionEnCursoChanged.connect(self.operacionEnCursoChanged)
         self._timer = QTimer(self)
         self._timer.setInterval(SONDEO_MS)
         self._timer.timeout.connect(self.cargar)
@@ -150,24 +185,75 @@ class CalibracionAtmController(QObject):
             # 401 / 429 usuario_bloqueado: mismo tratamiento que `enviar`, aquí
             # en el hilo de la GUI
             self._s().tratar_rechazo_sesion(r, "GET", RUTA, usuario)
-        if gen == self._gen and r is not None and r.ok and isinstance(r.datos, dict):
+        # con una orden en vuelo tampoco: decide su 200 o su relectura
+        if (gen == self._gen and not self._orden_en_vuelo() and r is not None and r.ok
+                and isinstance(r.datos, dict)):
             self._fijar_datos(r.datos)   # si no, obsoleto (llegó tras una orden) o sin respuesta
         if self._pendiente:
             self._pendiente = False
             if self._timer.isActive():   # tras desactivar() no se relanza
                 self.cargar()
 
+    # ── órdenes: asíncronas y sin optimismo (FASE 6) ──────────────────
+    # Lo mostrado solo cambia con el 200 (datos de la respuesta) o con una
+    # relectura del estado; sin respuesta, se relee GET RUTA y solo la fase
+    # esperada confirma. Una orden de calibración a la vez (todas las claves).
     def _orden(self, accion: str) -> bool:
+        clave = CLAVE_ORDEN[accion]
+        if self._orden_en_vuelo():
+            return False             # otra orden sigue en vuelo: no se envía nada
+        self._gen += 1               # invalida los sondeos en vuelo
+        self._gen_tardia += 1        # H5: y las relecturas tardías en vuelo
+
+        def al_ok(r):
+            if isinstance(r.datos, dict):
+                self._fijar_datos(r.datos)
+
+        def al_ok_tardio(_r):
+            # MENOR-7 (corrección tras revisión): el cuerpo de un 200 tardío
+            # es viejo; no se aplica, solo se relee el estado real
+            self._gen_tardia += 1
+            gen = self._gen_tardia
+            self._releer_estado(lambda leido: self._aplicar_relectura(leido, gen))
+
+        def conciliar(leido):
+            self._fijar_datos(leido)   # la relectura es el estado real
+            return CONFIRMADA if _fase_esperada(accion, leido) else SIN_CONFIRMAR
+
+        return self._op.iniciar(clave, "POST", f"{RUTA}/{accion}", None, plazo_s=PLAZO_ORDEN_S,
+                                al_ok=al_ok, al_rechazo=lambda r: mensaje_de(r.causa),
+                                releer=self._releer_estado, conciliar=conciliar,
+                                bloquea_navegacion=True, grupo=GRUPO_ORDEN,
+                                al_ok_tardio=al_ok_tardio)
+
+    def _orden_en_vuelo(self) -> bool:
+        return any(self._op.en_curso(c) for c in CLAVE_ORDEN.values())
+
+    def _releer_estado(self, al_leido) -> None:
         self._gen += 1
-        r = self._s().enviar("POST", f"{RUTA}/{accion}")
-        self._gen += 1               # un sondeo pedido durante la orden también queda obsoleto
-        if r.ok and isinstance(r.datos, dict):
-            self._fijar_datos(r.datos)
-            self._fijar_mensaje("")
-            return True
-        self.cargar()
-        self._fijar_mensaje(mensaje_de(r.causa))
-        return False
+
+        def leido(r):
+            al_leido(r.datos if r.ok and isinstance(r.datos, dict) else SIN_LECTURA)
+        sesion_backend.enviar_async(self._s(), "GET", RUTA, None, leido, dueno=self)
+
+    def _aplicar_relectura(self, leido, gen: int) -> None:
+        """Relectura tras un 200 tardío: se aplica si es válida, la última
+        lanzada (H5: `gen` igual a `_gen_tardia`; dos relecturas cruzadas no se
+        pisan) y no hay otra orden en vuelo (su 200 o su relectura deciden)."""
+        if gen != self._gen_tardia:
+            return                   # relectura tardía vieja: la reciente decide
+        if isinstance(leido, dict) and not self._orden_en_vuelo():
+            self._fijar_datos(leido)
+
+    def _al_resolver(self, clave: str, estado: str, msg: str) -> None:
+        if clave in CLAVE_ORDEN.values():
+            self._gen += 1           # un sondeo pedido durante la orden también queda obsoleto
+            if estado != CONFIRMADA:
+                self.cargar()
+        if clave in CLAVE_IMPRESION.values() and estado == CONFIRMADA:
+            msg = _IMPRESION["ok"]
+        self._fijar_mensaje(msg)
+        self.operacionResuelta.emit(clave, estado, msg)
 
     @Slot(result=bool)
     def iniciar(self) -> bool:
@@ -185,28 +271,42 @@ class CalibracionAtmController(QObject):
     def descartar(self) -> bool:
         return self._orden("discard")
 
-    # ── impresiones ───────────────────────────────────────────────────
-    def _imprimir(self, ruta: str) -> bool:
-        r = self._s().enviar("POST", ruta)
-        if r.ok:
-            self._fijar_mensaje(_IMPRESION["ok"])
-            return True
-        datos = r.datos if isinstance(r.datos, dict) else {}
-        if r.estado_http == 503:
-            self._fijar_mensaje("calibracion_atm.err_impresora")
-        elif r.estado_http == 409:
-            self._fijar_mensaje(_IMPRESION["estado_no_permitido"])
-        else:
-            self._fijar_mensaje(mensaje_de(datos.get("codigo") or r.causa))
-        return False
+    # ── impresiones: sin relectura y nunca se reintentan solas ─────────
+    def _imprimir(self, cual: str, ruta: str) -> bool:
+        def al_rechazo(r):
+            datos = r.datos if isinstance(r.datos, dict) else {}
+            if r.estado_http == 503:
+                return "calibracion_atm.err_impresora"
+            if r.estado_http == 409:
+                return _IMPRESION["estado_no_permitido"]
+            return mensaje_de(datos.get("codigo") or r.causa)
+        # sin `releer`: una impresión sin respuesta queda SIN_CONFIRMAR.
+        # MENOR-8: bloquea la navegación (como mucho el plazo): salir y volver
+        # daría una instancia nueva que permitiría imprimir otra vez
+        return self._op.iniciar(CLAVE_IMPRESION[cual], "POST", ruta, None,
+                                plazo_s=PLAZO_IMPRESION_S, al_rechazo=al_rechazo,
+                                bloquea_navegacion=True)
 
     @Slot(result=bool)
     def imprimirPrueba(self) -> bool:
-        return self._imprimir("/printer/test-page")
+        return self._imprimir("prueba", "/printer/test-page")
 
     @Slot(result=bool)
     def imprimirGanancias(self) -> bool:
-        return self._imprimir("/maintenance/print/calibration")
+        return self._imprimir("ganancias", "/maintenance/print/calibration")
+
+    # ── estado de las operaciones ─────────────────────────────────────
+    @Property(bool, notify=operacionEnCursoChanged)
+    def operacionEnCurso(self) -> bool:
+        return self._op.en_curso()
+
+    @Property(bool, notify=operacionEnCursoChanged)
+    def bloqueaNavegacion(self) -> bool:
+        return self._op.bloquea()
+
+    @Slot(str, result=str)
+    def estadoDe(self, clave: str) -> str:
+        return self._op.estado(clave)
 
     # ── propiedades ───────────────────────────────────────────────────
     @Property(str, notify=datosChanged)

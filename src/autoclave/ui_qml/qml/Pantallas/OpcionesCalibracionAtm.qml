@@ -21,6 +21,7 @@ Item {
 
     property bool edicionPermitida: false
     readonly property bool bloqueada: control.midiendo || control.porConfirmar
+                                      || control.bloqueaNavegacion
 
     CalibracionAtmController {
         id: control
@@ -29,6 +30,25 @@ Item {
     readonly property alias controlador: control
     Component.onCompleted: control.activar()
     Component.onDestruction: control.desactivar()
+
+    // FASE 6: la orden va asíncrona; el botón dice «Procesando…» /
+    // «Verificando…» mientras su clave está en vuelo y todos quedan inactivos.
+    // El resultado (datos y mensaje) lo fija el controlador; aquí solo se
+    // actúa con 'confirmada'.
+    function textoBoton(clave, normal) {
+        if (!control.operacionEnCurso)
+            return normal
+        const e = control.estadoDe(clave)
+        return e === "verificando" ? I18n.t("operacion.verificando", I18n.lang)
+             : e === "enviando" ? I18n.t("operacion.procesando", I18n.lang) : normal
+    }
+    Connections {
+        target: control
+        function onOperacionResuelta(clave, estado, mensaje) {
+            if (estado === "confirmada" && clave === "atm_confirm")
+                dialogoConfirmar.cerrar()
+        }
+    }
 
     function textoCondicion(c) {
         if (c === "temp_baja")
@@ -302,16 +322,17 @@ Item {
                 Boton {
                     objectName: "botonIniciarCalibracionAtm"
                     width: (parent.width - parent.spacing) / 2
-                    texto: I18n.t("calibracion_atm.iniciar", I18n.lang)
+                    texto: raiz.textoBoton("atm_start", I18n.t("calibracion_atm.iniciar", I18n.lang))
                     habilitado: raiz.edicionPermitida && !control.midiendo && control.condicionesCumplidas
+                                && !control.operacionEnCurso
                     onPulsado: control.iniciar()
                 }
                 Boton {
                     objectName: "botonCancelarCalibracionAtm"
                     width: (parent.width - parent.spacing) / 2
-                    texto: I18n.t("acciones.cancelar", I18n.lang)
+                    texto: raiz.textoBoton("atm_cancel", I18n.t("acciones.cancelar", I18n.lang))
                     fondo: Colores.peligroTexto
-                    habilitado: control.midiendo
+                    habilitado: control.midiendo && !control.operacionEnCurso
                     onPulsado: control.cancelar()
                 }
             }
@@ -322,14 +343,16 @@ Item {
                 Boton {
                     objectName: "botonConfirmarCalibracionAtm"
                     width: (parent.width - parent.spacing) / 2
-                    texto: I18n.t("calibracion_atm.confirmar", I18n.lang)
+                    texto: raiz.textoBoton("atm_confirm", I18n.t("calibracion_atm.confirmar", I18n.lang))
+                    habilitado: !control.operacionEnCurso
                     onPulsado: dialogoConfirmar.abrir()
                 }
                 Boton {
                     objectName: "botonDescartarCalibracionAtm"
                     width: (parent.width - parent.spacing) / 2
-                    texto: I18n.t("calibracion_atm.descartar", I18n.lang)
+                    texto: raiz.textoBoton("atm_discard", I18n.t("calibracion_atm.descartar", I18n.lang))
                     fondo: Colores.textoSecundario
+                    habilitado: !control.operacionEnCurso
                     onPulsado: control.descartar()
                 }
             }

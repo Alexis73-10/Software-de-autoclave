@@ -12,11 +12,12 @@
 #
 # Sin HTTP síncrono en la GUI (AJUSTES 2026-11-02, paso 2 fase 2; modelo:
 # usuarios_controller):
-#   - Idioma, unidades e impresora (fijarImpresora): cambio optimista con
-#     reversión (CambioOptimista; claves "idioma", "unidades", "impresora"),
-#     SOLO en el selector de esta pantalla. El efecto global (i18n.fijar_idioma,
-#     unidades_qml.refrescar) se aplica únicamente tras el 200: al revertir no
-#     parpadean °C/°F ni kPa/psi y los sondeos globales no chocan.
+#   - Idioma, unidades, tema (modo oscuro) e impresora (fijarImpresora): cambio
+#     optimista con reversión (CambioOptimista; claves "idioma", "unidades",
+#     "tema", "impresora"), SOLO en el selector de esta pantalla. El efecto
+#     global (i18n.fijar_idioma, unidades_qml.refrescar, apariencia_qml.fijar)
+#     se aplica únicamente tras el 200: al revertir no parpadean °C/°F ni
+#     kPa/psi ni el tema, y los sondeos globales no chocan.
 #   - Parámetros del equipo (PATCH /global_params/{clave}, POST .../reset):
 #     definen el control del proceso. Asíncronos SIN optimismo: lo mostrado es
 #     el valor vigente hasta el 200 (se relee) y la clave "param:<clave>"
@@ -32,7 +33,12 @@
 #   - Carga: GET asíncronos con `cargando`. Tras un cambio se relee solo lo
 #     afectado (/system_params, o la ruta de idioma/unidades/impresora); una
 #     lectura fallida conserva el valor mostrado.
-#   - fijarImpresoraYReiniciar sigue síncrono (reinicia el software).
+#   - fijarImpresoraYReiniciar (FASE 6, P1): `OperacionCritica` sin optimismo
+#     (reinicia el software), plazo 10 s, bloquea la navegación. `reiniciando`
+#     solo con el 200 que lo dice; sin respuesta queda «sin confirmar»
+#     (opciones.equipo_reinicio_sin_confirmar) y no se relee: el backend se
+#     está cerrando y lo que decide es la conectividad. Devuelve True =
+#     «enviado»; el resultado llega por `operacionResuelta`.
 # Los slots devuelven False si falla la validación local; si el resultado
 # llegó en el acto (sesión de prueba con solo `enviar`), el `ok` real; si
 # quedó en vuelo, True («aceptado»). El desenlace llega por `cambioResuelto`.
@@ -44,6 +50,7 @@ from PySide6.QtQml import qmlRegisterType
 
 from autoclave.core.managers.config_manager import GRUPOS as _GRUPOS_PARAMETROS
 from autoclave.installation.identidad import identidad_de_perfil
+from autoclave.ui_qml import operacion_critica as oc
 from autoclave.ui_qml import sesion_backend
 from autoclave.ui_qml.cambio_optimista import (
     ENVIANDO, SIN_CONFIRMAR, SIN_LECTURA, VERIFICANDO, CambioOptimista)
@@ -83,8 +90,13 @@ logger = logging.getLogger(__name__)
 _SIN_VALOR = object()                   # valor esperado desconocido
 
 # Cambios optimistas: clave -> (ruta de PUT y de relectura)
-IDIOMA, UNIDADES, IMPRESORA = "idioma", "unidades", "impresora"
-_RUTAS_OPTIMISTAS = {IDIOMA: "/language", UNIDADES: "/units", IMPRESORA: "/printer/config"}
+IDIOMA, UNIDADES, IMPRESORA, TEMA = "idioma", "unidades", "impresora", "tema"
+_RUTAS_OPTIMISTAS = {IDIOMA: "/language", UNIDADES: "/units", IMPRESORA: "/printer/config",
+                     TEMA: "/theme"}
+TEMAS = ("claro", "oscuro")
+CLAVE_REINICIO = "impresora_reinicio"          # operación crítica (no optimista)
+PLAZO_REINICIO_S = 10.0
+MENSAJE_REINICIO_SIN_CONFIRMAR = "opciones.equipo_reinicio_sin_confirmar"
 PREFIJO_PARAMETRO = "param:"            # clave de un cambio de /global_params en vuelo
 
 
@@ -133,7 +145,13 @@ def _leer_impresora(r):
     return v if isinstance(v, bool) else None
 
 
-_LECTORES = {IDIOMA: _leer_idioma, UNIDADES: _leer_unidades, IMPRESORA: _leer_impresora}
+def _leer_tema_resp(r):
+    v = r.datos.get("tema") if r.ok and isinstance(r.datos, dict) else None
+    return v if v in TEMAS else None
+
+
+_LECTORES = {IDIOMA: _leer_idioma, UNIDADES: _leer_unidades, IMPRESORA: _leer_impresora,
+             TEMA: _leer_tema_resp}
 
 
 def _perfil():
@@ -155,6 +173,9 @@ class ParametrosEquipoController(QObject):
     cargandoChanged = Signal()
     # clave del cambio, aceptado, clave i18n del mensaje ("" si aceptado)
     cambioResuelto = Signal(str, bool, str)
+    operacionEnCursoChanged = Signal()
+    # clave, estado final (confirmada|rechazada|sin_confirmar), clave i18n del mensaje
+    operacionResuelta = Signal(str, str, str)
 
     def __init__(self, parent=None, sesion=None, perfil=None):
         super().__init__(parent)
@@ -180,9 +201,12 @@ class ParametrosEquipoController(QObject):
         self._gen_carga = 0
         self._gen_param = 0             # lecturas de /system_params lanzadas
         self._gen_param_aplicada = 0    # la más reciente ya aplicada
-        self._gen_opt = {IDIOMA: 0, UNIDADES: 0, IMPRESORA: 0}
+        self._gen_opt = {IDIOMA: 0, UNIDADES: 0, IMPRESORA: 0, TEMA: 0}
         self._cargas: set = set()
         self._resuelto = None           # desenlace síncrono del último slot
+        self._op = oc.OperacionCritica(self, self._s)
+        self._op.operacionEnCursoChanged.connect(self.operacionEnCursoChanged)
+        self._op.operacionResuelta.connect(self._al_resolver_operacion)
         self._opt = CambioOptimista(self._lanzar_optimista, self._al_cambiar, self._al_revertir,
                                     self._releer, al_confirmar=self._al_confirmar,
                                     al_pendientes=self.pendientesChanged.emit)
@@ -277,7 +301,7 @@ class ParametrosEquipoController(QObject):
         self._leer_parametros(lambda ok, r: self._al_cargar_parametros(ok, r, gen))
         for clave in (IMPRESORA, UNIDADES, IDIOMA):
             self._leer_optimista(clave, marca)
-        self._leer_tema()
+        self._leer_optimista(TEMA, marca)
 
     def _leer_parametros(self, al_leer=None, al_fallar=None) -> None:
         """GET /system_params; aplica la lista si es la lectura más reciente
@@ -347,6 +371,8 @@ class ParametrosEquipoController(QObject):
     def _valor_mostrado(self, clave):
         if clave == IDIOMA:
             return self._idioma or None
+        if clave == TEMA:
+            return self._tema or None      # "" = se desconoce
         if clave == UNIDADES:
             t, p = self._unidades["temperatura"], self._unidades["presion"]
             return (t, p) if t and p else None
@@ -355,21 +381,13 @@ class ParametrosEquipoController(QObject):
     def _fijar_mostrado(self, clave, valor) -> None:
         if clave == IDIOMA:
             self._idioma = str(valor or "")
+        elif clave == TEMA:
+            self._tema = valor if valor in TEMAS else ""
         elif clave == UNIDADES:
             t, p = valor if valor else ("", "")
             self._unidades = {"temperatura": str(t), "presion": str(p)}
         else:
             self._impresora = valor if isinstance(valor, bool) else None
-
-    def _leer_tema(self) -> None:
-        """GET /theme (modo oscuro, OSC-02): sin respuesta o inválido, "" (selector inactivo)."""
-        def leido(r) -> None:
-            tema = r.datos.get("tema") if r.ok and isinstance(r.datos, dict) else None
-            nuevo = tema if tema in ("claro", "oscuro") else ""
-            if nuevo != self._tema:
-                self._tema = nuevo
-                self.datosChanged.emit()
-        self._enviar("GET", "/theme", None, leido)
 
     def _leer_identidad(self) -> None:
         p = (self._leer_perfil or _perfil)()
@@ -435,15 +453,6 @@ class ParametrosEquipoController(QObject):
         return None
 
     # ── cambios ──────────────────────────────────────────────────────────
-    def _resultado(self, r) -> bool:
-        """Desenlace de un envío síncrono (solo fijarImpresoraYReiniciar)."""
-        self.cargar()                  # sin respuesta el resultado es incierto: se relee
-        if r.ok:
-            self._fijar_mensaje("")
-            return True
-        self._fijar_mensaje(mensaje_de(r.causa))
-        return False
-
     # ── parámetros del equipo: asíncronos, sin optimismo ─────────────────
     def _cambio_parametro(self, clave: str, metodo: str, ruta: str, cuerpo,
                           esperado=_SIN_VALOR) -> bool:
@@ -535,6 +544,8 @@ class ParametrosEquipoController(QObject):
     def _lanzar_optimista(self, clave, valor, al_terminar) -> None:
         if clave == IDIOMA:
             cuerpo = {"idioma": valor}
+        elif clave == TEMA:
+            cuerpo = {"tema": valor}
         elif clave == UNIDADES:
             cuerpo = {"temperatura": valor[0], "presion": valor[1]}
         else:
@@ -568,6 +579,9 @@ class ParametrosEquipoController(QObject):
             if clave == IDIOMA and valor:
                 from autoclave import i18n
                 i18n.fijar_idioma(valor)                 # esta ventana cambia ya
+            elif clave == TEMA and valor in TEMAS:
+                from autoclave.ui_qml.bridge import apariencia_qml
+                apariencia_qml.instancia.fijar(valor)    # sin esperar el sondeo
             elif clave == UNIDADES:
                 from autoclave.ui_qml.bridge import unidades_qml
                 unidades_qml.instancia.refrescar()       # sin esperar el sondeo
@@ -598,24 +612,56 @@ class ParametrosEquipoController(QObject):
 
     @Slot(bool, result=bool)
     def fijarImpresora(self, habilitada: bool) -> bool:
+        if self._op.en_curso(CLAVE_REINICIO):
+            return False                   # MENOR-6: no con el cambio con reinicio en vuelo
         return self._aplicar_optimista(IMPRESORA, bool(habilitada))
+
+    @Property(bool, notify=operacionEnCursoChanged)
+    def operacionEnCurso(self) -> bool:
+        """Hay un cambio de impresora con reinicio en vuelo («Procesando…»)."""
+        return self._op.operacionEnCurso
+
+    @Slot(str, result=str)
+    def estadoDe(self, clave: str) -> str:
+        """inactiva | enviando | verificando."""
+        return self._op.estado(clave)
 
     @Slot(bool, result=bool)
     def fijarImpresoraYReiniciar(self, habilitada: bool) -> bool:
         """R11 (D11-1): la pantalla ya confirmó "Se reiniciará el software". El
-        backend guarda la bandera con auditoría y reinicia; mientras tanto la
-        pantalla muestra el aviso de reinicio (sin releer: el backend se está
-        cerrando). Rechazado: motivo y se relee, como cualquier cambio."""
-        r = self._s().enviar("PUT", "/printer/config",
-                             {"habilitada": bool(habilitada), "reiniciar": True})
-        if r.ok and isinstance(r.datos, dict) and r.datos.get("reiniciando") is True:
-            self._impresora = bool(habilitada)
+        backend guarda la bandera con auditoría y reinicia; `reiniciando` y el
+        aviso de reinicio solo con el 200 que lo dice (sin releer: el backend se
+        está cerrando). Rechazado: motivo y se relee. Sin respuesta: «sin
+        confirmar», sin relectura ni reintento. True = enviada; False sin enviar
+        (ya hay una en curso)."""
+        habilitada = bool(habilitada)
+        if IMPRESORA in self._opt.pendientes():
+            return False                   # MENOR-6: no con el cambio optimista en vuelo
+
+        def al_ok(r) -> None:
+            datos = r.datos if isinstance(r.datos, dict) else {}
             self._fijar_mensaje("")
-            self._reiniciando = True
-            self.datosChanged.emit()
-            self.reiniciandoChanged.emit()
-            return True
-        return self._resultado(r)
+            if datos.get("reiniciando") is True:
+                self._impresora = habilitada
+                self._reiniciando = True
+                self.datosChanged.emit()
+                self.reiniciandoChanged.emit()
+            else:
+                self.cargar()
+
+        return self._op.iniciar(
+            CLAVE_REINICIO, "PUT", "/printer/config",
+            {"habilitada": habilitada, "reiniciar": True}, plazo_s=PLAZO_REINICIO_S,
+            al_ok=al_ok, al_rechazo=lambda r: mensaje_de(r.causa), bloquea_navegacion=True,
+            msg_sin_confirmar=MENSAJE_REINICIO_SIN_CONFIRMAR)
+
+    def _al_resolver_operacion(self, clave: str, estado: str, mensaje: str) -> None:
+        if estado == oc.RECHAZADA:
+            self._fijar_mensaje(mensaje)
+            self.cargar()                  # el estado real lo dice el backend
+        elif estado == oc.SIN_CONFIRMAR:
+            self._fijar_mensaje(mensaje)   # sin relectura: el backend se cierra
+        self.operacionResuelta.emit(clave, estado, mensaje)
 
     @Property(bool, notify=reiniciandoChanged)
     def reiniciando(self) -> bool:
@@ -639,14 +685,11 @@ class ParametrosEquipoController(QObject):
 
     @Slot(str, result=bool)
     def fijarTema(self, tema: str) -> bool:
-        r = self._s().enviar("PUT", "/theme", {"tema": tema})
-        if r.ok:
-            try:                       # esta ventana cambia ya, sin esperar el sondeo
-                from autoclave.ui_qml.bridge import apariencia_qml
-                apariencia_qml.instancia.fijar(tema)
-            except Exception:
-                pass
-        return self._resultado(r)
+        """Optimista con reversión (decisión del usuario, FASE 6): el selector
+        cambia ya; el tema global (`apariencia_qml`) solo tras el 200."""
+        if tema not in TEMAS:
+            return False
+        return self._aplicar_optimista(TEMA, tema)
 
     @Property(str, notify=datosChanged)
     def unidadTemperatura(self) -> str:

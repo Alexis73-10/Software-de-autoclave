@@ -37,6 +37,7 @@ _SCRIPT = textwrap.dedent(r'''
 
     class Sesion:
         sinConexion = False
+        generacion = 0
         def enviar(self, metodo, ruta, cuerpo=None):
             enviados.append([metodo, ruta, cuerpo])
             clave = f"{metodo} {ruta.split('?')[0]}"

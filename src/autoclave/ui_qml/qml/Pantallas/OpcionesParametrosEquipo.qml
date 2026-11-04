@@ -738,6 +738,30 @@ Item {
         onDescartado: raiz._impresoraPendiente = null
     }
 
+    // FASE 6: el cambio de impresora con reinicio está en vuelo (sin optimismo):
+    // «Procesando…» / «Verificando…» y toques bloqueados hasta la respuesta.
+    Rectangle {
+        id: avisoProcesando
+        objectName: "avisoProcesandoImpresora"
+        visible: control.operacionEnCurso && !control.reiniciando
+        anchors.fill: parent
+        z: 199
+        color: Colores.veloFuerte
+        MouseArea { anchors.fill: parent }
+        Text {
+            anchors.centerIn: parent
+            width: parent.width - Escala.px(160)
+            horizontalAlignment: Text.AlignHCenter
+            wrapMode: Text.WordWrap
+            text: I18n.t(control.estadoDe("impresora_reinicio") === "verificando"
+                         ? "operacion.verificando" : "operacion.procesando", I18n.lang)
+            color: Colores.textoSobreAccion
+            font.family: Tipografia.familia
+            font.weight: Tipografia.pesoBold
+            font.pixelSize: Escala.fuente(36)
+        }
+    }
+
     // R11 (D11-1.5): el backend aceptó; el aviso queda hasta que el lanzador
     // cierre esta pantalla. Bloquea los toques mientras tanto.
     Rectangle {
