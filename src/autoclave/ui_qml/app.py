@@ -264,7 +264,12 @@ def main(argv=None) -> int:
     if simulacion:
         progreso_arranque = SimuladorProgresoArranque(**parse_simulacion(simulacion))
     else:
-        progreso_arranque = ProgresoArranqueBackend(lambda: backend.get("/arranque"))
+        # Solo la pantalla de la puerta 1 avisa que la animación terminó (el
+        # backend imprime entonces el ticket de arranque; el aviso es idempotente)
+        progreso_arranque = ProgresoArranqueBackend(
+            lambda: backend.get("/arranque"),
+            avisar=(lambda: backend.post("/arranque/interfaz-lista", timeout=3.0))
+            if args.door == 1 else None)
     progreso_arranque.iniciar()
     version = version_software()
 

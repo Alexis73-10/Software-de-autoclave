@@ -72,6 +72,10 @@ class SimuladorProgresoArranque(QObject):
         self._timer_fallo.setSingleShot(True)
         self._timer_fallo.timeout.connect(self.declarar_fallo)
 
+    @Slot()
+    def avisarInterfazLista(self) -> None:
+        """Simulación: no hay backend que avisar (misma interfaz para QML)."""
+
     def iniciar(self) -> None:
         """Arranca la simulación (desde t = 0, en paralelo con el resto)."""
         if self._fallo_en_s is not None:
@@ -180,6 +184,10 @@ class ProgresoArranqueSinPerfil(QObject):
             self._timer.start()
 
     @Slot()
+    def avisarInterfazLista(self) -> None:
+        """Sin perfil no hay backend ni ticket: no hace nada (misma interfaz)."""
+
+    @Slot()
     def terminar(self) -> None:
         if self._terminado:
             return
@@ -260,9 +268,11 @@ class ProgresoArranqueBackend(QObject):
     cambiado = Signal()
 
     def __init__(self, leer, en_hilo: bool = True, intervalo_ms: int = 300,
-                 permanencia_ms: int = 350, parent=None):
+                 permanencia_ms: int = 350, avisar=None, parent=None):
         super().__init__(parent)
         self._leer = leer
+        self._avisar = avisar            # POST /arranque/interfaz-lista; None = esta pantalla no avisa
+        self._aviso_lanzado = False
         self._en_hilo = en_hilo
         self._real = dict(_SIN_RESPUESTA)
         self._etapas: list = []
@@ -285,6 +295,26 @@ class ProgresoArranqueBackend(QObject):
     def detener(self) -> None:
         self._timer.stop()
         self._timer_vista.stop()
+
+    @Slot()
+    def avisarInterfazLista(self) -> None:
+        """La intro terminó su animación: avisa al backend (que imprime el
+        ticket de arranque). En hilo, sin bloquear la GUI; un error solo se
+        registra (el backend imprime igual tras su tope). Una vez por pantalla."""
+        if self._avisar is None or self._aviso_lanzado:
+            return
+        self._aviso_lanzado = True
+        threading.Thread(target=self._hilo_aviso, daemon=True, name="aviso-interfaz-lista").start()
+
+    def _hilo_aviso(self) -> None:
+        for intento in range(5):    # el backend puede estar aún levantando el puerto
+            try:
+                self._avisar()
+                return
+            except Exception as e:
+                logger.debug("POST /arranque/interfaz-lista falló (intento %d): %s", intento + 1, e)
+                threading.Event().wait(1.0)
+        logger.warning("No se pudo avisar al backend que la interfaz está lista")
 
     # ── vista ────────────────────────────────────────────────────────────
 

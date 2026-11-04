@@ -67,6 +67,11 @@ import sys
 import time
 from urllib.parse import urlparse
 
+# Misma URL que autoclave.ui_qml.app.BACKEND_URL; aquí como constante para no
+# cargar PySide6 y todos los puentes en el lanzador solo por ella (la igualdad
+# la vigila tests/test_t_arranque_interfaz_lista.py).
+BACKEND_URL = "http://127.0.0.1:8000"
+
 
 def _sin_consola() -> None:
     """Sin consola (console=False) stdout/stderr son None y uvicorn/print fallan."""
@@ -387,7 +392,6 @@ def _lanzador_principal(args, instancia=None) -> int:
 
     from autoclave.installation import backend_guard
     from autoclave.ui_qml import barra_tareas
-    from autoclave.ui_qml.app import BACKEND_URL
     from autoclave.ui_qml.doble_pantalla import vigilar_pantallas
     from autoclave.utils.paths import app_root
 
@@ -466,37 +470,52 @@ def _lanzador_principal(args, instancia=None) -> int:
             proc = subprocess.Popen(_cmd_propio("--rol", "backend"), cwd=cwd, env=entorno_backend)
             backend_guard.write_backend_pid(proc.pid)
             backend["proc"] = proc
-            logger.info("Backend lanzado (PID %d)", proc.pid)
+            logger.info("Backend lanzado (PID %d)", proc.pid)   # los logs llevan marca de tiempo
 
-    if _backend_responde(BACKEND_URL):
-        logger.warning("Ya hay un backend en %s: se usa ese y no se arranca otro", BACKEND_URL)
-    else:
-        backend_guard.cleanup_stale_backend()
-        lanzar_backend()
-        # Las pantallas se abren ya, sin esperar al backend: su intro muestra
-        # las etapas reales de GET /arranque (antes se esperaba hasta 60 s y
-        # la intro aparecía con el arranque ya hecho; observación del 19-oct).
+    hilos = {"vigilancia": None}
 
-    # R8 (D8-5.12): el backend se reinicia para aplicar una reasignación de E/S
-    hilo_vigilancia = None
-    if backend["proc"] is not None:
-        hilo_vigilancia = threading.Thread(target=reinicio.vigilar_reinicios,
-                                           args=(lambda: backend["proc"], lanzar_backend, fin_vigilancia),
-                                           kwargs={"log": logger,
-                                                   "al_reiniciar_software": reinicio_software.set},
-                                           name="vigilancia-reinicio-backend",
-                                           daemon=True)
-        hilo_vigilancia.start()
+    def preparar_backend():
+        # Corre en paralelo con el lanzamiento de las pantallas: la limpieza de
+        # un backend viejo y el Popen ya no retrasan la apertura de las ventanas
+        # (su intro muestra las etapas reales de GET /arranque).
+        try:
+            if _backend_responde(BACKEND_URL):
+                logger.warning("Ya hay un backend en %s: se usa ese y no se arranca otro", BACKEND_URL)
+                return
+            backend_guard.cleanup_stale_backend()
+            lanzar_backend()
+            # R8 (D8-5.12): el backend se reinicia para aplicar una reasignación de E/S
+            hilo = threading.Thread(target=reinicio.vigilar_reinicios,
+                                    args=(lambda: backend["proc"], lanzar_backend, fin_vigilancia),
+                                    kwargs={"log": logger,
+                                            "al_reiniciar_software": reinicio_software.set},
+                                    name="vigilancia-reinicio-backend",
+                                    daemon=True)
+            hilo.start()
+            hilos["vigilancia"] = hilo
+        except Exception:
+            logger.exception("No se pudo preparar el backend")
 
+    hilo_backend = threading.Thread(target=preparar_backend, name="preparar-backend", daemon=True)
     pantallas = [(1, args.monitor_puerta1)] if args.una_pantalla else \
         [(1, args.monitor_puerta1), (2, args.monitor_puerta2)]
     cmds = [_cmd_propio("--rol", "ui", "--door", str(p), "--screen", str(m)) for p, m in pantallas]
+
+    def lanzar_pantalla(cmd):
+        proc = subprocess.Popen(cmd, cwd=cwd, env=entorno)
+        logger.info("Pantalla lanzada (PID %d): %s", proc.pid, " ".join(cmd[-4:]))
+        return proc
+
+    logger.info("Lanzando pantallas y backend en paralelo")
+    hilo_backend.start()
     try:
-        vigilar_pantallas(cmds, lambda cmd: subprocess.Popen(cmd, cwd=cwd, env=entorno),
+        vigilar_pantallas(cmds, lanzar_pantalla,
                           barra=barra_tareas, detener=reinicio_software)
     finally:
+        hilo_backend.join(30)   # que el backend lanzado (si lo hay) quede registrado antes de apagarlo
         with lock_lanzar:
             fin_vigilancia.set()
+        hilo_vigilancia = hilos["vigilancia"]
         if hilo_vigilancia is not None:
             hilo_vigilancia.join(5)
         with lock_lanzar:

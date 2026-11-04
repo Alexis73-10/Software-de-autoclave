@@ -44,17 +44,35 @@ def arrancar_cuando_escuche(servidor, iniciar, intervalo_s: float = 0.05, dormir
     return True
 
 
-def latido_y_ticket(server, plazo_s: float = 120.0) -> None:
+TOPE_INTERFAZ_S = 75.0   # tras quedar operable: si la UI no avisa, se imprime igual
+
+
+def latido_y_ticket(server, plazo_s: float = 120.0, tope_interfaz_s: float = TOPE_INTERFAZ_S) -> None:
     """R1 (tanda 2): latido de apagado y ticket de arranque, que antes hacía la
     ventana principal de la UI anterior. Espera a que el arranque deje el
-    contexto operable (perfil cargado); si no llega, arranca solo el latido."""
+    contexto operable (perfil cargado); si no llega, arranca solo el latido.
+    El latido arranca al quedar operable; el ticket espera además (en su hilo)
+    a que la UI termine la animación de arranque (POST /arranque/interfaz-lista),
+    con tope `tope_interfaz_s` tras el cual imprime igual (fail-safe: sin UI o
+    sin módulo E/S el ticket no se pierde)."""
     operable = getattr(server, "_contexto_operable", None)
     if operable is None or not operable.wait(plazo_s):
         logger.warning("Arranque no operable en %.0f s: latido sin ticket de arranque", plazo_s)
+
+    def esperar_interfaz() -> None:
+        evento = getattr(getattr(server, "registro_arranque", None), "interfaz_lista", None)
+        if evento is None:
+            return
+        if evento.wait(tope_interfaz_s):
+            logger.info("Interfaz lista: se imprime el ticket de arranque")
+        else:
+            logger.warning("La interfaz no avisó en %.0f s: se imprime el ticket de arranque igual",
+                           tope_interfaz_s)
+
     try:
         from autoclave.devices.printer import arranque_equipo
         perfil = getattr(server.context, "profile", None) if operable and operable.is_set() else None
-        arranque_equipo.iniciar(perfil)
+        arranque_equipo.iniciar(perfil, antes_de_imprimir=esperar_interfaz)
     except Exception:
         logger.exception("No se pudo iniciar el latido / ticket de arranque")
 

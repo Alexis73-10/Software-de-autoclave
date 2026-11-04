@@ -65,7 +65,7 @@ async def _ciclo_de_vida(_app):
 app = FastAPI(title="Autoclave Backend", lifespan=_ciclo_de_vida)
 _compuerta_arranque = False
 _hilo_arranque: threading.Thread | None = None
-_RUTAS_SIN_COMPUERTA = frozenset({"/arranque", "/ui/activity"})
+_RUTAS_SIN_COMPUERTA = frozenset({"/arranque", "/ui/activity", "/arranque/interfaz-lista"})
 
 
 def preparar_arranque() -> None:

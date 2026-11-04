@@ -54,6 +54,16 @@
   "response_model": null
  },
  {
+  "path": "/arranque/interfaz-lista",
+  "methods": [
+   "POST"
+  ],
+  "name": "post_arranque_interfaz_lista",
+  "dependencias": [],
+  "status_code": null,
+  "response_model": null
+ },
+ {
   "path": "/auth/login",
   "methods": [
    "POST"

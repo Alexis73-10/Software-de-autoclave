@@ -67,6 +67,28 @@ class RegistroArranque:
         self._por_clave = {e.clave: e for e in self._etapas}
         if len(self._por_clave) != len(self._etapas):
             raise ValueError("Claves de etapa repetidas")
+        # La UI terminó su animación de arranque (POST /arranque/interfaz-lista);
+        # el ticket de arranque espera este evento (backend/main.py)
+        self.interfaz_lista = threading.Event()
+
+    def marcar_interfaz_lista(self, clave: str = "preparando_interfaz") -> bool:
+        """Completa la etapa de la UI; idempotente (varias pantallas, reintentos).
+        Devuelve True solo la primera vez."""
+        with self._lock:
+            e = self._etapa(clave)
+            if e.estado in _FINALES:
+                primera = False
+            else:
+                if e.estado == EstadoEtapa.PENDIENTE:
+                    e.estado = EstadoEtapa.EN_CURSO
+                    e.t_inicio = self._reloj()
+                e.estado = EstadoEtapa.OK
+                e.t_fin = self._reloj()
+                primera = True
+        if primera:
+            logger.info("Arranque: %s ok", clave)
+        self.interfaz_lista.set()
+        return primera
 
     # ── transiciones ─────────────────────────────────────────────────────────
 

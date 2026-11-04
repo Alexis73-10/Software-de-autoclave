@@ -82,14 +82,25 @@ def _en_hilo(tarea) -> None:
 
 
 def iniciar(perfil, leer_ultimo=heartbeat.read_last_shutdown,
-            arrancar_latido=lambda: heartbeat.start(interval=30), lanzar=_en_hilo) -> None:
+            arrancar_latido=lambda: heartbeat.start(interval=30), lanzar=_en_hilo,
+            antes_de_imprimir=None) -> None:
     """Lee el último apagado ANTES de que el latido lo pise, arranca el latido
     e imprime el ticket en segundo plano. Sin perfil (asistente de
-    instalación pendiente) no imprime."""
+    instalación pendiente) no imprime. `antes_de_imprimir` (opcional) bloquea
+    el hilo del ticket hasta que la UI termine su animación de arranque."""
     ultimo = leer_ultimo()
     arrancar_latido()
     if perfil is None:
         logger.info("Sin perfil de instalación: no se imprime el ticket de arranque")
         return
     encendido = datetime.now()
-    lanzar(lambda: imprimir_ticket(perfil, ultimo, encendido))
+
+    def tarea() -> None:
+        if antes_de_imprimir is not None:
+            try:
+                antes_de_imprimir()
+            except Exception:
+                logger.exception("Ticket de arranque: error en la espera de la interfaz; se imprime igual")
+        imprimir_ticket(perfil, ultimo, encendido)
+
+    lanzar(tarea)

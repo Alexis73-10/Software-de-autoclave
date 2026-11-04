@@ -342,7 +342,12 @@ Window {
                 progreso: ventana.progresoArranque
                 modelo: ventana.infoEquipo?.modelo ?? ""
                 versionSoftware: ventana.versionSoftware
-                onFinalizada: ventana.introTerminada = true
+                onFinalizada: {
+                    ventana.introTerminada = true
+                    // El ticket de arranque sale solo cuando acaba la intro.
+                    if (ventana.progresoArranque !== null)
+                        ventana.progresoArranque.avisarInterfazLista()
+                }
             }
         }
 

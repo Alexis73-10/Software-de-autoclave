@@ -65,7 +65,7 @@ def test_latido_y_ticket_espera_el_contexto_operable(monkeypatch):
     import threading
     from autoclave.backend import main
     llamadas = []
-    monkeypatch.setattr(arranque_equipo, "iniciar", llamadas.append)
+    monkeypatch.setattr(arranque_equipo, "iniciar", lambda perfil, **kw: llamadas.append(perfil))
     operable = threading.Event()
     operable.set()
     server = SimpleNamespace(_contexto_operable=operable, context=SimpleNamespace(profile="P"))

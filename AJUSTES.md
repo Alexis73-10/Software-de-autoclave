@@ -125,3 +125,10 @@
 - **Archivos:** `src/autoclave/ui_qml/sesion_backend.py`, `src/autoclave/ui_qml/qml/Main.qml`, `src/autoclave/ui_qml/qml/Pantallas/OpcionesEntradasSalidas.qml`; pruebas `tests/test_modo_prueba_sin_cierre_sesion.py`.
 - **Pendiente:** riesgo residual (equipo en modo prueba con salidas ON sin operador: lo acota el corte de 90 s del backend); prueba de banco.
 
+## 2026-11-04 - Ticket de arranque tras la animación y apertura del .exe
+
+- **Pedido y decisión (usuario):** (3.1) el ticket de arranque a veces imprimía antes de que la UI arrancara; la impresión sale ahora solo al terminar la animación de arranque (opción B). (3.2) apertura lenta del .exe: solo cambios seguros.
+- **3.1:** `POST /arranque/interfaz-lista` (sin token, idempotente, pasa la compuerta 503) completa la etapa `preparando_interfaz` y activa `RegistroArranque.interfaz_lista`; `latido_y_ticket` arranca el latido al quedar operable y el ticket espera ese evento con tope de 75 s (`TOPE_INTERFAZ_S`), pasado el cual imprime igual. La pantalla de la puerta 1 avisa con `progresoArranque.avisarInterfazLista()` (hilo, reintentos).
+- **3.2:** `exe_unico.py` ya no importa `autoclave.ui_qml.app` (constante `BACKEND_URL` propia); el backend (limpieza + Popen + vigilancia) se prepara en un hilo en paralelo con el lanzamiento de las pantallas; `lanzador.log` registra la hora de cada lanzamiento.
+- **Archivos:** `backend/main.py`, `backend/server.py`, `backend/rutas/sistema.py`, `backend/arranque/registro.py`, `devices/printer/arranque_equipo.py`, `ui_qml/bridge/progreso_arranque.py`, `ui_qml/app.py`, `exe_unico.py`, `docs/informes/tanda15/base/{rutas,openapi}.json`, `tests/test_arranque_interfaz_lista.py`, `tests/test_r1_arranque_equipo.py`, `tests/test_t15_rutas_equivalentes.py` (docstring).
+

@@ -892,6 +892,23 @@
     "summary": "Get Arranque"
    }
   },
+  "/arranque/interfaz-lista": {
+   "post": {
+    "description": "La UI terminó la animación de arranque: completa la etapa\n`preparando_interfaz` y libera el ticket de arranque. Sin token (como\n/ui/activity), idempotente: dos pantallas no imprimen dos veces.",
+    "operationId": "post_arranque_interfaz_lista_arranque_interfaz_lista_post",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Post Arranque Interfaz Lista"
+   }
+  },
   "/audit_log": {
    "get": {
     "operationId": "get_audit_log_audit_log_get",

@@ -44,6 +44,15 @@ def get_arranque():
     return registro_arranque.instantanea()
 
 
+@router.post("/arranque/interfaz-lista")
+def post_arranque_interfaz_lista():
+    """La UI terminó la animación de arranque: completa la etapa
+    `preparando_interfaz` y libera el ticket de arranque. Sin token (como
+    /ui/activity), idempotente: dos pantallas no imprimen dos veces."""
+    registro_arranque.marcar_interfaz_lista()
+    return {"ok": True}
+
+
 # ── Fecha y hora (O2c, tanda 6; decisión 1.10): SOLO LECTURA ──────────────
 # No hay ajuste: el reloj es el de Windows. Se informa la hora, la zona y si
 # el reloj es anterior a la fecha de instalación (M1-01, clock_guard).

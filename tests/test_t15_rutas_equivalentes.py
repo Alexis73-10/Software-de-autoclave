@@ -19,6 +19,8 @@ Cambios deliberados de la línea base (nada más cambia sin tocar este archivo):
   parámetro ``periodo`` de ``/report/summary``, ``/report/failures`` y
   ``/report/summary/print`` (etapas B y D). Se añadieron a ``rutas.json`` sin
   reordenar las demás y ``openapi.json`` se regeneró con ``openapi_ordenado``.
+- Ticket de arranque tras la animación (4-nov): ruta nueva
+  ``POST /arranque/interfaz-lista`` (tras ``/arranque``), misma regeneración.
 """
 import json
 from pathlib import Path
