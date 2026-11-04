@@ -54,3 +54,6 @@ docs/informes/**/*.log
 
 # VER-04 (etapa VER): identificación de la compilación, la generan los .spec
 /src/autoclave/_build_info.py
+
+# Diagramas generados por la skill archify
+/.archify/
