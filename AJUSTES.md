@@ -231,3 +231,7 @@ Decidió en todos: el director con el revisor de seguridad (aprobado con condici
 - Falló: el revisor (opus) rechazó A4: el seguro de atrapamiento D-ES-16 solo se evaluaba al recibir la orden (antes la renovación de 500 ms lo reevaluaba); el apagado de la salida opuesta del enclavamiento no se comprobaba; residual AJ27-01 subestimado.
 - Decidió: director, dentro del alcance de A4 (solo añade protección). NO se añade tope de tiempo (contradice la decisión «interruptor sin tope» de Cristian): queda como pregunta a Cristian en el informe.
 - Cambio: vigilancia en el lazo en modo prueba (apaga cerrar_puerta_N si aparece atrapamiento/DI vencidas), y rechazo 409 si el OFF de la opuesta no se confirma. Archivos: services/domain/loop/control_loop.py, core/runtime/salidas_prueba_seguridad.py, backend/rutas/io.py, pruebas, docs/riesgos/registro_riesgos.md.
+
+## 2026-11-05 — Tanda 27, depuración (ciclo de corrección 1 de 3)
+- Falló: revisor (opus) rechazó el diff de depuración: test_t16_s5 llamaba a /cycle/history/{id}/readings, ruta retirada.
+- Decidió: director (dentro del alcance). Cambio: quitar "readings" de la prueba; precisar 3 comentarios (ciclo.py, prevacio.py, respaldo.py). Commit de correcciones tras la revisión.
