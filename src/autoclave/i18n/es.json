@@ -523,7 +523,9 @@
     "conectando_modulos_es": "Conectando módulos de E/S",
     "preparando_interfaz": "Preparando interfaz",
     "sin_perfil_instalacion": "Sin perfil de instalación: se abre el asistente",
-    "perfil_invalido_instalacion": "Perfil de instalación inválido: se abre el asistente"
+    "perfil_invalido_instalacion": "Perfil de instalación inválido: se abre el asistente",
+    "reinicio_titulo": "Reconectando con el control del equipo",
+    "reinicio_detalle": "El control se reinició. El equipo no actúa hasta terminar el arranque."
   },
   "fases": {
     "precalentamiento": "Precalentamiento",
@@ -1424,6 +1426,7 @@
       "activar": "Activar",
       "apagar": "Apagar",
       "mantener": "Mantener pulsado",
+      "orden_pendiente": "Orden enviada, esperando confirmación",
       "bloqueada": "No disponible en este equipo",
       "atrapamiento_aviso": "Con el seguro de atrapamiento activo, la orden de cerrar abre la puerta.",
       "sin_permiso_prueba": "El modo prueba no está disponible en este estado o con este usuario.",
@@ -2449,6 +2452,77 @@
     "nivel_aviso": "Aviso",
     "cerrar": "Cerrar",
     "sin_dato": "—"
+  },
+  "aviso_detalle": {
+    "sin_conexion": {
+      "titulo": "Sin conexión con el equipo",
+      "accion": "No abra la puerta. Compruebe que el programa del equipo esté en marcha; si no vuelve la conexión, llame a servicio técnico."
+    },
+    "modulo_es_desconectada": {
+      "titulo": "Módulo E/S desconectado",
+      "accion": "Revise el cable de red y la alimentación del módulo E/S. No abra la puerta hasta recuperar la conexión. Si persiste, llame a servicio técnico."
+    },
+    "modulo_es_sin_datos": {
+      "titulo": "El módulo E/S no envía datos válidos",
+      "accion": "Revise el cable de red y la alimentación del módulo E/S. No abra la puerta. Si persiste, llame a servicio técnico."
+    },
+    "paro": {
+      "titulo": "Paro de emergencia",
+      "accion": "Desenclave el pulsador de paro de emergencia. No abra la puerta; después hay que confirmar el estado seguro."
+    },
+    "estado_seguro_pendiente": {
+      "titulo": "Estado seguro pendiente",
+      "accion": "Verifique que no haya fuga y confirme con el botón Confirmar y llevar a estado seguro; está disponible para cualquier operador, sin iniciar sesión."
+    },
+    "estado_seguro_en_curso": {
+      "titulo": "Llevando la cámara a estado seguro",
+      "accion": "Espere: el equipo lleva la cámara a estado seguro. No abra la puerta hasta que la cámara esté segura."
+    },
+    "no_abrir": {
+      "titulo": "NO ABRIR",
+      "accion": "No abra la puerta hasta que desaparezca este aviso."
+    },
+    "modo_prueba": {
+      "titulo": "Modo prueba activo",
+      "accion": "Los ciclos hechos en modo prueba no son válidos para carga estéril. Salga del modo prueba al terminar las pruebas."
+    },
+    "arranque": {
+      "titulo": "Fallo de arranque",
+      "accion": "Cierre el programa y ábralo de nuevo. Si el fallo se repite, llame a servicio técnico."
+    },
+    "no_abrir_motivos": {
+      "temp_alta": {
+        "descripcion": "Temperatura de la cámara: {valor}. Límite para abrir: {limite} (el menor entre el del equipo y el del programa del último ciclo).",
+        "accion": "Espere a que la temperatura baje de {limite}. No abra la puerta antes."
+      },
+      "sobrepresion": {
+        "descripcion": "Presión de la cámara: {valor}. Rango seguro: de {minimo} a {maximo} (presión atmosférica ± rango).",
+        "accion": "Espere a que la cámara se descomprima hasta el rango seguro. No abra la puerta."
+      },
+      "vacio": {
+        "descripcion": "Presión de la cámara: {valor}. Rango seguro: de {minimo} a {maximo} (presión atmosférica ± rango).",
+        "accion": "Espere a que la cámara vuelva a presión atmosférica. No abra la puerta."
+      },
+      "sin_presion_camara": {
+        "descripcion": "Sin lectura válida de presión de cámara.",
+        "accion": "Revise la conexión del sensor de presión de cámara. Si persiste, llame a servicio técnico."
+      },
+      "sin_temp_camara": {
+        "descripcion": "Sin lectura válida de temperatura de cámara.",
+        "accion": "Revise la sonda Principal. Si persiste, llame a servicio técnico."
+      },
+      "sin_datos_vigentes": {
+        "descripcion": "Sin conexión con el módulo E/S: datos no vigentes.",
+        "accion": "Revise el cable de red y la alimentación del módulo E/S. Si persiste, llame a servicio técnico."
+      },
+      "falta_config": {
+        "descripcion": "Falta configuración: {claves}.",
+        "accion": "Llame a servicio técnico para completar la configuración."
+      },
+      "generico": {
+        "accion": "Llame a servicio técnico si el aviso no desaparece."
+      }
+    }
   },
   "calendario": {
     "titulo_desde": "Fecha desde",

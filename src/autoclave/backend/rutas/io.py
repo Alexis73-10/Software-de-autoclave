@@ -130,13 +130,19 @@ def _vigilar_dueno_modo_prueba(cada_s: float = VIGILANCIA_DUENO_PRUEBA_S) -> Non
         time.sleep(cada_s)
 
 
+_lock_vigilancia_dueno = threading.Lock()
+
+
 def _iniciar_vigilancia_dueno_prueba() -> None:
+    """Un solo vigilante por proceso (H5 de la revisión ARQ, tanda 26: la
+    comprobación y la creación van bajo un lock)."""
     global _hilo_vigilancia_dueno
-    if _hilo_vigilancia_dueno is not None:
-        return
-    _hilo_vigilancia_dueno = threading.Thread(
-        target=_vigilar_dueno_modo_prueba, name="vigilancia-dueno-prueba", daemon=True)
-    _hilo_vigilancia_dueno.start()
+    with _lock_vigilancia_dueno:
+        if _hilo_vigilancia_dueno is not None:
+            return
+        _hilo_vigilancia_dueno = threading.Thread(
+            target=_vigilar_dueno_modo_prueba, name="vigilancia-dueno-prueba", daemon=True)
+        _hilo_vigilancia_dueno.start()
 
 
 def _invalidar_sesion(sesion: Sesion) -> bool:

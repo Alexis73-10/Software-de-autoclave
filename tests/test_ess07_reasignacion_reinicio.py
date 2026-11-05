@@ -23,6 +23,7 @@ PREPARACION/PREPARADO/FALLA, en modo prueba o apagando. El camino H1 vuelve
 a alcanzarse por una reasignación (mitigación: aviso `aviso_camara` con
 verificación en el manómetro). Sección 6."""
 
+from tests.helpers.arranque_doble import evento_liberado  # H3 (tanda 26)
 import json
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
@@ -74,7 +75,7 @@ def _loop_nuevo():
     cm = MagicMock()
     cm.get_selected_cycle.return_value = None
     with patch("autoclave.services.domain.loop.control_loop.StateMachine"):
-        loop = ControlLoop(units=MagicMock(), door_service=MagicMock(), doors=[],
+        loop = ControlLoop(arranque_liberado=evento_liberado(), units=MagicMock(), door_service=MagicMock(), doors=[],
                            estado=EstadoAutoclave(), link=MagicMock(), set_do=MagicMock(),
                            alarm_manager=AlarmManager(), cycle_manager=cm,
                            config_manager=_Config(_CFG))

@@ -15,12 +15,14 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
+from autoclave.backend.arranque import retencion
 from autoclave.backend.arranque.secuencia import ejecutar_arranque
 from autoclave.backend.arranque.sin_bd import BdNoDisponibleError
 from autoclave.backend.dependencias import (RechazoApi, _cierre_ordenado_hecho,
     _contexto_operable, _detener_arranque, context, registro_arranque)
 from autoclave.backend.rutas import (alarmas, apagado, ciclo, historial, mantenimiento,
     parametros_ciclo, programas, puertas, reportes, respaldo, sistema, usuarios)
+from autoclave.backend.rutas import arranque as rutas_arranque
 from autoclave.backend.rutas import io as rutas_io
 from autoclave.backend.rutas._comun import _reasignacion
 from autoclave.backend.rutas.io import _iniciar_vigilancia_dueno_prueba, _prueba_cancelada_por_paro
@@ -65,41 +67,71 @@ async def _ciclo_de_vida(_app):
 app = FastAPI(title="Autoclave Backend", lifespan=_ciclo_de_vida)
 _compuerta_arranque = False
 _hilo_arranque: threading.Thread | None = None
-_RUTAS_SIN_COMPUERTA = frozenset({"/arranque", "/ui/activity", "/arranque/interfaz-lista"})
+_lock_hilo_arranque = threading.Lock()
+_RUTAS_SIN_COMPUERTA = frozenset({"/arranque", "/ui/activity", "/arranque/interfaz-lista",
+                                  "/arranque/iniciar"})   # tanda 26, ARQ-D1
+
+# Tanda 26 (ARQ-D2): GET /arranque publica si el control ya está liberado
+if getattr(context, "arranque_liberado", None) is not None:
+    registro_arranque.vincular_liberacion(context.arranque_liberado)
 
 
 def preparar_arranque() -> None:
-    """Activa la compuerta 503: llamar antes de abrir el puerto."""
+    """Activa la compuerta 503 (y el rechazo de órdenes con el control
+    retenido, tanda 26): llamar antes de abrir el puerto."""
     global _compuerta_arranque
     _compuerta_arranque = True
 
 
 def iniciar_arranque() -> None:
-    """Lanza la secuencia de etapas en su hilo. Llamar con el puerto ya
-    enlazado (backend/main.py): si el enlace del puerto falla, nunca se abre el de E/S."""
+    """Lanza la secuencia de etapas en su hilo. Tanda 26 (ARQ-D1): la llama
+    POST /arranque/iniciar (la UI, por el puerto ya enlazado) o, sin espera
+    (AUTOCLAVE_ESPERA_INTERFAZ=0 fuera del compilado), backend/main.py en
+    cuanto el puerto escucha. Si el enlace del puerto falla, nunca se abre el
+    de E/S. Idempotente y segura entre hilos (dos peticiones a la vez)."""
     global _hilo_arranque
-    if _hilo_arranque is not None:
-        return
-    _hilo_arranque = threading.Thread(
-        target=ejecutar_arranque,
-        args=(context, registro_arranque),
-        kwargs={"al_cancelar_prueba": _prueba_cancelada_por_paro,
-                "al_operable": _contexto_operable.set,
-                "detener": _detener_arranque},
-        name="arranque", daemon=True)
-    _hilo_arranque.start()
-    _iniciar_vigilancia_dueno_prueba()   # SAF-01 (revisión de B7)
+    with _lock_hilo_arranque:
+        if _hilo_arranque is not None:
+            return
+        registro_arranque.marcar_iniciado()
+        _hilo_arranque = threading.Thread(
+            target=ejecutar_arranque,
+            args=(context, registro_arranque),
+            kwargs={"al_cancelar_prueba": _prueba_cancelada_por_paro,
+                    "al_operable": _contexto_operable.set,
+                    "detener": _detener_arranque},
+            name="arranque", daemon=True)
+        _hilo_arranque.start()
+        # SAF-01 (revisión de B7). H5 (revisión ARQ): dentro del lock y solo
+        # la primera vez (las siguientes salen arriba): un solo vigilante
+        _iniciar_vigilancia_dueno_prueba()
+
+
+rutas_arranque.fijar_iniciador(iniciar_arranque)
 
 
 @app.middleware("http")
 async def _compuerta_de_arranque(request: Request, call_next):
-    if (_compuerta_arranque and not _contexto_operable.is_set()
-            and request.url.path not in _RUTAS_SIN_COMPUERTA):
-        fallido = registro_arranque.fallo_bloqueante
-        return JSONResponse(status_code=503, content={
-            "detail": "Arranque fallido" if fallido else "Arranque en curso",
-            "codigo": "arranque_fallido" if fallido else "arranque_en_curso",
-        })
+    if _compuerta_arranque and request.url.path not in _RUTAS_SIN_COMPUERTA:
+        if not _contexto_operable.is_set():
+            fallido = registro_arranque.fallo_bloqueante
+            return JSONResponse(status_code=503, content={
+                "detail": "Arranque fallido" if fallido else "Arranque en curso",
+                "codigo": "arranque_fallido" if fallido else "arranque_en_curso",
+            })
+        # Tanda 26 (ARQ-D2): con el control retenido, una orden que acabaría
+        # encendiendo una salida (puertas, inicio de ciclo, modo prueba,
+        # confirmación de estado seguro, reconocer falla) se rechaza: no queda
+        # diferida para ejecutarse al liberar. Lecturas, sesión, configuración
+        # y el apagado del equipo siguen disponibles.
+        # Falla cerrada: solo un evento fijado de verdad cuenta como liberado
+        liberado = getattr(context, "arranque_liberado", None)
+        if (retencion.ruta_actuadora(request.method, request.url.path)
+                and (liberado is None or liberado.is_set() is not True)):
+            return JSONResponse(status_code=409, content={
+                "detail": "Arranque en curso: el equipo aún no está liberado",
+                "codigo": "arranque_retenido",
+            })
     return await call_next(request)
 
 
@@ -137,6 +169,7 @@ def _estado_seguro_en_marcha() -> bool:
 # así que cada petición la atiende la misma ruta que antes;
 # tests/test_t15_rutas_equivalentes.py lo comprueba.
 app.include_router(sistema.router)
+app.include_router(rutas_arranque.router)   # tanda 26: POST /arranque/iniciar
 app.include_router(usuarios.router)
 app.include_router(rutas_io.router)
 app.include_router(ciclo.router)

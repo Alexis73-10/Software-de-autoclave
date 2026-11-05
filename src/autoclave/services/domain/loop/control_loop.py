@@ -85,10 +85,14 @@ class ControlLoop:
     # de las entradas = paro" (adenda E0/E1, A-3, TMG-01).
     _VIGENCIA_DI_SEG = 1.5
 
+    # Tanda 26, H4 de la revisión ARQ: con el arranque retenido, un ALL_OFF
+    # no confirmado se reintenta a lo sumo cada este intervalo (monotonic)
+    _REINTENTO_ALL_OFF_RETENCION_S = 1.0
+
     def __init__(self, units, door_service, doors, estado, link, set_do,
                  alarm_manager, cycle_manager, config_manager,
                  cycle_logger=None, interval=0.5, cap=None, realtime_printer=None,
-                 profile=None):
+                 profile=None, arranque_liberado: threading.Event | None = None):
         self.units          = units
         self.door_service   = door_service
         self.doors          = doors
@@ -104,6 +108,21 @@ class ControlLoop:
         # (bloqueo_maquina) y dentro llama a enter/exit_test_mode, que también
         # lo toman (planeacion_backend_autenticacion.md, revisión de la etapa 1).
         self._sm_lock       = threading.RLock()
+        # Tanda 26 (ARQ-D2): retención de arranque. Mientras este evento no
+        # esté fijado, _tick solo lee y publica (paro, módulo E/S, sensores):
+        # ni puertas, ni máquina de estados, ni buzzer, ni ninguna salida ON.
+        # Lo fija la secuencia de arranque (etapas sin fallo bloqueante +
+        # POST /arranque/interfaz-lista). H3 de la revisión ARQ: sin evento el
+        # lazo nace RETENIDO (falla cerrada); quien lo quiera liberado (pruebas,
+        # uso aislado) pasa un evento fijado. El backend siempre pasa el suyo
+        # (BackendContext.construir_control).
+        if arranque_liberado is None:
+            arranque_liberado = threading.Event()
+        self.arranque_liberado = arranque_liberado
+        # ALL_OFF de la retención confirmado en la conexión actual (H4: solo
+        # con éxito; si no, se reintenta cada _REINTENTO_ALL_OFF_RETENCION_S)
+        self._retencion_apagado = False
+        self._retencion_ultimo_intento: float | None = None
         # Avisos de "modo prueba cancelado por paro de emergencia" (el backend
         # limpia la sesión dueña y lo registra en audit_log).
         self._al_cancelar_prueba = []
@@ -1020,6 +1039,8 @@ class ControlLoop:
         elif connected and not self.link_was_connected:
             self._desconectado_desde = None
             self._bloqueo_apagado = False   # tras reconectar, volver a apagar
+            self._retencion_apagado = False  # tanda 26: ídem en la retención
+            self._retencion_ultimo_intento = None
             if self.realtime_printer is not None and self._link_ever_connected:
                 self.realtime_printer.enqueue(
                     format_connectivity_ticket("MODULO_ES", True, datetime.now())
@@ -1114,6 +1135,17 @@ class ControlLoop:
             if not self._bloqueo_apagado:
                 self.set_do.reset_all_outputs()
                 self._bloqueo_apagado = True
+            return
+
+        # 2f. Tanda 26 (ARQ-D2): RETENCIÓN DE ARRANQUE, punto ÚNICO. Antes de
+        # las puertas (re-afirman salidas), de la máquina de estados (paso 5)
+        # y del buzzer (paso 7): mientras el arranque no esté liberado no se
+        # enciende nada. Ya corrieron la lectura y publicación (paso 1), el
+        # paro con su ALL_OFF (paso 2), el módulo E/S y el suministro. No
+        # depende de la UI ni de temporizadores: solo del evento. H3: falla
+        # cerrada, como la compuerta del backend (solo True cuenta).
+        if self.arranque_liberado.is_set() is not True:
+            self._tick_retenido()
             return
 
         # Pasos 2c a 5 bajo _sm_lock: el modo prueba solo cambia con este lock
@@ -1229,6 +1261,46 @@ class ControlLoop:
         # pisaría el control manual de esa salida).
         if not self._test_mode.is_set():
             self.set_do.buzer.update()
+
+    def _tick_retenido(self) -> None:
+        """Tanda 26 (ARQ-D2): tick con el arranque retenido. Solo apaga y
+        evalúa: un ALL_OFF por conexión (una salida que quedara encendida
+        por un backend anterior se apaga; nunca enciende nada) y las alarmas
+        de lectura de los sensores (las mismas de PREPARACION, que solo
+        activan o resuelven alarmas). La recuperación de un ciclo
+        interrumpido (estado seguro de arranque) queda pendiente y se
+        procesa en el primer tick liberado (DECISIÓN SIN CONFIRMAR). Nunca
+        lanza: el tick tiene que completarse para renovar el latido.
+
+        H4 (revisión ARQ): el ALL_OFF queda hecho solo si el enlace lo
+        confirmó (sin excepción y resultado True); si no, se reintenta cada
+        _REINTENTO_ALL_OFF_RETENCION_S mientras siga retenido. H6: los
+        sensores se evalúan solo con la trama AI vigente (una lectura
+        congelada no activa ni resuelve alarmas)."""
+        self._f0_ultimo_tick = None
+        with self._sm_lock:
+            if self._apagando:
+                return
+            if not self._retencion_apagado:
+                ahora = time.monotonic()
+                ultimo = self._retencion_ultimo_intento
+                if ultimo is None or ahora - ultimo >= self._REINTENTO_ALL_OFF_RETENCION_S:
+                    self._retencion_ultimo_intento = ahora
+                    try:
+                        confirmado = self.set_do.reset_all_outputs()
+                    except Exception:
+                        confirmado = False
+                        logger.exception("ControlLoop: no se pudo enviar el ALL_OFF de la retención")
+                    if confirmado is True:
+                        self._retencion_apagado = True
+                    else:
+                        logger.error("ControlLoop: ALL_OFF de la retención sin confirmar; "
+                                     "se reintenta en %.1f s", self._REINTENTO_ALL_OFF_RETENCION_S)
+            if self._ai_vigente():
+                try:
+                    self.state_machine.preparacion.verificar_sensores()
+                except Exception:
+                    logger.exception("ControlLoop: no se pudo evaluar los sensores en la retención")
 
     def _all_off_en_flanco_de_paro(self) -> None:
         """D9-9 (tanda 9): en el tick en que aparece el paro real, ALL_OFF con

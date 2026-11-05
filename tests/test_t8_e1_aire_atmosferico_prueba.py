@@ -8,6 +8,7 @@ Además (DECISIÓN SIN CONFIRMAR de E1): si ya está abierta en modo prueba y la
 condición deja de cumplirse (la cámara se presuriza o se pierde la lectura),
 el lazo la cierra y lo registra en la bitácora."""
 
+from tests.helpers.arranque_doble import evento_liberado  # H3 (tanda 26)
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
@@ -144,7 +145,7 @@ def _loop(estado):
     cm = MagicMock()
     cm.get.side_effect = lambda k, d=None: _CONFIG.get(k, d)
     with patch("autoclave.services.domain.loop.control_loop.StateMachine"):
-        loop = ControlLoop(units=MagicMock(), door_service=MagicMock(), doors=[], estado=estado,
+        loop = ControlLoop(arranque_liberado=evento_liberado(), units=MagicMock(), door_service=MagicMock(), doors=[], estado=estado,
                            link=MagicMock(), set_do=MagicMock(), alarm_manager=MagicMock(),
                            cycle_manager=MagicMock(), config_manager=cm)
     loop.link.edad_ultima_di.return_value = 0.0

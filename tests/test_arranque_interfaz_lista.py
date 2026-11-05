@@ -25,6 +25,7 @@ def test_ruta_pasa_la_compuerta_y_completa_la_etapa(monkeypatch):
     from autoclave.backend import server
     from autoclave.backend.dependencias import registro_arranque
     registro = RegistroArranque()
+    registro.marcar_iniciado()     # H7 (revisión ARQ, tanda 26): exige iniciar antes
     monkeypatch.setattr("autoclave.backend.rutas.sistema.registro_arranque", registro)
     monkeypatch.setattr(server, "_compuerta_arranque", True)
     assert not server._contexto_operable.is_set()
@@ -105,10 +106,18 @@ def test_progreso_avisar_en_hilo_y_una_vez():
     def avisar():
         llamadas.append(1)
         hecho.set()
-    p = ProgresoArranqueBackend(lambda: None, avisar=avisar)
+    # tanda 26 (ARQ-D3): el aviso sale solo con el backend terminado de verdad
+    registro = RegistroArranque()
+    for e in registro.instantanea()["etapas"]:
+        if e["clave"] != "preparando_interfaz":
+            registro.iniciar(e["clave"])
+            registro.completar(e["clave"])
+    p = ProgresoArranqueBackend(registro.instantanea, avisar=avisar, en_hilo=False)
+    p.sondear()
     p.avisarInterfazLista()
     p.avisarInterfazLista()
     assert hecho.wait(2)
+    p.sondear()
     assert llamadas == [1]
     # sin avisar (puerta 2): no hace nada y no falla
     ProgresoArranqueBackend(lambda: None).avisarInterfazLista()

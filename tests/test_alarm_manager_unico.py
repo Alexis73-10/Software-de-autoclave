@@ -1,3 +1,4 @@
+from tests.helpers.arranque_doble import evento_liberado  # H3 (tanda 26)
 from unittest.mock import MagicMock
 
 from autoclave.state_machine.machine.enum_global import GlobalState
@@ -9,7 +10,7 @@ def _loop():
     estado = _FakeEstado()
     cm = MagicMock()
     am = MagicMock(name="alarm_manager")
-    loop = ControlLoop(
+    loop = ControlLoop(arranque_liberado=evento_liberado(),
         units=MagicMock(), door_service=MagicMock(), doors=[], estado=estado,
         link=MagicMock(), set_do=MagicMock(), alarm_manager=am,
         cycle_manager=cm, config_manager=MagicMock(), cap=None,

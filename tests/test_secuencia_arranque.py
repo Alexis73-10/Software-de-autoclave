@@ -19,6 +19,13 @@ from autoclave.installation.clock_guard import ClockTamperedError
 from tests.helpers.alarmas_helpers import ids_viejos_activados, ids_viejos_activos, ids_viejos_resueltos
 
 
+@pytest.fixture(autouse=True)
+def _sin_espera_interfaz(monkeypatch):
+    """Tanda 26 (ARQ-D7): estas pruebas corren la secuencia sin la espera de
+    la interfaz (explícito); la espera se prueba en test_t26_arq_*."""
+    monkeypatch.setenv("AUTOCLAVE_ESPERA_INTERFAZ", "0")
+
+
 # ── secuencia con un contexto falso ──────────────────────────────────────────
 
 class _Reloj:
@@ -38,6 +45,11 @@ class _Contexto:
         self.conecta_tras = conecta_tras   # consultas de es_conectada() antes de conectar
         self.consultas = 0
         self.control_loop = None
+        self.arranque_liberado = threading.Event()   # tanda 26 (ARQ-D2)
+        self.sin_lectura = []                        # tanda 26 (ARQ-D8)
+
+    def sensores_arranque_sin_lectura(self):
+        return list(self.sin_lectura)
 
     def _etapa(self, nombre):
         self.llamadas.append(nombre)

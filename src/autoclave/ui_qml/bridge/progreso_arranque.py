@@ -212,6 +212,8 @@ class ProgresoArranqueSinPerfil(QObject):
 # desconectado" (U4). Solo presentación: no condiciona nada del arranque.
 
 _ETAPA_UI = "preparando_interfaz"      # la completa cada UI: no cuenta aquí
+_FASE_ARRANQUE = "arranque"
+_FASE_VIGILANCIA = "vigilancia"          # tanda 26, ARQ-D5
 _CODIGO_SIN_ES = "ARR_SIN_ES"
 _SIN_RESPUESTA = {"fraccion": 0.0, "proceso": "iniciando_servicios",
                   "terminado": False, "fallo": False}
@@ -244,6 +246,23 @@ def resumir_arranque(instantanea) -> dict:
     }
 
 
+def _terminado_real(instantanea) -> bool:
+    """Tanda 26 (ARQ-D3): el backend terminó todas sus etapas sin fallo
+    bloqueante (el «sin módulo E/S» que deja terminar la intro no cuenta)."""
+    return (isinstance(instantanea, dict) and instantanea.get("terminado") is True
+            and instantanea.get("falloBloqueante") is not True)
+
+
+def _interfaz_pendiente(instantanea) -> bool:
+    """Tanda 26 (ARQ-D3/D5): la etapa de la UI aún no está completa en este
+    backend (falta POST /arranque/interfaz-lista). Sin dato: pendiente."""
+    try:
+        return any(e["clave"] == _ETAPA_UI and e["estado"] != "ok"
+                   for e in instantanea["etapas"])
+    except (KeyError, TypeError):
+        return True
+
+
 def _etapas_backend(instantanea) -> list:
     """[(clave, peso, completada)] de las etapas del backend, en orden; [] si
     la respuesta no sirve."""
@@ -268,11 +287,28 @@ class ProgresoArranqueBackend(QObject):
     cambiado = Signal()
 
     def __init__(self, leer, en_hilo: bool = True, intervalo_ms: int = 300,
-                 permanencia_ms: int = 350, avisar=None, parent=None):
+                 permanencia_ms: int = 350, avisar=None, iniciar_backend=None,
+                 vigilar_reinicio: bool = False, intervalo_vigilancia_ms: int = 1000,
+                 parent=None):
         super().__init__(parent)
         self._leer = leer
         self._avisar = avisar            # POST /arranque/interfaz-lista; None = esta pantalla no avisa
-        self._aviso_lanzado = False
+        # Tanda 26 (ARQ-D1): POST /arranque/iniciar; None = esta pantalla no lo pide
+        self._iniciar_backend = iniciar_backend
+        self._intro_iniciada = False      # la ventana ya se ve y la intro empezó
+        self._intro_finalizada = False    # avisarInterfazLista(): la intro terminó
+        # ARQ-D3: interfaz-lista se manda una vez por instancia del backend
+        # (ARQ-D5: un backend reiniciado la vuelve a necesitar)
+        self._instancia = None            # última instancia vista en GET /arranque
+        self._avisada = None              # instancia a la que ya se avisó (o "?" sin instancia)
+        self._aviso_en_vuelo = False
+        self._iniciar_en_vuelo = False
+        self._ultima = None               # última respuesta válida (dict)
+        self._reiniciando = False         # ARQ-D5: backend reiniciado con la UI abierta
+        self._fase = _FASE_ARRANQUE
+        self._detenido = False
+        self._intervalo_ms = intervalo_ms
+        self._intervalo_vigilancia_ms = intervalo_vigilancia_ms
         self._en_hilo = en_hilo
         self._real = dict(_SIN_RESPUESTA)
         self._etapas: list = []
@@ -287,6 +323,10 @@ class ProgresoArranqueBackend(QObject):
         self._timer_vista = QTimer(self)
         self._timer_vista.setInterval(permanencia_ms)
         self._timer_vista.timeout.connect(self.avanzarVista)
+        # ARQ-D5: tras el arranque sigue leyendo GET /arranque (cada
+        # intervalo_vigilancia_ms) para ver si el backend se reinició con esta
+        # pantalla abierta
+        self._vigilar = vigilar_reinicio
 
     def iniciar(self) -> None:
         self.sondear()
@@ -296,25 +336,113 @@ class ProgresoArranqueBackend(QObject):
         self._timer.stop()
         self._timer_vista.stop()
 
+    # ── tanda 26 (ARQ): iniciar, interfaz lista y reinicio del backend ──────
+
+    @Slot()
+    def introIniciada(self) -> None:
+        """ARQ-D1: la ventana ya se ve y la intro empezó (IntroArranque, primer
+        cuadro). Desde aquí, si el backend espera, se le pide iniciar."""
+        if self._intro_iniciada:
+            return
+        self._intro_iniciada = True
+        self._revisar_acciones()
+
     @Slot()
     def avisarInterfazLista(self) -> None:
-        """La intro terminó su animación: avisa al backend (que imprime el
-        ticket de arranque). En hilo, sin bloquear la GUI; un error solo se
-        registra (el backend imprime igual tras su tope). Una vez por pantalla."""
-        if self._avisar is None or self._aviso_lanzado:
-            return
-        self._aviso_lanzado = True
-        threading.Thread(target=self._hilo_aviso, daemon=True, name="aviso-interfaz-lista").start()
+        """La intro terminó su animación. ARQ-D3: el aviso (POST
+        /arranque/interfaz-lista, que libera el control y el ticket de
+        arranque) sale solo cuando el backend terminó TODAS sus etapas (no
+        basta el «sin módulo E/S» que deja terminar la intro) y la barra ya
+        las mostró; si aún no, sale cuando ocurra (se sigue sondeando)."""
+        self._intro_finalizada = True
+        self._vista = None          # la intro ya no se ve: sin repetición
+        self._timer_vista.stop()
+        self._revisar_acciones()
 
-    def _hilo_aviso(self) -> None:
-        for intento in range(5):    # el backend puede estar aún levantando el puerto
-            try:
-                self._avisar()
+    def _revisar_acciones(self) -> None:
+        """Hilo GUI: iniciar / interfaz-lista según la última respuesta."""
+        r = self._ultima
+        if not isinstance(r, dict):
+            return
+        if (r.get("esperandoIniciar") is True and self._intro_iniciada
+                and self._iniciar_backend is not None):
+            self._lanzar_iniciar()
+        instancia = r.get("instancia") or "?"
+        if not _interfaz_pendiente(r):
+            self._fijar_reiniciando(False)     # avisada (por esta u otra pantalla)
+            return
+        al_dia = self._vista is None or self._vista >= self._cumplidas_reales()
+        if (self._avisar is not None and self._intro_finalizada and al_dia
+                and _terminado_real(r) and self._avisada != instancia):
+            self._lanzar_aviso(instancia)
+
+    def _lanzar_iniciar(self) -> None:
+        with self._lock:
+            if self._iniciar_en_vuelo:
                 return
-            except Exception as e:
-                logger.debug("POST /arranque/interfaz-lista falló (intento %d): %s", intento + 1, e)
-                threading.Event().wait(1.0)
-        logger.warning("No se pudo avisar al backend que la interfaz está lista")
+            self._iniciar_en_vuelo = True
+        threading.Thread(target=self._hilo_iniciar, daemon=True, name="arranque-iniciar").start()
+
+    def _hilo_iniciar(self) -> None:
+        try:
+            self._iniciar_backend()
+            logger.info("POST /arranque/iniciar enviado")
+        except Exception as e:     # se reintenta con la siguiente lectura
+            logger.debug("POST /arranque/iniciar falló: %s", e)
+        finally:
+            with self._lock:
+                self._iniciar_en_vuelo = False
+
+    def _lanzar_aviso(self, instancia: str) -> None:
+        with self._lock:
+            if self._aviso_en_vuelo:
+                return
+            self._aviso_en_vuelo = True
+        threading.Thread(target=self._hilo_aviso, args=(instancia,), daemon=True,
+                         name="aviso-interfaz-lista").start()
+
+    def _hilo_aviso(self, instancia: str = "?") -> None:
+        try:
+            for intento in range(5):    # el backend puede estar aún levantando el puerto
+                try:
+                    self._avisar()
+                    with self._lock:
+                        self._avisada = instancia
+                    logger.info("POST /arranque/interfaz-lista enviado (instancia %s)", instancia)
+                    return
+                except Exception as e:
+                    logger.debug("POST /arranque/interfaz-lista falló (intento %d): %s",
+                                 intento + 1, e)
+                    threading.Event().wait(1.0)
+            logger.warning("No se pudo avisar al backend que la interfaz está lista "
+                           "(se reintenta con la siguiente lectura)")
+        finally:
+            with self._lock:
+                self._aviso_en_vuelo = False
+
+    def _fijar_reiniciando(self, valor: bool) -> None:
+        if self._reiniciando != valor:
+            self._reiniciando = valor
+            if valor:
+                logger.warning("Arranque: el backend se reinició y espera a esta interfaz")
+            else:
+                logger.info("Arranque: interfaz lista de nuevo tras el reinicio del backend")
+            self.cambiado.emit()
+
+    def _detectar_reinicio(self, r: dict) -> None:
+        """ARQ-D5: en vigilancia, un backend que espera iniciar o una
+        instancia nueva con la interfaz pendiente = backend reiniciado con
+        esta pantalla abierta: vuelve al sondeo normal (barra real, sin la
+        animación) hasta que la interfaz quede avisada otra vez."""
+        instancia = r.get("instancia")
+        nueva = (instancia is not None and self._instancia is not None
+                 and instancia != self._instancia)
+        if r.get("esperandoIniciar") is True or (nueva and _interfaz_pendiente(r)):
+            self._fase = _FASE_ARRANQUE
+            self._vista = None
+            self._timer_vista.stop()
+            self._timer.setInterval(self._intervalo_ms)
+            self._fijar_reiniciando(True)
 
     # ── vista ────────────────────────────────────────────────────────────
 
@@ -374,6 +502,11 @@ class ProgresoArranqueBackend(QObject):
             return None
 
     def _aplicar(self, respuesta) -> None:
+        valida = isinstance(respuesta, dict) and isinstance(respuesta.get("etapas"), list)
+        if self._fase == _FASE_VIGILANCIA:
+            if not valida:
+                return      # backend sin responder (p. ej. reiniciándose): se sigue mirando
+            self._detectar_reinicio(respuesta)
         nuevo = resumir_arranque(respuesta)
         if nuevo["proceso"] != self._real["proceso"]:
             logger.info("Arranque: %s", nuevo["proceso"] or "terminado")
@@ -384,12 +517,37 @@ class ProgresoArranqueBackend(QObject):
         if nuevo["fallo"]:
             self._vista = None
             self._timer_vista.stop()
+        elif (self._vista is not None and self._vista < self._cumplidas_reales()
+              and not self._timer_vista.isActive()):
+            self._timer_vista.start()   # etapas nuevas tras detenerse (p. ej. E/S que llegan)
+        if valida:
+            self._ultima = respuesta
+            if respuesta.get("instancia") is not None:
+                self._instancia = respuesta.get("instancia")
         self._publicar()
-        if nuevo["terminado"] or nuevo["fallo"]:
-            self._timer.stop()
+        self._revisar_acciones()
+        if nuevo["fallo"]:
+            self._parar()
+        elif self._fase == _FASE_ARRANQUE and self._listo():
+            if self._vigilar:
+                self._fase = _FASE_VIGILANCIA          # ARQ-D5
+                self._timer.setInterval(self._intervalo_vigilancia_ms)
+            else:
+                self._parar()
+
+    def _listo(self) -> bool:
+        """La intro tiene lo que necesita (terminado publicado) y no queda
+        nada que avisar desde esta pantalla."""
+        if not self._publicado["terminado"]:
+            return False
+        return self._avisar is None or not _interfaz_pendiente(self._ultima)
+
+    def _parar(self) -> None:
+        self._detenido = True
+        self._timer.stop()
 
     def sondear(self) -> None:
-        if self._real["terminado"] or self._real["fallo"]:
+        if self._detenido:
             self._timer.stop()
             return
         if not self._en_hilo:
@@ -402,7 +560,7 @@ class ProgresoArranqueBackend(QObject):
                 self._en_vuelo = True
         if listo is not None:
             self._aplicar(listo[0])
-        if lanzar and not (self._real["terminado"] or self._real["fallo"]):
+        if lanzar and not self._detenido:
             threading.Thread(target=self._hilo, daemon=True, name="progreso-arranque").start()
         elif lanzar:
             with self._lock:
@@ -414,7 +572,17 @@ class ProgresoArranqueBackend(QObject):
             self._pendiente = (respuesta,)
             self._en_vuelo = False
 
+    def _completo(self) -> bool:
+        """ARQ-D3: todas las etapas reales del backend cumplidas y mostradas
+        (la barra puede llenarse); el «sin módulo E/S» no cuenta."""
+        al_dia = self._vista is None or self._vista >= self._cumplidas_reales()
+        return al_dia and _terminado_real(self._ultima)
+
     fraccion = Property(float, lambda self: self._publicado["fraccion"], notify=cambiado)
     proceso = Property(str, lambda self: self._publicado["proceso"], notify=cambiado)
     terminado = Property(bool, lambda self: self._publicado["terminado"], notify=cambiado)
     falloBloqueante = Property(bool, lambda self: self._publicado["fallo"], notify=cambiado)
+    # Tanda 26: la barra solo se llena en la salida si el backend terminó de verdad
+    completo = Property(bool, _completo, notify=cambiado)
+    # ARQ-D5: backend reiniciado con esta pantalla abierta (Main.qml muestra la barra)
+    reiniciandoBackend = Property(bool, lambda self: self._reiniciando, notify=cambiado)

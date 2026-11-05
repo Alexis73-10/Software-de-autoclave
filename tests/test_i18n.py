@@ -345,6 +345,9 @@ FAMILIAS = {
     "respaldo.motivo_": lambda: ["otra_serie", "version", "formato", "invalido"],
     "io.ai.": lambda: __import__("autoclave.core.runtime.io_names",
                                  fromlist=["leer_io_enabled"]).leer_io_enabled()["AI"],
+    # ALD (tanda 26): detalle de las filas sintéticas de alarma
+    "aviso_detalle.": lambda: __import__("autoclave.ui_qml.domain.detalle_aviso",
+                                         fromlist=["sufijos_i18n"]).sufijos_i18n(),
 }
 
 def _claves_modos_programa():

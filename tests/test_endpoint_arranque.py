@@ -201,8 +201,11 @@ def test_si_el_puerto_no_enlaza_el_arranque_no_empieza():
     iniciar.assert_not_called()
 
 
-def test_main_activa_la_compuerta_antes_de_abrir_el_puerto():
+def test_main_activa_la_compuerta_antes_de_abrir_el_puerto(monkeypatch):
     from autoclave.backend import main
+    # tanda 26 (ARQ-D7): sin la espera de la interfaz, explícito; con la
+    # espera, test_t26_arq_retencion.py
+    monkeypatch.setenv("AUTOCLAVE_ESPERA_INTERFAZ", "0")
     orden = []
     srv = MagicMock()
     srv.preparar_arranque.side_effect = lambda: orden.append("compuerta")

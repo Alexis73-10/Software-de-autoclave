@@ -5,8 +5,10 @@ import Autoclave.I18n
 
 // Intro de arranque "del vapor a la precisión" (planeacion_animacion_arranque.md).
 // Dura 3,5 s, no se puede saltar y termina convertida en el splash de arranque:
-// barra con el progreso real y nombre del proceso en curso. Es decorativa: no
-// muestra cifras ni estados del equipo y no espera ni condiciona el arranque.
+// barra con el progreso real y nombre del proceso en curso. No muestra cifras
+// ni estados del equipo. Desde la tanda 26 (ARQ) su primer cuadro hace que la
+// puerta 1 pida iniciar el arranque y su final, que avise la interfaz lista
+// (bridge/progreso_arranque.py): el backend no actúa hasta ese aviso.
 //
 // Toda la animación se deriva de un único reloj `t` (s desde que se muestra) y,
 // en la salida, de `s` (0–1 en 1 s): congelar ante un fallo bloqueante es pausar
@@ -131,6 +133,10 @@ Item {
         _iniciada = true
         animIntro.start()
         _vigilar()
+        // Tanda 26 (ARQ-D1): la ventana ya se ve y la intro empezó: la fuente
+        // real pide entonces al backend que corra sus etapas
+        if (typeof progreso?.introIniciada === "function")
+            progreso.introIniciada()
     }
     Connections {
         target: raiz.Window.window
@@ -240,8 +246,12 @@ Item {
         visible: width > 0
     }
 
-    // Relleno: sigue el progreso real desde t = 3,5 s; en la salida, lleno
-    property real fraccionMostrada: !introCompleta ? 0 : (enSalida ? 1 : fraccionFuente)
+    // Relleno: sigue el progreso real desde t = 3,5 s; en la salida, lleno solo
+    // si el backend terminó de verdad (tanda 26, ARQ-D3: sin módulo E/S la
+    // intro sale con la barra donde está, no se adelanta al backend)
+    readonly property bool completoFuente: progreso?.completo ?? true
+    property real fraccionMostrada: !introCompleta ? 0
+                                    : ((enSalida && completoFuente) ? 1 : fraccionFuente)
     Behavior on fraccionMostrada { NumberAnimation { duration: 250; easing.type: Easing.OutQuad } }
     Rectangle {
         objectName: "rellenoArranque"

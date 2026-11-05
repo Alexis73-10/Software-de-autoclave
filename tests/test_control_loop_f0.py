@@ -1,4 +1,5 @@
 # tests/test_control_loop_f0.py
+from tests.helpers.arranque_doble import evento_liberado  # H3 (tanda 26)
 from unittest.mock import MagicMock, patch
 
 from autoclave.state_machine.machine.enum_global import GlobalState
@@ -31,7 +32,7 @@ def _make_loop(estado=None, cap=None, f0_activo=True):
     cycle_manager.get_selected_cycle.return_value = cycle
 
     with patch("autoclave.services.domain.loop.control_loop.StateMachine"):
-        loop = ControlLoop(
+        loop = ControlLoop(arranque_liberado=evento_liberado(),
             units=MagicMock(),
             door_service=MagicMock(),
             doors=[],

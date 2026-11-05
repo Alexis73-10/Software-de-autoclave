@@ -12,6 +12,7 @@
 - D9-1.6: coherencia puerta-presión (SEN-10).
 """
 
+from tests.helpers.arranque_doble import evento_liberado  # H3 (tanda 26)
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
@@ -51,7 +52,7 @@ def _loop(alarmas=None):
     cm = MagicMock()
     cm.get_selected_cycle.return_value = None
     with patch("autoclave.services.domain.loop.control_loop.StateMachine"):
-        loop = ControlLoop(units=MagicMock(), door_service=MagicMock(), doors=[],
+        loop = ControlLoop(arranque_liberado=evento_liberado(), units=MagicMock(), door_service=MagicMock(), doors=[],
                            estado=EstadoAutoclave(), link=MagicMock(), set_do=MagicMock(),
                            alarm_manager=alarmas or AlarmManager(), cycle_manager=cm,
                            config_manager=_Config(_CFG))

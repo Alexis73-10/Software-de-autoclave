@@ -56,6 +56,8 @@ Item {
     // expone detalle(id) (AlarmListModel); si no, copia los roles conocidos
     function abrirDesde(m) {
         if (!m) return
+        // ALD: fila sintética ya armada en Python; no está en el modelo
+        if (m.sintetica === true) { abrir(m); return }
         if (alarmas && typeof alarmas.detalle === "function") {
             const d = alarmas.detalle(String(m.id))
             if (d && d.id) { abrir(d); return }
@@ -63,7 +65,7 @@ Item {
         const copia = {}
         for (const k of ["id", "level", "description", "priority", "descripciones", "codigo", "titulo",
                          "titulos", "accion", "acciones", "aparecida", "estado", "idVisible",
-                         "codigoVisible"])
+                         "codigoVisible", "sintetica"])
             copia[k] = m[k]
         abrir(copia)
     }
@@ -81,6 +83,9 @@ Item {
         cerrada()
     }
     function _releer() {
+        // ALD (tanda 26): una fila sintética (aviso de seguridad) no está en el
+        // modelo; quien la abrió la mantiene al día
+        if (datos.sintetica === true) return
         if (!abierta || !alarmas || typeof alarmas.detalle !== "function" || !datos.id)
             return
         const d = alarmas.detalle(String(datos.id))

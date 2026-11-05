@@ -3,6 +3,7 @@ import QtQuick
 import QtQuick.Controls
 import Tema
 import Autoclave.I18n
+import Autoclave.DetalleAviso
 
 // U1 (tanda 2, 2026-10-19): avisos de seguridad, antes franja superior de E5.
 // Mockup aprobado: docs/mis_plans/mockup_estado_seguro.png (3 estados).
@@ -70,8 +71,61 @@ Column {
 
     function enGrupo(g) { return grupo === "" || grupo === g }
 
+    // ALD (tanda 26): toda fila abre VentanaDetalleAlarma con un modelo armado
+    // en Python (domain/detalle_aviso.py); la QML solo lo entrega. Sin botones
+    // que cambien estado.
+    property string claveDetalle: ""
+    function _activa(clave) {
+        switch (clave) {
+        case "sin_conexion": return sinConexion
+        case "modulo_es_desconectada": return moduloEsDesconectada
+        case "modulo_es_sin_datos": return moduloEsSinDatos
+        case "paro": return paro
+        case "estado_seguro_pendiente": return confirmar
+        case "estado_seguro_en_curso": return enCurso
+        case "no_abrir": return (puente?.noAbrir ?? true) && !paro
+        case "modo_prueba": return modoPrueba
+        }
+        return false
+    }
+    function abrirDetalle(clave) {
+        claveDetalle = clave
+        cargadorDetalle.active = true      // se crea la primera vez que se usa
+        cargadorDetalle.item.abrirDesde(DetalleAviso.armar(clave, puente?.contextoAviso ?? ({})))
+    }
+    // con el dato vivo: valores nuevos mientras la ventana está abierta; si la
+    // condición se fue, «Ya no está activa»
+    function _refrescarDetalle() {
+        const detalle = cargadorDetalle.item
+        if (!detalle || !detalle.abierta || claveDetalle === "") return
+        if (!_activa(claveDetalle)) { detalle.vigente = false; return }
+        const d = DetalleAviso.armar(claveDetalle, puente?.contextoAviso ?? ({}))
+        if (d && d.id) { detalle.datos = d; detalle.vigente = true }
+    }
+    Connections {
+        target: raiz.puente
+        ignoreUnknownSignals: true
+        function onSeguridadChanged() { raiz._refrescarDetalle() }
+    }
+    // Fuera del posicionamiento de la columna (no ocupa lugar ni espacio); la
+    // ventana se muestra sobre toda la aplicación al abrirse. Se carga solo al
+    // tocar una fila (las secciones ocultas no crean ventanas).
+    Item {
+        visible: false
+        width: 0; height: 0
+        Loader {
+            id: cargadorDetalle
+            active: false
+            anchors.fill: parent
+            sourceComponent: VentanaDetalleAlarma {
+                objectName: "detalleAvisoSeguridad"
+            }
+        }
+    }
+
     width: parent ? parent.width : 0
     spacing: Escala.px(16)
+    onVisibleChanged: if (!visible && cargadorDetalle.item) cargadorDetalle.item.cerrar()   // ALD
 
     component Nota: Rectangle {
         id: nota
@@ -104,6 +158,8 @@ Column {
     // ---- sin conexión con el backend: seguridad desconocida ----
     FilaAlarma {
         objectName: "filaSeguridadDesconocida"
+        tocable: true     // ALD (tanda 26): abre el detalle
+        onPulsada: raiz.abrirDetalle("sin_conexion")
         visible: raiz.sinConexion && raiz.enGrupo("emergencia")
         width: raiz.width
         multilinea: true
@@ -115,6 +171,8 @@ Column {
     // ---- U4: módulo E/S desconectado / sin datos válidos (no afirma paro) ----
     FilaAlarma {
         objectName: "filaModuloEsDesconectada"
+        tocable: true     // ALD (tanda 26): abre el detalle
+        onPulsada: raiz.abrirDetalle("modulo_es_desconectada")
         visible: raiz.moduloEsDesconectada && raiz.enGrupo("emergencia")
         width: raiz.width
         multilinea: true
@@ -124,6 +182,8 @@ Column {
     }
     FilaAlarma {
         objectName: "filaModuloEsSinDatos"
+        tocable: true     // ALD (tanda 26): abre el detalle
+        onPulsada: raiz.abrirDetalle("modulo_es_sin_datos")
         visible: raiz.moduloEsSinDatos && raiz.enGrupo("emergencia")
         width: raiz.width
         multilinea: true
@@ -135,6 +195,8 @@ Column {
     // ---- 1. paro activo ----
     FilaAlarma {
         objectName: "filaParo"
+        tocable: true     // ALD (tanda 26): abre el detalle
+        onPulsada: raiz.abrirDetalle("paro")
         visible: raiz.paro && raiz.enGrupo("emergencia")
         width: raiz.width
         multilinea: true
@@ -150,6 +212,8 @@ Column {
     // ---- 2. paro liberado: confirmación pendiente ----
     FilaAlarma {
         objectName: "filaEstadoSeguroPendiente"
+        tocable: true     // ALD (tanda 26): abre el detalle
+        onPulsada: raiz.abrirDetalle("estado_seguro_pendiente")
         visible: raiz.confirmar && raiz.enGrupo("emergencia")
         width: raiz.width
         multilinea: true
@@ -169,6 +233,8 @@ Column {
     // ---- 3. estado seguro en curso ----
     FilaAlarma {
         objectName: "filaEstadoSeguroEnCurso"
+        tocable: true     // ALD (tanda 26): abre el detalle
+        onPulsada: raiz.abrirDetalle("estado_seguro_en_curso")
         visible: raiz.enCurso && raiz.enGrupo("emergencia")
         width: raiz.width
         multilinea: true
@@ -320,6 +386,8 @@ Column {
     // ---- cámara no segura (fuera del paro y del estado seguro) ----
     FilaAlarma {
         objectName: "filaNoAbrir"
+        tocable: true     // ALD (tanda 26): abre el detalle
+        onPulsada: raiz.abrirDetalle("no_abrir")
         visible: raiz.noAbrir && raiz.enGrupo("alarma")
         width: raiz.width
         multilinea: true
@@ -335,6 +403,8 @@ Column {
     // ---- modo prueba (indicador permanente mientras dure) ----
     FilaAlarma {
         objectName: "filaModoPrueba"
+        tocable: true     // ALD (tanda 26): abre el detalle
+        onPulsada: raiz.abrirDetalle("modo_prueba")
         visible: raiz.modoPrueba && raiz.enGrupo("aviso")
         width: raiz.width
         multilinea: true

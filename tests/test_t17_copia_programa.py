@@ -4,6 +4,7 @@
 # no ha iniciado. Programa real (perfil JSON de usuario) y CicloState real;
 # el resto de dependencias son dobles.
 
+from tests.helpers.arranque_doble import evento_liberado  # H3 (tanda 26)
 import json
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -152,7 +153,7 @@ def _loop(estado_maquina):
     cycle_manager.get_selected_cycle.return_value = _programa()
     logger_ciclo = MagicMock()
     with patch("autoclave.services.domain.loop.control_loop.StateMachine"):
-        loop = ControlLoop(units=MagicMock(), door_service=MagicMock(), doors=[],
+        loop = ControlLoop(arranque_liberado=evento_liberado(), units=MagicMock(), door_service=MagicMock(), doors=[],
                            estado=estado, link=MagicMock(), set_do=MagicMock(),
                            alarm_manager=MagicMock(), cycle_manager=cycle_manager,
                            config_manager=MagicMock(), cycle_logger=logger_ciclo)

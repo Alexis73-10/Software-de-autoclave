@@ -892,6 +892,23 @@
     "summary": "Get Arranque"
    }
   },
+  "/arranque/iniciar": {
+   "post": {
+    "description": "La UI ya se ve: corren las etapas de arranque (ARQ-D1). Idempotente.",
+    "operationId": "post_arranque_iniciar_arranque_iniciar_post",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Post Arranque Iniciar"
+   }
+  },
   "/arranque/interfaz-lista": {
    "post": {
     "description": "La UI terminó la animación de arranque: completa la etapa\n`preparando_interfaz` y libera el ticket de arranque. Sin token (como\n/ui/activity), idempotente: dos pantallas no imprimen dos veces.",

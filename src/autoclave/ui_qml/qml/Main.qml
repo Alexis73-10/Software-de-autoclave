@@ -7,6 +7,7 @@ import Autoclave.Controllers
 import "Pantallas"
 import "Componentes"
 import Autoclave.I18n
+import Autoclave.DetalleAviso
 
 Window {
     id: ventana
@@ -351,6 +352,15 @@ Window {
             }
         }
 
+        // Tanda 26 (ARQ-D5): backend reiniciado con esta pantalla abierta; la
+        // barra de etapas reales hasta que el arranque nuevo quede liberado
+        Loader {
+            objectName: "reinicioBackend"
+            anchors.fill: parent
+            active: ventana.introTerminada && (ventana.progresoArranque?.reiniciandoBackend ?? false)
+            sourceComponent: BarraReinicioBackend { progreso: ventana.progresoArranque }
+        }
+
         // PROVISIONAL (sin capa de alarmas en QML; ver sistema de alarmas): fallo
         // bloqueante de arranque superpuesto a la intro congelada (regla 3).
         Rectangle {
@@ -370,9 +380,16 @@ Window {
                 height: Escala.px(96)
                 prioridad: "alta"
                 idAlarma: "ARRANQUE"
+                tocable: true     // ALD (tanda 26): abre el detalle
+                onPulsada: detalleArranque.abrirDesde(DetalleAviso.armar(
+                    "arranque", { "arranque": { "sinProgreso": intro.item?.sinProgreso ?? false } }))
                 descripcion: I18n.t("arranque.fallo_titulo", I18n.lang) + ": " +
                              I18n.t((intro.item?.sinProgreso ?? false)
                                             ? "arranque.sin_progreso" : "arranque.fallo_bloqueante", I18n.lang)
+            }
+            VentanaDetalleAlarma {
+                id: detalleArranque
+                objectName: "detalleAlarmaArranque"
             }
         }
     }

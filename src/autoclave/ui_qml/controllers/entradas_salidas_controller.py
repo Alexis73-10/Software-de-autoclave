@@ -93,6 +93,35 @@ INACTIVIDAD_UI_S = 5 * 60
 # sondeo es de 0,2 s con plazos de 0,8 s por petición)
 ANTIGUEDAD_MAX_S = 3.0
 
+# Tanda 26 (SMP): orden pendiente por salida sostenida. Tras un PATCH aceptado
+# el botón muestra lo ORDENADO (con marca «pendiente») hasta que un /status
+# pedido después de la respuesta lo refleje o pasen PLAZO_ORDEN_PENDIENTE_S;
+# vencido, manda el /status. DECISIÓN SIN CONFIRMAR (3 s).
+PLAZO_ORDEN_PENDIENTE_S = 3.0
+# Con alguna orden pendiente el caché se relee cada 200 ms (el caché de
+# UIServiceBackend se refresca a 5 Hz) en vez de esperar al Timer de 1 s.
+SONDEO_PENDIENTE_MS = 200
+# Log de desarrollo de la latencia (no bitácora): logger propio, en DEBUG
+logger_latencia = logging.getLogger(__name__ + ".latencia")
+
+
+def presentar_con_pendientes(salidas: list, pendientes: dict) -> list:
+    """Agrega a cada salida de `dominio.presentar_salidas` lo que dibuja el
+    botón: `pendiente` (orden aún no reflejada), `apagar` (el próximo toque
+    envía OFF) y `claveBoton` (texto i18n). Las momentáneas no cambian."""
+    salida = []
+    for s in salidas:
+        s = dict(s)
+        if s.get("momentanea"):
+            s.update(pendiente=False, apagar=False, claveBoton="io.ui.mantener")
+        else:
+            p = pendientes.get(s.get("name"))
+            apagar = bool(p[0]) if p is not None else s.get("encendida") is True
+            s.update(pendiente=p is not None, apagar=apagar,
+                     claveBoton="io.ui.apagar" if apagar else "io.ui.activar")
+        salida.append(s)
+    return salida
+
 
 def status_del_cache(fuente):
     """(/status vigente del caché de UIServiceBackend o None, monotonic del
@@ -228,6 +257,11 @@ class EntradasSalidasController(QObject):
         self._timer_relectura = QTimer(self)
         self._timer_relectura.setInterval(_SONDEO_RELECTURA_MS)
         self._timer_relectura.timeout.connect(self._revisar_relectura)
+        # SMP (tanda 26): {nombre: (valor ordenado, monotonic de la respuesta)}
+        self._pendientes = {}
+        self._timer_pendientes = QTimer(self)
+        self._timer_pendientes.setInterval(SONDEO_PENDIENTE_MS)
+        self._timer_pendientes.timeout.connect(self.actualizar)
         self._op = OperacionCritica(self, self._s)
         self._op.operacionEnCursoChanged.connect(self._al_cambiar_operacion)
         self._op.operacionResuelta.connect(self._al_resuelta)
@@ -309,13 +343,83 @@ class EntradasSalidasController(QObject):
         status, t_envio = status_del_cache(self._fuente())
         if (status is not None and self._t_orden is not None
                 and t_envio is not None and t_envio <= self._t_orden):
-            return                               # aún sin dato nuevo
+            # aún sin dato nuevo; una orden pendiente vencida vuelve al /status
+            if self._vencer_pendientes():
+                self._reconstruir()
+            return
         self._status = status
         if self._status is not None:
             self._estado_maquina = str(self._status.get("machine_state") or "")
             if self._orden_tipo is None:
                 self._adoptar(bool(self._status.get("test_mode_active")))
+        self._resolver_pendientes(status, t_envio)
         self._reconstruir()
+
+    # -- orden pendiente por salida (SMP, tanda 26) ---------------------
+
+    def _vencer_pendientes(self) -> bool:
+        """Quita las órdenes con más de PLAZO_ORDEN_PENDIENTE_S. True si quitó."""
+        ahora = time.monotonic()
+        vencidas = [n for n, (_v, t) in self._pendientes.items()
+                    if ahora - t > PLAZO_ORDEN_PENDIENTE_S]
+        for n in vencidas:
+            valor, t = self._pendientes.pop(n)
+            logger.info("Salida %s: orden %s sin reflejo en /status en %.1f s; manda el /status",
+                        n, "ON" if valor else "OFF", ahora - t)
+        self._sincronizar_timer_pendientes()
+        return bool(vencidas)
+
+    def _resolver_pendientes(self, status, t_envio) -> None:
+        """Una orden se da por reflejada con un /status pedido DESPUÉS de su
+        respuesta que muestra el valor ordenado (un doble sin instante de
+        envío cuenta como nuevo). Si no, sigue hasta vencer."""
+        if self._pendientes and isinstance(status, dict):
+            reales = {s["name"]: s.get("encendida")
+                      for s in dominio.presentar_salidas(self._canales["DO"], status)}
+            ahora = time.monotonic()
+            for n, (valor, t) in list(self._pendientes.items()):
+                nuevo = t_envio is None or t_envio > t
+                if nuevo and reales.get(n) is bool(valor):
+                    del self._pendientes[n]
+                    logger_latencia.debug("SMP latencia %s=%s: primer /status que lo refleja "
+                                          "%.3f s tras la respuesta (t=%.3f)",
+                                          n, "ON" if valor else "OFF", ahora - t, ahora)
+        self._vencer_pendientes()
+
+    def _fijar_pendiente(self, nombre: str, valor: bool) -> None:
+        self._pendientes[nombre] = (bool(valor), time.monotonic())
+        self._sincronizar_timer_pendientes()
+
+    def _sincronizar_timer_pendientes(self) -> None:
+        if self._pendientes and not self._timer_pendientes.isActive():
+            self._timer_pendientes.start()
+        elif not self._pendientes and self._timer_pendientes.isActive():
+            self._timer_pendientes.stop()
+
+    def _limpiar_pendientes(self) -> None:
+        if self._pendientes:
+            self._pendientes.clear()
+            self._sincronizar_timer_pendientes()
+            self._reconstruir()
+
+    @Property(bool, notify=cambioDatos)
+    def ordenPendiente(self) -> bool:
+        """True mientras alguna salida tenga una orden sin reflejar."""
+        return bool(self._pendientes)
+
+    @Slot(str, result=bool)
+    def alternar(self, nombre: str) -> bool:
+        """Toque en una salida sostenida: envía el inverso del último valor
+        ORDENADO si hay una orden pendiente; si no, el inverso del estado
+        leído (sin dato o apagada -> encender). Encender sigue exigiendo
+        salidasHabilitadas (accionar); apagar sale siempre."""
+        p = self._pendientes.get(nombre)
+        if p is not None:
+            encender = not p[0]
+        else:
+            real = next((s.get("encendida") for s in self._salidas if s.get("name") == nombre), None)
+            encender = real is not True
+        return self.accionar(nombre, encender, False)
 
     def _adoptar(self, activo: bool) -> None:
         """Estado del modo prueba según un /status nuevo, sin orden en vuelo.
@@ -331,7 +435,8 @@ class EntradasSalidasController(QObject):
     def _reconstruir(self) -> None:
         c, st = self._canales, self._status
         self._entradas = dominio.presentar_entradas(c["DI"], st)
-        self._salidas = dominio.presentar_salidas(c["DO"], st)
+        self._salidas = presentar_con_pendientes(dominio.presentar_salidas(c["DO"], st),
+                                                 self._pendientes)
         self._temperatura = dominio.presentar_sensores(c["temperature"], "temperature", st,
                                                        _CLAVE_CORTA_TEMP)
         self._presion = dominio.presentar_sensores(c["pressure"], "pressure", st,
@@ -438,6 +543,10 @@ class EntradasSalidasController(QObject):
         self._prueba_sin_confirmar = bool(sin_entrada)
         self._salida_sin_confirmar = bool(sin_salida)
         self._avisar_cierre(self._modo_prueba or self._prueba_sin_confirmar)
+        if not (self._modo_prueba or self._prueba_sin_confirmar or self._salida_sin_confirmar):
+            # SMP: modo prueba inactivo sin dudas: el backend apagó todo; las
+            # órdenes pendientes ya no dicen nada
+            self._limpiar_pendientes()
         if cambio:
             self.modoPruebaChanged.emit()
         if (self._prueba_sin_confirmar or self._salida_sin_confirmar) != dudas_antes:
@@ -731,13 +840,30 @@ class EntradasSalidasController(QObject):
         cuerpo = {"value": bool(encender)}
         if momentanea and encender:
             cuerpo["momentanea"] = True
+        t0 = time.monotonic()
         r = self._s().enviar("PATCH", f"/io/test/output/{nombre}", cuerpo)
         self._marcar_orden()
+        logger_latencia.debug("SMP latencia %s=%s: respuesta del PATCH %.3f s (t=%.3f, ok=%s)",
+                              nombre, "ON" if encender else "OFF", self._t_orden - t0,
+                              self._t_orden, getattr(r, "ok", None))
         if not encender and r.causa == "modo_prueba_inactivo":
-            return True          # sin modo prueba el backend ya apagó todo
+            # sin modo prueba el backend ya apagó todo
+            if not momentanea:
+                self._fijar_pendiente(nombre, False)
+                self._reconstruir()
+            return True
         if not r.ok:
+            # SMP: una orden rechazada no queda pendiente (la anterior
+            # aceptada, si la hay, sigue con su plazo)
             self._fallo(r)
             return False
+        if not momentanea:
+            # SMP: lo que quedó ordenado; con atrapamiento (D-ES-16) el backend
+            # responde value False para esta salida
+            d = r.datos if isinstance(r.datos, dict) else {}
+            valor = d.get("value")
+            self._fijar_pendiente(nombre, valor if isinstance(valor, bool) else bool(encender))
+            self._reconstruir()
         self._limpiar_mensaje()
         return True
 

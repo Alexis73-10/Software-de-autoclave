@@ -190,6 +190,12 @@
 | T24-03 | Verificar una analógica reasignada con su lectura, sin calibrarla de nuevo | En seco (sin vapor) | RSB-07 (tanda 24); HAZ-IO-02 y AIN-R3 a reevaluar |
 | T24-04 | Columna Tipo de Reasignación: RTD en temperaturas, AI en presiones | En seco (sin vapor) | RSB-08 (tanda 24) |
 | T24-05 | Paro de emergencia reasignado: vapor y aire comprimido no se encienden solos hasta verificarlo | En seco (sin vapor) | RSB-01 / RSB-06 (tanda 24); HAZ-IO-05 |
+| T26-01 | Arranque real en el PC industrial con las dos pantallas: ventana visible, iniciar, etapas, PREPARACION | En seco (sin vapor) | ARQ-D1 / D2 / D3 (tanda 26); HAZ-ARQ-01 |
+| T26-02 | Reinicio del backend por reasignación de E/S con las pantallas abiertas | En seco (sin vapor) | ARQ-D5 (tanda 26); HAZ-ARQ-02 |
+| T26-03 | Latencia de las salidas en modo prueba con el M31 real | En seco (sin vapor) | SMP (tanda 26); HAZ-SMP-01 |
+| T26-04 | Con el M31 real, ninguna bobina se enciende antes de la liberación | En seco (sin vapor) | ARQ-D2 (tanda 26); HAZ-ARQ-01 |
+| T26-05 | Sin que la interfaz avise: equipo retenido, todo apagado y ARR_SIN_INTERFAZ a los 60 s | En seco (sin vapor) | ARQ-D4 (tanda 26); HAZ-ARQ-02 |
+| T26-06 | Tarjeta de NO ABRIR con la cámara caliente: valor y límite | En seco (sin vapor) | ALD (tanda 26); HAZ-ALD-01 |
 
 ## Bloque A. Arranque, instalación y módulo E/S (en seco)
 
@@ -2911,6 +2917,105 @@
   5. Restaurar la asignación anotada.
 - **Resultado esperado:** Paso 2: ninguna de esas salidas se enciende sola y SEN-09 sigue activa. Paso 4: SEN-09 se despeja para el paro y el control vuelve a operar con normalidad.
 - **Criterio de aprobado/fallo:** Aprobado si, antes de verificarlo, vapor y aire comprimido permanecen apagados. Es Fallo si alguna se enciende sola.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+## Bloque T26. Arranque retenido hasta la interfaz, salidas en modo prueba y detalle de alarmas (tanda 26, en seco, después de instalar)
+
+### T26-01 — Arranque real en el PC industrial con las dos pantallas
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** ARQ-D1 / D2 / D3 (tanda 26); HAZ-ARQ-01
+- **Objetivo:** Medir en el equipo real los tiempos de ventana visible, `iniciar`, etapas, `interfaz-lista` y PREPARACION, y comprobar que la barra no se adelanta al backend.
+- **Precondiciones:** Instalación completa, módulo E/S conectado, las dos pantallas conectadas, equipo apagado. Cronómetro o grabación de video.
+- **Pasos:**
+  1. Encender el PC y registrar la hora en que la pantalla 1 muestra la intro.
+  2. Observar la barra de arranque: debe avanzar solo con las etapas reales del backend.
+  3. Anotar la hora en que la barra llega al 100 % y la hora en que el equipo muestra PREPARACION.
+  4. Con `GET /arranque` (o el log del backend) anotar la hora de `iniciar` y de `interfaz-lista`.
+  5. Comprobar en la pantalla 2 que sigue a la 1 sin errores.
+- **Resultado esperado:** El backend no inicia etapas hasta que la intro es visible; PREPARACION aparece después de que la barra llega al 100 %; sin ventana de comandos visible durante la actuación.
+- **Criterio de aprobado/fallo:** Aprobado si las salidas no se mueven antes de que la intro sea visible y PREPARACION llega tras el 100 % de la barra. Es Fallo si hay actuación o PREPARACION antes de la barra.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### T26-02 — Reinicio del backend por reasignación de E/S con las pantallas abiertas
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** ARQ-D5 (tanda 26); HAZ-ARQ-02
+- **Objetivo:** Comprobar que, al reiniciarse el backend con las dos pantallas abiertas, la UI reenvía `iniciar` e `interfaz-lista` y el equipo no queda retenido en silencio.
+- **Precondiciones:** Sesión de ingeniero, equipo en PREPARADO sin ciclo. Anotar la asignación vigente.
+- **Pasos:**
+  1. Reasignar una entrada libre a otro puerto (nombre escrito, contraseña) y esperar el reinicio del control.
+  2. Observar en las dos pantallas la barra de reinicio del backend (no la animación completa).
+  3. Esperar a que el equipo vuelva a PREPARADO y anotar el tiempo.
+  4. Restaurar la asignación anotada.
+- **Resultado esperado:** Aparece la barra de reinicio en las dos pantallas, el backend termina las etapas y el equipo vuelve a PREPARADO sin intervención.
+- **Criterio de aprobado/fallo:** Aprobado si el equipo vuelve solo y nunca queda retenido con la UI abierta. Es Fallo si queda retenido o salta la espera.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### T26-03 — Latencia de las salidas en modo prueba con el M31 real
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** SMP (tanda 26); HAZ-SMP-01
+- **Objetivo:** Medir con el módulo real el retraso entre el toque y el cambio visible, y comprobar que un segundo toque envía el apagado.
+- **Precondiciones:** Modo prueba activo, cámara fría y a presión atmosférica, una salida inocua (p. ej. luz o buzzer). Cronómetro o video de la pantalla y de la salida.
+- **Pasos:**
+  1. Tocar «Activar» en la salida y medir hasta que la salida física cambia y hasta que el botón muestra el estado leído.
+  2. Verificar que, antes de la confirmación, el botón dice «Apagar» con la marca «Orden enviada, esperando confirmación».
+  3. Repetir con un segundo toque inmediato: debe enviarse OFF.
+  4. Repetir 10 veces y anotar mediana y máximo.
+- **Resultado esperado:** Botón con lo ordenado a los pocos milisegundos; confirmación visible en menos de 1 s (simulador: mediana 0,42 s, máximo 0,64 s); el segundo toque apaga.
+- **Criterio de aprobado/fallo:** Aprobado si el segundo toque siempre apaga y la confirmación llega en menos de 1,5 s. Es Fallo si algún toque doble vuelve a enviar ON.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### T26-04 — Con el M31 real, ninguna bobina se enciende antes de la liberación
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** ARQ-D2 (tanda 26); HAZ-ARQ-01
+- **Objetivo:** Comprobar con el módulo real que, mientras el arranque está retenido, ninguna salida pasa a ON.
+- **Precondiciones:** Módulo E/S conectado, indicadores de las 32 salidas visibles (LED del módulo). Para retener, iniciar solo el backend sin lanzar la interfaz.
+- **Pasos:**
+  1. Arrancar el backend sin lanzar la interfaz.
+  2. Observar durante 60 s los LED de las 32 salidas y el buzzer.
+  3. Anotar si aparece `ARR_SIN_INTERFAZ` en `GET /arranque` a los 60 s.
+  4. Lanzar la interfaz y observar las salidas hasta PREPARACION.
+- **Resultado esperado:** Ninguna bobina en ON durante la retención; `ARR_SIN_INTERFAZ` a los 60 s; las salidas solo actúan después de PREPARACION.
+- **Criterio de aprobado/fallo:** Aprobado si no se enciende ninguna salida ni el buzzer antes de la liberación. Es Fallo si alguna se enciende.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### T26-05 — Sin que la interfaz avise: equipo retenido y todo apagado
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** ARQ-D4 (tanda 26); HAZ-ARQ-02
+- **Objetivo:** Comprobar que, con la UI sin avisar, el equipo espera sin tope con todo apagado y que el paro y el apagado siguen disponibles.
+- **Precondiciones:** Mismo montaje de T26-04.
+- **Pasos:**
+  1. Mantener el backend retenido más de 2 minutos.
+  2. Pulsar y soltar el paro de emergencia y comprobar que la entrada se lee.
+  3. Probar un inicio de ciclo o un modo prueba desde otra herramienta: debe responder 409 `arranque_retenido`.
+  4. Pedir el apagado del equipo y comprobar que se atiende.
+- **Resultado esperado:** Todo apagado, 409 `arranque_retenido` en las rutas actuadoras, paro y apagado atendidos.
+- **Criterio de aprobado/fallo:** Aprobado si el equipo no actúa y se puede apagar. Es Fallo si una ruta actuadora responde 200 durante la retención.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### T26-06 — Tarjeta de NO ABRIR con la cámara caliente: valor y límite
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** ALD (tanda 26); HAZ-ALD-01
+- **Objetivo:** Comprobar que la fila NO ABRIR por temperatura alta abre su detalle con el valor medido y el límite.
+- **Precondiciones:** Cámara con temperatura mayor que `temp_max_apertura`, puertas cerradas.
+- **Pasos:**
+  1. Esperar a que aparezca la fila NO ABRIR en Preciclo o en el panel de la campana.
+  2. Tocar la fila.
+  3. Leer el valor medido, el límite y la acción indicada.
+  4. Tocar las otras filas de la sección de estado seguro y la alarma de arranque cuando estén visibles.
+- **Resultado esperado:** Se abre la ventana de detalle con «Temperatura de la cámara» y su valor, el límite vigente y qué hacer; el detalle no cambia ningún estado.
+- **Criterio de aprobado/fallo:** Aprobado si todas las filas abren su detalle y NO ABRIR muestra valor y límite. Es Fallo si alguna fila no abre.
 - **Valor observado:** ______________________________________________
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________

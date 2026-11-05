@@ -264,12 +264,18 @@ def main(argv=None) -> int:
     if simulacion:
         progreso_arranque = SimuladorProgresoArranque(**parse_simulacion(simulacion))
     else:
-        # Solo la pantalla de la puerta 1 avisa que la animación terminó (el
-        # backend imprime entonces el ticket de arranque; el aviso es idempotente)
+        # Solo la pantalla de la puerta 1 pide iniciar el arranque y avisa que
+        # la interfaz está lista (tanda 26, ARQ-D1/D3: el backend no actúa
+        # hasta ese aviso; también imprime entonces el ticket de arranque; los
+        # dos son idempotentes). Las dos vigilan un reinicio del backend con
+        # la pantalla abierta (ARQ-D5)
         progreso_arranque = ProgresoArranqueBackend(
             lambda: backend.get("/arranque"),
             avisar=(lambda: backend.post("/arranque/interfaz-lista", timeout=3.0))
-            if args.door == 1 else None)
+            if args.door == 1 else None,
+            iniciar_backend=(lambda: backend.post("/arranque/iniciar", timeout=3.0))
+            if args.door == 1 else None,
+            vigilar_reinicio=True)
     progreso_arranque.iniciar()
     version = version_software()
 

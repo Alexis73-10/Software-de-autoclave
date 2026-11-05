@@ -2,6 +2,7 @@
 instantánea del programa, ciclos interrumpidos y cierre inmediato del
 COMPLETADO (planeacion_arranque_y_modo_sin_bd §7.5; fin de ciclo D-08)."""
 
+from tests.helpers.arranque_doble import evento_liberado  # H3 (tanda 26)
 import json
 import sqlite3
 from types import SimpleNamespace
@@ -139,7 +140,7 @@ def _loop():
                                                 "rango_presion_atm": 10.0,
                                                 "temp_max_apertura": 80.0}.get(k, d)
     with patch("autoclave.services.domain.loop.control_loop.StateMachine"):
-        loop = ControlLoop(units=MagicMock(), door_service=MagicMock(), doors=[],
+        loop = ControlLoop(arranque_liberado=evento_liberado(), units=MagicMock(), door_service=MagicMock(), doors=[],
                            estado=EstadoAutoclave(), link=MagicMock(), set_do=MagicMock(),
                            alarm_manager=MagicMock(), cycle_manager=cm, config_manager=config)
     loop.cycle = None
