@@ -5,6 +5,7 @@ import QtQuick.Shapes
 import Tema
 import "grafica_ejes.mjs" as Ejes
 import Autoclave.I18n
+import Autoclave.PosicionCard
 
 // Tarjeta "GRÁFICA DEL CICLO" de la pantalla de ciclo en curso
 // (planeacion_pantalla_ciclo_en_curso.md §8; referencia:
@@ -151,6 +152,24 @@ Item {
         for (let i = 0; i < r.x.length; i++)
             pts.push(Qt.point(xDe(r.x[i]), yDe(r.y[i], serie.eje)))
         return pts
+    }
+
+    // A11: puntos (px) de cada curva que pueden cruzar [x0, x1], con el vecino
+    // de cada lado para no perder los tramos largos entre dos lecturas.
+    function _curvasCerca(x0, x1) {
+        const out = []
+        for (const s of raiz.series) {
+            const pts = raiz._puntos(s)
+            const c = []
+            for (let i = 0; i < pts.length; i++) {
+                const izq = i > 0 ? pts[i - 1].x : pts[i].x
+                const der = i + 1 < pts.length ? pts[i + 1].x : pts[i].x
+                if ((pts[i].x < x0 && der < x0) || (pts[i].x > x1 && izq > x1)) continue
+                c.push({ x: pts[i].x, y: pts[i].y })
+            }
+            out.push(c)
+        }
+        return out
     }
 
     // índice de la lectura más cercana a t (búsqueda binaria sobre t_min)
@@ -526,8 +545,14 @@ Item {
                 return n
             }
             width: Math.max(raiz.m(220), Math.ceil(anchoNecesario)); height: raiz.m(145)
-            x: Math.max(raiz.m(8), Math.min(cursor.xCursor - raiz.m(34), raiz.width - width - raiz.m(8)))
-            y: Math.min(raiz.yAbajo - height - raiz.m(45), raiz.m(519) + raiz._extra / 2)
+            // A11 (tanda 28): la posición la calcula ui_qml/domain/posicion_card.py
+            // (a un costado del cursor, en un hueco sin curvas); aquí solo se dibuja.
+            readonly property var pos: PosicionCard.posicionar(
+                [raiz.m(68), raiz.yArriba, raiz.m(1059), raiz.yAbajo],
+                cursor.xCursor, width, height,
+                raiz._curvasCerca(cursor.xCursor - width - raiz.m(40), cursor.xCursor + width + raiz.m(40)),
+                raiz.m(9 + 8))
+            x: pos.x; y: pos.y
             radius: raiz.m(14)
             color: Colores.graficaCursorFondo
             border.width: raiz.m(1.5); border.color: Colores.graficaCursorBorde
