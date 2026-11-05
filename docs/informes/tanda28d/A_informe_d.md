@@ -17,3 +17,5 @@
 - AJ28D-02 (BAJA): el cálculo corre en cada movimiento del cursor (≈3 × hasta ~950 puntos filtrados al rango de la card); sin medir en el equipo real.
 
 **Banco (T28, pendiente).** Arrastrar el cursor sobre un ciclo real en las dos pantallas táctiles: la card no cubre curvas ni cursor en los extremos izquierdo y derecho, con curvas altas, bajas y cruzadas, en claro y oscuro; fluidez del arrastre.
+
+**Revisión final (opus).** Sin bloqueantes. Corregido en el mismo punto: rendimiento (los tramos se recortan por lado antes de probar alturas; sin cálculo con el cursor oculto), margen de 3 px alrededor de la card, validación de `area` no finita. Sin tocar: AJ28D-03 (BAJA) la card puede saltar de lado al cruzar el centro (sin histéresis); AJ28D-04 (BAJA) sin medición del arrastre con >3000 lecturas en el equipo (banco).

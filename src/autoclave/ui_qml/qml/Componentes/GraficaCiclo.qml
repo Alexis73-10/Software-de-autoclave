@@ -158,6 +158,7 @@ Item {
     // de cada lado para no perder los tramos largos entre dos lecturas.
     function _curvasCerca(x0, x1) {
         const out = []
+        if (isNaN(raiz.cursorMin)) return out      // cursor oculto: nada que calcular
         for (const s of raiz.series) {
             const pts = raiz._puntos(s)
             const c = []

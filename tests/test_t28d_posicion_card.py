@@ -98,3 +98,15 @@ def test_segmento_largo_entre_dos_lecturas_cuenta():
 def test_siempre_dentro_del_area(cx):
     cv = [_curva(300.0 + (cx % 300)), _curva(650.0)]
     _comun(_pos(cx, cv), cx, cv)
+
+
+def test_area_invalida_no_da_nan():
+    r = posicionar_card((float("nan"), 0, 100, 100), 50, W, H, [], RES)
+    assert r["libre"] is False and r["x"] == r["x"] and r["y"] == r["y"]
+
+
+def test_curva_pegada_a_la_card_cuenta_por_el_margen():
+    # curva a 1 px del borde inferior de la card en la franja superior
+    cv = [_curva(279.0 + H + 1.0)]
+    r = _pos(500.0, cv)
+    assert r["libre"] and not (r["franja"] == "superior")

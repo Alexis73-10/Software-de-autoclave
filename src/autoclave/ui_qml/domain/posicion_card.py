@@ -18,6 +18,8 @@ import math
 
 # posiciones verticales candidatas entre el borde superior e inferior del área
 _PASOS_Y = 24
+# margen (px) alrededor de la card que ninguna curva puede tocar (trazo y sombra)
+_MARGEN = 3.0
 
 
 def _finito(v) -> bool:
@@ -70,6 +72,17 @@ def _largo_cruce(curvas, x0, x1, y0, y1) -> float:
     return total
 
 
+def _recortar(curvas, x0, x1) -> list:
+    """Cada curva reducida a los puntos cuyos tramos pueden tocar [x0, x1]."""
+    out = []
+    for pts in curvas:
+        c = [p for i, p in enumerate(pts)
+             if not ((p[0] < x0 and (i + 1 >= len(pts) or pts[i + 1][0] < x0))
+                     or (p[0] > x1 and (i == 0 or pts[i - 1][0] > x1)))]
+        out.append(c)
+    return out
+
+
 def _y_de_curvas(curvas, x0, x1):
     """Y media de las curvas dentro de [x0, x1] (interpolando los tramos largos
     entre dos lecturas), o None si ninguna pasa por ahí."""
@@ -101,6 +114,10 @@ def posicionar_card(area, x_cursor, ancho, alto, curvas, reserva_cursor=0.0) -> 
     Devuelve {"x", "y", "lado": "derecha"|"izquierda", "franja":
     "superior"|"inferior"|"media", "libre": bool}."""
     izq, arr, der, aba = (float(v) for v in area)
+    if not all(_finito(v) for v in (izq, arr, der, aba)) or der < izq or aba < arr:
+        return {"x": 0.0, "y": 0.0, "lado": "derecha", "franja": "superior", "libre": False}
+    if not (_finito(ancho) and _finito(alto)):
+        ancho = alto = 0.0
     ancho, alto = max(0.0, float(ancho)), max(0.0, float(alto))
     reserva = max(0.0, float(reserva_cursor)) if _finito(reserva_cursor) else 0.0
     cur = float(x_cursor) if _finito(x_cursor) else (izq + der) / 2
@@ -131,14 +148,16 @@ def posicionar_card(area, x_cursor, ancho, alto, curvas, reserva_cursor=0.0) -> 
     mejor = None
     for lado in orden:
         x, _espacio = lados[lado]
-        y_cur = _y_de_curvas(curvas, x, x + ancho)
+        # solo los tramos que tocan la franja horizontal de la card (una vez por lado)
+        cerca = _recortar(curvas, x - _MARGEN, x + ancho + _MARGEN)
+        y_cur = _y_de_curvas(cerca, x, x + ancho)
         mitad = (arr + aba) / 2
         # mitad opuesta a las curvas: curvas abajo → arriba; sin curvas → arriba
         arriba_primero = y_cur is None or y_cur >= mitad
         centro = y_min if arriba_primero else y_max
         # más lejos de las curvas primero = más cerca de la mitad opuesta
         for y in sorted(pasos, key=lambda p: abs(p - centro)):
-            cruce = _largo_cruce(curvas, x, x + ancho, y, y + alto)
+            cruce = _largo_cruce(cerca, x - _MARGEN, x + ancho + _MARGEN, y - _MARGEN, y + alto + _MARGEN)
             if cruce == 0.0:
                 franja = ("superior" if y <= y_min + 1e-9 else
                           "inferior" if y >= y_max - 1e-9 else "media")
