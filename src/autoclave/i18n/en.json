@@ -900,6 +900,8 @@
     "sin_conexion_cierre": "The session will close in {tiempo} if the connection is not restored",
     "validando": "Validating…",
     "error_generico": "The operation could not be completed",
+    "arranque_retenido": "The equipment is still starting up; wait for startup to finish and try again",
+    "arranque_no_iniciado": "Equipment startup has not begun yet; wait for it to finish and try again",
     "rol_sin_permiso": "Your role does not have permission for this action",
     "titulo_cambio_clave": "CHANGE PASSWORD",
     "aviso_cambio_obligatorio": "You must change your password before continuing",
@@ -2493,6 +2495,7 @@
     "no_abrir_motivos": {
       "temp_alta": {
         "descripcion": "Chamber temperature: {valor}. Limit to open: {limite} (the lower of the equipment limit and that of the last cycle's program).",
+        "descripcion_sin_programa": "Chamber temperature: {valor}. Limit to open: {limite} (the equipment limit applies; no program sets its own limit).",
         "accion": "Wait until the temperature drops below {limite}. Do not open the door before."
       },
       "sobrepresion": {

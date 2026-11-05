@@ -55,7 +55,8 @@ def sufijos_i18n() -> list:
     salida = [f"{c}.{campo}" for c in CLAVES for campo in ("titulo", "accion")]
     salida += [f"no_abrir_motivos.{m}.{campo}" for m in MOTIVOS_NO_ABRIR
                for campo in ("descripcion", "accion")]
-    return salida + ["no_abrir_motivos.generico.accion"]
+    return salida + ["no_abrir_motivos.generico.accion",
+                     "no_abrir_motivos.temp_alta.descripcion_sin_programa"]
 
 
 def _numero(v):
@@ -143,7 +144,12 @@ def _motivo_no_abrir(ctx: dict, idioma: str) -> tuple[str, str]:
         "minimo": minimo, "maximo": maximo,
         "claves": str(valores.get("claves") or ""),
     }
-    return _t(base + ".descripcion", idioma, **params), _t(base + ".accion", idioma, **params)
+    descripcion = base + ".descripcion"
+    if codigo == "temp_alta" and _numero(lim.get("temp_max_apertura_ciclo")) is None:
+        # Sin programa (sin límite del ciclo) rige solo el del equipo: no se
+        # habla de «el menor entre el del equipo y el del programa»
+        descripcion = base + ".descripcion_sin_programa"
+    return _t(descripcion, idioma, **params), _t(base + ".accion", idioma, **params)
 
 
 def _textos_arranque(ctx: dict, idioma: str) -> tuple[str, str]:
