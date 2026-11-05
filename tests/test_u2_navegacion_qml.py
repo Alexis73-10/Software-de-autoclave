@@ -41,7 +41,7 @@ _SCRIPT = textwrap.dedent(r"""
     ui.get_estado_flag.side_effect = lambda f: estado["paro"] if f in ("PARO_EMERGENCIA", "PARO_REAL") else True  # U4
     ui.get_campo.side_effect = lambda c, d=None: (estado["es"] if c == "estado_seguro"
                                                   else False if c == "no_abrir" else d)
-    ui.get_cycle.return_value = {"name": "Bowe & Dick", "number": 1}
+    ui.get_cycle.return_value = {"name": "Bowie & Dick", "number": 1}
     ui.get_sensores_temp.return_value = {"temp_camara": 25.0}
     ui.get_sensores_pres.return_value = {"pres_camara": 101.3}
     puente = UiBridge(ui, door=1, iniciar=False)

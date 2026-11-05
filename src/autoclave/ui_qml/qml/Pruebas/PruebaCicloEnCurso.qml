@@ -208,7 +208,7 @@ Window {
             anchors.fill: parent
             // DATOS DE EJEMPLO
             cicloActivo: "03"
-            programa: "BOWE & DICK"
+            programa: "BOWIE & DICK"
             tempEsterilizacion: "134.0"
             tiempoEsterilizacion: "10"
             tiempoSecado: "15"

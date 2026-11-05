@@ -340,7 +340,7 @@ def test_tickets_en_cp437(idioma):
     textos += [format_connectivity_ticket(s, ok, t, idioma=idioma)
                for s in ("MODULO_ES", "BACKEND") for ok in (True, False)]
     resumen = {"totales": {"total": 2, "completados": 1, "fallos": 1, "cancelados": 0, "sin_cierre": 0},
-               "por_programa": [{"programa_numero": 1, "programa_nombre": "Bowe & Dick", "total": 2,
+               "por_programa": [{"programa_numero": 1, "programa_nombre": "Bowie & Dick", "total": 2,
                                  "completados": 1, "fallos": 1, "cancelados": 0, "sin_cierre": 0}],
                "causas_fallo": [{"causa": "FALLO", "cantidad": 1}]}
     textos.append(format_ticket_resumen(resumen, "2026-10-01", "2026-10-31", "S-1", "M", ahora=t,

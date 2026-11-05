@@ -62,7 +62,7 @@ _SCRIPT = textwrap.dedent(r'''
         property bool connected: true
         property string estadoModuloEs: "ok"
         property string cicloActivo: "04"
-        property string programa: "BOWE & DICK"
+        property string programa: "BOWIE & DICK"
         property string tempEsterilizacion: "134.0"
         property string tiempoEsterilizacion: "3.5"
         property string tiempoSecado: "15"

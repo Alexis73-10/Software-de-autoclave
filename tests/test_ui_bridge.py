@@ -277,7 +277,7 @@ def test_el_puente_no_envia_comandos_ni_hace_red():
 # ── número de ciclo, puerta abierta y estado del equipo ───────────────────
 
 @pytest.mark.parametrize("ciclo, esperado", [
-    ({"name": "Bowe", "number": 1}, "01"),
+    ({"name": "Bowie", "number": 1}, "01"),
     ({"name": "X", "number": 12}, "12"),
     ({"name": "Sin número"}, SIN_DATO),
     ({"name": "Repetido", "number": None}, SIN_DATO),

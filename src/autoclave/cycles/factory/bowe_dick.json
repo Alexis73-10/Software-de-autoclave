@@ -1,7 +1,7 @@
 {
     "cycle_id":"bowe_dick",
     "cycle_number":1,
-    "display_name":"Bowe & Dick",
+    "display_name":"Bowie & Dick",
     "nombre_clave": "ciclos_fabrica.bowe_dick.nombre",
     "cycle_icon":"BigPackages",
     "cycle_temperature_sensors": {

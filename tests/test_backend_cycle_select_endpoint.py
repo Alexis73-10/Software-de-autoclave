@@ -8,7 +8,7 @@ from autoclave.state_machine.machine.enum_global import GlobalState
 
 
 def _make_cycles():
-    user_cycle = Cycle(cycle_id="bowe_dick", name="Bowe & Dick", parameters={})
+    user_cycle = Cycle(cycle_id="bowe_dick", name="Bowie & Dick", parameters={})
     user_cycle.source = "user"
     factory_cycle = Cycle(cycle_id="fabrica_x", name="Fábrica X", parameters={})
     factory_cycle.source = "factory"
@@ -38,7 +38,7 @@ def test_select_cycle_ok_llama_control_loop_y_sincroniza_cycle_manager(select_cl
     client, mock_ctx, user_cycle, _ = select_client
     resp = client.post("/cycle/select", json={"cycle_id": "bowe_dick"})
     assert resp.status_code == 200
-    assert resp.json() == {"ok": True, "id": "bowe_dick", "name": "Bowe & Dick"}
+    assert resp.json() == {"ok": True, "id": "bowe_dick", "name": "Bowie & Dick"}
     mock_ctx.control_loop.set_active_cycle.assert_called_once_with(user_cycle)
     mock_ctx.cycle_manager.set_default_cycle.assert_called_once_with("bowe_dick")
 

@@ -15,7 +15,7 @@ def _make_service(backend):
 
 def test_select_cycle_ok():
     backend = MagicMock()
-    backend.post.return_value = {"ok": True, "id": "bowe_dick", "name": "Bowe & Dick"}
+    backend.post.return_value = {"ok": True, "id": "bowe_dick", "name": "Bowie & Dick"}
     service = _make_service(backend)
 
     ok, motivo = service.select_cycle("bowe_dick")

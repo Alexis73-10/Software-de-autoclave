@@ -74,7 +74,7 @@ Window {
         property bool connected: ventana.conectado
         property string estadoModuloEs: "ok"
         property string cicloActivo: ventana.pantalla === "ciclo" ? "03" : "04"
-        property string programa: "BOWE & DICK"
+        property string programa: "BOWIE & DICK"
         property string tempEsterilizacion: "134.0"
         property string tiempoEsterilizacion: ventana.pantalla === "ciclo" ? "10" : "3.5"
         property string tiempoSecado: "15"

@@ -20,7 +20,7 @@ def _p(valor, unidad=""):
     return {"value": valor, "type": "float", "unit": unidad, "min": 0, "max": 9999}
 
 
-def _ciclo(temp=134.0, t_ester=3.5, t_secado=15.0, nombre="Bowe & Dick"):
+def _ciclo(temp=134.0, t_ester=3.5, t_secado=15.0, nombre="Bowie & Dick"):
     return {
         "id": "bowe_dick",
         "name": nombre,
@@ -70,7 +70,7 @@ def test_valor_ausente_o_no_numerico_se_muestra_sin_dato():
 
 def test_parametros_de_ciclo_extrae_consignas_formateadas():
     assert parametros_de_ciclo(_ciclo()) == {
-        "programa": "BOWE & DICK",
+        "programa": "BOWIE & DICK",
         "temp_esterilizacion": "134.0",
         "tiempo_esterilizacion": "3.5",
         "tiempo_secado": "15",
