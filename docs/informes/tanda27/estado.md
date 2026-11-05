@@ -4,7 +4,7 @@
 | Rama tanda27 + etiqueta respaldo-pre-depuracion | Hecho | (base c3b4e1dc) |
 | A1 unidades | Hecho | ver git log |
 | A2 standby | Hecho | ver git log |
-| A3 INICIAR oculto | Pendiente | |
+| A3 INICIAR oculto | Hecho | ver git log |
 | A4 sin momentáneas | Pendiente | |
 | 0 línea base | Pendiente | |
 | 1 inventario | Pendiente | |
