@@ -1,6 +1,7 @@
 """T3 (tanda 2026-10-14 §1.1): catálogo de sensores de temperatura del ciclo
 y roles por programa (principal / referencia / no_en_uso)."""
 
+from tests.helpers.arranque_doble import evento_liberado  # H3 (tanda 26)
 from types import SimpleNamespace
 
 import pytest
@@ -432,7 +433,7 @@ def _loop_seguridad():
                                                 "rango_presion_atm": 10.0,
                                                 "temp_max_apertura": 80.0}.get(k, d)
     with patch("autoclave.services.domain.loop.control_loop.StateMachine"):
-        loop = ControlLoop(units=MagicMock(), door_service=MagicMock(), doors=[],
+        loop = ControlLoop(arranque_liberado=evento_liberado(), units=MagicMock(), door_service=MagicMock(), doors=[],
                            estado=estado, link=MagicMock(), set_do=MagicMock(),
                            alarm_manager=MagicMock(), cycle_manager=cm, config_manager=config)
     loop.cycle = seleccionado

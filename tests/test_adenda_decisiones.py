@@ -10,6 +10,7 @@
 #       chaqueta ya no entra en esas salidas seguras; solo la corta el
 #       suministro eléctrico o el de vapor (causas propias).
 
+from tests.helpers.arranque_doble import evento_liberado  # H3 (tanda 26)
 import json
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
@@ -77,7 +78,7 @@ def _loop(estado_maquina=GlobalState.CICLO):
     cm = MagicMock()
     cm.get_selected_cycle.return_value = MagicMock()
     with patch("autoclave.services.domain.loop.control_loop.StateMachine"):
-        loop = ControlLoop(units=MagicMock(), door_service=MagicMock(), doors=[MagicMock()],
+        loop = ControlLoop(arranque_liberado=evento_liberado(), units=MagicMock(), door_service=MagicMock(), doors=[MagicMock()],
                            estado=estado, link=MagicMock(), set_do=MagicMock(),
                            alarm_manager=MagicMock(), cycle_manager=cm,
                            config_manager=MagicMock())

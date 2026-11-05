@@ -1,3 +1,4 @@
+from tests.helpers.arranque_doble import evento_liberado  # H3 (tanda 26)
 from unittest.mock import MagicMock, patch
 
 
@@ -30,7 +31,7 @@ def _make_loop(realtime_printer=None):
     cycle_manager.get_selected_cycle.return_value = MagicMock()
 
     with patch("autoclave.services.domain.loop.control_loop.StateMachine"):
-        loop = ControlLoop(
+        loop = ControlLoop(arranque_liberado=evento_liberado(),
             units=MagicMock(),
             door_service=MagicMock(),
             doors=[],
@@ -184,7 +185,7 @@ def test_control_loop_pasa_door_service_a_state_machine():
     door_service = MagicMock()
 
     with patch("autoclave.services.domain.loop.control_loop.StateMachine") as MockSM:
-        ControlLoop(
+        ControlLoop(arranque_liberado=evento_liberado(),
             units=MagicMock(),
             door_service=door_service,
             doors=[],

@@ -5,6 +5,7 @@ bloqueante que resuelve el evento "conectada"; en operación dentro de CICLO,
 aborto con COM-03 y el id como origen y causa; fuera de ciclo, alarma
 bloqueante. Mismo estilo que tests/test_e6_control_loop_modulo_es.py."""
 
+from tests.helpers.arranque_doble import evento_liberado  # H3 (tanda 26)
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -29,7 +30,7 @@ def _loop(estado_maquina=GlobalState.PREPARADO, conectado=True):
     cm = MagicMock()
     cm.get_selected_cycle.return_value = MagicMock()
     with patch("autoclave.services.domain.loop.control_loop.StateMachine"):
-        loop = ControlLoop(units=MagicMock(), door_service=MagicMock(), doors=[],
+        loop = ControlLoop(arranque_liberado=evento_liberado(), units=MagicMock(), door_service=MagicMock(), doors=[],
                            estado=estado, link=MagicMock(), set_do=MagicMock(),
                            alarm_manager=AlarmManager(), cycle_manager=cm,
                            config_manager=MagicMock())

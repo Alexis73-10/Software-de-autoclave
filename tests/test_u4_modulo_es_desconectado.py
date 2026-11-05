@@ -10,6 +10,7 @@ Instrucción: docs/mis_plans/instruccion_claude_code_u4_tarjeta_desconectada.md.
 - COM-01 solo con el módulo E/S desconectado; TARJETA_SIN_TRAMA_VALIDA solo con
   el puerto presente; nunca las dos a la vez."""
 
+from tests.helpers.arranque_doble import evento_liberado  # H3 (tanda 26)
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -62,7 +63,7 @@ def _loop(estado=None, alarm_manager=None):
     cm = MagicMock()
     cm.get_selected_cycle.return_value = MagicMock()
     with patch("autoclave.services.domain.loop.control_loop.StateMachine"):
-        loop = ControlLoop(units=MagicMock(), door_service=MagicMock(), doors=[],
+        loop = ControlLoop(arranque_liberado=evento_liberado(), units=MagicMock(), door_service=MagicMock(), doors=[],
                            estado=estado, link=MagicMock(), set_do=MagicMock(),
                            alarm_manager=alarm_manager or MagicMock(), cycle_manager=cm,
                            config_manager=MagicMock())

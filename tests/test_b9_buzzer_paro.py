@@ -16,6 +16,7 @@ pines del módulo E/S después de cada orden.
 Con B9_ESCRIBIR_REGISTRO=1 escribe el registro en
 docs/informes/tanda9/B9_registro_ordenes.md."""
 
+from tests.helpers.arranque_doble import evento_liberado  # H3 (tanda 26)
 import os
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -459,7 +460,7 @@ def _loop_paro():
     cm = MagicMock()
     cm.get_selected_cycle.return_value = MagicMock()
     with patch("autoclave.services.domain.loop.control_loop.StateMachine"):
-        loop = ControlLoop(units=MagicMock(), door_service=MagicMock(), doors=[],
+        loop = ControlLoop(arranque_liberado=evento_liberado(), units=MagicMock(), door_service=MagicMock(), doors=[],
                            estado=estado, link=MagicMock(), set_do=MagicMock(),
                            alarm_manager=MagicMock(), cycle_manager=cm,
                            config_manager=MagicMock(), profile=None)

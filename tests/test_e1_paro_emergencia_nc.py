@@ -3,6 +3,7 @@
 # E1-5 (D-16, PF-21, HAZ-FC-04): paro de emergencia con lógica de seguridad
 # intrínseca. Entrada en 0 = paro; sin datos = paro; entrada en 1 = sin paro.
 
+from tests.helpers.arranque_doble import evento_liberado  # H3 (tanda 26)
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -54,7 +55,7 @@ def _loop(estado):
     cm = MagicMock()
     cm.get_selected_cycle.return_value = MagicMock()
     with patch("autoclave.services.domain.loop.control_loop.StateMachine"):
-        return ControlLoop(units=MagicMock(), door_service=MagicMock(), doors=[],
+        return ControlLoop(arranque_liberado=evento_liberado(), units=MagicMock(), door_service=MagicMock(), doors=[],
                            estado=estado, link=MagicMock(), set_do=MagicMock(),
                            alarm_manager=MagicMock(), cycle_manager=cm,
                            config_manager=MagicMock())

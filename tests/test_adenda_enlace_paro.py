@@ -9,6 +9,7 @@
 #   A-8 (TMG-05)          modo prueba rechazado con el enlace caído o datos viejos
 #   A-9 (TMG-11)          suministro eléctrico sin get(..., 1)
 
+from tests.helpers.arranque_doble import evento_liberado  # H3 (tanda 26)
 import logging
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
@@ -29,7 +30,7 @@ def _loop(estado=None, profile=None):
     cm = MagicMock()
     cm.get_selected_cycle.return_value = MagicMock()
     with patch("autoclave.services.domain.loop.control_loop.StateMachine"):
-        loop = ControlLoop(units=MagicMock(), door_service=MagicMock(), doors=[],
+        loop = ControlLoop(arranque_liberado=evento_liberado(), units=MagicMock(), door_service=MagicMock(), doors=[],
                            estado=estado, link=MagicMock(), set_do=MagicMock(),
                            alarm_manager=MagicMock(), cycle_manager=cm,
                            config_manager=MagicMock(), profile=profile)

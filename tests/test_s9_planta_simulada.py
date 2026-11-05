@@ -36,6 +36,7 @@ por tick, no la unión de la corrida).
 
 Con S9_ESCRIBIR_INFORME=1 escribe docs/informes/tanda9/S9_ensayo_tabla.md."""
 
+from tests.helpers.arranque_doble import evento_liberado  # H3 (tanda 26)
 import os
 import time
 from pathlib import Path
@@ -91,7 +92,7 @@ def _equipo(programa, monkeypatch, programas_fabrica):
     link.expansor_fuera_de_linea.return_value = False
     units = MagicMock()
     units.get_all.return_value = {}
-    loop = ControlLoop(units=units, door_service=MagicMock(), doors=[], estado=estado,
+    loop = ControlLoop(arranque_liberado=evento_liberado(), units=units, door_service=MagicMock(), doors=[], estado=estado,
                        link=link, set_do=set_do, alarm_manager=alarmas, cycle_manager=cm,
                        config_manager=config, cap=get_capabilities(EquipmentClass.PISO_LAB))
     estado.set_machine_state(GlobalState.PREPARACION)
