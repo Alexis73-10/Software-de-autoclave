@@ -51,6 +51,8 @@ Fuente: `backend/arranque/secuencia.py`. No son alarmas del `AlarmManager`: son 
 | `ARR_SIN_BD` | abriendo_base_datos | degradado | BD no disponible tras 3 intentos (alarma `OPERANDO_SIN_BD`). |
 | `ARR_SIN_ES` | conectando_modulos_es | en_curso | 15 s sin E/S conectadas; sigue reintentando (D-E). |
 | `ARR_ERROR_INTERNO` | cualquiera | fallo | Excepción no prevista en la etapa (queda la traza en el log). |
+| `ARR_SENSORES` | verificando_sensores | degradado | Tanda 26 (ARQ-D8, DECISIÓN SIN CONFIRMAR): sin lectura vigente del Principal, la presión de cámara o la de chaqueta (si la hay) en 10 s; no bloquea (las alarmas de cada sensor las da PREPARACION). |
+| `ARR_SIN_INTERFAZ` | preparando_interfaz | en_curso | Tanda 26 (ARQ-D4): 60 s (DECISIÓN SIN CONFIRMAR) con las etapas terminadas sin POST `/arranque/interfaz-lista`; el control sigue retenido con todo apagado, sin tope. Informativo. |
 
 ### 2.2 Módulo E/S (E6, 2026-10-14; antes «tarjeta de E/S»)
 
