@@ -189,3 +189,39 @@ Decidió en todos: el director con el revisor de seguridad (aprobado con condici
 ## 2026-11-05 · Paso 4. ARQ · contrato de GET /arranque
 - Qué falló: `test_registro_arranque::test_instantanea_inicial_cumple_el_contrato` exigía el conjunto de claves anterior.
 - Quién decidió: director. Qué cambió: la aserción incluye `instancia`, `esperandoIniciar` y `liberado` (ARQ-D1/D5); no se relajó ninguna otra. Archivo: `tests/test_registro_arranque.py`.
+
+## 2026-11-05 · tanda26b · ARQ-04/H1 estado seguro de arranque
+- Se pidió: aceptar que el venteo del estado seguro de arranque espere a la liberación, sin exceptuarlo de la retención.
+- Decidió: Cristian (5-nov).
+- Cambio: Sin cambio de código; se marca resuelto y aceptado.
+- Archivos: `docs/informes/tanda26/R26_informe.md`, `docs/riesgos/registro_riesgos.md`, `CLAUDE.md`.
+
+## 2026-11-05 · tanda26b · ARQ-07 texto del 409
+- Se pidió: texto propio i18n es/en para `arranque_retenido` y `arranque_no_iniciado`.
+- Decidió: Cristian (5-nov).
+- Cambio: La UI muestra texto propio en lugar del error genérico, con prueba.
+- Archivos: `sesion_backend.py`, `es.json`, `en.json`.
+
+## 2026-11-05 · tanda26b · ARQ-06 latido de apagado
+- Se pidió: que el latido arranque al quedar operable el contexto o al recibir `POST /arranque/iniciar`, lo primero que ocurra, sin esperar 120 s; sin actuar sobre salidas (tope de 75 s del ticket intacto).
+- Decidió: Cristian (5-nov).
+- Cambio: Cambia el momento de arranque del latido (`latido_y_ticket`).
+- Archivos: `src/autoclave/backend/main.py`.
+
+## 2026-11-05 · tanda26b · H2 pantalla 2 sola
+- Se pidió: confirmar que la pantalla 2 sola no pide iniciar y el equipo queda retenido.
+- Decidió: Cristian (5-nov).
+- Cambio: Sin cambio de código; dependencia de la puerta 1 aceptada.
+- Archivos: `docs/informes/tanda26/R26_informe.md`, `docs/riesgos/registro_riesgos.md`.
+
+## 2026-11-05 · tanda26b · SMP plazo de 3 s y residual
+- Se pidió: aceptar el plazo de 3 s y el residual del botón «Activar» deshabilitado hasta ≈3,2 s tras un OFF aceptado sin reflejo.
+- Decidió: Cristian (5-nov).
+- Cambio: Sin cambio de código; se quita `DECISIÓN SIN CONFIRMAR` de ese punto.
+- Archivos: `docs/riesgos/registro_riesgos.md`, `CLAUDE.md`, `docs/informes/tanda26/R26_informe.md`.
+
+## 2026-11-05 · tanda26b · temp_alta cosmético
+- Se pidió: que la frase «el menor entre el del equipo y el del programa» salga solo cuando haya programa seleccionado.
+- Decidió: Cristian (5-nov).
+- Cambio: Ajuste del texto del detalle de la alarma.
+- Archivos: `src/autoclave/ui_qml/domain/detalle_aviso.py`.
