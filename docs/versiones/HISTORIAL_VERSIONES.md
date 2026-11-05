@@ -9,6 +9,35 @@ Una entrada por **entrega** (compilación con Setup que se instala en el equipo)
 
 <!-- entradas: las agrega compilar_entrega.py debajo de esta línea, la más nueva primero -->
 
+## 1.0.0-alpha.16 — 2026-11-05
+
+- Etiqueta: `v1.0.0-alpha.16` (commit `chore(ver): 1.0.0-alpha.16`, sobre `a3d8f17`)
+- AppVerNum: `1.0.0.1016`
+- SHA-256 del Setup y del zip: en el mensaje de la etiqueta y en `entrega/v1.0.0-alpha.16_2026-11-05/SHA256SUMS.txt` (solo existen después de compilar)
+- Commits desde `v1.0.0-alpha.15`:
+  - a3d8f17f docs(tanda26b): CERRADO actualizado
+  - 6fb55888 docs(tanda26b): resultado de la suite
+  - c818b5bb docs(tanda26b): detalle real del latido de apagado en AJUSTES
+  - 12bcc504 feat(arranque): el latido de apagado arranca con iniciar u operable (ARQ-06)
+  - f14fb8cb feat(ald): NO ABRIR por temperatura sin programa dice que rige el límite del equipo
+  - 00e26e42 feat(arranque): texto propio para los 409 arranque_retenido y arranque_no_iniciado (ARQ-07)
+  - f4387c3c docs(tanda26b): respuestas de Cristian a las preguntas abiertas de la tanda 26
+  - ff916221 docs(tanda26): CERRADO
+  - 7ab0c947 docs(tanda26): resultado de los revisores y suite final en R26
+  - 438491e3 test(arranque): contrato de la instantanea incluye instancia, esperandoIniciar y liberado (ARQ-D1)
+  - 48d9fe3a test(arranque): pruebas de la revisión ARQ (H3 a H7, latido y apagado retenido) y bitácora AJUSTES
+  - b796e993 fix(arranque): vigilante único del modo prueba e interfaz-lista solo tras iniciar (revisión ARQ H5, H7)
+  - c7d87118 fix(arranque): ControlLoop retenido por defecto, ALL_OFF con reintento y sensores con AI vigente (revisión ARQ H3, H4, H6)
+  - 9fb57271 docs(tanda26): riesgos HAZ-ARQ/SMP/ALD, trazabilidad REQ-52..55, CLAUDE.md, bloque T26 del banco e informe R26
+  - a7befce8 test(i18n): linea base acepta aviso_detalle.* (ALD) y catalogo con ARR_SENSORES/ARR_SIN_INTERFAZ
+  - 6f79f586 refactor(tanda26): renombrar ESP a SMP (salidas en modo prueba) y registrar informes CMP/ARQ
+  - dbb758f5 feat(ui): la puerta 1 pide iniciar y avisa la interfaz lista con el backend terminado (ARQ-D1, D3, D5)
+  - 3980032e feat(arranque): backend retenido hasta que la UI termina el arranque (ARQ-D1..D4, D7, D8)
+  - 767e9015 feat(io): orden pendiente por salida y relectura rapida en modo prueba (ESP, tanda 26)
+  - a86169b3 docs(tanda26): estado de ALD
+  - eb0e2f81 feat(ui): ALD tanda 26 — toda fila de alarma abre su detalle
+
+
 ## 1.0.0-alpha.15 — 2026-11-04
 
 - Etiqueta: `v1.0.0-alpha.15` (commit `chore(ver): 1.0.0-alpha.15`, sobre `9ff9127`)
