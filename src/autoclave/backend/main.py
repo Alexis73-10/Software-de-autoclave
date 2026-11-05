@@ -94,8 +94,15 @@ def main():
     ))
     threading.Thread(target=latido_y_ticket, args=(server,),
                      name="latido-ticket", daemon=True).start()
-    threading.Thread(target=arrancar_cuando_escuche, args=(servidor, server.iniciar_arranque),
-                     name="arranque-espera-puerto", daemon=True).start()
+    # Tanda 26 (ARQ-D1): el backend abre el puerto y espera POST
+    # /arranque/iniciar de la UI. Solo sin espera (AUTOCLAVE_ESPERA_INTERFAZ=0
+    # fuera del compilado, ARQ-D7) arranca en cuanto el puerto escucha.
+    from autoclave.backend.arranque import retencion
+    if retencion.espera_interfaz_activa():
+        logger.info("Arranque en espera: las etapas corren al recibir POST /arranque/iniciar")
+    else:
+        threading.Thread(target=arrancar_cuando_escuche, args=(servidor, server.iniciar_arranque),
+                         name="arranque-espera-puerto", daemon=True).start()
     # R8 (D8-5.12): una reasignación de E/S se aplica reiniciando este proceso.
     # Solo si hay quien lo relance (SAF-06/TMG-03 de la revisión R8): el
     # lanzador del ejecutable único marca así al backend que vigila. Sin esa

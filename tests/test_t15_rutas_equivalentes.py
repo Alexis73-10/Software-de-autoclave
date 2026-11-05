@@ -21,6 +21,9 @@ Cambios deliberados de la línea base (nada más cambia sin tocar este archivo):
   reordenar las demás y ``openapi.json`` se regeneró con ``openapi_ordenado``.
 - Ticket de arranque tras la animación (4-nov): ruta nueva
   ``POST /arranque/interfaz-lista`` (tras ``/arranque``), misma regeneración.
+- Arranque retenido hasta la UI (tanda 26, ARQ-D1): ruta nueva
+  ``POST /arranque/iniciar`` (tras ``/arranque/interfaz-lista``, router
+  ``rutas/arranque.py``), misma regeneración; nada más cambió.
 """
 import json
 from pathlib import Path

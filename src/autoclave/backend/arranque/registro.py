@@ -12,6 +12,7 @@ import copy
 import logging
 import threading
 import time
+import uuid
 from dataclasses import dataclass
 from enum import Enum
 
@@ -68,8 +69,57 @@ class RegistroArranque:
         if len(self._por_clave) != len(self._etapas):
             raise ValueError("Claves de etapa repetidas")
         # La UI terminó su animación de arranque (POST /arranque/interfaz-lista);
-        # el ticket de arranque espera este evento (backend/main.py)
+        # el ticket de arranque espera este evento (backend/main.py) y, desde la
+        # tanda 26 (ARQ-D3), también la liberación del control
         self.interfaz_lista = threading.Event()
+        # Tanda 26 (ARQ-D5): identifica este proceso del backend; la UI ve en
+        # GET /arranque que el backend se reinició (instancia nueva)
+        self.instancia = uuid.uuid4().hex
+        # ARQ-D1: POST /arranque/iniciar recibido (las etapas ya corren)
+        self._iniciado = False
+        # ARQ-D2: evento de liberación del control (BackendContext.arranque_liberado),
+        # solo para publicarlo; lo vincula server.py
+        self._liberado: threading.Event | None = None
+
+    # ── tanda 26 (ARQ) ───────────────────────────────────────────────────────
+
+    def marcar_iniciado(self) -> bool:
+        """ARQ-D1: la UI pidió iniciar. True solo la primera vez."""
+        with self._lock:
+            primera = not self._iniciado
+            self._iniciado = True
+        if primera:
+            logger.info("Arranque: iniciado por la interfaz (instancia %s)", self.instancia)
+        return primera
+
+    @property
+    def iniciado(self) -> bool:
+        with self._lock:
+            return self._iniciado
+
+    def vincular_liberacion(self, evento: threading.Event) -> None:
+        self._liberado = evento
+
+    def iniciar_espera_interfaz(self, clave: str = "preparando_interfaz") -> None:
+        """ARQ-D3: las etapas del backend terminaron y se espera a la UI. La
+        etapa de la UI pasa a en_curso si aún no está cerrada (la UI pudo
+        avisar antes); atómico frente a marcar_interfaz_lista."""
+        with self._lock:
+            e = self._etapa(clave)
+            if e.estado == EstadoEtapa.PENDIENTE:
+                e.estado = EstadoEtapa.EN_CURSO
+                e.t_inicio = self._reloj()
+
+    def anotar_si_en_curso(self, clave: str, codigo: str | None) -> bool:
+        """Como anotar(), pero sin error si la etapa ya se cerró (la UI avisó
+        justo antes). True si se anotó."""
+        with self._lock:
+            e = self._etapa(clave)
+            if e.estado != EstadoEtapa.EN_CURSO or e.codigo == codigo:
+                return False
+            e.codigo = codigo
+        logger.warning("Arranque: %s sigue en curso [%s]", clave, codigo)
+        return True
 
     def marcar_interfaz_lista(self, clave: str = "preparando_interfaz") -> bool:
         """Completa la etapa de la UI; idempotente (varias pantallas, reintentos).
@@ -186,9 +236,15 @@ class RegistroArranque:
             return self._etapa(clave).estado
 
     def instantanea(self) -> dict:
-        """Contrato de GET /arranque (§5). Copia independiente del registro."""
+        """Contrato de GET /arranque (§5). Copia independiente del registro.
+        Tanda 26 (ARQ): `instancia` (proceso del backend), `esperandoIniciar`
+        (aún sin POST /arranque/iniciar) y `liberado` (control liberado)."""
+        liberado = self._liberado is not None and self._liberado.is_set() is True
         with self._lock:
             return copy.deepcopy({
+                "instancia": self.instancia,
+                "esperandoIniciar": not self._iniciado,
+                "liberado": liberado,
                 "terminado": self._terminado(),
                 "falloBloqueante": self._fallo_bloqueante(),
                 "etapaActual": self._etapa_actual(),

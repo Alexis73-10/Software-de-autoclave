@@ -127,6 +127,12 @@ class BackendContext:
         self.realtime_printer = None
         self.cycle_logger = None
         self.control_loop = None
+        # Tanda 26 (ARQ-D2/D3): liberación del control. El ControlLoop se
+        # construye con este evento SIN fijar y queda retenido (ninguna salida
+        # ON, máquina de estados quieta) hasta que la secuencia de arranque lo
+        # fija: etapas terminadas sin fallo bloqueante y POST
+        # /arranque/interfaz-lista (backend/arranque/secuencia.py)
+        self.arranque_liberado = threading.Event()
         self.sin_base_de_datos = False
         self._lock_sin_bd = threading.Lock()
         self.db_real = None
@@ -765,6 +771,7 @@ class BackendContext:
             cap=self.cap,
             realtime_printer=self.realtime_printer,
             profile=self.profile,
+            arranque_liberado=self.arranque_liberado,   # tanda 26, ARQ-D2
         )
         if al_cancelar_prueba is not None:
             self.control_loop.al_cancelar_modo_prueba(al_cancelar_prueba)
@@ -1168,6 +1175,35 @@ class BackendContext:
 
     def es_conectada(self) -> bool:
         return self.serial is not None and self.serial.is_connected()
+
+    def sensores_arranque_sin_lectura(self) -> list[str]:
+        """Tanda 26 (ARQ-D8, DECISIÓN SIN CONFIRMAR: los criterios de la §6 de
+        planeacion_arranque_y_modo_sin_bd.md no están cerrados): canales
+        críticos sin lectura vigente para la etapa 8. Principal del programa
+        seleccionado, presión de cámara y presión de chaqueta si el equipo la
+        tiene (mismo criterio que presion_sin_lectura.canales_vigilados).
+        Lectura vigente = el lazo publica datos al día con la trama AI vigente
+        y el valor es válido y distinto de 0 (0 = sin señal, como en
+        PREPARACION). Solo lee: no toca alarmas ni salidas."""
+        from autoclave.core.runtime import presion_sin_lectura
+        from autoclave.core.runtime.lectura import lectura_valida
+        from autoclave.core.runtime.sensores_ciclo import sensor_principal
+        loop = self.control_loop
+        vigente = loop is not None and getattr(loop, "presion_vigente", False) is True
+        try:
+            principal = sensor_principal(self.cycle_manager.get_selected_cycle())
+        except Exception:
+            logger.exception("Arranque: no se pudo leer el Principal del programa seleccionado")
+            principal = "temp_camara"
+        canales = [("temp", principal)] + [("pres", c) for c in
+                                            presion_sin_lectura.canales_vigilados()]
+        faltan = []
+        for tipo, canal in canales:
+            lecturas = self.estado.sensores_temp if tipo == "temp" else self.estado.sensores_pres
+            valor = lecturas.get(canal) if vigente else None
+            if not lectura_valida(valor) or valor == 0:
+                faltan.append(canal)
+        return faltan
 
     def _validar_configuracion(self) -> str | None:
         """Configuración inválida (valores fuera de rango): alarma

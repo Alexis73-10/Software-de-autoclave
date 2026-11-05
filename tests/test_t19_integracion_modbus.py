@@ -59,6 +59,9 @@ def planta(monkeypatch, tmp_path):
                         lambda: SensorCalibrationAuditDB(tmp_path / "calibracion.db"))
     monkeypatch.setattr(ctx_mod, "RealtimePrinter", MagicMock)
 
+    # tanda 26 (ARQ-D7): sin la espera de la interfaz, explícito (la retención
+    # se prueba en test_t26_arq_*)
+    monkeypatch.setenv("AUTOCLAVE_ESPERA_INTERFAZ", "0")
     ctx = BackendContext()
     srv, _ = cargar_servidor(ctx)
     srv.preparar_arranque()

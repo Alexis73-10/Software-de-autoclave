@@ -101,6 +101,9 @@ def backend(monkeypatch, tmp_path):
                         lambda: SensorCalibrationAuditDB(tmp_path / "calibracion.db"))
     monkeypatch.setattr(ctx_mod, "RealtimePrinter", MagicMock)
 
+    # tanda 26 (ARQ-D7): sin la espera de la interfaz, explícito (la retención
+    # se prueba en test_t26_arq_*)
+    monkeypatch.setenv("AUTOCLAVE_ESPERA_INTERFAZ", "0")
     ctx = BackendContext()
     srv, _ = cargar_servidor(ctx)
     srv.preparar_arranque()
@@ -109,7 +112,8 @@ def backend(monkeypatch, tmp_path):
         kwargs={"al_cancelar_prueba": srv._prueba_cancelada_por_paro,
                 "al_operable": srv._contexto_operable.set,
                 "detener": srv._detener_arranque,
-                "plazo_es_s": 0.3, "pausa_es_s": 0.05},
+                "plazo_es_s": 0.3, "pausa_es_s": 0.05,
+                "plazo_sensores_s": 0.3},
         daemon=True)
     hilo.start()
     yield srv, ctx, enlaces, hilo, TestClient(srv.app)
@@ -161,7 +165,10 @@ def test_al_conectar_el_modulo_es_el_arranque_retoma_sin_reiniciar(backend):
     assert _esperar(lambda: reg.terminado)
     assert _etapa(reg, "conectando_modulos_es") == {
         "clave": "conectando_modulos_es", "estado": "ok", "codigo": None, "peso": 2.0}
-    assert _etapa(reg, "verificando_sensores")["estado"] == "ok"
+    # tanda 26 (ARQ-D8): la etapa 8 dejó de ser un marcador; este doble no
+    # publica lecturas, así que se degrada (sin bloquear: terminado arriba)
+    assert (_etapa(reg, "verificando_sensores")["estado"],
+            _etapa(reg, "verificando_sensores")["codigo"]) == ("degradado", "ARR_SENSORES")
     # mismo backend: el mismo ControlLoop y su hilo, sin reconstruir nada
     assert len(enlaces) == 1
     assert ctx.control_loop is loop and ctx.control_loop.thread is hilo_loop
