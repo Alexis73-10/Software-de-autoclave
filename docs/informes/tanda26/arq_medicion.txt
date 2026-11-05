@@ -1,0 +1,16 @@
+| corrida | iniciar | etapas_terminadas | interfaz_lista | liberado | preparacion | bobinas ON antes de liberar | estado |
+|---|---|---|---|---|---|---|---|
+| 1 | 0.01 | 0.63 | 7.38 | 7.45 | 7.62 | 0 | PREPARACION |
+| 2 | 0.01 | 0.94 | 7.39 | 7.39 | 7.68 | 0 | PREPARACION |
+| 3 | 0.01 | 0.94 | 7.39 | 7.40 | 7.69 | 0 | PREPARACION |
+
+Duración de cada etapa (s), corrida 1:
+- verificando_instalacion: ok 0.0
+- liberando_procesos: ok 0.0
+- iniciando_servicios: ok 0.0
+- cargando_configuracion: ok 0.026
+- verificando_calibracion: ok 0.024
+- abriendo_base_datos: ok 0.041
+- conectando_modulos_es: ok 0.258
+- verificando_sensores: ok 0.261
+- preparando_interfaz: ok 6.753

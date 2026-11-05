@@ -352,6 +352,15 @@ Window {
             }
         }
 
+        // Tanda 26 (ARQ-D5): backend reiniciado con esta pantalla abierta; la
+        // barra de etapas reales hasta que el arranque nuevo quede liberado
+        Loader {
+            objectName: "reinicioBackend"
+            anchors.fill: parent
+            active: ventana.introTerminada && (ventana.progresoArranque?.reiniciandoBackend ?? false)
+            sourceComponent: BarraReinicioBackend { progreso: ventana.progresoArranque }
+        }
+
         // PROVISIONAL (sin capa de alarmas en QML; ver sistema de alarmas): fallo
         // bloqueante de arranque superpuesto a la intro congelada (regla 3).
         Rectangle {
