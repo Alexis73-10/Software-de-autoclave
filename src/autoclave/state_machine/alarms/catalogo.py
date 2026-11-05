@@ -94,6 +94,10 @@ CIC_18 = "CIC-18"
 # FC-08 (tanda 21): Referencia sin lectura con carga líquida; FALLO bloqueante
 # como CIC-12/13 (en carga sólida sigue SEN-11, aviso no bloqueante)
 CIC_19 = "CIC-19"
+# A12 (tanda 28): el paso de descompresión de un pulso de prevacío no llega a
+# atm + presion_inicio_vacio en timeout_descompresion; FALLO bloqueante como
+# CIC-15 (la bomba no arranca a ciegas con la cámara a presión)
+CIC_20 = "CIC-20"
 # M1 (tanda 3): aviso no bloqueante de mantenimiento vencido (id descriptivo
 # como OPERANDO_SIN_BD; nunca impide un ciclo)
 MANTENIMIENTO_VENCIDO = SIS_04
@@ -398,6 +402,14 @@ DEFINICIONES: tuple[DefinicionAlarma, ...] = (
        "Sin lectura de {sensor} en la fase {fase}. En carga líquida la temperatura de la "
        "carga no se puede verificar. El ciclo se abortó.",
        "La carga NO está estéril. Revise la conexión de la sonda y repita el ciclo."),
+    # A12 (tanda 28): descompresión del pulso de prevacío sin terminar
+    _d(CIC_20, _AL, True, _M, "Descompresión del prevacío sin terminar",
+       "La presión de cámara no bajó a {maximo:.1f} kPa (atmosférica + {margen} kPa) en "
+       "{minutos} min, en la descompresión del pulso {pulso} del prevacío. La bomba de vacío "
+       "no se encendió. El ciclo se abortó.",
+       "La carga NO está estéril. Revise la válvula de descompresión rápida, el escape y el "
+       "sensor de presión de cámara (calibración), y el valor «Presión para iniciar el vacío» "
+       "del programa. Repita el ciclo."),
     # F2 (tanda 16, D-CHQ / VCH-CHQ): no hay FALLO por esta vía (§4.6)
     _d(CIC_18, _AV, False, _A, "Presión de chaqueta en el límite de control",
        "La chaqueta llegó a {pres:.1f} kPa (límite {maximo:.1f} kPa) en la fase {fase}: la "

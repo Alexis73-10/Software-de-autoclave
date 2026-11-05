@@ -1265,6 +1265,11 @@
       "plantilla": "No reading from {sensor} in the {fase} phase. With a liquid load the load temperature cannot be verified. The cycle was aborted.",
       "accion": "The load is NOT sterile. Check the probe connection and repeat the cycle."
     },
+    "CIC-20": {
+      "titulo": "Pre-vacuum decompression not completed",
+      "plantilla": "The chamber pressure did not drop to {maximo:.1f} kPa (atmospheric + {margen} kPa) within {minutos} min, in the decompression of pre-vacuum pulse {pulso}. The vacuum pump was not started. The cycle was aborted.",
+      "accion": "The load is NOT sterile. Check the fast decompression valve, the exhaust and the chamber pressure sensor (calibration), and the program value «Pressure to start the vacuum». Repeat the cycle."
+    },
     "COM-02": {
       "titulo": "Communication lost during the cycle",
       "plantilla": "Communication with the I/O module was lost for more than {segundos:.1f} s in phase {fase}. The cycle was aborted.",
@@ -1486,7 +1491,9 @@
       "presion_alta_pulso_d": "Pressure the chamber is raised to with steam on each repetition of pulse D.",
       "tiempo_adicional_alto_d": "Extra seconds the high pressure of pulse D is held.",
       "presion_baja_pulso_d": "Vacuum pressure the chamber is lowered to on each repetition of pulse D.",
-      "tiempo_adicional_bajo_d": "Extra seconds the vacuum of pulse D is held."
+      "tiempo_adicional_bajo_d": "Extra seconds the vacuum of pulse D is held.",
+      "presion_inicio_vacio": "At the start of each pulse the fast exhaust opens until the chamber drops to the unit's atmospheric pressure + this value; then the vacuum pump and valve start. A very low value may never be reached (the chamber stays close to atmospheric) and the pulse stops until «Decompression time limit». 0 = exactly atmospheric.",
+      "timeout_descompresion": "Maximum time, in minutes, for the chamber to drop to atmospheric + «Pressure to start the vacuum» in the exhaust of each pulse, counted from the start of the pulse. Restarts on every pulse. If exceeded, the cycle fails (CIC-20) without starting the vacuum pump."
     },
     "calentamiento": {
       "histeresis_cierre_camara": "Units with jacket: how far the chamber pressure must drop below the control ceiling (held for 3 s) to reopen the chamber steam valve after an overpressure isolation.",
@@ -2052,7 +2059,9 @@
       "tiempo_adicional_alto_d": "Extra time at high pressure D",
       "tiempo_adicional_bajo_d": "Extra time at low pressure D",
       "timeout_alto": "Time limit to reach high pressure",
-      "timeout_bajo": "Time limit to reach low pressure"
+      "timeout_bajo": "Time limit to reach low pressure",
+      "presion_inicio_vacio": "Pressure to start the vacuum",
+      "timeout_descompresion": "Decompression time limit"
     },
     "calentamiento": {
       "histeresis_cierre_camara": "Chamber reopening hysteresis",

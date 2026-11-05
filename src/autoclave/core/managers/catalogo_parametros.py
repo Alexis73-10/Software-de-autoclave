@@ -50,6 +50,13 @@ MAX_REINICIOS_EXPOSICION_DEFECTO = 3       # int, 0–10
 # Tanda 28 (A14-M2): margen sobre la consigna para el corte de vapor_chaqueta
 # en modo chaqueta (DECISIÓN SIN CONFIRMAR el defecto hasta el banco)
 MARGEN_CHAQUETA_EST_DEFECTO = 8.0          # kPa (clase diferencia, 2–30)
+# Tanda 28 (A12): prevacío, paso DECOMPRESION de cada pulso. La bomba arranca
+# con pres <= atm + presion_inicio_vacio (antes atm + rango_presion_atm, el
+# rango de cámara segura, que podía no alcanzarse nunca) y el paso tiene
+# tiempo límite propio. Defectos DECISIÓN SIN CONFIRMAR.
+PRESION_INICIO_VACIO_DEFECTO = 10.0        # kPa sobre la atmosférica (diferencia, 0–30)
+TIMEOUT_DESCOMPRESION_DEFECTO = 5          # min (int, 1–30)
+ORIGEN_MIGRACION_T28_A12 = "migración tanda 28 (A12)"
 
 # ── P1 (tanda 16, D-14.1): coherencia de la salida de RECUPERACION ─────────
 # Con vapor saturado, la temperatura más alta que permite el techo
@@ -200,6 +207,10 @@ _poner("esterilizacion", "max_reinicios_exposicion", 0, 10,
 # ── Tanda 28 ───────────────────────────────────────────────────────────────
 _poner("esterilizacion", "margen_chaqueta_est", 2, 30,
        "A14-M2 (tanda 28): margen del corte de vapor_chaqueta sobre la consigna")
+_poner("prevacio", "presion_inicio_vacio", 0, 30,
+       "A12 (tanda 28): presión sobre la atmosférica para arrancar el vacío del pulso")
+_poner("prevacio", "timeout_descompresion", 1, 30,
+       "A12 (tanda 28): tiempo límite del paso de descompresión del pulso")
 # modo 0 de descompresión se conserva (enfriamiento natural, decisión 1.2)
 _poner("descompresion", "modo", 0, 5, "modo 0 conservado (enfriamiento natural)")
 

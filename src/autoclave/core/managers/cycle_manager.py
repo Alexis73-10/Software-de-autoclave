@@ -85,6 +85,45 @@ _CLAVES_NUEVAS_T28 = (
 )
 
 
+# Tanda 28 (A12): parámetros nuevos del paso DECOMPRESION del prevacío, al
+# final de la sección. A diferencia de las claves anteriores, CAMBIAN el
+# comportamiento de un programa existente (antes el umbral era el
+# rango_presion_atm del equipo y el paso no tenía tiempo límite): cada
+# agregado queda en `agregadas` para la auditoría (sin SIS-06) y el JSON de
+# usuario se reescribe con .bak, igual que una migración correctiva.
+_CLAVES_NUEVAS_A12 = (
+    ("prevacio", "presion_inicio_vacio",
+     {"value": catalogo_parametros.PRESION_INICIO_VACIO_DEFECTO, "type": "float", "unit": "kPa",
+      "clase": "diferencia", "min": 0, "max": 30}, "kPa"),
+    ("prevacio", "timeout_descompresion",
+     {"value": catalogo_parametros.TIMEOUT_DESCOMPRESION_DEFECTO, "type": "int", "unit": "min",
+      "min": 1, "max": 30}, "min"),
+)
+
+
+def _agregar_claves_a12(parameters: dict, agregadas) -> bool:
+    """A12: agrega presion_inicio_vacio y timeout_descompresion con su
+    defecto si faltan (solo en un programa con sección prevacio). Cada
+    agregado va a `agregadas` (si no es None) con origen «migración tanda 28
+    (A12)». Solo agrega: nunca cambia un valor existente."""
+    seccion = parameters.get("prevacio")
+    if not isinstance(seccion, dict):
+        return False
+    cambio = False
+    for fase, clave, hoja, unidad in _CLAVES_NUEVAS_A12:
+        if clave in seccion:
+            continue
+        seccion[clave] = copy.deepcopy(hoja)
+        cambio = True
+        logger.warning("Programa sin %s.%s: agregado con el defecto %g %s (%s)", fase, clave,
+                       hoja["value"], unidad, catalogo_parametros.ORIGEN_MIGRACION_T28_A12)
+        if agregadas is not None:
+            agregadas.append({"fase": fase, "parametro": clave, "anterior": None,
+                              "nuevo": hoja["value"], "unidad": unidad,
+                              "origen": catalogo_parametros.ORIGEN_MIGRACION_T28_A12})
+    return cambio
+
+
 def _agregar_claves_t28(parameters: dict) -> bool:
     """A14-M2: agrega margen_chaqueta_est con su defecto si falta, después de
     histeresis_cierre_camara (o al final de la sección). Solo agrega."""
@@ -109,7 +148,8 @@ def _agregar_claves_t28(parameters: dict) -> bool:
 
 
 def migrar_parametros(parameters, correcciones: list | None = None,
-                      no_migradas: list | None = None, recuperacion: bool = False) -> bool:
+                      no_migradas: list | None = None, recuperacion: bool = False,
+                      agregadas: list | None = None) -> bool:
     """Migra en el sitio los parámetros de un programa viejo. Devuelve True si
     cambió algo. `correcciones` (opcional) recibe un dict por cada migración
     correctiva (C-04.4 y P2 de la tanda 16): fase, parametro, anterior, nuevo,
@@ -118,7 +158,9 @@ def migrar_parametros(parameters, correcciones: list | None = None,
     `recuperacion` (tanda 16): aplica también P2 (_migrar_recuperacion). Solo
     la carga de programas desde archivo (CycleManager) lo pide: una copia ya
     viene migrada y la instantánea de un ciclo interrumpido debe conservar los
-    valores con los que corrió (DECISIÓN SIN CONFIRMAR)."""
+    valores con los que corrió (DECISIÓN SIN CONFIRMAR). `agregadas`
+    (opcional, A12 de la tanda 28) recibe un dict por cada parámetro nuevo
+    del prevacío agregado con su defecto (para la auditoría, sin SIS-06)."""
     cambio = _migrar_rango_calentamiento(parameters)
     if not isinstance(parameters, dict):
         return cambio
@@ -129,6 +171,7 @@ def migrar_parametros(parameters, correcciones: list | None = None,
             cambio = True
     cambio = _agregar_claves_t16(parameters) or cambio
     cambio = _agregar_claves_t28(parameters) or cambio
+    cambio = _agregar_claves_a12(parameters, agregadas) or cambio
     for fase, clave in _PRESION_ADD:
         hoja = parameters.get(fase, {}).get(clave) if isinstance(parameters.get(fase), dict) else None
         if not isinstance(hoja, dict):
@@ -377,8 +420,11 @@ class Cycle:
         self.migraciones_correctivas: list[dict] = []
         # P2 (tanda 16): migraciones que la salvaguarda del alivio no aplicó
         self.migraciones_no_aplicadas: list[dict] = []
+        # A12 (tanda 28): parámetros nuevos del prevacío agregados con su defecto
+        self.migraciones_agregadas: list[dict] = []
         migrar_parametros(parameters, self.migraciones_correctivas,
-                          self.migraciones_no_aplicadas, recuperacion=migrar_recuperacion)
+                          self.migraciones_no_aplicadas, recuperacion=migrar_recuperacion,
+                          agregadas=self.migraciones_agregadas)
         self.parameters = parameters
         # Indicativo del ciclo ("cycle_number" del JSON), único entre ciclos.
         # None si falta, no es entero positivo o está repetido.
@@ -722,14 +768,17 @@ class CycleManager:
                     respaldo = json.load(f).get("parameters", {})
                 correcciones: list[dict] = []
                 no_aplicadas: list[dict] = []
-                # R1-P3, C-04.4 y P2 (tanda 16)
-                migrar_parametros(respaldo, correcciones, no_aplicadas, recuperacion=True)
+                agregadas: list[dict] = []
+                # R1-P3, C-04.4, P2 (tanda 16), M3 y A12 (tanda 28)
+                migrar_parametros(respaldo, correcciones, no_aplicadas, recuperacion=True,
+                                  agregadas=agregadas)
                 if not catalogo_parametros.errores_programa(respaldo):
                     logger.error("Programa %s fuera del catálogo (%s); se usa %s",
                                  cycle.id, "; ".join(errores), os.path.basename(bak))
                     cycle.parameters = respaldo
                     cycle.migraciones_correctivas = correcciones
                     cycle.migraciones_no_aplicadas = no_aplicadas
+                    cycle.migraciones_agregadas = agregadas
                     return
             except Exception:
                 logger.exception("Programa %s: %s ilegible", cycle.id, os.path.basename(bak))
@@ -741,6 +790,12 @@ class CycleManager:
         """C-04.4 (tanda 12): [(programa, corrección)] de la última carga."""
         return [(c, m) for c in self.cycles.values()
                 for m in (getattr(c, "migraciones_correctivas", None) or [])]
+
+    def migraciones_agregadas(self) -> list[tuple["Cycle", dict]]:
+        """A12 (tanda 28): [(programa, parámetro agregado con su defecto)] de
+        la última carga."""
+        return [(c, m) for c in self.cycles.values()
+                for m in (getattr(c, "migraciones_agregadas", None) or [])]
 
     def migraciones_no_aplicadas(self) -> list[tuple["Cycle", dict]]:
         """P2 (tanda 16): [(programa, migración no aplicada por la salvaguarda

@@ -6,7 +6,12 @@
 # Cada tipo tiene sus propios parámetros; si conteo == 0 el tipo se salta.
 #
 # Flujo de cada pulso:
-#   1. DESCOMPRESION → si pres > atm+rango: descompresion_rapida hasta pres ≤ atm+rango
+#   1. DESCOMPRESION → si pres > atm+presion_inicio_vacio: descompresion_rapida
+#                      hasta pres ≤ atm+presion_inicio_vacio (A12, tanda 28;
+#                      antes atm+rango_presion_atm, el rango de cámara segura,
+#                      que podía no alcanzarse nunca: el pulso quedaba detenido
+#                      sin vapor ni bomba). Tiempo límite timeout_descompresion
+#                      → FALLO CIC-20 sin encender la bomba.
 #   2. VACIO_BAJO    → bomba_vacio + vacio_camara hasta pres ≤ presion_baja_pulso_X
 #   3. HOLD_BAJO     → mantener vacío durante tiempo_adicional_bajo_X (seg)
 #   4. VAPOR_ALTO    → vapor_camara + descompresion_lenta hasta pres ≥ presion_alta_pulso_X
@@ -25,10 +30,21 @@
 #   tiempo_adicional_alto_{x} — hold en vapor              [seg]
 #   timeout_bajo              — timeout máx. para alcanzar vacío  [min]
 #   timeout_alto              — timeout máx. para alcanzar presión [min]
+#   presion_inicio_vacio      — kPa sobre la atmosférica para arrancar el vacío (A12)
+#   timeout_descompresion     — timeout máx. del paso DECOMPRESION [min] (A12)
+#
+# A12 (tanda 28), revisión de las demás comparaciones del pulso: VACIO_BAJO y
+# VAPOR_ALTO comparan contra presiones absolutas del programa y ya tienen
+# tiempo límite (timeout_bajo / timeout_alto → FALLO); una presion_alta_pulso
+# subatmosférica se alcanza subiendo desde el vacío, así que no se atascan.
+# Solo DECOMPRESION dependía de la atmosférica sin margen ni tiempo límite.
 
 import time
 import logging
 from .base_fase import BaseFase, FaseResult
+from autoclave.core.managers.catalogo_parametros import (
+    PRESION_INICIO_VACIO_DEFECTO, TIMEOUT_DESCOMPRESION_DEFECTO)
+from autoclave.state_machine.alarms.catalogo import CIC_20
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +83,9 @@ class PrevacioFase(BaseFase):
         self._t_apagado_vacio  = None
         self._timeout_bajo_fin = None
         self._timeout_alto_fin = None
+        self._timeout_desc_fin = None
+        # A12: (código, valores) del FALLO propio; CicloState lo registra
+        self.alarma_fallo      = None
         self.estado.fase_en_sostenimiento = False
         if hasattr(self.estado, "prevacio_progreso"):
             self.estado.prevacio_progreso = ""
@@ -116,14 +135,21 @@ class PrevacioFase(BaseFase):
     def _ejecutar_paso(self) -> FaseResult:
         pres  = self._pres_camara()
         atm   = self._pres_atm()
-        rango = self._rango_atm()
         tipo  = _TIPOS[self._tipo_idx]
 
         # ── 1. DESCOMPRESION ──────────────────────────────────────────
         if self._paso == _PASO_DECOMPRESION:
+            margen = self._presion_inicio_vacio()
+            # A12: el tiempo límite corre desde el primer tick del paso, también
+            # sin lectura de presión (es un límite de seguridad)
+            if self._timeout_desc_fin is None:
+                self._timeout_desc_fin = (time.monotonic()
+                                          + self._timeout_descompresion_min() * 60)
+            if time.monotonic() > self._timeout_desc_fin:
+                return self._fallo_descompresion(tipo, atm, margen)
             if pres is None:
                 return FaseResult.EN_CURSO
-            if pres > atm + rango:
+            if pres > atm + margen:
                 self.set_do.descompresion_rapida_on()
             else:
                 self.set_do.descompresion_rapida_off()
@@ -267,12 +293,47 @@ class PrevacioFase(BaseFase):
     # Helpers
     # ------------------------------------------------------------------
 
+    def _presion_inicio_vacio(self) -> float:
+        """A12: prevacio.presion_inicio_vacio (kPa sobre la atmosférica),
+        recortado a 0–30; sin un valor numérico, el defecto (10)."""
+        valor = self.cycle.get_param("prevacio", "presion_inicio_vacio")
+        if isinstance(valor, bool) or not isinstance(valor, (int, float)) or valor != valor:
+            return float(PRESION_INICIO_VACIO_DEFECTO)
+        return float(min(max(valor, 0.0), 30.0))
+
+    def _timeout_descompresion_min(self) -> float:
+        """A12: prevacio.timeout_descompresion (min), recortado a 1–30; sin un
+        valor numérico, el defecto (5)."""
+        valor = self.cycle.get_param("prevacio", "timeout_descompresion")
+        if isinstance(valor, bool) or not isinstance(valor, (int, float)) or valor != valor:
+            return float(TIMEOUT_DESCOMPRESION_DEFECTO)
+        return float(min(max(valor, 1), 30))
+
+    def _fallo_descompresion(self, tipo: str, atm: float, margen: float) -> FaseResult:
+        """A12: vence timeout_descompresion. Apaga el escape rápido (las
+        salidas de la fase) sin encender la bomba; CicloState registra CIC-20
+        y ejecuta el protocolo de fallo normal (que ventea la cámara)."""
+        minutos = self._timeout_descompresion_min()
+        logger.error("PrevacioFase: TIMEOUT descompresión (tipo %s pulso %d): la cámara no bajó "
+                     "a %.1f kPa en %g min", tipo.upper(), self._pulso_actual, atm + margen,
+                     minutos)
+        self.set_do.descompresion_rapida_off()
+        pulso = f"{tipo.upper()} {self._pulso_actual}/{self._conteo_tipo}"
+        self.alarma_fallo = (CIC_20, {"maximo": atm + margen, "margen": f"{margen:g}",
+                                      "minutos": f"{minutos:g}", "pulso": pulso})
+        self.estado.motivo_fallo = (
+            f"La presión de cámara no bajó a {atm + margen:.1f} kPa en {minutos:g} min "
+            f"(descompresión del pulso {pulso} del prevacío)")
+        return FaseResult.FALLO
+
     def _apagar_vacio(self):
         self.set_do.bomba_vacio_off()
         self.set_do.vacio_camara_off()
 
     def _set_paso(self, paso: str) -> None:
         self._paso = paso
+        if paso == _PASO_DECOMPRESION:
+            self._timeout_desc_fin = None      # A12: se arma en el primer tick del paso
         if hasattr(self.estado, "sub_estado_ciclo"):
             self.estado.sub_estado_ciclo = paso
 

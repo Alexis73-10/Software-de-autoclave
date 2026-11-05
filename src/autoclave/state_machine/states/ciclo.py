@@ -42,6 +42,8 @@ from autoclave.state_machine.states.vaciado_chaqueta import VaciadoChaqueta, lim
 from autoclave.state_machine.alarms.catalogo import CIC_15, CIC_16, CIC_17
 # s3 (tanda 16): corte único de la chaqueta (D-CHQ / SAF-09) y su aviso VCH-CHQ
 from autoclave.state_machine.alarms.catalogo import CIC_18
+# A12 (tanda 28): FALLO propio del prevacío
+from autoclave.state_machine.alarms.catalogo import CIC_20
 from autoclave.core.managers import limites_equipo as le
 from autoclave.core.runtime.lectura import carga_enfriada, lectura_valida
 from autoclave.core.runtime.sensores_ciclo import sensor_principal, sensores_en_uso
@@ -93,7 +95,8 @@ _MOTIVO_NO_REGISTRADO = "La fase terminó en fallo; el motivo detallado aún no 
 # D8-2.8 / E12 (tanda 12): códigos que una fase puede dejar en `alarma_fallo`
 # F4 (tanda 16): + CIC-15/16 (aislamiento, CALENTAMIENTO y ESTERILIZACION) y
 # CIC-17 (tope de reinicios de la exposición)
-_ALARMAS_PROPIAS_FASE = (CIC_11, CIC_12, CIC_13, CIC_14, CIC_15, CIC_16, CIC_17)
+# A12 (tanda 28): + CIC-20 (descompresión del pulso de prevacío sin terminar)
+_ALARMAS_PROPIAS_FASE = (CIC_11, CIC_12, CIC_13, CIC_14, CIC_15, CIC_16, CIC_17, CIC_20)
 # s3 (tanda 16, VCH-CHQ): fases en que, en modo chaqueta, el corte de chaqueta
 # lleva además el aviso no bloqueante CIC-18 (las que controlan vapor_chaqueta)
 _FASES_AVISO_CORTE_CHAQUETA = ("CALENTAMIENTO", "ESTERILIZACION")
