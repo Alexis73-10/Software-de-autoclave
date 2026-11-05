@@ -91,6 +91,9 @@
 #   - sin lectura del Principal o de la presión: vapor_chaqueta OFF;
 #   - estado.inhibir_vapor_chaqueta (corte D-CHQ de CICLO) True: nunca se
 #     enciende vapor_chaqueta;
+#   - A14-M2 (tanda 28): tampoco con pres_chaqueta > Psat(t_obj) +
+#     presion_add_calentamiento + margen_chaqueta_est ni sin lectura de
+#     pres_chaqueta (corte_chaqueta_consigna.py);
 #   - COMPLETADO no cierra vapor_camara (ESTERILIZACION la mantiene
 #     abierta); FALLO cierra las dos.
 # En modo cámara (equipos de mesa) el comportamiento es el de antes.
@@ -105,6 +108,7 @@ from autoclave.core.managers import limites_equipo as le
 from autoclave.installation.profile import MODO_CHAQUETA
 from autoclave.state_machine.alarms.catalogo import CIC_15, CIC_16, nombre_legible
 from .aislamiento_camara import AislamientoCamara
+from . import corte_chaqueta_consigna as ccc
 from .base_fase import BaseFase, FaseResult
 
 logger = logging.getLogger(__name__)
@@ -229,6 +233,8 @@ class CalentamientoFase(BaseFase):
         # Tanda 16, VCH: modo fijado al inicializar (None = aún sin fijar)
         self._modo_chaqueta = None
         self._aislado_previo = False
+        # A14-M2: estado del corte por consigna (solo para el log)
+        self._corte_m2_previo = False
         # Mecanismo de CIC-11 de ESTERILIZACION: CicloState registra
         # `alarma_fallo` (CIC-15/16 del aislamiento)
         self.alarma_fallo = None
@@ -252,6 +258,27 @@ class CalentamientoFase(BaseFase):
 
     def _chaqueta_inhibida(self) -> bool:
         return getattr(self.estado, "inhibir_vapor_chaqueta", False) is True
+
+    def _corte_consigna_chaqueta(self, consigna) -> bool:
+        """A14-M2 (tanda 28): en CALENTAMIENTO P_sp aún no existe; la
+        consigna equivalente es Psat(t_obj) + presion_add_calentamiento.
+        True si vapor_chaqueta debe quedar OFF (pres_chaqueta > consigna +
+        margen_chaqueta_est, o sin lectura). Registra el inicio y el fin."""
+        pres = self._pres_chaqueta()
+        margen = ccc.margen_kpa(self.cycle)
+        cortar = ccc.debe_cortar(pres, consigna, margen)
+        if cortar != self._corte_m2_previo:
+            umbral = ccc.umbral_kpa(consigna, margen)
+            if cortar:
+                logger.warning("Calentamiento: vapor_chaqueta cortada por consigna (A14-M2): "
+                               "pres_chaqueta %s kPa, umbral %s kPa",
+                               ccc.texto_lectura(pres),
+                               "?" if umbral is None else f"{umbral:.1f}")
+            else:
+                logger.info("Calentamiento: fin del corte de vapor_chaqueta por consigna "
+                            "(pres_chaqueta %.1f kPa)", pres)
+            self._corte_m2_previo = cortar
+        return cortar
 
     def _aislamiento(self) -> AislamientoCamara:
         ais = getattr(self.estado, "aislamiento_camara", None)
@@ -596,7 +623,12 @@ class CalentamientoFase(BaseFase):
             )
 
         if self._modo_chaqueta:
-            if self._pwm_abierto and not aislado and not self._chaqueta_inhibida():
+            # A14-M2 (tanda 28): AND con el corte por consigna (pres_chaqueta >
+            # Psat(t_obj) + presion_add_calentamiento + margen_chaqueta_est, o
+            # sin lectura); se evalúa siempre para registrar el corte
+            corte_m2 = self._corte_consigna_chaqueta(p_techo)
+            if (self._pwm_abierto and not aislado and not self._chaqueta_inhibida()
+                    and not corte_m2):
                 self.set_do.vapor_chaqueta_on()
             else:
                 self.set_do.vapor_chaqueta_off()

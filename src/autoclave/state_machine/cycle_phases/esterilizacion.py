@@ -87,6 +87,9 @@
 #     vapor_camara abierta, salvo un aislamiento en curso (no se reabre a
 #     ciegas una cámara aislada; DECISIÓN SIN CONFIRMAR).
 #   - COMPLETADO y FALLO: las dos OFF.
+#   - A14-M2 (tanda 28): vapor_chaqueta OFF también con pres_chaqueta >
+#     P_sp + margen_chaqueta_est o sin lectura de pres_chaqueta
+#     (corte_chaqueta_consigna.py). AND con la decisión y con D-CHQ.
 
 import math
 import time
@@ -101,6 +104,7 @@ from autoclave.state_machine.alarms.catalogo import nombre_legible
 from autoclave.core.managers import limites_equipo as le
 from autoclave.installation.profile import MODO_CHAQUETA
 from .aislamiento_camara import AislamientoCamara
+from . import corte_chaqueta_consigna as ccc
 from .debounce_acumulado import DebounceAcumulado
 from .base_fase import BaseFase, FaseResult
 
@@ -157,6 +161,8 @@ class EsterilizacionFase(BaseFase):
         self._techo_recup_off = False
         # A14-M1: consigna fija de la banda PWM (kPa), al entrar a la fase
         self.p_sp = None
+        # A14-M2: estado del corte por consigna (solo para el log)
+        self._corte_m2_previo = False
 
         # P6 / D-14.6: debounce acumulado de cada condición de falla
         self._debounce: dict[str, DebounceAcumulado] = {
@@ -571,11 +577,32 @@ class EsterilizacionFase(BaseFase):
             setattr(self, abierto_attr, True)
             setattr(self, timer_attr, now)
 
+    def _corte_consigna_chaqueta(self) -> bool:
+        """A14-M2: True si vapor_chaqueta debe quedar OFF por pres_chaqueta >
+        P_sp + margen_chaqueta_est (o sin lectura / sin consigna: falla
+        cerrada). Registra en el log el inicio y el fin del corte."""
+        pres = self._pres_chaqueta()
+        margen = ccc.margen_kpa(self.cycle)
+        cortar = ccc.debe_cortar(pres, self.p_sp, margen)
+        if cortar != self._corte_m2_previo:
+            umbral = ccc.umbral_kpa(self.p_sp, margen)
+            if cortar:
+                logger.warning("Esterilización: vapor_chaqueta cortada por consigna (A14-M2): "
+                               "pres_chaqueta %s kPa, umbral %s kPa",
+                               ccc.texto_lectura(pres),
+                               "?" if umbral is None else f"{umbral:.1f}")
+            else:
+                logger.info("Esterilización: fin del corte de vapor_chaqueta por consigna "
+                            "(pres_chaqueta %.1f kPa)", pres)
+            self._corte_m2_previo = cortar
+        return cortar
+
     def _vapor_on(self):
         """Abre la válvula actuadora del modo: vapor_camara (modo cámara) o
-        vapor_chaqueta (modo chaqueta; cerrada si CICLO la inhibe, D-CHQ)."""
+        vapor_chaqueta (modo chaqueta; cerrada si CICLO la inhibe, D-CHQ, o
+        con el corte por consigna A14-M2)."""
         if self._modo_chaqueta():
-            if self._inhibir_chaqueta():
+            if self._inhibir_chaqueta() or self._corte_consigna_chaqueta():
                 self.set_do.vapor_chaqueta_off()
             else:
                 self.set_do.vapor_chaqueta_on()

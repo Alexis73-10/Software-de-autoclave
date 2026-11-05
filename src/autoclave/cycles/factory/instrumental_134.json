@@ -86,6 +86,7 @@
             "factor_esterilizacion": { "value": 70, "type": "int", "unit": "%", "min": 0, "max": 100 },
             "presion_add_esterilizacion": { "value": 15.0, "type": "float", "unit": "kPa", "clase": "diferencia", "min": 0, "max": 100 },
             "histeresis_cierre_camara": { "value": 3.0, "type": "float", "unit": "kPa", "clase": "diferencia", "min": 1, "max": 10 },
+            "margen_chaqueta_est": { "value": 8.0, "type": "float", "unit": "kPa", "clase": "diferencia", "min": 2, "max": 30 },
             "intervalo_segmentos_ester": { "value": 3, "type": "int", "unit": "seg", "min": 0, "max": 30 },
             "rango_temperatura_ester": { "value": 3.0, "type": "float", "unit": "°C", "clase": "diferencia", "min": 0, "max": 50 },
             "rango_presion_ester": { "value": 30.0, "type": "float", "unit": "kPa", "clase": "diferencia", "min": 0, "max": 100 },

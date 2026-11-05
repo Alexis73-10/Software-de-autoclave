@@ -90,7 +90,10 @@ class FaseDoble:
         return self.resultado
 
 
-def _armar(monkeypatch, modo=MODO_CHAQUETA, pres_chaqueta=330.0):
+# A14-M2 (tanda 28): la lectura de chaqueta por defecto queda bajo el umbral
+# del corte por consigna (CALENTAMIENTO: Psat(134) + 11 + 8 = 323,2 kPa;
+# ESTERILIZACION: P_sp + 8 >= 317,6 kPa); antes 330
+def _armar(monkeypatch, modo=MODO_CHAQUETA, pres_chaqueta=310.0):
     reloj = Reloj()
     monkeypatch.setattr(time, "monotonic", reloj)
     monkeypatch.setattr(modulo_ciclo, "modo_vapor", lambda _perfil: modo)
@@ -304,7 +307,7 @@ def test_6a_corte_de_chaqueta_gana_a_la_fase(monkeypatch):
     assert not salidas.on("vapor_chaqueta")
     assert salidas.on("vapor_camara")
     assert any(i.codigo == "CIC-18" for i in am.activas())
-    _tick(ciclo, reloj, estado, temp=110.5, pres=p_saturacion_kpa(110.5), pres_chaqueta=330.0)
+    _tick(ciclo, reloj, estado, temp=110.5, pres=p_saturacion_kpa(110.5), pres_chaqueta=310.0)
     assert salidas.on("vapor_chaqueta")
     assert not any(i.codigo == "CIC-18" for i in am.activas())
 

@@ -48,6 +48,10 @@ def _chaqueta(monkeypatch, temp=T_OK, pres=P_OK, extras=None, **kw):
                                        temp=temp, pres=pres, **kw)
     estado.modo_vapor = "chaqueta"
     estado.inhibir_vapor_chaqueta = False
+    # A14-M2 (tanda 28): lectura de chaqueta bajo P_sp + margen_chaqueta_est
+    # (sin lectura la chaqueta queda OFF); el corte M2 se prueba en
+    # tests/test_t28_a14_esterilizacion.py
+    estado.sensores_pres["pres_chaqueta"] = 300.0
     if extras:
         _con_params(f, **extras)
     return f, estado, set_do, reloj

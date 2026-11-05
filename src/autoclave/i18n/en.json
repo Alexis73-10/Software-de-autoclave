@@ -1516,6 +1516,7 @@
     },
     "esterilizacion": {
       "histeresis_cierre_camara": "Units with jacket: how far the chamber pressure must drop below P_control_max (held for 3 s) to reopen the chamber steam valve after an overpressure isolation.",
+      "margen_chaqueta_est": "Units with jacket: the jacket steam valve closes when the jacket pressure exceeds the control setpoint by more than this margin (in Heating, the ceiling Psat(T) + heating pressure margin; in Sterilization, the saturation pressure of the recovery exit). Keeps the jacket from pushing the chamber up to the ceiling and isolating it.",
       "max_reinicios_exposicion": "Number of times a Reference excursion may restart the exposure count. The next confirmed excursion after this limit aborts the cycle (0 = the first excursion aborts).",
       "escape_lento_on_ester": "Seconds the slow exhaust stays open on each repetition during sterilization.",
       "escape_lento_off_ester": "Seconds the slow exhaust stays closed (0 = always open).",
@@ -2081,6 +2082,7 @@
     },
     "esterilizacion": {
       "histeresis_cierre_camara": "Chamber reopening hysteresis",
+      "margen_chaqueta_est": "Jacket margin in sterilization",
       "max_reinicios_exposicion": "Maximum exposure restarts",
       "brecha_error_presion": "Low pressure failure margin",
       "brecha_error_temperatura": "Low temperature failure margin",

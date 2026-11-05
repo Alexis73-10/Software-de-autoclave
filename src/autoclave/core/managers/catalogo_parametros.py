@@ -47,6 +47,9 @@ TIMEOUT_EXCURSION_REFERENCIA_DEFECTO = 5   # min (int, 1–30), C-13.4
 # Tanda 16 (VCH §5 y D-14.5): parámetros de programa nuevos
 HISTERESIS_CIERRE_CAMARA_DEFECTO = 3.0     # kPa (clase diferencia, 1–10)
 MAX_REINICIOS_EXPOSICION_DEFECTO = 3       # int, 0–10
+# Tanda 28 (A14-M2): margen sobre la consigna para el corte de vapor_chaqueta
+# en modo chaqueta (DECISIÓN SIN CONFIRMAR el defecto hasta el banco)
+MARGEN_CHAQUETA_EST_DEFECTO = 8.0          # kPa (clase diferencia, 2–30)
 
 # ── P1 (tanda 16, D-14.1): coherencia de la salida de RECUPERACION ─────────
 # Con vapor saturado, la temperatura más alta que permite el techo
@@ -186,6 +189,9 @@ for _fase in ("calentamiento", "esterilizacion"):
            "VCH §5 (tanda 16): reapertura de vapor_camara bajo el techo")
 _poner("esterilizacion", "max_reinicios_exposicion", 0, 10,
        "D-14.5 (tanda 16): tope de reinicios de la exposición")
+# ── Tanda 28 ───────────────────────────────────────────────────────────────
+_poner("esterilizacion", "margen_chaqueta_est", 2, 30,
+       "A14-M2 (tanda 28): margen del corte de vapor_chaqueta sobre la consigna")
 # modo 0 de descompresión se conserva (enfriamiento natural, decisión 1.2)
 _poner("descompresion", "modo", 0, 5, "modo 0 conservado (enfriamiento natural)")
 

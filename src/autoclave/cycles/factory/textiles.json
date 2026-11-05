@@ -436,6 +436,14 @@
                 "min": 1,
                 "max": 10
             },
+            "margen_chaqueta_est": {
+                "value": 8.0,
+                "type": "float",
+                "unit": "kPa",
+                "clase": "diferencia",
+                "min": 2,
+                "max": 30
+            },
             "intervalo_segmentos_ester": {
                 "value": 3,
                 "type": "int",

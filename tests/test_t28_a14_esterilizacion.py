@@ -3,15 +3,29 @@
 - M1: la banda PWM se ancla a P_sp = Psat(T_est + brecha_segura_temperatura +
   0,3), fija al entrar a la fase; advertencia de programa si P_sp + 1 >
   P_control_max - 5.
+- M2: en modo chaqueta, vapor_chaqueta OFF con pres_chaqueta > consigna +
+  margen_chaqueta_est (o sin lectura), en CALENTAMIENTO y ESTERILIZACION.
 Reloj monotonic simulado (tests/helpers/t12_e12_apoyo.py)."""
+
+import glob
+import json
+import types
+from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 
 from autoclave.core.managers import catalogo_parametros as cp
+from autoclave.core.managers.cycle_manager import migrar_parametros
 from autoclave.core.runtime.steam import p_saturacion_kpa
+from autoclave.state_machine.cycle_phases import calentamiento as cal_mod
+from autoclave.state_machine.cycle_phases import corte_chaqueta_consigna as ccc
 from autoclave.state_machine.cycle_phases import esterilizacion as est
 from autoclave.state_machine.cycle_phases.base_fase import FaseResult
+from tests import test_t16_s2_calentamiento_chaqueta as s2
 from tests.helpers import t12_e12_apoyo as ap
+
+CICLOS = Path(__file__).resolve().parents[1] / "src" / "autoclave" / "cycles"
 
 pytestmark = pytest.mark.req("T28-A14")
 
@@ -130,3 +144,221 @@ def test_m1_texto_i18n_de_la_advertencia():
     assert pc._ADVERTENCIAS[cp.ADVERTENCIA_BANDA_PWM_TECHO] == "opciones.aviso_banda_pwm_techo"
     for idioma in ("es", "en"):
         assert i18n.existe("opciones.aviso_banda_pwm_techo", idioma)
+
+
+# ── M2: corte de vapor_chaqueta sobre la consigna + margen ─────────────────
+
+def _ester_chaqueta(monkeypatch, pres_chaqueta, temp=134.0, pres=None, margen=None):
+    """ESTERILIZACION en modo chaqueta; con T = T_est entra en RECUPERACION
+    (la fase pide vapor_chaqueta ON)."""
+    f, estado, set_do, reloj = ap.fase(monkeypatch, t_est=T_EST, presion_add=15.0,
+                                       brecha_seg=0.3, tiempo_min=30, temp=temp,
+                                       pres=p_saturacion_kpa(T_EST) if pres is None else pres)
+    estado.modo_vapor = "chaqueta"
+    estado.inhibir_vapor_chaqueta = False
+    estado.sensores_pres["pres_chaqueta"] = pres_chaqueta
+    if margen is not None:
+        base = f.cycle.get_param.side_effect
+        f.cycle.get_param.side_effect = (
+            lambda s, p, default=None: margen if p == "margen_chaqueta_est" else base(s, p, default))
+    return f, estado, set_do, reloj
+
+
+def test_m2_ester_corta_sobre_p_sp_mas_margen_y_reabre_debajo(monkeypatch):
+    umbral = P_SP + 8.0                                   # ≈ 317,6 kPa
+    f, estado, set_do, reloj = _ester_chaqueta(monkeypatch, umbral + 0.1)
+    f.update()
+    assert f._en_recuperacion is True                    # la fase pide ON
+    set_do.vapor_chaqueta_on.assert_not_called()
+    set_do.vapor_chaqueta_off.assert_called()
+    set_do.vapor_camara_on.assert_called()               # la cámara no se toca
+    # en el umbral (sin superarlo) reabre
+    estado.sensores_pres["pres_chaqueta"] = umbral
+    set_do.reset_mock()
+    reloj.avanzar(0.5)
+    f.update()
+    set_do.vapor_chaqueta_on.assert_called()
+    set_do.vapor_chaqueta_off.assert_not_called()
+    # lo vuelve a superar: OFF otra vez
+    estado.sensores_pres["pres_chaqueta"] = umbral + 1.0
+    set_do.reset_mock()
+    reloj.avanzar(0.5)
+    f.update()
+    set_do.vapor_chaqueta_on.assert_not_called()
+
+
+def test_m2_ester_usa_el_margen_del_programa(monkeypatch):
+    f, _, set_do, _ = _ester_chaqueta(monkeypatch, P_SP + 4.0, margen=3.0)
+    f.update()
+    set_do.vapor_chaqueta_on.assert_not_called()
+    f2, _, set_do2, _ = _ester_chaqueta(monkeypatch, P_SP + 4.0, margen=5.0)
+    f2.update()
+    set_do2.vapor_chaqueta_on.assert_called()
+
+
+@pytest.mark.parametrize("lectura", [None, float("nan"), float("inf"), "300", True])
+def test_m2_ester_sin_lectura_de_chaqueta_off(monkeypatch, lectura):
+    f, _, set_do, _ = _ester_chaqueta(monkeypatch, lectura)
+    f.update()
+    set_do.vapor_chaqueta_on.assert_not_called()
+    set_do.vapor_chaqueta_off.assert_called()
+    set_do.vapor_camara_on.assert_called()
+
+
+def test_m2_ester_no_enciende_lo_que_la_fase_apaga(monkeypatch):
+    """AND con la decisión de la fase: en PWM sobre la banda (OFF) una
+    chaqueta baja no enciende nada."""
+    f, estado, set_do, reloj = _ester_chaqueta(monkeypatch, 250.0, temp=134.7, pres=P_SP)
+    f.update()
+    assert f._en_recuperacion is False
+    ap.poner(estado, 134.7, P_SP + 1.5)
+    set_do.reset_mock()
+    reloj.avanzar(0.5)
+    f.update()
+    set_do.vapor_chaqueta_on.assert_not_called()
+
+
+def test_m2_ester_no_reemplaza_d_chq(monkeypatch):
+    f, estado, set_do, _ = _ester_chaqueta(monkeypatch, 250.0)
+    estado.inhibir_vapor_chaqueta = True
+    f.update()
+    set_do.vapor_chaqueta_on.assert_not_called()
+
+
+def test_m2_ester_modo_camara_no_depende_de_la_chaqueta(monkeypatch):
+    f, estado, set_do, _ = ap.fase(monkeypatch, t_est=T_EST, presion_add=15.0, brecha_seg=0.3)
+    estado.sensores_pres.pop("pres_chaqueta", None)
+    f.update()
+    set_do.vapor_camara_on.assert_called()
+    set_do.vapor_chaqueta_on.assert_not_called()
+    set_do.vapor_chaqueta_off.assert_not_called()
+
+
+@pytest.fixture
+def reloj_cal(monkeypatch):
+    ahora = [1000.0]
+    monkeypatch.setattr(cal_mod, "time", types.SimpleNamespace(monotonic=lambda: ahora[0]))
+    return ahora
+
+
+def _cal_chaqueta(pres_chaqueta, margen=None):
+    extra = {"margen_chaqueta_est": margen} if margen is not None else None
+    fase, estado, set_do = s2._fase(extra=extra)
+    estado.sensores_pres["pres_chaqueta"] = pres_chaqueta
+    return fase, estado, set_do
+
+
+def test_m2_calentamiento_usa_el_techo_de_la_fase(reloj_cal):
+    """En CALENTAMIENTO P_sp aún no existe: consigna Psat(T_obj) +
+    presion_add_calentamiento."""
+    umbral = p_saturacion_kpa(s2.T_OBJ) + s2.P_ADD + 8.0
+    fase, estado, set_do = _cal_chaqueta(umbral + 0.1)
+    assert fase.update() == FaseResult.EN_CURSO          # lejos del objetivo: duty 1
+    set_do.vapor_chaqueta_on.assert_not_called()
+    set_do.vapor_chaqueta_off.assert_called()
+    set_do.vapor_camara_on.assert_called()
+    estado.sensores_pres["pres_chaqueta"] = umbral
+    set_do.reset_mock()
+    reloj_cal[0] += 0.5
+    fase.update()
+    set_do.vapor_chaqueta_on.assert_called()
+
+
+def test_m2_calentamiento_usa_el_margen_del_programa(reloj_cal):
+    umbral = p_saturacion_kpa(s2.T_OBJ) + s2.P_ADD
+    fase, _, set_do = _cal_chaqueta(umbral + 4.0, margen=3.0)
+    fase.update()
+    set_do.vapor_chaqueta_on.assert_not_called()
+
+
+@pytest.mark.parametrize("lectura", [None, float("nan")])
+def test_m2_calentamiento_sin_lectura_off(reloj_cal, lectura):
+    fase, _, set_do = _cal_chaqueta(lectura)
+    fase.update()
+    set_do.vapor_chaqueta_on.assert_not_called()
+    set_do.vapor_camara_on.assert_called()
+
+
+def test_m2_calentamiento_no_reemplaza_d_chq(reloj_cal):
+    fase, estado, set_do = _cal_chaqueta(250.0)
+    estado.inhibir_vapor_chaqueta = True
+    fase.update()
+    set_do.vapor_chaqueta_on.assert_not_called()
+
+
+def test_m2_calentamiento_modo_camara_sin_cambio(reloj_cal):
+    fase, estado, set_do = s2._fase(chaqueta=False)
+    estado.sensores_pres.pop("pres_chaqueta", None)
+    fase.update()
+    set_do.vapor_camara_on.assert_called()
+    set_do.vapor_chaqueta_on.assert_not_called()
+
+
+def test_m2_debe_cortar_puro():
+    assert ccc.debe_cortar(318.0, 309.6, 8.0) is True
+    assert ccc.debe_cortar(317.6, 309.6, 8.0) is False
+    assert ccc.debe_cortar(None, 309.6, 8.0) is True
+    assert ccc.debe_cortar(300.0, None, 8.0) is True
+    assert ccc.debe_cortar(300.0, 309.6, float("nan")) is True
+
+
+@pytest.mark.parametrize("valor,esperado", [(8.0, 8.0), (1.0, 2.0), (31.0, 30.0), (None, 8.0),
+                                            ("8", 8.0), (True, 8.0), (float("nan"), 8.0)])
+def test_m2_margen_recortado(valor, esperado):
+    cycle = MagicMock()
+    cycle.get_param.return_value = valor
+    assert ccc.margen_kpa(cycle) == esperado
+
+
+# ── M2: parámetro margen_chaqueta_est ───────────────────────────────────────
+
+def test_m2_catalogo_margen():
+    hoja = {"type": "float"}
+    assert cp.MARGEN_CHAQUETA_EST_DEFECTO == ccc.MARGEN_DEFECTO_KPA == 8.0
+    assert cp.coercionar(hoja, "esterilizacion", ["margen_chaqueta_est"], 2) == 2
+    assert cp.coercionar(hoja, "esterilizacion", ["margen_chaqueta_est"], 30) == 30
+    for malo in (1.9, 30.1, "8", True, float("nan")):
+        with pytest.raises(ValueError):
+            cp.coercionar(hoja, "esterilizacion", ["margen_chaqueta_est"], malo)
+
+
+@pytest.mark.parametrize("ruta", sorted(glob.glob(str(CICLOS / "*" / "*.json"))))
+def test_m2_programas_del_repo_con_margen(ruta):
+    p = json.loads(Path(ruta).read_text(encoding="utf-8"))["parameters"]
+    hoja = p["esterilizacion"]["margen_chaqueta_est"]
+    assert (hoja["value"], hoja["type"], hoja["unit"], hoja["clase"], hoja["min"], hoja["max"]) \
+        == (8.0, "float", "kPa", "diferencia", 2, 30)
+    claves = list(p["esterilizacion"])
+    assert claves[claves.index("histeresis_cierre_camara") + 1] == "margen_chaqueta_est"
+
+
+def _params_134():
+    return json.loads((CICLOS / "factory" / "instrumental_134.json")
+                      .read_text(encoding="utf-8"))["parameters"]
+
+
+def test_m2_migracion_agrega_el_defecto_sin_aviso():
+    p = _params_134()
+    del p["esterilizacion"]["margen_chaqueta_est"]
+    corr = []
+    assert migrar_parametros(p, corr) is True
+    assert corr == []
+    claves = list(p["esterilizacion"])
+    assert claves[claves.index("histeresis_cierre_camara") + 1] == "margen_chaqueta_est"
+    assert p["esterilizacion"]["margen_chaqueta_est"]["value"] == 8.0
+    assert cp.errores_programa(p) == []
+    assert migrar_parametros(p, corr) is False
+
+
+def test_m2_programa_fuera_de_rango_no_valida():
+    p = _params_134()
+    p["esterilizacion"]["margen_chaqueta_est"]["value"] = 40.0
+    assert any("margen_chaqueta_est" in e for e in cp.errores_programa(p))
+
+
+def test_m2_textos_i18n():
+    from autoclave import i18n
+    for idioma in ("es", "en"):
+        for clave in ("parametros.esterilizacion.margen_chaqueta_est",
+                      "parametros_desc.esterilizacion.margen_chaqueta_est"):
+            assert i18n.existe(clave, idioma), (clave, idioma)

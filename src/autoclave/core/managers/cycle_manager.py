@@ -75,6 +75,39 @@ _CLAVES_NUEVAS_T16 = (
 )
 
 
+# Tanda 28 (A14-M2): margen_chaqueta_est al final de esterilizacion, mismo
+# patrón (sin aviso: no cambia ningún valor existente). Va junto a
+# histeresis_cierre_camara si el programa la tiene.
+_CLAVES_NUEVAS_T28 = (
+    ("esterilizacion", "margen_chaqueta_est",
+     {"value": catalogo_parametros.MARGEN_CHAQUETA_EST_DEFECTO, "type": "float", "unit": "kPa",
+      "clase": "diferencia", "min": 2, "max": 30}),
+)
+
+
+def _agregar_claves_t28(parameters: dict) -> bool:
+    """A14-M2: agrega margen_chaqueta_est con su defecto si falta, después de
+    histeresis_cierre_camara (o al final de la sección). Solo agrega."""
+    cambio = False
+    for fase, clave, hoja in _CLAVES_NUEVAS_T28:
+        seccion = parameters.get(fase)
+        if not isinstance(seccion, dict) or clave in seccion:
+            continue
+        ancla = "histeresis_cierre_camara"
+        if ancla in seccion:
+            nuevo = {}
+            for k, v in seccion.items():
+                nuevo[k] = v
+                if k == ancla:
+                    nuevo[clave] = copy.deepcopy(hoja)
+            seccion.clear()
+            seccion.update(nuevo)
+        else:
+            seccion[clave] = copy.deepcopy(hoja)
+        cambio = True
+    return cambio
+
+
 def migrar_parametros(parameters, correcciones: list | None = None,
                       no_migradas: list | None = None, recuperacion: bool = False) -> bool:
     """Migra en el sitio los parámetros de un programa viejo. Devuelve True si
@@ -95,6 +128,7 @@ def migrar_parametros(parameters, correcciones: list | None = None,
             seccion[clave] = copy.deepcopy(hoja)
             cambio = True
     cambio = _agregar_claves_t16(parameters) or cambio
+    cambio = _agregar_claves_t28(parameters) or cambio
     for fase, clave in _PRESION_ADD:
         hoja = parameters.get(fase, {}).get(clave) if isinstance(parameters.get(fase), dict) else None
         if not isinstance(hoja, dict):
