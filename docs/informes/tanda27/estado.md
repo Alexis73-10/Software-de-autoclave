@@ -7,8 +7,8 @@
 | A3 INICIAR oculto | Hecho | ver git log |
 | A4 sin momentáneas | Hecho (revisor: aceptar) | 81c221b4 |
 | Parte A cierre (suite verde) | Hecho | ver git log |
-| 0 línea base | Pendiente | |
-| 1 inventario | Pendiente | |
+| 0 línea base | Hecho (suite, listas, TOC Autoclave+Backend) | ver git log |
+| 1 inventario | Hecho | ver git log |
 | 3 retiro ESP32 | Pendiente | |
 | 4 ui_pyside | Pendiente | |
 | 5 depuración | Pendiente | |
