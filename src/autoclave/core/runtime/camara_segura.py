@@ -102,6 +102,24 @@ def evaluar(estado, config, programas, profile=None, datos_vigentes=True,
     return True, ""
 
 
+def limites(config, temp_max_ciclo=None) -> dict:
+    """A10 (tanda 28): límites con que evaluar() juzga la cámara, leídos del
+    `config` en el momento de la llamada (nunca una copia): `temp_max_apertura`
+    vigente (el menor entre el del equipo y `temp_max_ciclo`), el del equipo,
+    el del ciclo, la atmosférica y el rango (kPa abs). Solo presentación: no
+    lo usa ningún interlock. Un valor sin configuración: None; nunca lanza."""
+    try:
+        temp_max = _numero(config.get(CLAVE_TEMP_MAX))
+        del_ciclo = _numero(temp_max_ciclo)
+        vigente = temp_max if del_ciclo is None or temp_max is None else min(temp_max, del_ciclo)
+        return {"temp_max_apertura": vigente, "temp_max_apertura_equipo": temp_max,
+                "temp_max_apertura_ciclo": del_ciclo,
+                "presion_atmosferica": _numero(config.get(CLAVE_ATM)),
+                "rango_presion_atm": _numero(config.get(CLAVE_RANGO))}
+    except Exception:
+        return {}
+
+
 # ESS-02 (28-oct): motivos de cámara NO segura que son solo un sensor sin
 # lectura (inventario ESS-01). La comunicación (sin_datos_vigentes), la
 # configuración y el error de evaluación no son sensores: se siguen mostrando.

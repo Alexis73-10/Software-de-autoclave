@@ -3041,6 +3041,27 @@
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
 
+## Bloque T28 (flujo B). Estado seguro (tanda 28, en seco, después de instalar)
+
+### T28-A10-01 — El estado seguro termina al ampliar la brecha de presión atmosférica, y dice qué le falta
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** A10 (tanda 28, AJ28B-01/02)
+- **Objetivo:** Con el estado seguro en curso por una brecha muy estrecha, ampliar `rango_presion_atm` lo termina en 3 lecturas si la cámara queda dentro; si no termina, la fila de estado seguro dice por qué (pausa por modo prueba, o el motivo con su valor y su límite).
+- **Precondiciones:** Sesión de técnico o ingeniero, sin ciclo. Anotar `rango_presion_atm` y `temp_max_apertura` vigentes. Cámara cerrada, a temperatura ambiente.
+- **Pasos:**
+  1. Opciones › Parámetros del equipo › Cámara segura: brecha de presión atmosférica a 1 kPa.
+  2. Llevar la cámara a 2–3 kPa por encima (o por debajo) de la atmosférica de referencia (modo prueba con `aire_comprimido_camara` o la bomba de vacío; salir del modo prueba) y reiniciar el programa para que arranque el estado seguro, o provocar un fallo en un ciclo de prueba.
+  3. Con la fila «Llevando la cámara a estado seguro» a la vista, leer la nota «Pendiente: Presión …, rango seguro de … a …» y tocar la fila (detalle).
+  4. Entrar al modo prueba: la nota debe decir «En pausa: modo prueba activo» (también en inglés si se cambia el idioma).
+  5. Con el modo prueba activo, ampliar la brecha a 5 kPa. Salir del modo prueba.
+  6. Repetir con la cámara a la atmosférica pero con la sonda Principal por encima de `temp_max_apertura` (o con el límite bajado temporalmente por debajo de la temperatura de cámara).
+  7. Restaurar los valores anotados.
+- **Resultado esperado:** Paso 3: la nota y el detalle nombran la presión medida y el rango seguro vigente (con 1 kPa). Paso 4: «En pausa: modo prueba activo», sin conteo. Paso 5: al salir del modo prueba, la fila de estado seguro desaparece sola en menos de 1 s (3 lecturas) si la cámara está dentro de ±5 kPa. Paso 6: el estado seguro no termina y la nota dice «Pendiente: Temperatura X °C, límite Y °C»; termina solo al bajar la temperatura.
+- **Criterio de aprobado/fallo:** Aprobado si el estado seguro termina tras ampliar la brecha (fuera del modo prueba) y, mientras no termina, la fila siempre dice el motivo. Es Fallo si la fila queda sin motivo, si sigue tras 3 lecturas con la cámara segura o si termina con la temperatura sobre el límite.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
 ## Registros que se deben conservar (expediente IEC 62304)
 
 - Esta hoja firmada (cada prueba con valor observado, resultado y firma).

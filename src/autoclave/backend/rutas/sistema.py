@@ -360,7 +360,27 @@ def _estado_seguro_status(estado=None, motivo_es_sensor: bool = False) -> dict:
             # Tanda 17 (ESG-01): detenido por la presión de cámara sin lectura
             # (sin CIC-10: solo la alarma del sensor)
             "detenido_sin_presion": activo and getattr(es, "detenido_sin_presion", False) is True,
-            "causa": causa if isinstance(causa, str) else None}
+            "causa": causa if isinstance(causa, str) else None,
+            # A10 (tanda 28): en pausa por el modo prueba (no cuenta ticks) y
+            # el motivo por el que aún no termina, con valor y límite vigente
+            "en_pausa_modo_prueba": activo and getattr(es, "en_pausa_modo_prueba", False) is True,
+            "motivo_pendiente": _motivo_pendiente(es) if activo else None}
+
+
+def _motivo_pendiente(es) -> dict | None:
+    """A10: motivo pendiente del estado seguro ({codigo, valores, texto,
+    limites}) o None. Solo presentación; ante un error o un dato raro, None."""
+    try:
+        motivo = getattr(es, "motivo_pendiente", None)
+        if not isinstance(motivo, dict) or not isinstance(motivo.get("codigo"), str):
+            return None
+        return {"codigo": motivo["codigo"],
+                "valores": dict(motivo.get("valores") or {}),
+                "texto": str(motivo.get("texto") or ""),
+                "limites": dict(motivo.get("limites") or {})}
+    except Exception:
+        logger.exception("/status: no se pudo leer el motivo pendiente del estado seguro")
+        return None
 
 
 def _silencioso_por_sensor(es, activo: bool, requiere: bool, estado,

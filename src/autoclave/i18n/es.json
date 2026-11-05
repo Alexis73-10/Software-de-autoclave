@@ -862,6 +862,8 @@
     "estado_seguro_causa_completado": "Ciclo terminado con la cámara no segura: el equipo la lleva a estado seguro.",
     "paro_liberado": "Paro liberado. Verifique que no haya fuga antes de continuar.",
     "confirmar_estado_seguro": "Confirmar y llevar a estado seguro",
+    "estado_seguro_pausa_modo_prueba": "En pausa: modo prueba activo",
+    "estado_seguro_espera": "Pendiente: {motivo}",
     "estado_seguro_en_curso": "Llevando la cámara a estado seguro",
     "estado_seguro_pendiente": "Paro de emergencia liberado — estado seguro pendiente",
     "paro_suelte": "Desenclave el pulsador de paro de emergencia para continuar. Hasta entonces no hay acciones disponibles.",
@@ -2472,6 +2474,15 @@
     "arranque": {
       "titulo": "Fallo de arranque",
       "accion": "Cierre el programa y ábralo de nuevo. Si el fallo se repite, llame a servicio técnico."
+    },
+    "estado_seguro_espera": {
+      "temp_alta": "Temperatura {valor}, límite {limite}",
+      "sobrepresion": "Presión {valor}, rango seguro de {minimo} a {maximo}",
+      "vacio": "Presión {valor}, rango seguro de {minimo} a {maximo}",
+      "sin_presion_camara": "Presión de cámara sin lectura",
+      "sin_temp_camara": "Temperatura de cámara sin lectura",
+      "sin_datos_vigentes": "Datos del módulo E/S no vigentes",
+      "falta_config": "Falta configuración: {claves}"
     },
     "no_abrir_motivos": {
       "temp_alta": {

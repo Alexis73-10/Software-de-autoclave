@@ -31,6 +31,7 @@ import logging
 import time
 
 from autoclave.core.runtime import camara_segura
+from autoclave.core.runtime.motivos import Motivo
 from autoclave.state_machine.alarms.catalogo import CIC_10
 from autoclave.state_machine.alarms.instancia import EstadoInstancia
 
@@ -77,6 +78,15 @@ class ProtocoloEstadoSeguro:
         # S9, revisión ★ TMG-04: la pausa actual vino del modo prueba (al
         # reanudar, la espera sellada sin sonda empieza de nuevo)
         self._pausa_por_prueba = False
+        # A10 (tanda 28): motivo por el que la última evaluación de este
+        # protocolo NO dio la cámara segura (Motivo de camara_segura) y el
+        # temp_max del programa con que se evaluó; None si fue segura, si no
+        # se evaluó (paro, confirmación, pausa) o fuera del protocolo. Es el
+        # RESULTADO de un tick, no una copia de la configuración: los límites
+        # que se muestran se leen del config vivo al publicarlos.
+        self._motivo_pendiente = None
+        self._temp_max_pendiente = None
+        self._codigo_pendiente_en_log = None
 
     @property
     def activo(self) -> bool:
@@ -152,6 +162,43 @@ class ProtocoloEstadoSeguro:
         return (self.activo is True
                 and getattr(self._protocolo, "presion_perdida", False) is True)
 
+    @property
+    def en_pausa_modo_prueba(self) -> bool:
+        """A10 (tanda 28): el protocolo activo está en pausa por el modo
+        prueba (no cuenta ticks seguros, ESG-02/S9 D9-1.3). Deja de serlo en
+        el primer update() tras salir del modo prueba."""
+        return self.activo is True and self._pausado is True and self._pausa_por_prueba is True
+
+    @property
+    def motivo_pendiente(self) -> dict | None:
+        """A10 (tanda 28): por qué el protocolo activo todavía no termina
+        según su última evaluación de cámara segura: {"codigo", "valores",
+        "texto", "limites"} o None (segura en ese tick, sin evaluar o
+        inactivo). `limites` se lee del config en esta llamada
+        (camara_segura.limites). Solo presentación; nunca lanza."""
+        motivo = self._motivo_pendiente
+        if not self.activo or motivo is None:
+            return None
+        try:
+            from autoclave.core.runtime.motivos import codigo_de, valores_json
+            return {"codigo": codigo_de(motivo) or "", "valores": valores_json(motivo),
+                    "texto": str(motivo),
+                    "limites": camara_segura.limites(self.config, self._temp_max_pendiente)}
+        except Exception:
+            logger.exception("Estado seguro: no se pudo armar el motivo pendiente")
+            return None
+
+    def _fijar_pendiente(self, motivo, temp_max_ciclo=None) -> None:
+        """A10: guarda el motivo de este tick y deja en el log de desarrollo
+        cada cambio de código (una línea por cambio, no por tick)."""
+        self._motivo_pendiente = motivo if motivo else None
+        self._temp_max_pendiente = temp_max_ciclo
+        codigo = getattr(self._motivo_pendiente, "codigo", None)
+        if codigo != self._codigo_pendiente_en_log:
+            self._codigo_pendiente_en_log = codigo
+            if codigo is not None:
+                logger.info("Estado seguro: la cámara aún no es segura (%s)", self._motivo_pendiente)
+
     def _evento(self, evento: str, **detalle) -> None:
         logger.info("Estado seguro: %s %s", evento, detalle or "")
         if self.al_evento is None:
@@ -188,6 +235,7 @@ class ProtocoloEstadoSeguro:
         # empezar a actuar se "reanuda" (pulsos y plazo del modo desde cero)
         self._pausado = True
         self._pausa_por_prueba = False
+        self._fijar_pendiente(None)
         self.requiere_confirmacion = requiere_confirmacion
         self.origen = origen
         self._evento("estado_seguro_iniciado", requiere_confirmacion=requiere_confirmacion,
@@ -202,6 +250,7 @@ class ProtocoloEstadoSeguro:
             return
         self._pausado = True
         self._ticks_seguros = 0
+        self._fijar_pendiente(None)          # A10: en pausa no hay evaluación
         if motivo == "modo_prueba":
             self._pausa_por_prueba = True
         self._evento("estado_seguro_pausado", motivo=motivo)
@@ -221,6 +270,7 @@ class ProtocoloEstadoSeguro:
         if self._protocolo is not None:
             self._protocolo.finalizar()
         self._protocolo = None
+        self._fijar_pendiente(None)
         self._resolver_alarma_bloqueo()
 
     def _actualizar_alarma_bloqueo(self) -> None:
@@ -360,6 +410,7 @@ class ProtocoloEstadoSeguro:
                 self.requiere_confirmacion = True
             self._ticks_seguros = 0
             self._pausado = True
+            self._fijar_pendiente(None)      # A10: el paro tiene su propia fila
             return
         if self._paro_visto:
             self._paro_visto = False
@@ -368,6 +419,10 @@ class ProtocoloEstadoSeguro:
         if self.requiere_confirmacion or not datos_vigentes:
             self._ticks_seguros = 0
             self._pausado = True
+            # A10: sin datos vigentes, ese es el motivo; con la confirmación
+            # pendiente, la fila propia lo dice
+            self._fijar_pendiente(None if self.requiere_confirmacion else Motivo(
+                "sin_datos_vigentes", "Sin conexión con el módulo E/S: datos no vigentes"))
             return
 
         if self._pausado:
@@ -411,6 +466,7 @@ class ProtocoloEstadoSeguro:
             except Exception:
                 logger.exception("Estado seguro: no se pudieron obtener los programas")
                 self._ticks_seguros = 0
+                self._fijar_pendiente(None)
                 return
         propio = getattr(self._protocolo, "cycle", None)
         if programas is None:
@@ -424,16 +480,23 @@ class ProtocoloEstadoSeguro:
             temp_max_ciclo = self._protocolo.cycle.get_param("finalizacion", "temp_max_apertura")
         except Exception:
             pass
-        segura, _ = camara_segura.evaluar(self.estado, self.config, programas, self.profile,
-                                          temp_max_ciclo=temp_max_ciclo)
+        # A10 (tanda 28): self.config es el ConfigManager vivo; atm, rango y
+        # temp_max_apertura se leen en cada tick (un cambio en Parámetros del
+        # equipo rige desde el tick siguiente). Criterio y 3 ticks sin cambio.
+        segura, motivo = camara_segura.evaluar(self.estado, self.config, programas, self.profile,
+                                               temp_max_ciclo=temp_max_ciclo)
         if segura and not self._ai_vigente():
             # S9, revisión ★ TMG-02: presión posiblemente congelada
             segura = False
+            motivo = Motivo("sin_presion_camara",
+                            "Sin lectura válida de presión de cámara (trama AI vencida)")
+        self._fijar_pendiente(None if segura else motivo, temp_max_ciclo)
         self._ticks_seguros = self._ticks_seguros + 1 if segura else 0
         if self._ticks_seguros >= _TICKS_SEGUROS:
             duracion = self._reloj() - self._t_inicio if self._t_inicio is not None else None
             self._protocolo.finalizar()
             self._protocolo = None
+            self._fijar_pendiente(None)
             self._resolver_alarma_bloqueo()
             self._evento("estado_seguro_alcanzado",
                          duracion_s=round(duracion, 1) if duracion is not None else None)

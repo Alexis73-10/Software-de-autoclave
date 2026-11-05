@@ -253,6 +253,16 @@ Column {
         visible: raiz.enCurso && raiz.claveCausa !== "" && raiz.enGrupo("emergencia")
         texto: raiz.claveCausa !== "" ? I18n.t(raiz.claveCausa, I18n.lang) : ""
     }
+    // A10 (tanda 28): qué le falta para terminar, para que no parezca
+    // colgado: «En pausa: modo prueba activo» o el motivo pendiente con su
+    // valor y su límite (texto armado en domain/detalle_aviso.py)
+    readonly property string textoEspera: raiz.enCurso
+                                          ? DetalleAviso.textoEspera(puente?.contextoAviso ?? ({}), I18n.lang) : ""
+    Nota {
+        objectName: "avisoEsperaEstadoSeguro"
+        visible: raiz.enCurso && raiz.textoEspera !== "" && raiz.enGrupo("emergencia")
+        texto: raiz.textoEspera
+    }
 
     // Botón de los estados 2 y 3: azul y habilitado solo con la confirmación
     // pendiente y sin petición en vuelo

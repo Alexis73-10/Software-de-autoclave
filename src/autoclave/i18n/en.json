@@ -862,6 +862,8 @@
     "estado_seguro_causa_completado": "Cycle finished with the chamber not safe: the equipment is bringing it to a safe state.",
     "paro_liberado": "Emergency stop released. Check that there is no leak before continuing.",
     "confirmar_estado_seguro": "Confirm and bring to safe state",
+    "estado_seguro_pausa_modo_prueba": "Paused: test mode active",
+    "estado_seguro_espera": "Pending: {motivo}",
     "estado_seguro_en_curso": "Bringing the chamber to a safe state",
     "estado_seguro_pendiente": "Emergency stop released — safe state pending",
     "paro_suelte": "Release the emergency stop button to continue. Until then no actions are available.",
@@ -2472,6 +2474,15 @@
     "arranque": {
       "titulo": "Startup failure",
       "accion": "Close the program and open it again. If the failure repeats, call technical service."
+    },
+    "estado_seguro_espera": {
+      "temp_alta": "Temperature {valor}, limit {limite}",
+      "sobrepresion": "Pressure {valor}, safe range {minimo} to {maximo}",
+      "vacio": "Pressure {valor}, safe range {minimo} to {maximo}",
+      "sin_presion_camara": "Chamber pressure without a reading",
+      "sin_temp_camara": "Chamber temperature without a reading",
+      "sin_datos_vigentes": "I/O module data not current",
+      "falta_config": "Missing configuration: {claves}"
     },
     "no_abrir_motivos": {
       "temp_alta": {
