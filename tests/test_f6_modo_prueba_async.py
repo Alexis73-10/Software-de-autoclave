@@ -472,9 +472,16 @@ def test_m1_qml_ofrece_el_apagado_de_una_sostenida_encendida():
     assert "habilitado: tarjetaSalida.libre || tarjetaSalida.puedeApagar" in texto
     i = texto.index("readonly property bool puedeApagar:")
     regla = " ".join(texto[i:i + 400].split())
+    # Tanda 26 (ESP): `apagar` lo arma el controlador; sin orden pendiente es
+    # `encendida === true` (presentar_con_pendientes) y con una orden ON
+    # pendiente también ofrece el apagado
     assert regla.startswith("readonly property bool puedeApagar: !modelData.momentanea "
-                            "&& modelData.encendida === true "
+                            "&& modelData.apagar === true "
                             "&& (control.modoPrueba || control.pruebaSinConfirmar)")
+    from autoclave.ui_qml.controllers.entradas_salidas_controller import (
+        presentar_con_pendientes)
+    base = [{"name": "x", "momentanea": False, "encendida": v} for v in (True, False, None)]
+    assert [s["apagar"] for s in presentar_con_pendientes(base, {})] == [True, False, False]
 
 
 def test_m2_gancho_al_iniciar_y_se_quita_con_rechazo_o_inactivo():

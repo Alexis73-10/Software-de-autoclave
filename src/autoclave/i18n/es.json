@@ -1424,6 +1424,7 @@
       "activar": "Activar",
       "apagar": "Apagar",
       "mantener": "Mantener pulsado",
+      "orden_pendiente": "Orden enviada, esperando confirmación",
       "bloqueada": "No disponible en este equipo",
       "atrapamiento_aviso": "Con el seguro de atrapamiento activo, la orden de cerrar abre la puerta.",
       "sin_permiso_prueba": "El modo prueba no está disponible en este estado o con este usuario.",

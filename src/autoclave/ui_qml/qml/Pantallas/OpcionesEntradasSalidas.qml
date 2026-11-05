@@ -573,8 +573,10 @@ Item {
                         // M1 (revision FASE 6): el APAGADO de una sostenida encendida
                         // se ofrece siempre con modo prueba o con dudas (salida o
                         // entrada sin confirmar); encender sigue exigiendo `libre`
+                        // ESP (tanda 26): `apagar` lo arma el controlador (estado
+                        // ordenado si hay orden pendiente; si no, el leído)
                         readonly property bool puedeApagar: !modelData.momentanea
-                                                            && modelData.encendida === true
+                                                            && modelData.apagar === true
                                                             && (control.modoPrueba || control.pruebaSinConfirmar)
                         // P1 (tanda 7, SAF-01): salida momentánea fijada al pulsar; la
                         // renovación y el apagado usan ese nombre aunque cambien los datos
@@ -606,22 +608,32 @@ Item {
                                 font.weight: Tipografia.pesoBold
                                 font.pixelSize: Escala.fuente(22)
                             }
+                            // ESP (tanda 26): marca de orden enviada sin reflejo en /status
+                            Text {
+                                objectName: "pendienteSalida_" + tarjetaSalida.modelData.name
+                                anchors.right: parent.right
+                                width: Escala.px(190)
+                                visible: tarjetaSalida.modelData.pendiente === true
+                                text: I18n.t("io.ui.orden_pendiente", I18n.lang)
+                                wrapMode: Text.WordWrap
+                                horizontalAlignment: Text.AlignRight
+                                color: Colores.textoGuia
+                                font.family: Tipografia.familia
+                                font.pixelSize: Escala.fuente(15)
+                            }
                             Boton {
                                 objectName: "botonSalida_" + tarjetaSalida.modelData.name
                                 width: Escala.px(190); height: Escala.px(56)
                                 habilitado: tarjetaSalida.libre || tarjetaSalida.puedeApagar
                                 relleno: tarjetaSalida.modelData.momentanea ? Colores.menuNaranja
-                                         : (tarjetaSalida.modelData.encendida === true ? Colores.peligroTexto : Colores.accionPrimario)
-                                texto: tarjetaSalida.modelData.momentanea
-                                       ? I18n.t("io.ui.mantener", I18n.lang)
-                                       : (tarjetaSalida.modelData.encendida === true
-                                          ? I18n.t("io.ui.apagar", I18n.lang) : I18n.t("io.ui.activar", I18n.lang))
-                                // sostenida: un toque alterna; momentanea: ON mientras dura la pulsacion
+                                         : (tarjetaSalida.modelData.apagar === true ? Colores.peligroTexto : Colores.accionPrimario)
+                                texto: I18n.t(tarjetaSalida.modelData.claveBoton || "io.ui.activar", I18n.lang)
+                                // sostenida: un toque envía el inverso de lo ordenado (o
+                                // de lo leído); momentanea: ON mientras dura la pulsacion
                                 onPulsado: {
                                     raiz.marcarActividad()
                                     if (!tarjetaSalida.modelData.momentanea)
-                                        control.accionar(tarjetaSalida.modelData.name,
-                                                         tarjetaSalida.modelData.encendida !== true, false)
+                                        control.alternar(tarjetaSalida.modelData.name)
                                 }
                                 onPresionado: {
                                     raiz.marcarActividad()

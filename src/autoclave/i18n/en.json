@@ -1424,6 +1424,7 @@
       "activar": "Turn on",
       "apagar": "Turn off",
       "mantener": "Hold to run",
+      "orden_pendiente": "Command sent, awaiting confirmation",
       "bloqueada": "Not available on this equipment",
       "atrapamiento_aviso": "With the entrapment safeguard active, the close command opens the door.",
       "sin_permiso_prueba": "Test mode is not available in this state or for this user.",
