@@ -39,7 +39,9 @@ def test_las_nueve_etapas_con_pesos_y_origen_de_la_tabla_7():
 
 def test_instantanea_inicial_cumple_el_contrato():
     inst = RegistroArranque().instantanea()
-    assert set(inst) == {"terminado", "falloBloqueante", "etapaActual", "etapas"}
+    # Tanda 26 (ARQ-D1/D5): se añaden instancia, esperandoIniciar y liberado.
+    assert set(inst) == {"terminado", "falloBloqueante", "etapaActual", "etapas",
+                         "instancia", "esperandoIniciar", "liberado"}
     assert inst["terminado"] is False
     assert inst["falloBloqueante"] is False
     assert inst["etapaActual"] == "verificando_instalacion"
