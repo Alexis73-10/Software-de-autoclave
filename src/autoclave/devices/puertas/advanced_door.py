@@ -1,5 +1,5 @@
 #aqui vienen las abstracciones fisicas de las puertas
-#No habla directamente con el serial, eso lo hace el modulo de hardware
+#No habla directamente con el enlace de E/S, eso lo hace el modulo de hardware
 #aqui se definiran:
 #- estados
 #- validaciones

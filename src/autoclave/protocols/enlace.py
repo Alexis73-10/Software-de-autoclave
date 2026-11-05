@@ -1,8 +1,7 @@
 # autoclave.protocols.enlace
 # --------------------------
-# Interfaz del enlace de E/S (tanda 19, MOD-02). Desde la tanda 20 (T20-03,
-# retiro del enlace serial con la ESP32) tiene una sola implementación,
-# ModbusLink (módulos Ebyte M31-U, Modbus TCP); se conserva como interfaz
+# Interfaz del enlace de E/S (tanda 19, MOD-02). Desde la tanda 20 (T20-03)
+# tiene una sola implementación, ModbusLink (módulos Ebyte M31-U, Modbus TCP); se conserva como interfaz
 # para las pruebas y sus dobles (tests/helpers/enlace_doble.py).
 #
 # EnlaceES es la interfaz pública que usa el resto del programa (V-01 de la
@@ -31,12 +30,12 @@ class EventoModuloEs:
     motivo: str
 
 
-# Alarmas del módulo E/S del plan de protocolo (§11.6), heredadas del
-# enlace serial (trasladadas aquí desde serial_link.py en la tanda 20, T20-03,
-# con el mismo contenido). ModbusLink reutiliza las que aplican; las que solo
-# emitía el serial (ALARMAS_SOLO_SERIAL) ya no se emiten, pero su entrada de
-# catálogo y sus textos se conservan para el historial y la bitácora antiguos
-# (DECISIÓN SIN CONFIRMAR de T20-03).
+# Alarmas del módulo E/S del plan de protocolo (§11.6). ModbusLink emite las
+# que aplican; las de ALARMAS_RETIRADAS_HISTORIAL (TARJETA_SIN_ACK y
+# TARJETA_ALL_OFF_SIN_CONFIRMAR, aún listadas en ALARMAS_HANDSHAKE, y
+# TARJETA_REINICIO) ya no se emiten, pero su entrada de catálogo y sus textos
+# se conservan para el historial y la bitácora antiguos (DECISIÓN SIN
+# CONFIRMAR de T20-03).
 ALARMAS_HANDSHAKE = (
     "TARJETA_SIN_TRAMA_VALIDA",
     "TARJETA_VERSION_INCOMPATIBLE",
@@ -51,8 +50,8 @@ ALARMAS_OPERACION = (
     "DISCREPANCIA_SALIDAS",
     "TARJETA_EXPANSOR_FUERA_DE_LINEA",
 )
-# Solo las emitía el enlace serial (retirado en la tanda 20): solo historial.
-ALARMAS_SOLO_SERIAL = (
+# Ya no se emiten (desde la tanda 20): solo para mostrar el historial.
+ALARMAS_RETIRADAS_HISTORIAL = (
     "TARJETA_SIN_ACK",
     "TARJETA_ALL_OFF_SIN_CONFIRMAR",
     "TARJETA_REINICIO",

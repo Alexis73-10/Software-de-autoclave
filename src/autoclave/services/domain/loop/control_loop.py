@@ -866,8 +866,8 @@ class ControlLoop:
 
     def _actualizar_estado_modulo_es(self, connected: bool, now: float) -> None:
         """U4 (tanda 2): distingue módulo E/S desconectado (no hay puerto o se
-        perdió) de módulo E/S sin tramas válidas (puerto presente: sin handshake,
-        CRC malo, firmware incompatible o DI vencida) y de ok. COM-01 solo con
+        perdió) de módulo E/S sin tramas válidas (puerto presente: sin conexión
+        verificada o DI vencida) y de ok. COM-01 solo con
         "desconectada"; TARJETA_SIN_TRAMA_VALIDA solo con el puerto presente;
         al pasar de una a otra se resuelve la anterior. No toca el paro ni las
         salidas: eso sigue en el flag combinado PARO_EMERGENCIA."""

@@ -1,8 +1,8 @@
 """T2 / P-3 (tanda 6): una trama DI vencida con el enlace activo (PARO_EMERGENCIA
 sin PARO_REAL) durante el ciclo tiene una tolerancia antes de abortar y se
 registra como fallo de comunicación (FALLO_CONEXION + COM-03), no como
-EMERGENCIA. La prueba de la tolerancia contra el watchdog del firmware de la
-ESP32 se retiró con el enlace serial (tanda 20, T20-03); el valor de 4 s queda
+EMERGENCIA. La prueba de la tolerancia contra el corte del enlace anterior
+se retiró en la tanda 20 (T20-03); el valor de 4 s queda
 fijado en tests/test_t20_s2_retiro_serial.py hasta que Cristian lo revise."""
 
 import time

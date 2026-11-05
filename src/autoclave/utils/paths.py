@@ -27,8 +27,7 @@ def app_root() -> Path:
 
 
 # Calibración de los módulos M31-U (tanda 19, MOD-04: décimas de °C y µA).
-# Enlace único desde la tanda 20 (T20-03): la calibración serial
-# (`calibration.yaml`, cuentas del ADC de 12 bits) se retiró.
+# Enlace único desde la tanda 20 (T20-03): es la única calibración.
 CALIBRACION_MODBUS = "calibration_modbus.yaml"
 
 

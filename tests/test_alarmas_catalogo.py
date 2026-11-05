@@ -200,9 +200,9 @@ def test_ids_del_modulo_es_que_emite_el_enlace_estan_en_el_catalogo():
     # enlace debe existir en el catálogo.
     import pathlib
     # Tanda 19 (MOD-12): los ids de los dos enlaces juntos son CODIGOS_TARJETA.
-    # Tanda 20 (T20-03): serial_link.py se retiró; sus ids (ALARMAS_HANDSHAKE
-    # / ALARMAS_OPERACION) pasaron sin cambios a protocols/enlace.py, que
-    # ocupa su lugar en esta comprobación (igualdad intacta).
+    # Tanda 20 (T20-03): los ids (ALARMAS_HANDSHAKE / ALARMAS_OPERACION)
+    # viven en protocols/enlace.py, que entra en esta comprobación
+    # (igualdad intacta).
     raiz = pathlib.Path(__file__).parents[1] / "src/autoclave/protocols"
     def _ids(nombre):
         ruta = raiz / nombre

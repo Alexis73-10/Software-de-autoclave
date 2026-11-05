@@ -60,8 +60,8 @@ TIPOS = ("DI", "DO", "AI")
 # (tanda 19, MOD-05; enlace único desde la tanda 20, T20-03): DI 01-16
 # (módulo de 16 DI), DO 01-32 (dos módulos de 16 relés), temperatura RTD 01-06
 # (módulo de 6 PT100), presión AI 01-16 (AI 1-16 del principal; tanda 23,
-# AIN-02, antes 09-16 con solo 8). Los rangos del enlace serial (DI 01-48,
-# temperatura 01-08) se retiraron con él.
+# AIN-02, antes 09-16 con solo 8). Los rangos anteriores a la tanda 20
+# (DI 01-48, temperatura 01-08) ya no existen.
 # Una asignación guardada (data/asignacion_io.json) con un puerto fuera de
 # estos rangos da `puerto_inexistente` en validar(); al arrancar,
 # backend/context.py la trata como cualquier asignación inválida: alarma

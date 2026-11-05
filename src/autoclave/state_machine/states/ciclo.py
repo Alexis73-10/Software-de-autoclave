@@ -66,10 +66,9 @@ _DEBOUNCE_ENFRIADA = 3
 _INTERVALO_REINTENTO_APERTURA_SEG = 5.0
 # P-3 (tanda 6): tolerancia a una trama DI vencida con el enlace activo
 # (PARO_EMERGENCIA sin PARO_REAL) antes de abortar el ciclo: 4 s (DECISIÓN
-# SIN CONFIRMAR: la instrucción permite hasta 5 s). El valor se fijó con el
-# watchdog del firmware de la ESP32 (5 s menos 1 s de margen); ese enlace se
-# retiró en la tanda 20 (T20-03) y el valor se conserva sin cambios. Con
-# Modbus el módulo M31 corta las salidas a 1,0 s sin tráfico y ModbusLink
+# SIN CONFIRMAR: la instrucción permite hasta 5 s). El valor se fijó como
+# 5 s menos 1 s de margen y se conserva sin cambios desde la tanda 20
+# (T20-03). Con Modbus el módulo M31 corta las salidas a 1,0 s sin tráfico y ModbusLink
 # declara la pérdida tras 3 transacciones fallidas: si 4 s sigue siendo
 # adecuado queda para revisar (anomalía de la tanda 20, decisión de
 # Cristian). Ojo (TMG-01 de T2): con la DI vencida el PC puede seguir

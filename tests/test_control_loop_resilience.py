@@ -24,8 +24,7 @@ def _run_two_ticks(loop):
 def test_excepcion_en_door_update_no_mata_el_hilo_control_loop():
     """Reproduce el bug: el módulo E/S se desconecta/reconecta y una escritura
     en curso (p.ej. door.update() -> cerrar_on()) lanza una excepción de
-    E/S (antes SerialTimeoutException de pyserial; desde la tanda 20, T20-03,
-    una excepción genérica: el enlace serial se retiró). El hilo ControlLoop no debe morir por eso: debe
+    E/S (una excepción genérica desde la tanda 20, T20-03). El hilo ControlLoop no debe morir por eso: debe
     registrar el error y seguir iterando en el siguiente tick."""
     loop = _make_loop()
 

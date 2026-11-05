@@ -1506,7 +1506,7 @@ class ModbusLink:
         return False
 
     def _comparar_salidas(self, do: list) -> None:
-        """Algoritmo de discrepancia de MOD-11 (heredado del enlace serial retirado en la tanda 20)."""
+        """Algoritmo de discrepancia de MOD-11: salidas leídas contra las comandadas."""
         if not self._handshake_ok:
             return
         ahora = time.monotonic()

@@ -1,3 +1,5 @@
+> **Obsoleto: hardware ESP32 retirado en la tanda 20.** Documento histórico (movido a `docs/referencia/obsoleto/` en la tanda 27); no describe el sistema vigente.
+
 # Protocolo de reconexión con la tarjeta ESP32 al arrancar
 
 ## Contexto

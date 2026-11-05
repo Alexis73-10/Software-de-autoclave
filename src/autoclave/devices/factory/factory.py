@@ -66,7 +66,7 @@ def build_modbus(units, al_conectar=None):
 
 def build_enlace(units, al_conectar=None):
     """Construye e inicia el enlace de E/S: ModbusLink (MOD-01; enlace único
-    desde la tanda 20, T20-03, que retiró el serial y la selección por
+    desde la tanda 20, T20-03, sin selección por
     archivo). Cumple protocols.enlace.EnlaceES."""
     return build_modbus(units, al_conectar=al_conectar)
 

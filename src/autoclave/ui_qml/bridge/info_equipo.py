@@ -11,7 +11,7 @@
 #   - versión, ID y emparejamiento del módulo E/S: GET /status (campo
 #     `modulo_es`, del último handshake; E6, FW-D2 y FW-D7), en la misma consulta
 #   - enlace de E/S activo (tanda 19, MOD-01): GET /status (campo `enlace_io`,
-#     "modbus" | "serial"), en la misma consulta
+#     "modbus"), en la misma consulta
 #   - fecha del último mantenimiento: GET /maintenance; se muestra "—" mientras
 #     la respuesta no llega (o si no hay dato)
 
@@ -81,7 +81,7 @@ _TEXTO_EMPAREJAMIENTO = {True: "modulo_es_emparejada", False: "modulo_es_no_empa
 
 
 # Tanda 19 (MOD-01): enlace de E/S -> clave del texto en la sección "equipo"
-# (solo Modbus desde la tanda 20, T20-03: el serial se retiró y otro valor se
+# (solo Modbus desde la tanda 20, T20-03; otro valor se
 # muestra "No disponible")
 _TEXTO_ENLACE = {"modbus": "enlace_io_modbus"}
 

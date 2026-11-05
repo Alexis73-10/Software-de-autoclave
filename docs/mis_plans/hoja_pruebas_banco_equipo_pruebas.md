@@ -234,7 +234,7 @@
 
 - **Modo:** En seco (sin vapor)  ·  **Origen:** E6; tanda 2 §1; ADB-02/ADB-03 (tanda 20)
 - **Objetivo:** El firmware de los módulos y el ID del equipo (MAC del principal) se ven solo en Información del sistema.
-- **Precondiciones:** Módulos M31-U conectados (M-0). La ESP32 (enlace serial) ya no es compatible (tanda 20).
+- **Precondiciones:** Módulos M31-U conectados (M-0). Solo Modbus TCP (tanda 20).
 - **Pasos:**
   1. Abrir Menú Principal › Información.
   2. Revisar la preciclo y el ciclo en curso.

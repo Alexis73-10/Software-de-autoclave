@@ -137,7 +137,7 @@ def _factory_calibrate(raw_value: int, calib, full_scale: float,
                        is_pressure=False) -> Optional[float]:
     """Valor de ingeniería con la calibración de fábrica del canal. Sin una
     calibración completa: None (tanda 19, MOD-03; desde la tanda 20, T20-03,
-    sin la escala raw/4095 del ADC del módulo E/S serial retirado).
+    sin una escala de respaldo implícita).
     `full_scale` se conserva en la firma por compatibilidad; no se usa."""
 
     if calib:
@@ -260,8 +260,8 @@ def convert_temperatures(raw_ai: List[Optional[int]], config: Dict | Calibration
 #   umbral alto = adc_max + margen_falla_alto * (adc_max - adc_min)   (21 mA)
 # con adc_min = 4 mA y adc_max = 20 mA de la calibración de fábrica del canal.
 # - La cuenta es en µA (Modbus) y el umbral alto de 21000 queda ACTIVO (tanda
-#   19, MOD-03). El tope de saturación del ADC de 12 bits del módulo E/S serial
-#   (D8-1.1) se retiró con ese enlace en la tanda 20 (T20-03).
+#   19, MOD-03). No hay tope de saturación propio de la cuenta (D8-1.1 se
+#   retiró en la tanda 20, T20-03).
 # - Umbral bajo <= 0: piso de saturación en 0 antes de 3,6 mA. DECISIÓN SIN
 #   CONFIRMAR (informe S1): se usa el piso de saturación, 0 cuentas = falla
 #   (mismo criterio que la temperatura, raw == 0). Sin esto la detección baja

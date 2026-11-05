@@ -97,7 +97,7 @@ def get_system_time():
 # afectar a los demás.
 
 # Enlace de E/S publicado en /status y en la Información del equipo: único
-# desde la tanda 20 (T20-03, retiro del serial); se conserva el campo para no
+# desde la tanda 20 (T20-03); se conserva el campo para no
 # romper la API (DECISIÓN SIN CONFIRMAR).
 ENLACE_IO = "modbus"
 
@@ -162,8 +162,8 @@ def get_system_info():
         "software": {"version": _parte(version_completa),
                      "firmware": modulo_es.get("version") if isinstance(modulo_es, dict) else None,
                      "id_modulo_es": modulo_es.get("id") if isinstance(modulo_es, dict) else None,
-                     # Tanda 19 (MOD-01); constante desde la tanda 20 (T20-03,
-                     # enlace serial retirado): se conserva por la API
+                     # Tanda 19 (MOD-01); constante desde la tanda 20
+                     # (T20-03): se conserva por la API
                      "enlace_io": ENLACE_IO},
         "uso": {"ciclos": _parte(context.db.max_numero_ciclo),
                 "mantenimiento": _parte(context.mantenimiento.resumen)},

@@ -53,8 +53,7 @@ def test_fabrica_modbus_temperatura_decimas_a_grados(cfg_modbus, decimas, grados
 
 @pytest.mark.req("MOD-03")
 def test_cero_decimas_es_valido_en_modbus(cfg_modbus):
-    """El centinela 0/4095 = sin sonda era propio del ADC del módulo E/S serial (ESP32)
-    (retirada en la tanda 20, T20-03: se borró la parte serial de esta prueba).
+    """En Modbus no hay centinela 0/4095 = sin sonda (desde la tanda 20, T20-03).
     Revisión R (V19-s2-03): en Modbus 4095 décimas (409,5 °C) queda fuera del
     rango plausible de la PT100 (-500..2500 décimas) y da None; antes esta
     prueba fijaba 409,5 °C."""

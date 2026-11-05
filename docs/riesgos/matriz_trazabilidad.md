@@ -13,7 +13,7 @@ Estado: BORRADOR para pasar a xlsx. Los requisitos salen de las specs citadas. L
 | REQ-07 El ticket marca la carga no estéril (P-9; ampliado por REQ-26) | tanda 6 §1 | HAZ-T2-06, HAZ-FC-07 | `test_t2_p9_reimprimir_interrumpido.py` |
 | REQ-08 Nunca reanudar un ciclo tras un corte de energía | `planeacion_arranque_y_modo_sin_bd.md`; tanda 3 A2 | HAZ-FC-05 | `test_a2_corte_de_energia.py`, `test_t6_arranque_seguro.py` |
 | REQ-09 Modo sin BD | `planeacion_arranque_y_modo_sin_bd.md` | HAZ-BD-01 | `test_t8_modo_sin_bd.py` |
-| REQ-10 Tarjeta desconectada detectada y salidas a 0 | `instruccion_claude_code_u4_tarjeta_desconectada.md`, `planeacion_protocolo_serial_esp32.md` | HAZ-TAR-01, HAZ-FC-04 | `test_u4_modulo_es_desconectado.py`, `test_arranque_sin_modulo_es.py`, `test_e6_control_loop_modulo_es.py`; banco: por completar |
+| REQ-10 Tarjeta desconectada detectada y salidas a 0 | `instruccion_claude_code_u4_tarjeta_desconectada.md`, `planeacion_protocolo_serial_esp32.md` (**Obsoleto (tanda 20, retirado en la 27)**; en `docs/referencia/obsoleto/`) | HAZ-TAR-01, HAZ-FC-04 | `test_u4_modulo_es_desconectado.py`, `test_arranque_sin_modulo_es.py`, `test_e6_control_loop_modulo_es.py`; banco: por completar |
 | REQ-11 Las unidades son solo de presentación | tanda 5 U1 | HAZ-UNI-01 | `test_u1_unidades.py`, `test_u1_unidades_qml.py`, `test_flujo_unidades.py` |
 | REQ-12 Textos en el idioma seleccionado, con respaldo | `planeacion_i18n.md` | HAZ-I18N-01 | `test_i18n.py`, `test_i18n_linea_base.py`, `test_i1_i18n_backend.py` |
 | REQ-13 Salida forzada del modo prueba | tanda 4 B8, tanda 5 P1 | HAZ-PRU-01 | `test_b8_salida_forzada_modo_prueba.py`, `test_p1_salida_modo_prueba.py` |

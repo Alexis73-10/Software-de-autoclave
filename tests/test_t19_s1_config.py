@@ -1,5 +1,4 @@
-# Tanda 19, P-s1: configuración del enlace Modbus (MOD-06), validada como
-# serial_link_config: un valor malo da advertencia y el valor interno.
+# Tanda 19, P-s1: configuración del enlace Modbus (MOD-06): un valor malo da advertencia y el valor interno.
 
 import json
 import logging

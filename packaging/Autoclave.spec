@@ -122,8 +122,8 @@ a = Analysis(
               'PySide6.QtWebEngineQuick', 'PySide6.Qt3DCore', 'PySide6.QtQuick3D',
               'PySide6.QtPdf', 'PySide6.QtCharts', 'PySide6.QtGraphs',
               'PySide6.QtMultimedia', 'PySide6.QtDataVisualization',
-              # Tanda 20 (T20-03, V20-s2-07): pyserial retirado; pymodbus y
-              # escpos lo importan solo como opcional. Que no entre aunque
+              # Tanda 20 (T20-03, V20-s2-07): módulo opcional de pymodbus y
+              # escpos que el producto no usa. Que no entre aunque
               # esté instalado en la máquina de compilación.
               'serial'],
     noarchive=False,
@@ -132,8 +132,8 @@ a = Analysis(
 a.binaries = [b for b in a.binaries if not _sobra(b[0])]
 a.datas = [d for d in a.datas if not _sobra(d[0])]
 # D8-3.18 (tanda 8) / MOD-04: la entrega lleva la calibración Modbus NEUTRA
-# (config/calibration_modbus.yaml del repositorio, que ya es la nominal); la
-# serial y su plantilla se retiraron en la tanda 20 (T20-03). K8 lo comprueba
+# (config/calibration_modbus.yaml del repositorio, que ya es la nominal), la
+# única desde la tanda 20 (T20-03). K8 lo comprueba
 # con tools/verificar_calibracion_neutra.py.
 # D9-7 (tanda 9): correo NEUTRO (sin remitente ni destinatarios) y, de cycles/,
 # nada que no sea factory/. El build se detiene si se cuela algo; después,

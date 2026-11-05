@@ -50,7 +50,7 @@ PRUEBAS = [
     dict(id="A-03", bloque="A", modo="seco", origen="E6; tanda 2 §1; ADB-02/ADB-03 (tanda 20)",
          titulo="Firmware de los módulos e ID solo en Información del sistema",
          objetivo="El firmware de los módulos y el ID del equipo (MAC del principal) se ven solo en Información del sistema.",
-         pre="Módulos M31-U conectados (M-0). La ESP32 (enlace serial) ya no es compatible (tanda 20).",
+         pre="Módulos M31-U conectados (M-0). Solo Modbus TCP (tanda 20).",
          pasos=["Abrir Menú Principal › Información.", "Revisar la preciclo y el ciclo en curso."],
          esperado="Información muestra el firmware del principal y de las expansiones (p. ej. 9232-0-13 / 10,12,12,12,10), el ID `005404849DB1` (MAC del principal en el banco) y si está emparejado. Las demás pantallas no los muestran.",
          criterio="Aprobado si versión e ID son correctos y aparecen solo ahí."),

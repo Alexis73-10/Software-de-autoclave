@@ -1,8 +1,7 @@
 # Tanda 19, F2: selección del enlace de E/S (MOD-01) e interfaz común (MOD-02).
 #
-# Tanda 20 (T20-03): el enlace serial y su selección por config/enlace_io.json
-# se retiraron. Se borraron las pruebas de la selección por archivo y de la
-# reexportación/conformidad de serial_link; build_enlace construye siempre
+# Tanda 20 (T20-03): la selección del enlace por archivo se retiró y se
+# borraron sus pruebas; build_enlace construye siempre
 # ModbusLink y /status publica la constante "modbus".
 
 import sys
@@ -25,7 +24,7 @@ def test_build_enlace_modbus_usa_build_modbus():
 @pytest.mark.req("MOD-01")
 def test_build_modbus_sin_modulo_da_error_claro(monkeypatch):
     monkeypatch.setitem(sys.modules, "autoclave.protocols.modbus_link", None)
-    # T20-03: el mensaje ya no remite a «usar 'serial' en config/enlace_io.json»
+    # T20-03: el mensaje ya no remite a otro enlace
     with pytest.raises(RuntimeError, match="enlace Modbus no está disponible"):
         factory.build_modbus(MagicMock())
 
