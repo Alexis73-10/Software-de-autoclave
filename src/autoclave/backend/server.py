@@ -102,7 +102,9 @@ def iniciar_arranque() -> None:
                     "detener": _detener_arranque},
             name="arranque", daemon=True)
         _hilo_arranque.start()
-    _iniciar_vigilancia_dueno_prueba()   # SAF-01 (revisión de B7)
+        # SAF-01 (revisión de B7). H5 (revisión ARQ): dentro del lock y solo
+        # la primera vez (las siguientes salen arriba): un solo vigilante
+        _iniciar_vigilancia_dueno_prueba()
 
 
 rutas_arranque.fijar_iniciador(iniciar_arranque)

@@ -25,6 +25,7 @@ def test_ruta_pasa_la_compuerta_y_completa_la_etapa(monkeypatch):
     from autoclave.backend import server
     from autoclave.backend.dependencias import registro_arranque
     registro = RegistroArranque()
+    registro.marcar_iniciado()     # H7 (revisión ARQ, tanda 26): exige iniciar antes
     monkeypatch.setattr("autoclave.backend.rutas.sistema.registro_arranque", registro)
     monkeypatch.setattr(server, "_compuerta_arranque", True)
     assert not server._contexto_operable.is_set()

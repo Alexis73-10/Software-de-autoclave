@@ -49,6 +49,13 @@ def post_arranque_interfaz_lista():
     """La UI terminó la animación de arranque: completa la etapa
     `preparando_interfaz` y libera el ticket de arranque. Sin token (como
     /ui/activity), idempotente: dos pantallas no imprimen dos veces."""
+    # H7 (revisión ARQ, tanda 26): antes de POST /arranque/iniciar se rechaza
+    # (409 arranque_no_iniciado) sin enclavar nada; el aviso sí puede llegar
+    # antes de que terminen las etapas (queda enclavado y libera al final).
+    # Comentario y no docstring: la descripción del OpenAPI queda igual (T15).
+    if registro_arranque.iniciado is not True:
+        raise RechazoApi(409, "arranque_no_iniciado",
+                         "El arranque no se ha iniciado (POST /arranque/iniciar)")
     registro_arranque.marcar_interfaz_lista()
     return {"ok": True}
 

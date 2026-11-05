@@ -378,6 +378,8 @@ def test_lecturas_y_apagado_no_se_retienen(servidor):
     srv.preparar_arranque()
     srv._contexto_operable.set()
     assert client.post("/ui/activity").status_code == 200
+    # H7 (revisión ARQ): interfaz-lista exige el arranque ya iniciado
+    srv.registro_arranque.marcar_iniciado()
     assert client.post("/arranque/interfaz-lista").status_code == 200
     for metodo, ruta in (("POST", "/system/shutdown"), ("POST", "/auth/login"),
                          ("GET", "/status"), ("POST", "/outputs/reset"),
