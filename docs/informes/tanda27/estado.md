@@ -9,8 +9,11 @@
 | Parte A cierre (suite verde) | Hecho | ver git log |
 | 0 línea base | Hecho (suite, listas, TOC Autoclave+Backend) | ver git log |
 | 1 inventario | Hecho | ver git log |
-| 3 retiro ESP32 | Pendiente | |
-| 4 ui_pyside | Pendiente | |
-| 5 depuración | Pendiente | |
-| 6 verificación | Pendiente | |
-| 7 cierre | Pendiente | |
+| 3 retiro ESP32 | Hecho | ver git log |
+| 4 ui_pyside | Hecho | ver git log |
+| 5 depuración | Hecho | ver git log |
+| 6 verificación | Hecho | ver git log |
+| 7 cierre | Hecho | ver git log |
+| A7 mensaje de incoherencia | Hecho | 158290df |
+| A5, A6 | No definidas en el prompt: no implementadas | |
+| Suite final | 11015 pasadas, 0 rojas | |
