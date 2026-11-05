@@ -102,7 +102,7 @@ class SetOutput:
             self._agua_por_drenaje = bool(value)
             if not value:
                 self._agua_por_vacio = False
-        self._escribir(index, value)
+        return self._escribir(index, value)
 
     def _es_canal_agua(self, index) -> bool:
         try:
@@ -127,7 +127,10 @@ class SetOutput:
                 logger.warning("SetOutput: DO%d no se enciende con el paro de "
                                "emergencia activo; se mantiene apagada", index)
             value = False
-        self.io.set_output(index, value)
+        # Tanda 27 (A4, revisión): se devuelve la respuesta del enlace (True =
+        # orden aceptada); el modo prueba la usa para no encender un sentido de
+        # puerta sin confirmar el apagado del contrario
+        return self.io.set_output(index, value)
 
     def _paro_bloquea(self, index) -> bool:
         """D9-9: True si el paro impide encender el canal `index`. Paro real

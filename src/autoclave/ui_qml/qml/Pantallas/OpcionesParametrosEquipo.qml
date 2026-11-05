@@ -86,6 +86,26 @@ Item {
         const t = p.tipo === "float" ? Number(valor).toFixed(1) : String(valor)
         return p.unidad ? t + " " + p.unidad : t
     }
+    // A7 (tanda 27): mensaje de rechazo con sus valores (kPa del backend) en la
+    // unidad vigente; diferencia (márgenes) con Unidades.dpres
+    readonly property var _presionAbs: ({ unidad: "kPa", clave: "", clase: "absoluto", tipo: "float" })
+    readonly property var _presionDif: ({ unidad: "kPa", clave: "", clase: "diferencia", tipo: "float" })
+    function textoMensaje(clave) {
+        if (clave === "")
+            return ""
+        const vals = control.valoresMensaje || {}
+        const args = {}
+        for (const k in vals)
+            args[k] = raiz.textoP(vals[k].v, vals[k].dif ? raiz._presionDif : raiz._presionAbs)
+        return I18n.t(clave, I18n.lang, args)
+    }
+    // rango efectivo (backend, misma validación que el guardado): solo si difiere del nominal
+    function tieneRangoEfectivo(p) {
+        return p !== null && p !== undefined
+               && p.min_efectivo !== null && p.min_efectivo !== undefined
+               && p.max_efectivo !== null && p.max_efectivo !== undefined
+               && (p.min_efectivo !== p.min || p.max_efectivo !== p.max)
+    }
     function fechaHora(ts) {
         const m = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/.exec(String(ts || ""))
         return m ? m[3] + "/" + m[2] + "/" + m[1] + " " + m[4] + ":" + m[5] : String(ts || "")
@@ -119,8 +139,8 @@ Item {
             text: control.mensaje === "" ? ""
                   : control.mensajeRevertido
                     ? I18n.t("opciones.cambio_revertido", I18n.lang,
-                             { motivo: I18n.t(control.mensaje, I18n.lang) })
-                    : I18n.t(control.mensaje, I18n.lang)
+                             { motivo: raiz.textoMensaje(control.mensaje) })
+                    : raiz.textoMensaje(control.mensaje)
             color: Colores.peligroTexto
             font.family: Tipografia.familia
             font.pixelSize: Escala.fuente(22)
@@ -156,7 +176,7 @@ Item {
             if (ok)
                 ajuste.cerrar()
             else
-                ajuste.errorIngreso = mensaje !== "" ? I18n.t(mensaje, I18n.lang) : ""
+                ajuste.errorIngreso = mensaje !== "" ? raiz.textoMensaje(mensaje) : ""
         }
     }
 
@@ -1030,6 +1050,18 @@ Item {
                     font.family: Tipografia.familia
                     font.pixelSize: Escala.fuente(20)
                     color: Colores.textoGuia
+                }
+                Text {
+                    objectName: "rangoEfectivoEquipo"
+                    visible: raiz.tieneRangoEfectivo(ajuste.param)
+                    width: parent.width
+                    wrapMode: Text.WordWrap
+                    text: visible ? I18n.t("opciones.equipo_rango_efectivo", I18n.lang,
+                                           { min: raiz.textoP(ajuste.param.min_efectivo, ajuste.param),
+                                             max: raiz.textoP(ajuste.param.max_efectivo, ajuste.param) }) : ""
+                    font.family: Tipografia.familia; font.weight: Tipografia.pesoBold
+                    font.pixelSize: Escala.fuente(20)
+                    color: Colores.textoPrimario
                 }
                 Rectangle { width: parent.width; height: 1; color: Colores.bordeDivisor }
                 Text {

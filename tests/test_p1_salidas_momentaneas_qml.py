@@ -3,7 +3,9 @@ se refresca cada 1 s (caché de /status de UIServiceBackend desde 2026-11-02). C
 refresco destruía y recreaba todas las tarjetas: la pulsación sostenida de una
 salida momentánea (abrir/cerrar puerta, bomba de vacío) perdía su temporizador
 de renovación y el backend la apagaba a los 1,5 s; un toque podía perderse.
-La tarjeta debe sobrevivir al refresco y seguir mostrando el estado real."""
+La tarjeta debe sobrevivir al refresco y seguir mostrando el estado real.
+Tanda 27 (A4, HAZ-IO-07): ya no hay salidas momentáneas; la bomba de vacío
+(y las puertas) son interruptor."""
 
 import json
 import os
@@ -37,7 +39,7 @@ def transporte(metodo, ruta, cuerpo, token, plazo):
                      "temperature": [{"name": "temp_camara", "estado_key": "temp_camara",
                                       "i18n": "io.ai.temp_camara", "id": "AI 01", "raw_index": 0}],
                      "DO": [{"name": "bomba_vacio", "estado_key": "bomba_vacio",
-                             "i18n": "io.do.bomba_vacio", "id": "DO 05", "momentanea": True,
+                             "i18n": "io.do.bomba_vacio", "id": "DO 05",
                              "bloqueada": False}]}
     if ruta == "/status":
         return 200, {"estado_modulo_es": estado["modulo_es"],
@@ -99,20 +101,27 @@ for _ in range(3):
     ctl.actualizar()
 QTest.qWait(50)
 t1 = tarjeta()
-# pulsación sostenida a través de refrescos: renueva ON, y al soltar apaga y no renueva más
+# Tanda 27 (A4): interruptor. Con la bomba apagada, un toque envía un solo ON
+# (sin "momentanea") y no se renueva; el botón dice Activar/Apagar, nunca Mantener
 from PySide6.QtCore import QMetaObject
 boton = buscar("botonSalida_bomba_vacio")
+texto_boton_on = boton.property("texto")
+estado["bomba"] = 0
+ctl.actualizar()
+QTest.qWait(50)
+texto_boton_off = boton.property("texto")
 patches.clear()
 QMetaObject.invokeMethod(boton, "presionado")
-for _ in range(3):
+QMetaObject.invokeMethod(boton, "pulsado")
+QMetaObject.invokeMethod(boton, "soltado")
+primeros = [dict(c) for c in patches]
+n = len(patches)
+for _ in range(4):
     QTest.qWait(400)
     ctl.actualizar()
-encendidos = sum(1 for c in patches if c.get("value") is True)
-QMetaObject.invokeMethod(boton, "soltado")
-ultimo = dict(patches[-1]) if patches else {}
-n = len(patches)
-QTest.qWait(1200)
-tras_soltar = len(patches) - n
+tras_tocar = len(patches) - n
+estado["bomba"] = 1
+ctl.actualizar()
 
 s1 = buscar("sensor_temp_camara")
 v1 = buscar("valorSensor_temp_camara")
@@ -130,7 +139,8 @@ print(json.dumps({"sobrevive": t1 is not None and t1.property("marcaP1") == 1,
                   "valor_sensor": valor_ok,
                   "estado_on": estado_on,
                   "textos_sensor_desconectada": textos_desconectada,
-                  "encendidos": encendidos, "ultimo": ultimo, "tras_soltar": tras_soltar}))
+                  "primeros": primeros, "tras_tocar": tras_tocar,
+                  "texto_boton_on": texto_boton_on, "texto_boton_off": texto_boton_off}))
 """
 
 
@@ -162,13 +172,26 @@ def test_sensor_con_modulo_es_desconectado_no_culpa_al_cableado():
     assert not any("undefined" in t for t in textos), textos
 
 
-def test_pulsacion_sostenida_renueva_y_al_soltar_apaga_sin_renovar_mas():
+def test_bomba_de_vacio_es_interruptor_sin_renovacion_ni_mantener():
+    """Tanda 27 (A4, HAZ-IO-07): un toque envía un solo ON sin "momentanea";
+    soltar no apaga y no hay renovación de 500 ms; el botón dice Activar /
+    Apagar, nunca «Mantener pulsado»."""
+    es = json.loads((RAIZ / "src" / "autoclave" / "i18n" / "es.json").read_text(encoding="utf-8"))
     qml = RAIZ / "src" / "autoclave" / "ui_qml" / "qml"
     r = subprocess.run([sys.executable, "-c", _GUION, str(qml)], capture_output=True, text=True,
                        encoding="utf-8", errors="replace", cwd=RAIZ, timeout=90,
                        env={**os.environ, "QT_QPA_PLATFORM": "offscreen"})
     assert r.returncode == 0, r.stderr[-2000:]
     d = json.loads(r.stdout.strip().splitlines()[-1])
-    assert d["encendidos"] >= 3, d          # el primer ON y renovaciones cada 500 ms
-    assert d["ultimo"] == {"value": False}, d
-    assert d["tras_soltar"] == 0, d
+    assert d["primeros"] == [{"value": True}], d
+    assert d["tras_tocar"] == 0, d
+    assert d["texto_boton_on"] == es["io"]["ui"]["apagar"], d
+    assert d["texto_boton_off"] == es["io"]["ui"]["activar"], d
+    assert "mantener" not in es["io"]["ui"]
+
+
+def test_qml_sin_rastro_de_salidas_momentaneas():
+    texto = (RAIZ / "src" / "autoclave" / "ui_qml" / "qml" / "Pantallas"
+             / "OpcionesEntradasSalidas.qml").read_text(encoding="utf-8")
+    for fragmento in ("momentanea", "renovacion", "soltarMomentanea", "io.ui.mantener"):
+        assert fragmento not in texto, fragmento

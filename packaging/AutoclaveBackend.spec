@@ -67,7 +67,7 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=['serial'],   # T20-03 (V20-s2-07): pyserial retirado; pymodbus lo importa como opcional
+    excludes=['serial'],   # T20-03 (V20-s2-07): módulo opcional de pymodbus que el producto no usa
     noarchive=False,
     optimize=0,
 )

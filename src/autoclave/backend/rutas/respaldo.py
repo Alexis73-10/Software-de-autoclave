@@ -60,10 +60,11 @@ def _misma_fabrica(cfg_resp) -> bool:
     de cada canal) es igual a la del archivo de calibración activo, es decir,
     si el respaldo es del mismo enlace de E/S y de la misma fábrica. False si
     difiere en cualquier campo o si el activo no se puede leer (falla cerrada).
-    Desde la tanda 20 (T20-03) el enlace es único (Modbus): esto rechaza los
-    respaldos de equipos con el enlace serial retirado (cuentas del ADC) y
-    también un respaldo con otra fábrica del mismo enlace: falla cerrada; la
-    fábrica no se restaura por respaldo."""
+    Desde la tanda 20 (T20-03) el enlace es único (Modbus): esto rechaza un
+    respaldo cuya sección de fábrica no es idéntica a la activa (lo que incluye
+    una calibración cuya escala no está en µA y décimas de °C) y también uno
+    con otra fábrica del mismo enlace: falla cerrada; la fábrica no se
+    restaura por respaldo."""
     try:
         activa = load_config(CALIBRATION_PATH)
     except Exception:
@@ -225,9 +226,8 @@ def post_backup_restore(body: _RestaurarBody,
                 cfg_resp = load_config(prueba)
             except Exception:
                 raise RechazoApi(422, "calibracion_invalida", "Respaldo inválido")
-        # Tanda 19 (MOD-04): una calibración de otro enlace de E/S (el serial
-        # retirado en la tanda 20, T20-03: cuentas del ADC; Modbus: µA y
-        # décimas de °C) pisaría la escala de fábrica y las lecturas saldrían
+        # Tanda 19 (MOD-04): una calibración ajena a Modbus (cuentas del ADC
+        # en lugar de µA y décimas de °C) pisaría la escala de fábrica y las lecturas saldrían
         # mal. Revisión R (V19-s2-02): se compara TODA la sección de fábrica
         # (temperatura y presión) con la del archivo activo; cualquier
         # diferencia rechaza. Fail-closed: si el activo no se puede leer,

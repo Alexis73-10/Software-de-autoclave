@@ -96,7 +96,7 @@ def _log_a_archivo(nombre: str) -> None:
 
 def escribir_version(ruta: str) -> int:
     """VER-04 (§2.2 paso 5 de la etapa VER): escribe la versión en `ruta` (JSON) y
-    sale, sin abrir el puerto serial, el backend ni ninguna ventana. Lo usa
+    sale, sin abrir el enlace de E/S, el backend ni ninguna ventana. Lo usa
     tools/entrega/compilar_entrega.py para comprobar el .exe compilado."""
     import json
     from autoclave import _version

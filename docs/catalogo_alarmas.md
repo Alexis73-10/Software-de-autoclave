@@ -33,7 +33,7 @@ Fuente: `backend/context.py`, `services/domain/loop/control_loop.py`.
 |---|---|---|---|---|---|
 | `CONFIGURACION_INVALIDA` | FALLA | sí | no | `errores_config_arranque()` devolvió errores en la etapa de arranque `cargando_configuracion`. Desde la fase B (2026-10-12) es fallo bloqueante de esa etapa: la secuencia se detiene sin abrir el enlace de E/S ni construir el control loop, y `/arranque` lo publica con este mismo código. Descripción: `Configuración inválida: <errores>`. | Corregir la configuración y reiniciar. Llamar a servicio técnico. |
 | `OPERANDO_SIN_BD` | FALLA | sí | no | Etapa `abriendo_base_datos` agotó sus 3 intentos (degradada, `ARR_SIN_BD`). PROVISIONAL hasta el modo sin BD (§7 de `planeacion_arranque_y_modo_sin_bd.md`): `/cycle/start` rechaza con 409 `sin_base_de_datos` y las consultas a la BD responden 503. | Revisar el disco / `data/`. Reiniciar. Llamar a servicio técnico. |
-| `NO_HAY_CONEXION` | FALLA | sí | sí | Enlace con el módulo E/S caído (fuera de ciclo; hasta la tanda 19, el serial con la ESP32). | Revisar cable de red/alimentación del módulo E/S. Se limpia al reconectar. |
+| `NO_HAY_CONEXION` | FALLA | sí | sí | Enlace con el módulo E/S caído (fuera de ciclo). | Revisar cable de red/alimentación del módulo E/S. Se limpia al reconectar. |
 
 ### 2.1 Códigos de etapa de arranque (`GET /arranque`)
 
@@ -65,19 +65,18 @@ también las filas sintéticas `TARJETA_DESCONECTADA`/`TARJETA_SIN_DATOS` de la 
 Lo guardado y la clave `id` del reconocimiento siguen con `TARJETA_*`. Sus títulos (`alarmas.<ID>.titulo`
 de `es.json`/`en.json`) dicen «módulo E/S».
 
-**Tanda 20 (T20-03):** el enlace serial con la ESP32 (`protocols/serial_link.py`) y su firmware se
-retiraron; el único enlace es Modbus TCP (`protocols/modbus_link.py`, módulos M31-U). Las alarmas que solo
-emitía el serial (`TARJETA_SIN_ACK`, `TARJETA_ALL_OFF_SIN_CONFIRMAR`, `TARJETA_REINICIO`;
-`protocols/enlace.ALARMAS_SOLO_SERIAL`) **ya no se emiten**: su entrada de catálogo y sus textos se conservan
+**Tanda 20 (T20-03):** el único enlace es Modbus TCP (`protocols/modbus_link.py`, módulos M31-U). Las alarmas del enlace
+anterior (`TARJETA_SIN_ACK`, `TARJETA_ALL_OFF_SIN_CONFIRMAR`, `TARJETA_REINICIO`;
+`protocols/enlace.ALARMAS_RETIRADAS_HISTORIAL`) **ya no se emiten**: su entrada de catálogo y sus textos se conservan
 solo para mostrar el historial y la bitácora antiguos (DECISIÓN SIN CONFIRMAR). Las descripciones de abajo
-que nombran líneas del protocolo serial (`VER`, `HB`, `ST`, CRC) son históricas; con Modbus, la condición
+que nombran líneas del protocolo anterior (`VER`, `HB`, `ST`, CRC) son históricas; con Modbus, la condición
 equivalente es la de la conexión verificada (MOD-06 a MOD-12).
 
-Fuente (histórica): `protocols/serial_link.py` (detección, `EventoTarjeta`, hoy `EventoModuloEs` en `protocols/enlace.py`) y
-`services/domain/loop/control_loop.py` (`_procesar_eventos_tarjeta`, hoy `_procesar_eventos_modulo_es`). Ids aprobados en `planeacion_protocolo_serial_esp32.md` §11.6. Fuera de ciclo
+Fuente: `protocols/modbus_link.py` (detección; `EventoModuloEs` en `protocols/enlace.py`) y
+`services/domain/loop/control_loop.py` (`_procesar_eventos_modulo_es`). Ids aprobados en el plan de protocolo §11.6 (`docs/referencia/obsoleto/`). Fuera de ciclo
 el `ControlLoop` las reporta como FALLA bloqueante y recuperable (`source_state="CONTROL_LOOP"`) y las despeja
 al completarse el siguiente handshake. En ciclo, las de operación abortan el ciclo (ver §4.1). La descripción
-lleva el motivo concreto (texto en español generado en `serial_link.py`). Mientras el handshake no se completa,
+lleva el motivo concreto (texto en español generado por el enlace). Mientras el handshake no se completa,
 `is_connected()` es False, así que además aparece `NO_HAY_CONEXION`.
 
 **U4 (tanda 2, 19-oct):** ya no. COM-01 (antes `NO_HAY_CONEXION`) sale solo con la tarjeta **desconectada**
@@ -93,8 +92,8 @@ SIS-01 (paro) ya no sale por falta de datos: solo con la entrada del paro leída
 |---|---|---|---|---|---|
 | `TARJETA_SIN_TRAMA_VALIDA` | FALLA | sí | sí | Handshake: ninguna línea de CRC válido dentro del presupuesto (15 s), o ninguna ST tras el ALL_OFF. Reintento cada 3 s. | Revisar cable de red y alimentación del módulo E/S. Llamar a servicio técnico. |
 | `TARJETA_VERSION_INCOMPATIBLE` | FALLA | sí | sí | Handshake: `VER` sin respuesta, protocolo distinto de 2, o tramas sin CRC (firmware V2 cargado, HAZ-FC-11). | Sin energía, revisar modelo y orden de los módulos y negociar (Reload); firmware incompatible: servicio técnico (tanda 20). |
-| `TARJETA_SIN_ACK` | FALLA | sí | sí | **Solo historial, retirada en la tanda 20** (solo la emitía el serial). Handshake: `HB` sin `ACK` en 3 intentos de 1 s. | Servicio técnico. |
-| `TARJETA_ALL_OFF_SIN_CONFIRMAR` | FALLA | sí | sí | **Solo historial, retirada en la tanda 20** (solo la emitía el serial). Handshake: `ALL_OFF` sin `OK ALL_OFF` en 3 intentos de 1 s, o la ESP32 sigue con `sync=0` en 2 ST seguidas tras confirmarlo. | Servicio técnico. |
+| `TARJETA_SIN_ACK` | FALLA | sí | sí | **Solo historial, retirada en la tanda 20** (solo la emitía el enlace anterior). Handshake: `HB` sin `ACK` en 3 intentos de 1 s. | Servicio técnico. |
+| `TARJETA_ALL_OFF_SIN_CONFIRMAR` | FALLA | sí | sí | **Solo historial, retirada en la tanda 20** (solo la emitía el enlace anterior). Handshake: `ALL_OFF` sin `OK ALL_OFF` en 3 intentos de 1 s, o el módulo sigue con `sync=0` en 2 ST seguidas tras confirmarlo. | Servicio técnico. |
 | `TARJETA_SALIDAS_NO_APAGADAS` | FALLA | sí | sí | Handshake: `DO:` con alguna salida en 1 en 2 tramas seguidas tras el `ALL_OFF`. | No operar. Servicio técnico (etapa de potencia o expansor). |
 | `TARJETA_CONFIG_SEGURIDAD` | FALLA | sí | sí | Tanda 19 (MOD-07, MOD-12), solo enlace Modbus: la configuración de seguridad de los módulos M31-U (tiempo y modo de desconexión, estado de falla, estado al encender y modo de cada DO, rango y filtro de AI, unidad, compensación, filtro y habilitación de PT100) no quedó igual a lo escrito tras `intentos_escritura_config` escrituras y lecturas de vuelta. En ciclo, COM-03 (origen `operacion`). | Revisar la red del módulo E/S. Servicio técnico. |
 | `TARJETA_MODULOS_ORDEN` | FALLA | sí | sí | Tanda 19 (MOD-06, MOD-10, MOD-12), solo enlace Modbus: código de error del principal (0x7587) = 2 (orden de expansiones incorrecto) o negociación pendiente (0x758A = 1), al conectar o en operación (invalida la conexión). En ciclo, COM-03 (origen `operacion`). | Sin energía, revisar el orden de los módulos y negociar (doble pulsación de Reload). |

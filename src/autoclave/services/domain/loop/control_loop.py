@@ -688,7 +688,11 @@ class ControlLoop:
         las salidas bloqueadas (como el aire atmosférico, D8-3.19: la trama DO
         puede llegar tarde). Devuelve las (salida, código) que el módulo E/S
         reportaba encendidas, una vez por salida, para la bitácora."""
-        bloqueadas = self.salidas_prueba_bloqueadas()
+        bloqueadas = dict(self.salidas_prueba_bloqueadas())
+        # Tanda 27 (A4, revisión): cerrar_puerta_N con atrapamiento o sin DI
+        # vigentes también se apaga en este tick (no entra en
+        # salidas_prueba_bloqueadas: la ruta conserva la inversión de D-ES-16)
+        bloqueadas.update(self._cierres_prueba_a_cortar())
         salidas = getattr(self.estado, "salidas_do", None) or {}
         nuevas = []
         for clave, codigo in bloqueadas.items():
@@ -705,6 +709,24 @@ class ControlLoop:
                 self._anotar_aviso_corte(clave, codigo)
         self._salidas_prueba_cortadas &= set(bloqueadas)
         return nuevas
+
+    def _cierres_prueba_a_cortar(self) -> dict[str, str]:
+        """Tanda 27 (A4, revisión; DECISIÓN SIN CONFIRMAR): {clave cerrar_puerta_N:
+        código} a apagar en modo prueba (salidas_prueba_seguridad.cierres_a_cortar).
+        Falla cerrada: un error al leer las entradas cuenta como DI no vigentes."""
+        try:
+            canales = salidas_prueba_seguridad.cierres_a_cortar(
+                self.doors, self.estado.sensores_di, self.datos_vigentes is True)
+        except Exception:
+            logger.exception("Modo prueba: no se pudo evaluar el atrapamiento; "
+                             "se apagan los cierres de puerta")
+            try:
+                canales = salidas_prueba_seguridad.cierres_a_cortar(self.doors, {}, False)
+            except Exception:
+                logger.exception("Modo prueba: no se pudo leer los canales de cierre")
+                return {}
+        nombres = {i + 1: k for k, i in EstadoAutoclave.map_do.items()}
+        return {nombres[c]: codigo for c, codigo in canales.items() if c in nombres}
 
     _MAX_AVISOS_CORTE = 10
 
@@ -844,8 +866,8 @@ class ControlLoop:
 
     def _actualizar_estado_modulo_es(self, connected: bool, now: float) -> None:
         """U4 (tanda 2): distingue módulo E/S desconectado (no hay puerto o se
-        perdió) de módulo E/S sin tramas válidas (puerto presente: sin handshake,
-        CRC malo, firmware incompatible o DI vencida) y de ok. COM-01 solo con
+        perdió) de módulo E/S sin tramas válidas (puerto presente: sin conexión
+        verificada o DI vencida) y de ok. COM-01 solo con
         "desconectada"; TARJETA_SIN_TRAMA_VALIDA solo con el puerto presente;
         al pasar de una a otra se resuelve la anterior. No toca el paro ni las
         salidas: eso sigue en el flag combinado PARO_EMERGENCIA."""

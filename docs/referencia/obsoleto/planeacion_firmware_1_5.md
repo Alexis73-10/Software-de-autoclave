@@ -1,3 +1,5 @@
+> **Obsoleto: hardware ESP32 retirado en la tanda 20.** Documento histórico (movido a `docs/referencia/obsoleto/` en la tanda 27); no describe el sistema vigente.
+
 # Planeación: firmware 1.0.0 de la tarjeta ESP32 y su contraparte en el PC
 
 Estado: v2 (2026-10-12), aprobado por Cristian (§9). Sin código. Nota: el nombre del archivo conserva "1_5" por historial; la versión de firmware aprobada es 1.0.0.

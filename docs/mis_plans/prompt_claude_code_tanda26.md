@@ -1,0 +1,72 @@
+# Prompt: tanda 26 — compilación, detalle de alarmas, salidas en modo prueba y arranque retenido hasta la UI
+
+Trabajo sin supervisión. Rama propia `tanda26` desde `dev` limpio. Informes, comentarios, textos y mensajes de commit en español. Máximo 4 subagentes a la vez; los subagentes no corren la suite completa (solo sus pruebas); revisor de seguridad solo en ARQ y un revisor final sobre el diff. Lleva `docs/informes/tanda26/estado.md` (paso → Hecho/Pendiente, último commit) al día tras cada commit y, al reanudar, sigue desde el primer paso pendiente. Sin push. Hallazgos numerados con severidad (`CMP-NN`, `ALD-NN`, `ESP-NN`, `ARQ-NN`). Lo que decidas sin confirmación de Cristian se marca `DECISIÓN SIN CONFIRMAR` en código, informe y riesgos.
+
+Orden: 0 → 1 (CMP) → 4 (ARQ, la de mayor riesgo) en el hilo principal; 2 (ALD) y 3 (ESP) pueden ir en subagentes en paralelo con ARQ porque tocan archivos distintos (solo UI). Si el tiempo no alcanza, ARQ y CMP tienen prioridad sobre ALD y ESP.
+
+## 0. Preparación
+- `git status` limpio en `dev`; crea `tanda26`. Suite base: `pytest tests -n auto -q` → guarda el resumen en `docs/informes/tanda26/suite_base.txt` (las rojas se repiten en serie con `--lf`, como `compilar_entrega.correr_suite_real`).
+
+## 1. CMP — por qué no compila
+Cristian reporta que la entrega no compila. Diagnostica sin crear etiqueta ni versión:
+1. Corre las verificaciones previas de `tools/entrega/compilar_entrega.py` (rama, árbol, herramientas, suite) sin el paso de etiqueta; luego compila directamente `pyinstaller --noconfirm packaging\Autoclave.spec`, `packaging\AutoclaveBackend.spec` y `packaging\AutoclaveSettings.spec`, y corre `tools/verificar_entrega_neutra.py dist/Autoclave` y `tools/verificar_calibracion_neutra.py`. Guarda cada salida en `docs/informes/tanda26/cmp_*.log` (sin secretos).
+2. Causas candidatas ya vistas en el código (confírmalas o descártalas, no te quedes solo con ellas):
+   - **LIC-01 transporte v2:** `installation/secretos.entrada_compilacion_transporte()` hace `SystemExit` si no existe `%USERPROFILE%\Documents\especifika_secretos\activacion_v2.json` (o `ESPECIFIKA_TRANSPORTE`), si no es versión 2 o si es el K_t de prueba. Lo llaman los 3 `.spec`.
+   - **LIC-01 secretos v1:** `entrada_compilacion()` igual con el archivo de secretos v1.
+   - **Suite en rojo:** commits del 4-nov activaron las pruebas contra los vectores INSA/REIA finales (AUT-R3, `vectores_formato_v2.json`) y cambiaron `test_t12_c05`; la fase 6 (operaciones asíncronas) y el modo prueba sin cierre de sesión también son recientes.
+   - Árbol sucio o rama distinta de `dev`; `hiddenimports`/`excludes` desactualizados tras la fase 6; `_build_info.py`.
+3. Regla: **nunca** generes, copies, inventes ni escribas en el repositorio un K_t, secretos v1 o vectores; nunca uses el K_t de prueba para compilar. Si la causa es un archivo que solo Cristian tiene, deja el procedimiento exacto (qué exportar desde el generador y a qué ruta) y sigue con lo demás. Si la causa es de código o de pruebas, corrígela con su prueba (sin relajar ninguna aserción de seguridad; si una prueba está mal, explícalo).
+4. Informe `docs/informes/tanda26/CMP_informe.md`: causa raíz, evidencia (líneas de log), corrección o acción pendiente de Cristian, y si al final de la tanda los 3 `.spec` compilan en limpio. Borra `build/` y `dist/` al terminar; nada de eso se versiona.
+
+## 2. ALD — tarjeta de detalle para todas las alarmas, alertas y fallos
+Síntoma: «Temperatura demasiado alta» no abre ninguna tarjeta de información.
+Causa encontrada: ese texto es el motivo `temp_alta` de `core/runtime/camara_segura.py` y se muestra en la fila `filaNoAbrir` de `Componentes/SeccionEstadoSeguro.qml` («NO ABRIR — motivo»). Esa fila es un `FilaAlarma` sintético sin `tocable`, así que nunca abre `Componentes/VentanaDetalleAlarma.qml` (ALM-01). Lo mismo pasa con `filaSeguridadDesconocida`, `filaModuloEsDesconectada`, `filaModuloEsSinDatos`, `filaParo`, `filaEstadoSeguroPendiente`, `filaEstadoSeguroEnCurso`, `filaModoPrueba` y `alarmaArranque` de `Main.qml`.
+1. **Inventario** (en el informe, lista corta): toda fila o aviso que el operador ve como alarma, alerta, aviso o fallo en todas las pantallas (Preciclo, Ciclo en curso, Fin de ciclo/píldoras de observación, Reposo, `PanelNotificaciones`, bandeja SIS-06, `SeccionEstadoSeguro`, Main, Entradas/Salidas con `avisosCorte`, Reportes `ListaAlarmasPeriodo`, Historial) y si abre detalle hoy. Incluye las alarmas del catálogo a las que les falte título o acción en es/en.
+2. **Corrección:** toda fila de ese tipo abre `VentanaDetalleAlarma` con: título, código visible (`catalogo.codigo_visible()`), causa (para NO ABRIR, cada motivo de `camara_segura` con su valor y su límite: p. ej. temperatura medida y `temp_max_apertura`/tope global; si el límite no se publica hoy en `/status`, publícalo como dato de solo lectura sin tocar la lógica), qué hacer y hora de aparición si existe. El modelo de las filas sintéticas lo arma un módulo Python de dominio (`ui_qml/domain/`) con textos i18n es/en; la QML solo dibuja y usa el mismo `abrirDesde(model)`. No agregues botones que cambien estado: «Confirmar y llevar a estado seguro» sigue fuera del detalle (ALM-01) y se conserva el de asignar sonda (ESS-04).
+3. **Pruebas:** (a) cada `FilaAlarma` y cada delegado de lista de alarmas en QML es tocable o figura en una lista de excepciones justificada dentro de la prueba; (b) cada alarma del catálogo tiene título y acción en es y en; (c) el detalle de NO ABRIR con `temp_alta` muestra valor y límite. Respeta D8-5.4 (sin `elide`; la letra baja con `HorizontalFit`), la regla de colores de `Tema/` y la regla del teclado de la tanda 22.
+
+## 3. ESP — respuesta de las salidas en modo prueba
+Síntoma: al activar una salida por error, no se puede desactivar hasta que el botón cambia en la interfaz, y el cambio tarda.
+Causa encontrada en `ui_qml/controllers/entradas_salidas_controller.py` y `Pantallas/OpcionesEntradasSalidas.qml`:
+- La pantalla solo relee el caché de `/status` en un `Timer` de 1 s (`actualizar()`), y `actualizar()` descarta todo `/status` pedido antes de la última orden (`_t_orden`). Tras un ON la pantalla sigue en OFF entre 1 y 2 s aunque el módulo ya encendió.
+- Durante ese intervalo el botón calcula `encendida !== true` y un segundo toque vuelve a enviar ON. `puedeApagar` exige `encendida === true`, así que tampoco ofrece apagar.
+
+Haz las dos opciones de Cristian:
+1. **Medir y reducir el retraso.** Registra con `time.monotonic()` (log de desarrollo, no bitácora): toque, respuesta del PATCH `/io/test/output/{nombre}`, escritura fc05 en `ModbusLink`, primer `/status` que refleja el cambio y repintado. Mídelo con `tests/helpers/m31_simulado.py` y anota los números en el informe. Revisa también el lado backend: si el PATCH espera al siguiente tick del lazo, el periodo del sondeo Modbus (0,1 s) y el del caché de la UI (0,2 s). Reduce lo que sea de la UI: con una orden pendiente, relee el caché cada 0,2 s (o con una señal del caché al llegar un `/status` nuevo) en vez de esperar al `Timer` de 1 s. No cambies el periodo del lazo de control ni la vigilancia MOD-08.
+2. **Orden pendiente por salida.** El controlador guarda por salida sostenida el último valor ordenado y su instante hasta que un `/status` nuevo lo refleje o pasen 3 s (`DECISIÓN SIN CONFIRMAR`). Mientras esté pendiente, el botón muestra el estado ordenado (texto «Apagar» si se ordenó ON) con una marca de «pendiente», y un toque envía el inverso del último valor ordenado. Apagar sale siempre (regla de la fase 6). Encender sigue exigiendo `salidasHabilitadas` y las protecciones ESG-02 del backend. Las momentáneas no cambian. `accionar` sigue síncrono (decisión de Cristian).
+3. **Pruebas:** ON y luego un toque antes del `/status` → se envía OFF; un ON rechazado por el backend no queda como pendiente; si vence la ventana, manda el `/status`; con el modo prueba sin confirmar, apagar sigue disponible.
+
+## 4. ARQ — el backend no actúa hasta que la UI termina el arranque
+Síntoma: el equipo empieza el diagnóstico y PREPARACION (a veces enciende la primera salida) con la ventana de comandos todavía visible. La barra de arranque parece solo visual.
+Causa encontrada:
+- `backend/main.py` lanza `server.iniciar_arranque` en cuanto el puerto escucha. `backend/arranque/secuencia.ejecutar_arranque`, en la etapa 7 (`conectando_modulos_es`), llama a `context.construir_control()`, que construye y arranca el `ControlLoop`: la máquina de estados pasa a PREPARACION y actúa salidas sin esperar a la UI.
+- `RegistroArranque.interfaz_lista` (POST `/arranque/interfaz-lista`) solo retiene el ticket de arranque (`latido_y_ticket`, tope 75 s).
+- La etapa 8 `verificando_sensores` es un marcador que se da por ok (D-6).
+
+Decisiones (Cristian, 5-nov, salvo las marcadas):
+- **ARQ-D1:** el backend abre el puerto y espera. Ninguna etapa corre hasta que la UI pida `POST /arranque/iniciar` (sin token, en `_RUTAS_SIN_COMPUERTA`, idempotente). Lo envía la misma pantalla que hoy avisa `interfaz-lista` (`ProgresoArranqueBackend._avisar`), cuando su ventana ya es visible y la intro empezó. Luego corren las etapas 1 a 8 y la barra muestra su progreso real.
+- **ARQ-D2:** desde la etapa 7 el control existe y conecta el módulo E/S, pero queda **retenido**: lee entradas, publica `/status` y evalúa alarmas de sensores y del módulo, pero la máquina de estados no sale de su estado inicial y ninguna salida pasa a ON (buzzer incluido; `all_off` vigente, MOD-08 sin cambios). Un solo punto de retención en `ControlLoop._tick` (p. ej. un `threading.Event` `arranque_liberado` del contexto), revisado antes de `state_machine.update()` y antes de escribir salidas. Ese punto no debe depender de la UI ni de los temporizadores.
+- **ARQ-D3:** la retención se libera solo cuando las dos condiciones se cumplen: (a) las etapas del backend terminaron sin fallo bloqueante (las degradadas cuentan como terminadas) y (b) llegó `POST /arranque/interfaz-lista`, que la UI envía solo cuando su barra llegó al 100 % de las etapas reales (verifica que `avanzarVista`/`_cumplidas_reales` no adelanten la barra al backend). Entonces la máquina de estados entra a PREPARACION.
+- **ARQ-D4 (Cristian):** si la UI nunca avisa, **se espera sin tope**, con todo apagado. A los 60 s se anota `ARR_SIN_INTERFAZ` en la etapa `preparando_interfaz` de `GET /arranque` y en el log (informativo, `DECISIÓN SIN CONFIRMAR` el valor de 60 s). El tope de 75 s del ticket de arranque no cambia.
+- **ARQ-D5 (DECISIÓN SIN CONFIRMAR):** si el backend se reinicia solo con la UI abierta (reasignación de E/S `CODIGO_REINICIO`, caída relanzada por el lanzador), la UI detecta en `GET /arranque` que el backend está esperando (instancia nueva o etapas en PENDIENTE) y vuelve a enviar `iniciar` y, cuando las etapas terminen, `interfaz-lista`, mostrando la barra (no la animación completa). El equipo no puede quedar retenido en silencio con la UI abierta, ni saltarse la espera.
+- **ARQ-D6:** sin perfil o con perfil inválido (ARR-06) y en el asistente de instalación, el flujo sigue igual; comprueba que el asistente no dependa de rutas que ahora queden detrás de la espera. El reinicio REI-01 no cambia.
+- **ARQ-D7 (DECISIÓN SIN CONFIRMAR):** para desarrollo, simulador y pruebas, `AUTOCLAVE_ESPERA_INTERFAZ=0` desactiva la espera solo fuera del compilado (`sys.frozen`); en el compilado se ignora. Las pruebas existentes que arrancan el backend la usan explícitamente.
+- **ARQ-D8, verificación de sensores (etapa 8):** si `docs/mis_plans/planeacion_arranque_y_modo_sin_bd.md` §6 tiene los canales críticos cerrados, impleméntala como está. Si no, implementa lo mínimo: lectura vigente en Principal, presión de cámara y presión de chaqueta (si está instalada) dentro de un plazo, como etapa **degradable** (alarma sin bloquear el arranque), con `DECISIÓN SIN CONFIRMAR`. Muestra la etapa en la barra solo si deja de ser un marcador.
+
+Pruebas: sin `iniciar` no corre ninguna etapa; retenido sin ninguna salida ON durante 10 s simulados con el módulo conectado; libera solo con (a)+(b); fallo bloqueante sin liberación; sin aviso nunca libera y aparece `ARR_SIN_INTERFAZ`; reinicio del backend con la UI abierta → reenvío y liberación; `AUTOCLAVE_ESPERA_INTERFAZ=0` ignorado con `sys.frozen`. Una medición con el simulador (`tests/banco/`) de los tiempos de UI visible, `iniciar`, etapas, `interfaz-lista` y PREPARACION, en el informe.
+
+**Revisor de seguridad** sobre ARQ antes del merge: ninguna ruta enciende salidas antes de la liberación; el paro y el estado seguro siguen funcionando durante la retención; la espera no bloquea el apagado (`_detener_arranque`) ni el latido.
+
+## 5. Riesgos, documentación y cierre
+- `docs/riesgos/registro_riesgos.md`: HAZ-ARQ-01 (actuación antes de que la interfaz esté disponible: control = retención y liberación por dos condiciones), HAZ-ARQ-02 (equipo retenido sin UI: aceptado por Cristian, todo apagado), HAZ-ESP-01 (orden doble en modo prueba), HAZ-ALD-01 (información de alarma no accesible). Trazabilidad de requisitos.
+- `CLAUDE.md`: sección corta «Arranque retenido hasta la UI (tanda 26)» y la nota de ESP y ALD.
+- Informe `docs/informes/tanda26/R26_informe.md`: qué se hizo por punto, hallazgos, mediciones, decisiones sin confirmar y preguntas abiertas para Cristian.
+- Pendientes de banco en la hoja de pruebas (bloque T26): arranque real en el PC industrial con las dos pantallas, reinicio por reasignación, latencia de salidas con el M31 real, tarjeta de NO ABRIR.
+- Suite completa en verde (`pytest tests -n auto -q`, rojas en serie). Revisor final sobre el diff. Une `tanda26` a `dev` con merge, sin push.
+- **No compiles la entrega.** Dilo en el informe y deja el comando: `python tools/entrega/compilar_entrega.py` (desde `dev` limpio); si CMP quedó con una acción pendiente de Cristian (p. ej. el K_t), ponla antes del comando.
+- Último acto: `docs/informes/tanda26/CERRADO.txt` (fecha, commit del merge, resultado de la suite, estado de CMP). Si te bloquea algo que necesita a Cristian, escríbelo igual con `BLOQUEADO:` y el motivo en la primera línea.
+
+## Restricciones
+- No cambiar parámetros de proceso, lógica de fases, F0, puertas, umbrales de alarma ni el periodo del lazo.
+- No tocar secretos, K_t, vectores ni versión (`_version.py`, etiquetas).
+- QML solo dibuja; textos y armado en Python con i18n es/en; sin colores fuera de `Tema/`; sin `elide`.

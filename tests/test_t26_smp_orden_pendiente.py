@@ -21,18 +21,25 @@ pytestmark = pytest.mark.req("HAZ-SMP-01")
 _CANALES = {
     "DI": [],
     "DO": [{"name": "vapor_camara", "estado_key": "vapor_camara", "i18n": "io.do.vapor_camara",
-            "id": "DO 04", "momentanea": False, "bloqueada": False},
+            "id": "DO 04", "bloqueada": False},
            {"name": "bomba_vacio", "estado_key": "bomba_vacio", "i18n": "io.do.bomba_vacio",
-            "id": "DO 19", "momentanea": True, "bloqueada": False}],
+            "id": "DO 19", "bloqueada": False},
+           # Tanda 27 (A4): las salidas de puerta también son interruptor
+           {"name": "abrir_puerta_1", "estado_key": "abrir_puerta_1",
+            "i18n": "io.do.abrir_puerta_1", "id": "DO 21", "bloqueada": False},
+           {"name": "cerrar_puerta_1", "estado_key": "cerrar_puerta_1",
+            "i18n": "io.do.cerrar_puerta_1", "id": "DO 23", "bloqueada": False}],
     "temperature": [], "pressure": [],
 }
 
 
-def _status(vapor=0, prueba=True):
+def _status(vapor=0, prueba=True, cerrar=0):
     return {"machine_state": "PREPARADO", "estado_modulo_es": "ok", "card_connected": True,
             "test_mode_active": prueba,
             "sensors": {"digital_inputs": {}, "digital_outputs": {"vapor_camara": vapor,
-                                                                  "bomba_vacio": 0},
+                                                                  "bomba_vacio": 0,
+                                                                  "abrir_puerta_1": 0,
+                                                                  "cerrar_puerta_1": cerrar},
                         "temperature": {}, "pressure": {}, "adc": {}}}
 
 
@@ -205,14 +212,41 @@ def test_atrapamiento_toma_el_valor_respondido(ctrl):
     assert v["pendiente"] is True and v["apagar"] is False
 
 
-def test_momentaneas_sin_cambio(ctrl):
+def _salida(c, nombre):
+    return next(s for s in c.salidas if s["name"] == nombre)
+
+
+@pytest.mark.parametrize("nombre", ["bomba_vacio", "abrir_puerta_1", "cerrar_puerta_1"])
+def test_ex_momentaneas_entran_en_la_orden_pendiente(ctrl, nombre):
+    """Tanda 27 (A4): bomba de vacío y puertas son interruptor: sin
+    "momentanea" en el cuerpo, orden pendiente y el toque envía el inverso."""
     c = ctrl
-    assert c.accionar("bomba_vacio", True, True) is True
-    assert _patches(c.sesion)[-1] == ("/io/test/output/bomba_vacio",
-                                      {"value": True, "momentanea": True})
-    b = next(s for s in c.salidas if s["name"] == "bomba_vacio")
-    assert b["pendiente"] is False and b["claveBoton"] == "io.ui.mantener"
-    assert "bomba_vacio" not in c._pendientes
+    _status_viejo(c)
+    assert c.alternar(nombre) is True
+    assert _patches(c.sesion)[-1] == (f"/io/test/output/{nombre}", {"value": True})
+    b = _salida(c, nombre)
+    assert b["pendiente"] is True and b["claveBoton"] == "io.ui.apagar"
+    assert c.alternar(nombre) is True
+    assert _patches(c.sesion)[-1] == (f"/io/test/output/{nombre}", {"value": False})
+    assert all(s["claveBoton"] in ("io.ui.activar", "io.ui.apagar") for s in c.salidas)
+
+
+def test_enclavamiento_deja_pendiente_en_off_el_sentido_contrario(ctrl):
+    """A4 (DECISIÓN SIN CONFIRMAR): el backend responde la salida opuesta que
+    apagó; la pantalla la muestra apagada (pendiente) sin esperar al /status."""
+    c = ctrl
+    c.fuente.status = _status(cerrar=1)
+    c.actualizar()
+    assert _salida(c, "cerrar_puerta_1")["encendida"] is True
+    c.sesion.patch = lambda cuerpo: Resultado(
+        "ok", {"ok": True, "value": True, "apagada_por_enclavamiento": "cerrar_puerta_1"}, 200)
+    _status_viejo(c)
+    assert c.alternar("abrir_puerta_1") is True
+    cerrar = _salida(c, "cerrar_puerta_1")
+    assert cerrar["pendiente"] is True and cerrar["apagar"] is False
+    assert cerrar["claveBoton"] == "io.ui.activar"
+    abrir = _salida(c, "abrir_puerta_1")
+    assert abrir["pendiente"] is True and abrir["apagar"] is True
 
 
 def test_relectura_cada_200_ms_solo_con_orden_pendiente(ctrl):
@@ -244,6 +278,7 @@ def test_claves_i18n_nuevas_en_es_y_en():
     for idioma in ("es", "en"):
         datos = json.loads((raiz / f"{idioma}.json").read_text(encoding="utf-8"))
         assert datos["io"]["ui"]["orden_pendiente"].strip()
+        assert "mantener" not in datos["io"]["ui"]      # A4: sin botón Mantener
 
 
 def test_qml_usa_el_armado_del_controlador():

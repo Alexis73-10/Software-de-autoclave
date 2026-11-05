@@ -371,10 +371,6 @@ class CalibracionAtmController(QObject):
         f = (self._d.get("referencia") or {}).get("fecha")
         return str(f)[:16].replace("T", " ") if f else ""
 
-    @Property(str, notify=datosChanged)
-    def referenciaUsuario(self) -> str:
-        return str((self._d.get("referencia") or {}).get("usuario") or "")
-
     @Property("QVariantMap", notify=datosChanged)
     def condiciones(self) -> dict:
         c = self._d.get("condiciones")

@@ -1,3 +1,5 @@
+> **Obsoleto: hardware ESP32 retirado en la tanda 20.** Documento histórico (movido a `docs/referencia/obsoleto/` en la tanda 27); no describe el sistema vigente.
+
 # Planeación: protocolo serial PC↔ESP32 (v2) y endurecimiento del firmware
 
 Estado: especificación para aprobación final antes de instruir a Code. No contiene código.

@@ -1,5 +1,4 @@
 # preparacion.py
-from autoclave.state_machine.machine.parametros_globales import parametros_globales
 from autoclave.state_machine.alarms.catalogo import (
     PRE_01, PRE_02, PRE_03, PRE_04, PRE_05, PRE_06, SEN_01, SIS_01,
     SUM_02, SUM_03, SUM_04, SUM_05, SUM_06, nombre_legible,

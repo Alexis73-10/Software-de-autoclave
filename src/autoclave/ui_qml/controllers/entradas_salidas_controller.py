@@ -16,8 +16,9 @@
 # OPTIMISMO (OperacionCritica): nada se da por hecho sin un 200 o una
 # relectura que coincida. Los slots devuelven True = «enviado» (el resultado
 # llega por operacionResuelta) y False = rechazo local. Siguen síncronas, por
-# decisión de Cristian, las salidas (PATCH /io/test/output, `accionar`, y su
-# renovación de 500 ms) y la salida del modo prueba al cerrar sesión.
+# decisión de Cristian, las salidas (PATCH /io/test/output, `accionar`) y la
+# salida del modo prueba al cerrar sesión. Tanda 27 (A4): sin salidas
+# momentáneas ni su renovación de 500 ms; todas son interruptor.
 
 import logging
 import math
@@ -84,10 +85,9 @@ _CAUSAS_SOLO_CATALOGO = frozenset({"aire_atmosferico_con_presion",
                                    "salida_prueba_estado_seguro",
                                    # Tanda 17 (ESG-02): protecciones permanentes
                                    "salida_prueba_camara_presurizada",
-                                   "salida_prueba_puerta_abierta"})
-
-# D-ES-08: sin actividad del usuario en la seccion el modo prueba se cierra
-INACTIVIDAD_UI_S = 5 * 60
+                                   "salida_prueba_puerta_abierta",
+                                   # Tanda 27 (A4, revisión)
+                                   "salida_prueba_opuesta_sin_apagar"})
 
 # Un /status del caché más viejo que esto no se muestra como vigente (el
 # sondeo es de 0,2 s con plazos de 0,8 s por petición)
@@ -108,17 +108,15 @@ logger_latencia = logging.getLogger(__name__ + ".latencia")
 def presentar_con_pendientes(salidas: list, pendientes: dict) -> list:
     """Agrega a cada salida de `dominio.presentar_salidas` lo que dibuja el
     botón: `pendiente` (orden aún no reflejada), `apagar` (el próximo toque
-    envía OFF) y `claveBoton` (texto i18n). Las momentáneas no cambian."""
+    envía OFF) y `claveBoton` (texto i18n). Tanda 27 (A4): todas las salidas
+    son interruptor (ya no hay momentáneas ni «Mantener»)."""
     salida = []
     for s in salidas:
         s = dict(s)
-        if s.get("momentanea"):
-            s.update(pendiente=False, apagar=False, claveBoton="io.ui.mantener")
-        else:
-            p = pendientes.get(s.get("name"))
-            apagar = bool(p[0]) if p is not None else s.get("encendida") is True
-            s.update(pendiente=p is not None, apagar=apagar,
-                     claveBoton="io.ui.apagar" if apagar else "io.ui.activar")
+        p = pendientes.get(s.get("name"))
+        apagar = bool(p[0]) if p is not None else s.get("encendida") is True
+        s.update(pendiente=p is not None, apagar=apagar,
+                 claveBoton="io.ui.apagar" if apagar else "io.ui.activar")
         salida.append(s)
     return salida
 
@@ -419,7 +417,7 @@ class EntradasSalidasController(QObject):
         else:
             real = next((s.get("encendida") for s in self._salidas if s.get("name") == nombre), None)
             encender = real is not True
-        return self.accionar(nombre, encender, False)
+        return self.accionar(nombre, encender)
 
     def _adoptar(self, activo: bool) -> None:
         """Estado del modo prueba según un /status nuevo, sin orden en vuelo.
@@ -510,8 +508,8 @@ class EntradasSalidasController(QObject):
 
     @Property(bool, notify=salidasHabilitadasChanged)
     def salidasHabilitadas(self) -> bool:
-        """FASE 6: las salidas (y la renovación de 500 ms) solo con el modo
-        prueba confirmado, sin orden de modo prueba en vuelo y sin dudas."""
+        """FASE 6: las salidas solo con el modo prueba confirmado, sin orden de
+        modo prueba en vuelo y sin dudas."""
         return self._calcular_habilitadas()
 
     def _calcular_habilitadas(self) -> bool:
@@ -761,8 +759,7 @@ class EntradasSalidasController(QObject):
     def salirModoPrueba(self, causa: str = "salida solicitada") -> bool:
         """True = enviada o nada que hacer; el resultado llega por
         operacionResuelta ("modo_prueba"). Primero baja salidasHabilitadas
-        (la pantalla suelta la momentánea, con su OFF síncrono) y luego lanza
-        la salida; todo en el hilo de la GUI. Con la entrada en vuelo, la
+        y luego lanza la salida (el backend apaga todo al salir); todo en el hilo de la GUI. Con la entrada en vuelo, la
         salida sale en cuanto esta se resuelva."""
         if self._orden_tipo == "salir":
             return True
@@ -828,18 +825,19 @@ class EntradasSalidasController(QObject):
             return self._mensaje
         return al_rechazo
 
-    @Slot(str, bool, bool, result=bool)
-    def accionar(self, nombre: str, encender: bool, momentanea: bool) -> bool:
+    @Slot(str, bool, result=bool)
+    def accionar(self, nombre: str, encender: bool) -> bool:
         """Enciende o apaga una salida (SÍNCRONA, decisión de Cristian). Si el
         backend rechaza, se muestra su motivo; el estado real lo corrige el
         siguiente tick. FASE 6: encender exige salidasHabilitadas (si no,
-        False sin enviar); apagar sale siempre."""
+        False sin enviar); apagar sale siempre. Tanda 27 (A4): toda salida es
+        interruptor y entra en la orden pendiente de SMP; la salida opuesta
+        que el backend apagó por enclavamiento (abrir/cerrar de una puerta)
+        queda pendiente en OFF."""
         if encender and not self._calcular_habilitadas():
             logger.info("Salida %s: encendido rechazado sin modo prueba confirmado", nombre)
             return False
         cuerpo = {"value": bool(encender)}
-        if momentanea and encender:
-            cuerpo["momentanea"] = True
         t0 = time.monotonic()
         r = self._s().enviar("PATCH", f"/io/test/output/{nombre}", cuerpo)
         self._marcar_orden()
@@ -848,22 +846,24 @@ class EntradasSalidasController(QObject):
                               self._t_orden, getattr(r, "ok", None))
         if not encender and r.causa == "modo_prueba_inactivo":
             # sin modo prueba el backend ya apagó todo
-            if not momentanea:
-                self._fijar_pendiente(nombre, False)
-                self._reconstruir()
+            self._fijar_pendiente(nombre, False)
+            self._reconstruir()
             return True
         if not r.ok:
             # SMP: una orden rechazada no queda pendiente (la anterior
             # aceptada, si la hay, sigue con su plazo)
             self._fallo(r)
             return False
-        if not momentanea:
-            # SMP: lo que quedó ordenado; con atrapamiento (D-ES-16) el backend
-            # responde value False para esta salida
-            d = r.datos if isinstance(r.datos, dict) else {}
-            valor = d.get("value")
-            self._fijar_pendiente(nombre, valor if isinstance(valor, bool) else bool(encender))
-            self._reconstruir()
+        # SMP: lo que quedó ordenado; con atrapamiento (D-ES-16) el backend
+        # responde value False para esta salida
+        d = r.datos if isinstance(r.datos, dict) else {}
+        valor = d.get("value")
+        self._fijar_pendiente(nombre, valor if isinstance(valor, bool) else bool(encender))
+        opuesta = d.get("apagada_por_enclavamiento")
+        if isinstance(opuesta, str) and opuesta and opuesta != nombre:
+            # A4 (DECISIÓN SIN CONFIRMAR): el backend apagó el sentido contrario
+            self._fijar_pendiente(opuesta, False)
+        self._reconstruir()
         self._limpiar_mensaje()
         return True
 

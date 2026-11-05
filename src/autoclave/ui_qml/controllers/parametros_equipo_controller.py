@@ -68,7 +68,10 @@ _MENSAJES = {
     "sin_base_de_datos": "opciones.equipo_err_guardar",
     "fuera_de_rango": "opciones.equipo_err_rango",
     "tipo_invalido": "opciones.equipo_err_rango",
-    "incoherente": "opciones.equipo_err_empaque",
+    # A7 (tanda 27): sin detalle reconocible, el texto general de cada familia;
+    # con `detalle.regla`, el propio (mensaje_rechazo / _MENSAJES_REGLA)
+    "incoherente_empaque": "opciones.equipo_err_empaque",
+    "incoherente_limites": "opciones.equipo_err_limites",
     "solo_lectura": "opciones.equipo_err_solo_lectura",
     "no_existe": "opciones.err_generico",
     "calibracion_en_curso": "opciones.equipo_err_calibracion_en_curso",
@@ -102,6 +105,69 @@ PREFIJO_PARAMETRO = "param:"            # clave de un cambio de /global_params e
 
 def mensaje_de(causa: str) -> str:
     return _MENSAJES.get(causa, "opciones.err_generico")
+
+
+# A7 (tanda 27): (código, regla del detalle) -> (clave i18n, marcadores).
+# Cada marcador: (de dónde sale el valor en kPa, es_diferencia). "p:<clave>"
+# = detalle.propuestos[clave] (o detalle[clave] en empaque); "d:<campo>" =
+# detalle[campo] (márgenes). La pantalla los muestra en la unidad vigente
+# (diferencia = Unidades.dpres, absoluto = Unidades.pres).
+_MENSAJES_REGLA = {
+    ("incoherente_empaque", "sin_referencia"): ("opciones.equipo_err_empaque_sin_referencia", {}),
+    ("incoherente_empaque", "empaque_sobre_atm"): ("opciones.equipo_err_empaque_sobre_atm", {
+        "presion_empaque": ("p:presion_empaque", False),
+        "presion_atmosferica": ("p:presion_atmosferica", False),
+        "margen_empaque": ("d:margen_empaque_sobre_atm", True)}),
+    ("incoherente_empaque", "empaque_chequeo_ciclo"): ("opciones.equipo_err_empaque_chequeo_ciclo", {
+        "presion_empaque": ("p:presion_empaque", False),
+        "presion_atmosferica": ("p:presion_atmosferica", False)}),
+    ("incoherente_empaque", "vacio_bajo_atm"): ("opciones.equipo_err_vacio_bajo_atm", {
+        "vacio_empaque": ("p:vacio_empaque", False),
+        "presion_atmosferica": ("p:presion_atmosferica", False),
+        "margen_vacio": ("d:margen_vacio_bajo_atm", True)}),
+    ("incoherente_empaque", "vacio_bajo_empaque"): ("opciones.equipo_err_vacio_bajo_empaque", {
+        "vacio_empaque": ("p:vacio_empaque", False),
+        "presion_empaque": ("p:presion_empaque", False)}),
+    ("incoherente_limites", "sin_referencia"): ("opciones.equipo_err_limites_sin_referencia", {}),
+    ("incoherente_limites", "suministro_bajo_alivio"): ("opciones.equipo_err_suministro_bajo_alivio", {
+        "suministro": ("p:presion_suministro_vapor", False),
+        "alivio_camara": ("p:presion_alivio_camara", False),
+        "alivio_chaqueta": ("p:presion_alivio_chaqueta", False)}),
+    ("incoherente_limites", "alivio_bajo_fondo"): ("opciones.equipo_err_alivio_bajo_fondo", {
+        "alivio_camara": ("p:presion_alivio_camara", False),
+        "alivio_chaqueta": ("p:presion_alivio_chaqueta", False),
+        "fondo": ("p:presion_fondo_escala", False)}),
+    ("incoherente_limites", "corte_bajo_alivio_chaqueta"): ("opciones.equipo_err_corte_bajo_alivio", {
+        "corte": ("p:presion_max_chaqueta_control", False),
+        "alivio_chaqueta": ("p:presion_alivio_chaqueta", False),
+        "margen_corte": ("d:margen_corte_bajo_alivio", True)}),
+}
+
+
+def _numero(v):
+    return float(v) if isinstance(v, (int, float)) and not isinstance(v, bool) else None
+
+
+def mensaje_rechazo(causa: str, datos=None) -> tuple[str, dict]:
+    """(clave i18n, valores) del rechazo de un parámetro del equipo.
+    `valores`: {marcador: {"v": kPa, "dif": bool}}; {} si el texto no lleva
+    valores. Un detalle ausente, de otra regla o sin todos los valores da el
+    texto general de la familia (nunca el de otra familia)."""
+    detalle = datos.get("detalle") if isinstance(datos, dict) else None
+    regla = detalle.get("regla") if isinstance(detalle, dict) else None
+    entrada = _MENSAJES_REGLA.get((causa, regla))
+    if entrada is None:
+        return mensaje_de(causa), {}
+    clave, marcadores = entrada
+    propuestos = detalle.get("propuestos") if isinstance(detalle.get("propuestos"), dict) else {}
+    valores = {}
+    for nombre, (origen, dif) in marcadores.items():
+        tipo, campo = origen.split(":", 1)
+        v = _numero(propuestos.get(campo, detalle.get(campo)) if tipo == "p" else detalle.get(campo))
+        if v is None:
+            return mensaje_de(causa), {}
+        valores[nombre] = {"v": v, "dif": dif}
+    return clave, valores
 
 
 def _cancelar_al_destruir(sesion, ident):
@@ -189,6 +255,7 @@ class ParametrosEquipoController(QObject):
         self._grupos = list(GRUPOS)     # visibles (backend), con "maquina" al final
         self._grupo = ""                # "" = pantalla de entrada (7 tarjetas)
         self._mensaje = ""
+        self._valores = {}              # A7: valores del mensaje (mensaje_rechazo)
         self._rol = ""
         self._estado = ""
         self._serie = ""
@@ -224,10 +291,12 @@ class ParametrosEquipoController(QObject):
         sesion_backend.enviar_async(self._s(), metodo, ruta, cuerpo, al_terminar,
                                     dueno=self, al_tardio=al_tardio)
 
-    def _fijar_mensaje(self, clave: str, revertido: bool = False) -> None:
-        if clave != self._mensaje or revertido != self._revertido:
+    def _fijar_mensaje(self, clave: str, revertido: bool = False, valores=None) -> None:
+        valores = dict(valores or {})
+        if clave != self._mensaje or revertido != self._revertido or valores != self._valores:
             self._mensaje = clave
             self._revertido = revertido
+            self._valores = valores
             self.mensajeChanged.emit()
 
     # ── contexto (lo fija la pantalla) ───────────────────────────────────
@@ -468,13 +537,14 @@ class ParametrosEquipoController(QObject):
         self._resuelto = None
         estado = {"resuelto": False}       # cambioResuelto una sola vez por guardado
 
-        def resolver(ok, mensaje):
+        def resolver(ok, mensaje, valores=None):
             if estado["resuelto"]:
                 return
             estado["resuelto"] = True
             self._en_vuelo.pop(pendiente, None)
             self._resuelto = ok
-            self._fijar_mensaje(mensaje)
+            # los valores quedan antes de cambioResuelto: la ventana los lee
+            self._fijar_mensaje(mensaje, valores=valores)
             self.pendientesChanged.emit()
             self.cambioResuelto.emit(pendiente, ok, mensaje)
 
@@ -517,7 +587,8 @@ class ParametrosEquipoController(QObject):
                                           al_fallar=fallar)
                 return
             self._leer_parametros()        # el valor vigente lo dice el backend
-            resolver(False, mensaje_de(r.causa))
+            clave_msg, valores = mensaje_rechazo(r.causa, r.datos)
+            resolver(False, clave_msg, valores)
 
         # una respuesta tardía (tras backend_no_responde) solo relee
         self._enviar(metodo, ruta, cuerpo, terminar, al_tardio=lambda _r: self._leer_parametros(),
@@ -729,6 +800,12 @@ class ParametrosEquipoController(QObject):
     @Property(str, notify=mensajeChanged)
     def mensaje(self) -> str:
         return self._mensaje
+
+    @Property("QVariantMap", notify=mensajeChanged)
+    def valoresMensaje(self) -> dict:
+        """A7 (tanda 27): {marcador: {"v": kPa, "dif": bool}} del mensaje
+        vigente; la pantalla los da en la unidad vigente."""
+        return dict(self._valores)
 
     @Property(bool, notify=mensajeChanged)
     def mensajeRevertido(self) -> bool:

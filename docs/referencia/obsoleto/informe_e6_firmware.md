@@ -1,3 +1,5 @@
+> **Obsoleto: hardware ESP32 retirado en la tanda 20.** Documento histórico (movido a `docs/referencia/obsoleto/` en la tanda 27); no describe el sistema vigente.
+
 # Informe E6: firmware 1.0.0 y Fase B recortada del enlace serial
 
 Fecha: 2026-10-14. Instrucción: `docs/mis_plans/instruccion_claude_code_e6_firmware.md`.

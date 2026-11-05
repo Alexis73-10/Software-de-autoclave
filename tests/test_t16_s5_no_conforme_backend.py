@@ -187,7 +187,7 @@ def test_historial_expone_no_conforme(entorno):
     hist = {c["id"]: c for c in cliente.get("/cycle/history").json()}
     assert hist[nc]["no_conforme"] is True and "no_conforme" not in hist[conforme]
 
-    for ruta in ("ticket", "readings"):
+    for ruta in ("ticket",):
         c = cliente.get(f"/cycle/history/{nc}/{ruta}").json()["ciclo"]
         assert c["no_conforme"] is True and c["resultado"] == "COMPLETADO"
         assert "no_conforme" not in cliente.get(f"/cycle/history/{conforme}/{ruta}").json()["ciclo"]

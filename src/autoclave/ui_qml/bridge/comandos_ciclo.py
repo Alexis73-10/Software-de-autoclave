@@ -46,6 +46,11 @@ class ComandoIniciarCiclo(QObject):
     def _iniciar(self, sin_registro: bool) -> None:
         if self._ocupado or not self._puente.connected or not self._puente.listoParaCiclo:
             return
+        # A3 (tanda 27): con el modo prueba activo no se envía (el control ya
+        # no se ve; el backend responde 409 modo_prueba_activo)
+        if getattr(self._puente, "modoPrueba", False) is True:
+            logger.info("Inicio de ciclo no enviado: modo prueba activo")
+            return
         logger.info("Iniciando ciclo%s...", " sin registro en la base" if sin_registro else "")
         self._fijar_ocupado(True)
 

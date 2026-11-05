@@ -205,7 +205,8 @@ def test_io_channels_lista_los_canales_del_equipo(io_client):
     assert len(datos["DI"]) == 14 and len(datos["DO"]) == 23
     assert len(datos["temperature"]) == 4 and len(datos["pressure"]) == 4
     assert datos["DO"][0]["name"] == "vapor_generador"
-    assert any(c["momentanea"] for c in datos["DO"])
+    # Tanda 27 (A4): ninguna salida es momentánea; el campo ya no se publica
+    assert not any("momentanea" in c for c in datos["DO"])
 
 
 def test_io_channels_admin_403(io_client):

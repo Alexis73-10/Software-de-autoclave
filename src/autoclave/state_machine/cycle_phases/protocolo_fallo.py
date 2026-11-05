@@ -577,7 +577,7 @@ class ProtocoloFallo:
 
         logger.warning("Protocolo de fallo ejecutado — apagando todas las salidas")
 
-        # 1. Todas las salidas a cero (si no hay enlace serial, esto puede no
+        # 1. Todas las salidas a cero (si no hay enlace con el módulo E/S, esto puede no
         # confirmarse — se reintenta en update() hasta que se confirme).
         self._salidas_apagadas = self.set_do.reset_all_outputs()
 
@@ -848,7 +848,7 @@ class ProtocoloFallo:
             return
 
         # Reintentar el apagado si la primera confirmación (ACK de ALL_OFF)
-        # no llegó — p.ej. porque el enlace serial cayó justo al fallar.
+        # no llegó — p.ej. porque el enlace con el módulo E/S cayó justo al fallar.
         if not self._salidas_apagadas:
             self._salidas_apagadas = self.set_do.reset_all_outputs()
             if self._salidas_apagadas:

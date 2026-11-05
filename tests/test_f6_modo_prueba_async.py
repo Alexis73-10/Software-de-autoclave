@@ -247,8 +247,8 @@ def test_salida_baja_las_salidas_antes_de_enviar_y_confirma_con_200():
     assert s.de("/io/test/exit")[0]["cuerpo"] == {"motivo": "salida solicitada"}
     assert c.modoPrueba is True             # sin 200 no se da por salida
     # durante la salida: encender no sale; apagar sí
-    assert c.accionar("vapor_camara", True, False) is False
-    assert c.accionar("vapor_camara", False, False) is True
+    assert c.accionar("vapor_camara", True) is False
+    assert c.accionar("vapor_camara", False) is True
     assert s.sincronos == [("PATCH", "/io/test/output/vapor_camara", {"value": False})]
     s.responder("/io/test/exit", OK)
     assert c.modoPrueba is False and c.salidasHabilitadas is False and s.ganchos == []
@@ -332,22 +332,22 @@ def test_salir_sin_modo_prueba_no_envia():
 
 def test_accionar_encender_exige_habilitacion_y_apagar_sale_siempre():
     c, s, f, res = _ctrl()
-    assert c.accionar("vapor_camara", True, False) is False
-    assert c.accionar("bomba_vacio", True, True) is False
+    assert c.accionar("vapor_camara", True) is False
+    assert c.accionar("bomba_vacio", True) is False
     assert s.sincronos == []
-    assert c.accionar("bomba_vacio", False, True) is True
+    assert c.accionar("bomba_vacio", False) is True
     assert s.sincronos == [("PATCH", "/io/test/output/bomba_vacio", {"value": False})]
     # durante la entrada tampoco se enciende
     c.entrarModoPrueba()
-    assert c.accionar("vapor_camara", True, False) is False
+    assert c.accionar("vapor_camara", True) is False
     s.responder("/io/test/enter", OK)
-    assert c.accionar("vapor_camara", True, False) is True
+    assert c.accionar("vapor_camara", True) is True
 
 
 def test_apagar_con_modo_prueba_inactivo_no_es_error():
     c, s, f, res = _ctrl()
     s.enviar = lambda m, r, cu=None: (s.sincronos.append((m, r, cu)), INACTIVO)[1]
-    assert c.accionar("bomba_vacio", False, True) is True and c.mensaje == ""
+    assert c.accionar("bomba_vacio", False) is True and c.mensaje == ""
 
 
 # ── pantalla destruida ──────────────────────────────────────────────────────
@@ -377,13 +377,14 @@ def test_pantalla_destruida_con_la_entrada_en_vuelo_envia_salida_sin_dueno():
     assert s.ganchos == [] and s.cancelados == []
 
 
-def test_qml_liga_salidas_y_renovacion_a_salidas_habilitadas():
+def test_qml_liga_salidas_a_salidas_habilitadas():
     from pathlib import Path
     texto = (Path(__file__).resolve().parents[1] / "src/autoclave/ui_qml/qml/Pantallas"
              / "OpcionesEntradasSalidas.qml").read_text(encoding="utf-8")
     assert "readonly property bool libre: control.salidasHabilitadas" in texto
     assert "running: raiz.visible && control.salidasHabilitadas" in texto
-    assert "!control.salidasHabilitadas" in texto          # renovación de 500 ms
+    # Tanda 27 (A4): sin renovación de 500 ms de salidas momentáneas
+    assert "id: renovacion" not in texto and "momentanea" not in texto
     assert 'Component.onDestruction: cerrarModoPrueba("abandono de la sección", true)' in texto
     assert "control.abandonar(causa)" in texto
 
@@ -451,8 +452,8 @@ def test_m1_salida_sin_confirmar_permite_apagar_una_sostenida_y_no_encender():
     s.responder("/io/test/exit", NO_RESPONDE)            # también el reintento
     assert c.salidasHabilitadas is False and c.pruebaSinConfirmar is True
     assert avisos == [True]                              # con notify
-    assert c.accionar("vapor_camara", True, False) is False
-    assert c.accionar("vapor_camara", False, False) is True
+    assert c.accionar("vapor_camara", True) is False
+    assert c.accionar("vapor_camara", False) is True
     assert s.sincronos == [("PATCH", "/io/test/output/vapor_camara", {"value": False})]
     # entrada sin confirmar: también hay dudas
     c2, s2, f2, _ = _ctrl()
@@ -475,12 +476,12 @@ def test_m1_qml_ofrece_el_apagado_de_una_sostenida_encendida():
     # Tanda 26 (SMP): `apagar` lo arma el controlador; sin orden pendiente es
     # `encendida === true` (presentar_con_pendientes) y con una orden ON
     # pendiente también ofrece el apagado
-    assert regla.startswith("readonly property bool puedeApagar: !modelData.momentanea "
-                            "&& modelData.apagar === true "
+    # Tanda 27 (A4): sin la condición de momentánea
+    assert regla.startswith("readonly property bool puedeApagar: modelData.apagar === true "
                             "&& (control.modoPrueba || control.pruebaSinConfirmar)")
     from autoclave.ui_qml.controllers.entradas_salidas_controller import (
         presentar_con_pendientes)
-    base = [{"name": "x", "momentanea": False, "encendida": v} for v in (True, False, None)]
+    base = [{"name": "x", "encendida": v} for v in (True, False, None)]
     assert [s["apagar"] for s in presentar_con_pendientes(base, {})] == [True, False, False]
 
 
@@ -533,7 +534,7 @@ def test_canales_asincronos_y_uno_a_la_vez():
     assert len(s.de("/io/channels")) == 1 and s.sincronos == []
     s.responder("/io/channels", sb.Resultado("ok", {"DI": [], "DO": [{"name": "vapor_camara",
         "estado_key": "vapor_camara", "i18n": "io.do.vapor_camara", "id": "DO 04",
-        "momentanea": False, "bloqueada": False}], "temperature": [], "pressure": []}, 200))
+        "bloqueada": False}], "temperature": [], "pressure": []}, 200))
     assert [x["name"] for x in c.salidas] == ["vapor_camara"]
     c.cargarCanales()
     assert len(s.de("/io/channels")) == 2

@@ -73,15 +73,6 @@ def _entradas_mostradas_de(cycle) -> dict:
     return {"entradas_mostradas": entradas, "entradas_no_en_uso": no_en_uso}
 
 
-@router.get("/cycles")
-def list_cycles():
-    return [
-        {"id": c.id, "name": c.name, "nombres": _nombres_ciclo(c),
-         "source": getattr(c, "source", "user")}
-        for c in list(context.cycle_manager.cycles.values())
-    ]
-
-
 # S2 (tanda 2): origen declarado por el cliente (no autenticado) del cambio de
 # programa, para la bitácora. Lista cerrada: un valor desconocido se rechaza.
 ORIGENES_SELECCION = ("puerta_1", "puerta_2", "remoto", "desconocido")
@@ -153,33 +144,6 @@ def select_cycle(body: _SelectCycleBody, request: Request):
     _log_desarrollo("PROGRAMA_SELECCIONADO", entidad=entidad, anterior=anterior,
                     nuevo=body.cycle_id, detalle={**detalle, "programa": nombre})
     return {"ok": True, "id": cycle.id, "name": cycle.name}
-
-@router.get("/cycle/current/readings")
-def get_current_cycle_readings():
-    """
-    Retorna todas las lecturas del ciclo activo (para la gráfica en vivo).
-    Si no hay ciclo activo retorna lista vacía.
-    """
-    logger_svc = context.cycle_logger
-    ciclo_id   = logger_svc.ciclo_id if logger_svc else None
-
-    if ciclo_id is None:
-        return {"ciclo_id": None, "lecturas": []}
-
-    rows = context.db.get_lecturas_ciclo(ciclo_id)
-    return {
-        "ciclo_id": ciclo_id,
-        "lecturas": [
-            {
-                "timestamp_rel": r["timestamp_rel"],
-                "timestamp_abs": r["timestamp_abs"],
-                "fase_codigo":   r["fase_codigo"],
-                "temp_camara":   r["temp_camara"],
-                "pres_camara":   r["pres_camara"],
-            }
-            for r in rows
-        ],
-    }
 
 
 @router.get("/cycle/current/progress")

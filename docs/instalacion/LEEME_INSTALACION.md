@@ -467,7 +467,6 @@ Para pasar el equipo de pruebas, instalado el 22-oct con la **B**, a la **C** (`
 | `data\calibration.yaml` | **Calibración del equipo.** La C trae una calibración neutra (D8-3.18), pero solo se usa en un equipo nuevo: la del equipo no se reemplaza |
 | `data\autoclave.db` | Usuarios, historial, bitácora, parámetros del equipo, presión atmosférica calibrada y mantenimiento |
 | `programa\autoclave\cycles\user\` | Programas de ciclo del usuario |
-| `programa\autoclave\config\serial_link.json` | Puerto de la tarjeta |
 | `programa\autoclave\config\correo.json` | Correo (la contraseña está en el almacén de credenciales de Windows) |
 | `programa\autoclave\config\active_instances.yaml`, `calibration.yaml` y `models\` | Sin cambios entre la B y la C |
 
@@ -504,7 +503,7 @@ Para pasar el equipo de pruebas, instalado el 22-oct con la **B**, a la **D** si
    - sin sensores de presión: tarjeta de alarmas con SEN-06 y CIC-10 («Estado seguro detenido»), **sin** botón de confirmación ni «paro liberado»; el inicio de sesión, el modo prueba, el cambio de programa y el apagado funcionan (casos C-05 a C-05h de la hoja de banco).
 8. **Programas de usuario:** la actualización no toca `programa\autoclave\cycles\user\`, así que el equipo conserva los programas de la B, que traían valores del banco (el Bowie & Dick con modo 4 y 134,5 °C, entre otros). Revíselos en Parámetros del ciclo antes de los ciclos del lunes (PREGUNTA E9-P1).
 
-**NO toque** (se conservan solos): `installation_profile.json` (perfil), `data\calibration.yaml` (calibración del equipo), `data\autoclave.db` (usuarios, historial, bitácora, parámetros), `data\asignacion_io.json` (asignación de E/S vigente), `programa\autoclave\cycles\user\` y `cycles\defecto\`, y en `programa\autoclave\config\`: `correo.json`, `serial_link.json`, `calibration.yaml` y `active_instances.yaml`. No hace falta copiar nada desde `Program Files`.
+**NO toque** (se conservan solos): `installation_profile.json` (perfil), `data\calibration.yaml` (calibración del equipo), `data\autoclave.db` (usuarios, historial, bitácora, parámetros), `data\asignacion_io.json` (asignación de E/S vigente), `programa\autoclave\cycles\user\` y `cycles\defecto\`, y en `programa\autoclave\config\`: `correo.json`, `calibration.yaml` y `active_instances.yaml`. No hace falta copiar nada desde `Program Files`.
 
 **Volver a la B si la D falla:**
 1. Cierre Autoclave.

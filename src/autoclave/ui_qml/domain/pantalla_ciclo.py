@@ -123,6 +123,18 @@ def numero_de_ciclo(ciclo) -> str:
     return f"{numero:02d}"
 
 
+def inicio_ciclo_visible(conectado, listo, modo_prueba, estado_maquina) -> bool:
+    """A3 (tanda 27): el control de inicio de ciclo (DeslizadorInicio de
+    Preciclo, en las dos pantallas) existe solo con conexión, LISTO_PARA_CICLO
+    y sin FALLA, y DESAPARECE mientras el modo prueba esté activo
+    (`test_mode_active` de /status). Falla cerrada: solo True estricto en
+    conectado/listo y solo False estricto en modo_prueba lo muestran. El
+    backend vuelve a rechazar el inicio con el modo prueba (409
+    modo_prueba_activo en POST /cycle/start)."""
+    return (conectado is True and listo is True and modo_prueba is False
+            and estado_maquina != "FALLA")
+
+
 def lecturas_de_status(status) -> dict:
     """Lecturas de cámara (respuesta de GET /status), ya formateadas."""
     return {

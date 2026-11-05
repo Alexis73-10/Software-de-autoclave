@@ -254,6 +254,7 @@ class UiBridge(QObject):
     doorStateChanged = Signal()
     estadoEquipoChanged = Signal()
     listoParaCicloChanged = Signal()
+    inicioCicloVisibleChanged = Signal()
     datosCicloChanged = Signal()
     seguridadChanged = Signal()
     entradasChanged = Signal()
@@ -268,6 +269,7 @@ class UiBridge(QObject):
         self._door_state = ESTADO_DESCONOCIDO
         self._puerta_con_actuador = False   # FC-11: sin dato, sin actuador (falla cerrada)
         self._listo = False
+        self._inicio_visible = False   # A3 (tanda 27): falla cerrada, oculto
         self._estado_equipo = estado_equipo(None, False)
         self._datos_ciclo = self._datos(None, None, None, None)
         self._entradas = self._entradas_de(None, {})
@@ -374,6 +376,12 @@ class UiBridge(QObject):
             "estado_seguro": self._ui.get_campo("estado_seguro", {}),
             "sin_bd": self._ui.get_campo("sin_base_de_datos", False),
         }) if self._connected else self._seguridad_de({}), self.seguridadChanged)
+        # A3 (tanda 27): sin control de inicio de ciclo con el modo prueba activo
+        self._fijar("_inicio_visible",
+                    dominio.inicio_ciclo_visible(self._connected, self._listo,
+                                                 self._seguridad["modo_prueba"],
+                                                 self._machine_state),
+                    self.inicioCicloVisibleChanged)
         # ALD: hora en que apareció cada fila sintética (solo informativa)
         self._apariciones = detalle_aviso.actualizar_apariciones(
             self._apariciones, detalle_aviso.claves_activas(self._seguridad, self._connected),
@@ -456,6 +464,13 @@ class UiBridge(QObject):
     @Property(bool, notify=listoParaCicloChanged)
     def listoParaCiclo(self) -> bool:
         return self._listo
+
+    @Property(bool, notify=inicioCicloVisibleChanged)
+    def inicioCicloVisible(self) -> bool:
+        """A3 (tanda 27): el deslizador INICIAR CICLO se muestra (conexión,
+        LISTO_PARA_CICLO, sin FALLA y sin modo prueba;
+        pantalla_ciclo.inicio_ciclo_visible)."""
+        return self._inicio_visible
 
     @Property(bool, notify=seguridadChanged)
     def noAbrir(self) -> bool:

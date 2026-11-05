@@ -132,10 +132,6 @@ class ProgresoCiclo(QObject):
     def hayCiclo(self) -> bool:
         return self._progreso["activo"]
 
-    @Property(str, notify=progresoChanged)
-    def faseCiclo(self) -> str:
-        return self._progreso["fase_ciclo"]
-
     # "" mientras el ciclo corre; "exitoso" / "cancelado" / "fallo" al terminar
     # (la máquina sigue en CICLO esperando la confirmación del operador)
     @Property(str, notify=progresoChanged)

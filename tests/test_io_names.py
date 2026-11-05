@@ -19,17 +19,18 @@ def test_canales_di_acv_2026_001():
     assert canales[-1]["name"] == "suministro_electrico"
 
 
-def test_canales_do_con_alias_de_errata_y_momentaneas():
+def test_canales_do_con_alias_de_errata_y_sin_momentaneas():
     canales = {c["name"]: c for c in io_names.canales_digitales("DO")}
     assert len(canales) == 23   # D11-2: sin aire_comprimido_chaqueta
     # YAML dice atmosferico; EstadoAutoclave.map_do conserva la errata
     aire = canales["aire_atmosferico_camara"]
     assert aire["estado_key"] == "aire_admosferico_camara"
     assert aire["id"] == f"DO {E.map_do['aire_admosferico_camara'] + 1:02d}"
+    # Tanda 27 (A4): ninguna salida es momentánea; el campo ya no se publica
+    assert not hasattr(io_names, "SALIDAS_MOMENTANEAS")
     for nombre in ("abrir_puerta_1", "abrir_puerta_2", "cerrar_puerta_1",
-                   "cerrar_puerta_2", "bomba_vacio"):
-        assert canales[nombre]["momentanea"] is True
-    assert canales["vapor_camara"]["momentanea"] is False
+                   "cerrar_puerta_2", "bomba_vacio", "vapor_camara"):
+        assert "momentanea" not in canales[nombre]
 
 
 def test_sensores_temperatura_y_presion_sin_canales_inexistentes():

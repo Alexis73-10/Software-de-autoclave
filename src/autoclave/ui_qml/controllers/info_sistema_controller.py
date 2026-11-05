@@ -6,7 +6,7 @@
 #     perfiles anteriores), tipo de equipo (E2, tanda 8: Hospitalario o
 #     Laboratorio), serie, fecha de instalación, fuente de vapor.
 #   - Software y módulo E/S: versión del software, firmware e ID del módulo E/S y,
-#     desde la tanda 19 (MOD-01), el enlace de E/S activo (Modbus o serial).
+#     desde la tanda 19 (MOD-01), el enlace de E/S activo (Modbus).
 #   - Uso y mantenimiento: ciclos realizados, próximo mantenimiento (fecha y
 #     ciclos restantes).
 #   - Configuración vigente: idioma, unidades, impresora y red (chips).
@@ -22,7 +22,7 @@ from autoclave.ui_qml.domain import resumen_sistema as dominio
 _MENSAJES = {sesion_backend.BACKEND_NO_RESPONDE: "opciones.err_sin_respuesta"}
 
 # Tanda 19 (MOD-01): enlaces de E/S con texto en equipo.enlace_io_<enlace>
-# (solo Modbus desde la tanda 20, T20-03: el serial se retiró; otro valor se
+# (solo Modbus desde la tanda 20, T20-03; otro valor se
 # muestra "—")
 ENLACES_IO = ("modbus",)
 GRUPOS = ("equipo", "software", "uso", "configuracion")

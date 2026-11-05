@@ -15,9 +15,9 @@ _CANALES = {
     "DI": [{"name": "paro_emergencia", "estado_key": "paro_emergencia",
             "i18n": "io.di.paro_emergencia", "id": "DI 11"}],
     "DO": [{"name": "vapor_camara", "estado_key": "vapor_camara", "i18n": "io.do.vapor_camara",
-            "id": "DO 04", "momentanea": False, "bloqueada": False},
+            "id": "DO 04", "bloqueada": False},
            {"name": "bomba_vacio", "estado_key": "bomba_vacio", "i18n": "io.do.bomba_vacio",
-            "id": "DO 19", "momentanea": True, "bloqueada": False}],
+            "id": "DO 19", "bloqueada": False}],
     "temperature": [{"name": "temp_camara", "estado_key": "temp_camara",
                      "i18n": "io.ai.temp_camara", "id": "AI 01", "raw_index": 0}],
     "pressure": [{"name": "pres_camara", "estado_key": "pres_camara",
@@ -94,7 +94,7 @@ def test_lista_de_canales_y_estados():
     assert [e["name"] for e in c.entradas] == ["paro_emergencia"]
     assert c.entradas[0]["activo"] is True
     assert [s["name"] for s in c.salidas] == ["vapor_camara", "bomba_vacio"]
-    assert c.salidas[1]["encendida"] is True and c.salidas[1]["momentanea"] is True
+    assert c.salidas[1]["encendida"] is True and "momentanea" not in c.salidas[1]   # A4
     assert c.temperatura[0]["valor"] == 25.5 and c.temperatura[0]["adc"] == 2000
     assert c.presion[0]["valor"] == 101.0
     assert c.enlace is True
@@ -220,7 +220,7 @@ def test_salir_sin_parpadeo_ni_salidas_viejas():
 def test_status_anterior_a_accionar_conserva_lo_mostrado():
     c, _ = _con_datos({("PATCH", "/io/test/output/vapor_camara"): _ok()}, prueba=True)
     assert c.salidas[0]["encendida"] is False
-    assert c.accionar("vapor_camara", True, False) is True
+    assert c.accionar("vapor_camara", True) is True
     _viejo(c)                                # vapor_camara aún en 0: no es dato nuevo
     _viejo_salidas = c.salidas
     c.actualizar()
@@ -236,7 +236,7 @@ def test_status_anterior_a_accionar_conserva_lo_mostrado():
 def test_tras_una_orden_vencido_o_desconectado_sigue_dando_sin_datos(caso):
     from autoclave.ui_qml.controllers import entradas_salidas_controller as m
     c, _ = _con_datos({("PATCH", "/io/test/output/vapor_camara"): _ok()}, prueba=True)
-    c.accionar("vapor_camara", True, False)
+    c.accionar("vapor_camara", True)
     _viejo(c)
     if caso == "desconectado":
         c.fuente.conectado = False
@@ -252,7 +252,7 @@ def test_fuente_sin_instante_de_envio_se_acepta():
         def status_vigente(self):
             return {**_STATUS, "machine_state": "FALLA"}, True, 0.1
     c, _ = _con_datos({("PATCH", "/io/test/output/vapor_camara"): _ok()}, prueba=True)
-    c.accionar("vapor_camara", True, False)
+    c.accionar("vapor_camara", True)
     c._fuente_estado = _Tres()
     c.actualizar()
     assert c.estadoMaquina == "FALLA"
@@ -285,20 +285,23 @@ def test_salir_sin_modo_prueba_no_llama_al_backend():
     assert not [e for e in s.enviados if e[1] == "/io/test/exit"]
 
 
-def test_accionar_sostenida_y_momentanea():
+def test_accionar_todas_son_interruptor():
+    """Tanda 27 (A4): la bomba de vacío se acciona como cualquier otra, sin
+    "momentanea" en el cuerpo, y queda en la orden pendiente de SMP."""
     c, s = _con_datos({("PATCH", "/io/test/output/vapor_camara"): _ok(),
                        ("PATCH", "/io/test/output/bomba_vacio"): _ok()}, prueba=True)
-    assert c.accionar("vapor_camara", True, False) is True
-    assert c.accionar("bomba_vacio", True, True) is True
-    assert c.accionar("bomba_vacio", False, True) is True
+    assert c.accionar("vapor_camara", True) is True
+    assert c.accionar("bomba_vacio", True) is True
+    assert c.salidas[1]["pendiente"] is True and c.salidas[1]["claveBoton"] == "io.ui.apagar"
+    assert c.accionar("bomba_vacio", False) is True
     cuerpos = [e[2] for e in s.enviados if e[0] == "PATCH"]
-    assert cuerpos == [{"value": True}, {"value": True, "momentanea": True}, {"value": False}]
+    assert cuerpos == [{"value": True}, {"value": True}, {"value": False}]
 
 
 def test_accionar_rechazado_muestra_motivo():
     c, _ = _con_datos({("PATCH", "/io/test/output/vapor_camara"): Resultado(
         "fuente_vapor_no_instalada", {"detail": "No la usa este equipo"}, 409)}, prueba=True)
-    assert c.accionar("vapor_camara", True, False) is False
+    assert c.accionar("vapor_camara", True) is False
     assert c.detalle == "No la usa este equipo"
 
 

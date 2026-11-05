@@ -6,7 +6,7 @@ pulsar el paro.
 
 Banco simulado: doble del enlace de E/S que registra las órdenes con el texto
 del protocolo anterior (tests/helpers/enlace_doble.EnlaceRegistrador; tanda 20,
-T20-03: antes SerialLink real con un doble del firmware V3 de la ESP32): pines
+T20-03): pines
 que siguen a SET DOn / ALL_OFF, publicación de DO cada 500 ms, SetOutput real, BuzzerPlayer real y los
 estados reales; el tick reproduce el orden de ControlLoop._tick (puertas →
 máquina de estados → buzzer) con el intervalo de producción (0,5 s). Se

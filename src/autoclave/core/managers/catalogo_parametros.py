@@ -183,16 +183,6 @@ _poner("esterilizacion", "max_reinicios_exposicion", 0, 10,
 # modo 0 de descompresión se conserva (enfriamiento natural, decisión 1.2)
 _poner("descompresion", "modo", 0, 5, "modo 0 conservado (enfriamiento natural)")
 
-# Tiempos donde 0 es válido y documentado (Anexo A.3): sin límite del catálogo
-CERO_VALIDO = frozenset({
-    ("precalentamiento", "tiempo_precalentamiento"),
-    ("secado", "tiempo_secado"),
-    ("descompresion", "tiempo_pre_despresurizacion"),
-    ("finalizacion", "tiempo_espera_apertura"),
-    ("calentamiento", "tiempo_estable_preesterilizacion"),
-    ("estabilizacion", "tiempo_estabilizacion"),
-})
-
 TIPOS_CARGA = ("solido", "liquido")
 # D8-5.7 (tanda 8, Cristian 22-oct 12:08): con carga líquida solo los modos de
 # descompresión 4, 5 y 0 (en ese orden en la UI): descomprimir rápido con
@@ -615,11 +605,11 @@ def errores_programa(parameters: dict) -> list[str]:
 #                     que una serie de pasos pequeños no sume una deriva ilimitada,
 #                     se mide también cuánto se aparta la calibración RESULTANTE
 #                     (ganancia/offset) de la neutra (1, 0) en los extremos
-#                     operativos. Las de la calibración serial (calibration.yaml,
-#                     retirada en la tanda 20; hasta 75 kPa, 6 °C) cabían.
+#                     operativos. Las calibraciones de campo anteriores a la tanda 20
+#                     (hasta 75 kPa, 6 °C) cabían.
 # Valores conservadores, DECISIÓN SIN CONFIRMAR de la tanda 2 (informe S3).
-# Las recalibraciones reales de la calibración serial (retirada en la tanda 20;
-# hasta 49 kPa y 1,2 °C en los puntos) cabían en aviso o en normal.
+# Las recalibraciones reales anteriores a la tanda 20 (hasta 49 kPa y
+# 1,2 °C en los puntos) cabían en aviso o en normal.
 CALIBRACION_PLAUSIBLE = {
     "temperature": {"rango": (0.0, 200.0), "operativo": (0.0, 150.0), "separacion_min": 20.0,
                     "correccion_aviso": 5.0, "correccion_max": 15.0,

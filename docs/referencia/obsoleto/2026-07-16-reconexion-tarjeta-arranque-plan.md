@@ -1,3 +1,5 @@
+> **Obsoleto: hardware ESP32 retirado en la tanda 20.** Documento histórico (movido a `docs/referencia/obsoleto/` en la tanda 27); no describe el sistema vigente.
+
 # Reconexión con la Tarjeta ESP32 al Arrancar — Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.

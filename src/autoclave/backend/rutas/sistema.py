@@ -97,7 +97,7 @@ def get_system_time():
 # afectar a los demás.
 
 # Enlace de E/S publicado en /status y en la Información del equipo: único
-# desde la tanda 20 (T20-03, retiro del serial); se conserva el campo para no
+# desde la tanda 20 (T20-03); se conserva el campo para no
 # romper la API (DECISIÓN SIN CONFIRMAR).
 ENLACE_IO = "modbus"
 
@@ -162,8 +162,8 @@ def get_system_info():
         "software": {"version": _parte(version_completa),
                      "firmware": modulo_es.get("version") if isinstance(modulo_es, dict) else None,
                      "id_modulo_es": modulo_es.get("id") if isinstance(modulo_es, dict) else None,
-                     # Tanda 19 (MOD-01); constante desde la tanda 20 (T20-03,
-                     # enlace serial retirado): se conserva por la API
+                     # Tanda 19 (MOD-01); constante desde la tanda 20
+                     # (T20-03): se conserva por la API
                      "enlace_io": ENLACE_IO},
         "uso": {"ciclos": _parte(context.db.max_numero_ciclo),
                 "mantenimiento": _parte(context.mantenimiento.resumen)},
@@ -749,8 +749,12 @@ _CODIGO_PARAMETRO = {
     "solo_lectura": (403, "Este parámetro no se puede modificar"),
     "tipo_invalido": (422, "Valor inválido para este parámetro"),
     "fuera_de_rango": (422, "Valor fuera del rango permitido"),
-    "incoherente": (422, "Valor incompatible con otro parámetro del equipo (presión atmosférica, "
-                    "empaque o límites de presión)"),
+    # A7 (tanda 27): un código por familia de reglas, con `detalle` (regla y
+    # valores); antes ambos eran "incoherente" con un solo texto
+    "incoherente_empaque": (422, "Valor incompatible con la presión atmosférica y la presión "
+                            "y el vacío de empaque"),
+    "incoherente_limites": (422, "Valor incompatible con los límites de presión del equipo "
+                            "(fondo de escala, suministro, alivios y corte de chaqueta)"),
     "sin_base_de_datos": (503, "No se pudo guardar el parámetro"),
 }
 
@@ -821,8 +825,13 @@ def _cambiar_serializado(cm, clave, p, entidad, sesion, valor, restablecer):
         status, motivo = _CODIGO_PARAMETRO.get(error.codigo, (422, "Valor inválido"))
         if status in (401, 403, 409):
             _rechazar(status, error.codigo, motivo, entidad, sesion)
-        raise RechazoApi(status, error.codigo, motivo,
-                         extra={"min": p["min"], "max": p["max"]} if error.codigo == "fuera_de_rango" else None)
+        if error.codigo == "fuera_de_rango":
+            extra = {"min": p["min"], "max": p["max"]}
+        elif getattr(error, "detalle", None):
+            extra = {"detalle": error.detalle}
+        else:
+            extra = None
+        raise RechazoApi(status, error.codigo, motivo, extra=extra)
     _auditar("param_sistema_cambio", sesion, entidad=entidad,
              valor_anterior={p["clave"]: anterior}, valor_nuevo={p["clave"]: nuevo},
              detalle={"clave": p["clave"], "accion": "restablecer" if restablecer else "cambio"})

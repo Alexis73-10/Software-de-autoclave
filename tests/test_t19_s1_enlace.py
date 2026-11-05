@@ -79,7 +79,7 @@ def _conectado(enlace, timeout=5.0):
 
 @pytest.mark.req("MOD-02")
 def test_cumple_la_interfaz_y_las_firmas_de_enlace_es():
-    # Tanda 20 (T20-03): serial_link.py se retira; las firmas se comparan con
+    # Tanda 20 (T20-03): las firmas se comparan con
     # la interfaz EnlaceES (protocols/enlace.py), con la misma aserción.
     enlace = ModbusLink(config=config_para(M31Simulado()))
     assert isinstance(enlace, enlace_mod.EnlaceES)

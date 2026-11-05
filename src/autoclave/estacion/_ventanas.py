@@ -94,18 +94,6 @@ class VentanasTexto:
         if not self.hwnds:
             raise OSError("no se pudo crear ninguna ventana")
 
-    def cambiar_texto(self, titulo: str, texto: str) -> None:
-        self.titulo, self.texto = titulo, texto
-        for hwnd in self.hwnds:
-            self.a.InvalidateRect(hwnd, None, True)
-
-    def reafirmar(self) -> None:
-        """Vuelve a ponerlas encima de todo (la barra de tareas también es
-        TOPMOST y puede subir sobre ellas si Explorer la reacomoda)."""
-        for hwnd in self.hwnds:
-            self.a.SetWindowPos(hwnd, w.HWND_TOPMOST, 0, 0, 0, 0,
-                                w.SWP_NOACTIVATE | 0x0001 | 0x0002)   # SWP_NOSIZE | SWP_NOMOVE
-
     # ── bucle de mensajes ───────────────────────────────────────────────────
     def esperar(self, ms: int, handles=()) -> bool:
         """Espera hasta `ms` milisegundos a un mensaje o a que se señale alguno

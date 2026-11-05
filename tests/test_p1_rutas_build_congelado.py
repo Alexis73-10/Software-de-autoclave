@@ -21,7 +21,7 @@ sys.frozen = True
 sys._MEIPASS = meipass
 sys.executable = exe
 # Tanda 20 (T20-03): enlace único Modbus; la calibración es
-# calibration_modbus.yaml (antes calibration.yaml del serial, retirado).
+# calibration_modbus.yaml (antes calibration.yaml, retirado en la tanda 20).
 from autoclave.utils.paths import app_root, calibration_path
 from autoclave.utils.resources import resource_path
 from autoclave.installation import storage

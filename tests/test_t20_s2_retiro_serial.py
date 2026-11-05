@@ -193,12 +193,12 @@ def test_umbral_alto_de_lazo_siempre_activo():
 
 # ── lo que se conserva ─────────────────────────────────────────────────────
 
-def test_alarmas_solo_serial_siguen_en_el_catalogo_para_el_historial():
+def test_alarmas_retiradas_siguen_en_el_catalogo_para_el_historial():
     from autoclave.protocols import enlace
     from autoclave.state_machine.alarms.catalogo import CATALOGO, CODIGOS_TARJETA
-    assert set(enlace.ALARMAS_SOLO_SERIAL) == {
+    assert set(enlace.ALARMAS_RETIRADAS_HISTORIAL) == {
         "TARJETA_SIN_ACK", "TARJETA_ALL_OFF_SIN_CONFIRMAR", "TARJETA_REINICIO"}
-    for codigo in enlace.ALARMAS_SOLO_SERIAL:
+    for codigo in enlace.ALARMAS_RETIRADAS_HISTORIAL:
         assert codigo in CATALOGO and codigo in CODIGOS_TARJETA
     assert set(enlace.ALARMAS_HANDSHAKE) | set(enlace.ALARMAS_OPERACION) <= set(CODIGOS_TARJETA)
 

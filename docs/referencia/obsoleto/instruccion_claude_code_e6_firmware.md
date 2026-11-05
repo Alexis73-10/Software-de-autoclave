@@ -1,3 +1,5 @@
+> **Obsoleto: hardware ESP32 retirado en la tanda 20.** Documento histórico (movido a `docs/referencia/obsoleto/` en la tanda 27); no describe el sistema vigente.
+
 # Instrucción para Claude Code — E6: firmware 1.0.0 y Fase B del enlace serial
 
 Spec (obligatoria, léela completa antes de tocar nada): `docs/mis_plans/planeacion_firmware_1_5.md` (v2) y, como normativo del protocolo, `docs/mis_plans/planeacion_protocolo_serial_esp32.md`. Contexto: `planeacion_fin_de_ciclo_y_puertas.md` §9.

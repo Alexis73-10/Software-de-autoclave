@@ -65,11 +65,27 @@ def grupos_visibles(puertas_simples: bool) -> list[str]:
 
 class ErrorParametro(Exception):
     """Cambio rechazado. `codigo`: no_existe, solo_lectura, tipo_invalido,
-    fuera_de_rango, sin_base_de_datos."""
+    fuera_de_rango, incoherente_empaque, incoherente_limites,
+    sin_base_de_datos. `detalle`: dict con la regla incumplida y los valores
+    (A7, tanda 27; solo en los dos de coherencia, si no {})."""
 
-    def __init__(self, codigo: str, mensaje: str = ""):
+    def __init__(self, codigo: str, mensaje: str = "", detalle: dict | None = None):
         super().__init__(mensaje or codigo)
         self.codigo = codigo
+        self.detalle = detalle or {}
+
+
+# A7 (tanda 27): un código por familia de reglas de coherencia (antes los dos
+# eran "incoherente" y la pantalla decía siempre el texto de empaque)
+INCOHERENTE_EMPAQUE = "incoherente_empaque"
+INCOHERENTE_LIMITES = "incoherente_limites"
+CODIGOS_INCOHERENCIA = (INCOHERENTE_EMPAQUE, INCOHERENTE_LIMITES)
+# reglas del detalle (`detalle["regla"]`)
+REGLAS_EMPAQUE = ("sin_referencia", "empaque_sobre_atm", "empaque_chequeo_ciclo",
+                  "vacio_bajo_atm", "vacio_bajo_empaque")
+REGLAS_LIMITES = ("sin_referencia", "suministro_bajo_alivio", "alivio_bajo_fondo",
+                  "corte_bajo_alivio_chaqueta")
+CLAVES_EMPAQUE = ("presion_empaque", "vacio_empaque", "presion_atmosferica")
 
 
 def canonica(clave: str) -> str:
@@ -173,7 +189,11 @@ class ConfigManager:
         def una(c):
             e = self.config[c]
             meta = self._meta.get(c, {})
+            # A7 (tanda 27): rango que la validación acepta hoy con los demás
+            # parámetros vigentes (igual a min/max si no hay acople)
+            min_ef, max_ef = self._rango_efectivo(c, e)
             return {
+                "min_efectivo": min_ef, "max_efectivo": max_ef,
                 "clave": c, "grupo": e.get("grupo", ""), "valor": e.get("value"),
                 "defecto": self._fabrica.get(c), "min": e.get("min"), "max": e.get("max"),
                 "tipo": e.get("type", ""), "unidad": e.get("unit", ""), "clase": e.get("clase", ""),
@@ -209,40 +229,120 @@ class ConfigManager:
         return v, ""
 
     def _incoherencia(self, clave, nuevo) -> str:
-        """'' o 'incoherente' (SAF-01). Usa los valores vigentes de los demás."""
+        """'' o el código de la regla incumplida (SAF-01; A7, tanda 27:
+        incoherente_empaque o incoherente_limites). Usa los valores vigentes
+        de los demás. El detalle lo da `_incoherencia_detalle`."""
+        return self._incoherencia_detalle(clave, nuevo)[0]
+
+    def _incoherencia_detalle(self, clave, nuevo) -> tuple[str, dict]:
+        """('', {}) o (código, detalle). Las reglas y márgenes son los de
+        siempre; A7 solo separa el código y agrega el detalle."""
         if clave in _CLAVES_LIMITES_PRESION:
             return self._incoherencia_limites(clave, nuevo)
-        if clave not in ("presion_empaque", "vacio_empaque", "presion_atmosferica"):
-            return ""
-        v = {k: (self.config.get(k) or {}).get("value") for k in
-             ("presion_empaque", "vacio_empaque", "presion_atmosferica")}
+        if clave not in CLAVES_EMPAQUE:
+            return "", {}
+        vigentes = {k: (self.config.get(k) or {}).get("value") for k in CLAVES_EMPAQUE}
+        v = dict(vigentes)
         v[clave] = nuevo
         pe, ve, atm = v["presion_empaque"], v["vacio_empaque"], v["presion_atmosferica"]
         if not all(_es_numero(x) for x in (pe, ve, atm)):
-            return "incoherente"                 # fail-closed sin referencia
-        if pe < atm + MARGEN_EMPAQUE_SOBRE_ATM or pe * FACTOR_CHEQUEO_CICLO <= atm:
-            return "incoherente"
-        if ve > atm - MARGEN_VACIO_BAJO_ATM or ve >= pe:
-            return "incoherente"
-        return ""
+            regla = "sin_referencia"             # fail-closed sin referencia
+        elif pe < atm + MARGEN_EMPAQUE_SOBRE_ATM:
+            regla = "empaque_sobre_atm"
+        elif pe * FACTOR_CHEQUEO_CICLO <= atm:
+            regla = "empaque_chequeo_ciclo"
+        elif ve > atm - MARGEN_VACIO_BAJO_ATM:
+            regla = "vacio_bajo_atm"
+        elif ve >= pe:
+            regla = "vacio_bajo_empaque"
+        else:
+            return "", {}
+        return INCOHERENTE_EMPAQUE, {
+            "regla": regla, "clave": clave, "vigentes": vigentes, "propuestos": v,
+            "presion_empaque": pe, "vacio_empaque": ve, "presion_atmosferica": atm,
+            "margen_empaque_sobre_atm": MARGEN_EMPAQUE_SOBRE_ATM,
+            "margen_vacio_bajo_atm": MARGEN_VACIO_BAJO_ATM,
+            "factor_chequeo_ciclo": FACTOR_CHEQUEO_CICLO,
+        }
 
-    def _incoherencia_limites(self, clave, nuevo) -> str:
+    def _incoherencia_limites(self, clave, nuevo) -> tuple[str, dict]:
         """F1 (tanda 16). DEU-01 (D-DEU-1): suministro < alivio <= fondo de
         escala, para los dos alivios. D-CHQ: presion_max_chaqueta_control <=
         alivio de chaqueta - 10. Bajar el alivio por debajo del corte vigente
-        + 10 también se rechaza. Fail-closed sin valor de referencia."""
+        + 10 también se rechaza. Fail-closed sin valor de referencia.
+        La decisión sigue siendo `limites_coherentes` + el corte; la regla del
+        detalle solo clasifica cuál falló (A7)."""
         from autoclave.core.managers import limites_equipo as le
-        v = {k: (self.config.get(k) or {}).get("value") for k in _CLAVES_LIMITES_PRESION}
+        vigentes = {k: (self.config.get(k) or {}).get("value") for k in _CLAVES_LIMITES_PRESION}
+        v = dict(vigentes)
         v[clave] = nuevo
+        fondo, sumi = v["presion_fondo_escala"], v["presion_suministro_vapor"]
+        a_cam, a_chq = v["presion_alivio_camara"], v["presion_alivio_chaqueta"]
         if not all(_es_numero(x) for x in v.values()):
-            return "incoherente"
-        if not le.limites_coherentes(v["presion_fondo_escala"], v["presion_suministro_vapor"],
-                                     v["presion_alivio_camara"], v["presion_alivio_chaqueta"]):
-            return "incoherente"
-        if v["presion_max_chaqueta_control"] > (v["presion_alivio_chaqueta"]
-                                                - le.MARGEN_CORTE_BAJO_ALIVIO):
-            return "incoherente"
-        return ""
+            regla = "sin_referencia"
+        elif not le.limites_coherentes(fondo, sumi, a_cam, a_chq):
+            if sumi >= a_cam or sumi >= a_chq:
+                regla = "suministro_bajo_alivio"
+            elif a_cam > fondo or a_chq > fondo:
+                regla = "alivio_bajo_fondo"
+            else:
+                regla = "sin_referencia"
+        elif v["presion_max_chaqueta_control"] > a_chq - le.MARGEN_CORTE_BAJO_ALIVIO:
+            regla = "corte_bajo_alivio_chaqueta"
+        else:
+            return "", {}
+        return INCOHERENTE_LIMITES, {
+            "regla": regla, "clave": clave, "vigentes": vigentes, "propuestos": v,
+            "margen_corte_bajo_alivio": le.MARGEN_CORTE_BAJO_ALIVIO,
+        }
+
+    # ── rango efectivo (A7, tanda 27) ────────────────────────────────────
+    def _valido_para_rango(self, clave, entrada, valor) -> bool:
+        """La MISMA validación de `fijar` (rango propio + coherencia), sin
+        solo_lectura ni base: el rango mostrado sale de ella, no de otra regla."""
+        v, error = self._validar(clave, entrada, valor, permitir_solo_lectura=True)
+        return not error and not self._incoherencia(clave, v)
+
+    def _rango_efectivo(self, clave, entrada) -> tuple:
+        """(min_efectivo, max_efectivo) de un parámetro acoplado: el intervalo
+        de valores que `fijar` aceptaría con los demás vigentes. Se busca por
+        bisección desde el valor vigente con la propia validación (las reglas
+        dan un intervalo: cada una acota de un solo lado), en pasos de 1 (int)
+        o de 0,01 (float, el redondeo de la ventana de ajuste). Sin acople,
+        (min, max). Sin valor vigente válido o sin rango: (None, None)."""
+        minimo, maximo = entrada.get("min"), entrada.get("max")
+        if clave not in _CLAVES_LIMITES_PRESION and clave not in CLAVES_EMPAQUE:
+            return minimo, maximo
+        actual = entrada.get("value")
+        if (not _es_numero(minimo) or not _es_numero(maximo) or not _es_numero(actual)
+                or not self._valido_para_rango(clave, entrada, actual)):
+            return None, None
+        paso = 1 if entrada.get("type") == "int" else 100       # unidades por kPa
+        def valor(n):
+            return n if paso == 1 else n / 100.0
+        def ok(n):
+            return self._valido_para_rango(clave, entrada, valor(n))
+        lo_n = math.ceil(minimo * paso)
+        hi_n = math.floor(maximo * paso)
+        cur_n = round(actual * paso)
+        # menor válido en [lo_n, cur_n]
+        a, b = lo_n, cur_n
+        while a < b:
+            m = (a + b) // 2
+            if ok(m):
+                b = m
+            else:
+                a = m + 1
+        menor = a
+        # mayor válido en [cur_n, hi_n]
+        a, b = cur_n, hi_n
+        while a < b:
+            m = (a + b + 1) // 2
+            if ok(m):
+                a = m
+            else:
+                b = m - 1
+        return valor(menor), valor(a)
 
     def fijar(self, clave: str, valor, usuario: str = "", permitir_solo_lectura: bool = False,
               aplicar: bool = True):
@@ -257,10 +357,11 @@ class ConfigManager:
             if not isinstance(entrada, dict) or "value" not in entrada:
                 raise ErrorParametro("no_existe", f"Parámetro desconocido: {clave}")
             nuevo, error = self._validar(c, entrada, valor, permitir_solo_lectura)
+            detalle = {}
             if not error:
-                error = self._incoherencia(c, nuevo)
+                error, detalle = self._incoherencia_detalle(c, nuevo)
             if error:
-                raise ErrorParametro(error)
+                raise ErrorParametro(error, detalle=detalle)
             if self._db is None:
                 raise ErrorParametro("sin_base_de_datos")
             anterior = entrada.get("value")

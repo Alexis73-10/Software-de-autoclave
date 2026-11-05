@@ -122,6 +122,8 @@ _CLAVES = {
     # Tanda 17 (ESG-02): protecciones permanentes del modo prueba
     "salida_prueba_camara_presurizada": "io.err_puerta_camara_presurizada",
     "salida_prueba_puerta_abierta": "io.err_vapor_puerta_abierta",
+    # Tanda 27 (A4, revisión): enclavamiento abrir/cerrar sin apagado confirmado
+    "salida_prueba_opuesta_sin_apagar": "io.err_opuesta_sin_apagar",
     "sin_base_de_datos": "io.err_sin_base",
     "auditoria_no_disponible": "io.err_sin_base",
     "sin_calibracion_previa": "io.err_sin_previa",
@@ -183,9 +185,12 @@ _CODIGOS_PROGRAMAS = frozenset({     # ManejoCiclosController
     "nombre_repetido", "programa_activo", "programa_no_encontrado",
     "programa_existente",
 })
+# A7 (tanda 27): "incoherente" se separó en incoherente_empaque e
+# incoherente_limites (con `detalle`); /global_params ya no emite
+# "incoherente" (lo conserva solo /maintenance/atm-calibration).
 _CODIGOS_GLOBAL_PARAMS = frozenset({     # ParametrosEquipoController
     "no_existe", "solo_lectura", "tipo_invalido", "fuera_de_rango",
-    "incoherente", "calibracion_en_curso",
+    "incoherente_empaque", "incoherente_limites", "calibracion_en_curso",
 })
 _CODIGOS_ARCHIVO = frozenset({"ARCHIVO_NO_ESCRIBIBLE"})     # /language, /units
 _CODIGOS_IMPRESORA = frozenset({     # ParametrosEquipoController

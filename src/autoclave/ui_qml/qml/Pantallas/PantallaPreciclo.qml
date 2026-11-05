@@ -81,6 +81,12 @@ Item {
     readonly property int conteoAlarmas: alarmas?.count ?? 0
     // Misma bandera que _upd_listo de tkinter; sin ella el botón INICIAR CICLO desaparece
     property bool listoParaCiclo: puente?.listoParaCiclo ?? false
+    // A3 (tanda 27): lo decide el puente (UiBridge.inicioCicloVisible: conexión,
+    // LISTO_PARA_CICLO, sin FALLA y sin modo prueba); falla cerrada sin el campo
+    readonly property bool inicioCicloVisible: puente?.inicioCicloVisible ?? false
+    // si el control desaparece con la confirmación «sin registro» abierta, se
+    // cierra: no queda un camino de inicio en pantalla
+    onInicioCicloVisibleChanged: if (!inicioCicloVisible) confirmarSinRegistro.cerrar()
     property bool cicloOcupado: comandoCiclo?.ocupado ?? false
     // T-16 (§5.9, decisión 22): sin rol, solo con la máquina en FALLA
     readonly property bool enFalla: (puente?.machineState ?? "") === "FALLA"
@@ -788,7 +794,9 @@ Item {
         textoCompletado: raiz.textos.iniciando
         // Como tkinter (_upd_listo) pero oculto en vez de inactivo cuando el equipo
         // no está listo; mientras se envía la orden no acepta otro arrastre.
-        visible: raiz.listoParaCiclo && raiz.datosVigentes && !raiz.enFalla
+        // A3 (tanda 27): desaparece también con el modo prueba activo (la fila
+        // «Modo prueba» de la tarjeta de alarmas lo explica); vuelve al salir.
+        visible: raiz.inicioCicloVisible && raiz.datosVigentes
         enabled: raiz.datosVigentes && !raiz.cicloOcupado
         onCompletado: {
             if (raiz.puente?.sinBaseDatos ?? false)

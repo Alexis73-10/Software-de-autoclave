@@ -555,8 +555,9 @@ Item {
                 readonly property real ancho: (width - spacing) / 2
 
                 // P1 (tanda 7): modelo entero (cantidad) y datos por índice. Con la
-                // lista como modelo, el refresco de 1 s recreaba todas las tarjetas:
-                // la pulsación sostenida perdía su renovación y un toque se perdía
+                // lista como modelo, el refresco de 1 s recreaba todas las tarjetas
+                // y un toque se perdía. Tanda 27 (A4): todas las salidas son
+                // interruptor (sin «Mantener» ni renovación de 500 ms)
                 Repeater {
                     model: control.salidas.length
                     delegate: TarjetaCanal {
@@ -575,24 +576,8 @@ Item {
                         // entrada sin confirmar); encender sigue exigiendo `libre`
                         // SMP (tanda 26): `apagar` lo arma el controlador (estado
                         // ordenado si hay orden pendiente; si no, el leído)
-                        readonly property bool puedeApagar: !modelData.momentanea
-                                                            && modelData.apagar === true
+                        readonly property bool puedeApagar: modelData.apagar === true
                                                             && (control.modoPrueba || control.pruebaSinConfirmar)
-                        // P1 (tanda 7, SAF-01): salida momentánea fijada al pulsar; la
-                        // renovación y el apagado usan ese nombre aunque cambien los datos
-                        property string pulsada: ""
-                        function soltarMomentanea() {
-                            renovacion.stop()
-                            if (pulsada === "") return
-                            var nombre = pulsada
-                            pulsada = ""
-                            control.accionar(nombre, false, true)
-                        }
-                        // FASE 6: al deshabilitarse (salida del modo prueba en curso,
-                        // orden sin confirmar) se deja de renovar y se suelta la
-                        // momentánea con su OFF síncrono (apagar siempre sale)
-                        onLibreChanged: if (!libre) soltarMomentanea()
-                        Component.onDestruction: if (pulsada !== "" && control) control.accionar(pulsada, false, true)
                         Column {
                             anchors.right: parent.right
                             anchors.verticalCenter: parent.verticalCenter
@@ -625,40 +610,14 @@ Item {
                                 objectName: "botonSalida_" + tarjetaSalida.modelData.name
                                 width: Escala.px(190); height: Escala.px(56)
                                 habilitado: tarjetaSalida.libre || tarjetaSalida.puedeApagar
-                                relleno: tarjetaSalida.modelData.momentanea ? Colores.menuNaranja
-                                         : (tarjetaSalida.modelData.apagar === true ? Colores.peligroTexto : Colores.accionPrimario)
+                                relleno: tarjetaSalida.modelData.apagar === true ? Colores.peligroTexto
+                                                                                 : Colores.accionPrimario
                                 texto: I18n.t(tarjetaSalida.modelData.claveBoton || "io.ui.activar", I18n.lang)
-                                // sostenida: un toque envía el inverso de lo ordenado (o
-                                // de lo leído); momentanea: ON mientras dura la pulsacion
+                                // interruptor: un toque envía el inverso de lo ordenado
+                                // (o de lo leído)
                                 onPulsado: {
                                     raiz.marcarActividad()
-                                    if (!tarjetaSalida.modelData.momentanea)
-                                        control.alternar(tarjetaSalida.modelData.name)
-                                }
-                                onPresionado: {
-                                    raiz.marcarActividad()
-                                    if (tarjetaSalida.modelData.momentanea) {
-                                        tarjetaSalida.pulsada = tarjetaSalida.modelData.name
-                                        // rechazada (no dueño, paro, sin modo prueba): no se renueva
-                                        if (control.accionar(tarjetaSalida.pulsada, true, true))
-                                            renovacion.start()
-                                        else
-                                            tarjetaSalida.pulsada = ""
-                                    }
-                                }
-                                onSoltado: tarjetaSalida.soltarMomentanea()
-                                // P-ES-3: reenvia ON cada 500 ms mientras se mantiene pulsado
-                                Timer {
-                                    id: renovacion
-                                    interval: 500
-                                    repeat: true
-                                    onTriggered: {
-                                        if (tarjetaSalida.pulsada === "" || !control.salidasHabilitadas
-                                                || !control.accionar(tarjetaSalida.pulsada, true, true)) {
-                                            stop()
-                                            tarjetaSalida.pulsada = ""
-                                        }
-                                    }
+                                    control.alternar(tarjetaSalida.modelData.name)
                                 }
                             }
                         }

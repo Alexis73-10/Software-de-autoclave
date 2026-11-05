@@ -70,6 +70,50 @@ AVISOS_CORTE = {
     PUERTA_ABIERTA: "io.ui.aviso_vapor_cortado_puerta",
 }
 
+# Tanda 27 (A4, revisión; DECISIÓN SIN CONFIRMAR): con las salidas de puerta
+# como interruptor, el seguro de atrapamiento (D-ES-16) ya no se reevalúa con
+# la renovación de la UI. El lazo apaga cerrar_puerta_N en el mismo tick si la
+# puerta tiene la señal de atrapamiento activa (NC: 0 = atrapada; sin dato
+# también, falla cerrada) o si la trama DI no está vigente. Solo apaga: la
+# inversión a abrir NO se enciende sola (la sigue dando la ruta al pedir cerrar).
+CIERRE_ATRAPAMIENTO = "salida_prueba_cierre_atrapamiento"
+CIERRE_SIN_DATOS = "salida_prueba_cierre_sin_datos"
+MOTIVOS.update({
+    CIERRE_ATRAPAMIENTO: "Cierre de puerta apagado: se detectó atrapamiento",
+    CIERRE_SIN_DATOS: "Cierre de puerta apagado: sin lectura vigente de las entradas de la puerta",
+})
+AVISOS_CORTE.update({
+    CIERRE_ATRAPAMIENTO: "io.ui.aviso_cierre_cortado_atrapamiento",
+    CIERRE_SIN_DATOS: "io.ui.aviso_cierre_cortado_sin_datos",
+})
+
+
+def _uno(valor) -> bool:
+    return valor is True or (type(valor) is int and valor == 1)
+
+
+def cierres_a_cortar(puertas, sensores_di, di_vigentes: bool) -> dict[int, str]:
+    """{canal DO de cerrar_puerta_N: código} que el lazo debe apagar ahora en
+    modo prueba. Por puerta con door.do["cerrar"] entero: sin trama DI vigente
+    → CIERRE_SIN_DATOS; con di["atrapamiento"] declarado y su entrada distinta
+    de 1 (0 = atrapada, sin lectura = falla cerrada) → CIERRE_ATRAPAMIENTO.
+    Pura: no toca salidas."""
+    resultado = {}
+    for door in (puertas or []):
+        do, di = getattr(door, "do", None), getattr(door, "di", None)
+        if not isinstance(do, dict):
+            continue
+        canal = do.get("cerrar")
+        if not isinstance(canal, int) or isinstance(canal, bool):
+            continue
+        if di_vigentes is not True:
+            resultado[canal] = CIERRE_SIN_DATOS
+        elif isinstance(di, dict) and "atrapamiento" in di:
+            valor = sensores_di.get(di["atrapamiento"]) if isinstance(sensores_di, dict) else None
+            if not _uno(valor):
+                resultado[canal] = CIERRE_ATRAPAMIENTO
+    return resultado
+
 
 def bloqueadas(estado_seguro_activo: bool, recuperacion_pendiente: bool,
                camara_segura: bool, presion_vigente: bool = False,

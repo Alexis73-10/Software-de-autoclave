@@ -69,6 +69,7 @@ def prueba_salidas():
     ctx.control_loop.presion_vigente = True     # trama AI al día
     ctx.units.senal_presion_presente.return_value = True    # ADC sobre adc_min
     ctx.setdo.salida_bloqueada.return_value = False
+    ctx.setdo.set_output.return_value = True      # tanda 27 (A4, revisión)
     srv, _ = cargar_servidor(ctx)
     cab = cabecera(srv, "tecnico", "tec1")
     modulo_backend("rutas.io")._token_modo_prueba = cab["Authorization"].split()[1]
@@ -87,9 +88,8 @@ def test_hay_salidas_configuradas_en_el_equipo_activo():
 @pytest.mark.parametrize("valor", [True, False])
 def test_cada_salida_mostrada_se_acciona(prueba_salidas, nombre, valor):
     client, ctx = prueba_salidas
-    momentanea = valor and nombre in io_names.SALIDAS_MOMENTANEAS
-    cuerpo = {"value": valor, **({"momentanea": True} if momentanea else {})}
-    resp = client.patch(f"/io/test/output/{nombre}", json=cuerpo)
+    # Tanda 27 (A4): todas las salidas son interruptor (sin "momentanea")
+    resp = client.patch(f"/io/test/output/{nombre}", json={"value": valor})
     assert resp.status_code == 200, resp.text
     assert resp.json()["name"] == nombre
 

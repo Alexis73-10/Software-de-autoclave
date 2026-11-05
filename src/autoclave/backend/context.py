@@ -688,7 +688,7 @@ class BackendContext:
         y arranca el loop. `al_cancelar_prueba` se registra antes de start(),
         para no perder un paro que llegue en el primer tick."""
         # MOD-01 (tanda 19): enlace de E/S (Modbus, único desde la tanda 20,
-        # T20-03); el atributo conserva el nombre `serial` (histórico) para no
+        # T20-03); el atributo conserva el nombre `serial` (decisión T20-03) para no
         # tocar a los llamadores
         self.serial = build_enlace(self.units, al_conectar=self._al_conectar_modulo_es)
         # V20-s1-04 (corrector r1 de la tanda 20, DECISIÓN SIN CONFIRMAR): el

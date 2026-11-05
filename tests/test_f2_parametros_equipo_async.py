@@ -318,7 +318,7 @@ def test_calibracion_en_curso_tiene_mensaje():
     i18n = _RAIZ / "src/autoclave/i18n"
     for idioma in ("es", "en"):
         textos = json.loads((i18n / f"{idioma}.json").read_text(encoding="utf-8"))
-        for causa in ("no_existe", "solo_lectura", "tipo_invalido", "fuera_de_rango", "incoherente",
+        for causa in ("no_existe", "solo_lectura", "tipo_invalido", "fuera_de_rango", "incoherente_empaque", "incoherente_limites",
                       "calibracion_en_curso", "ARCHIVO_NO_ESCRIBIBLE", "reinicio_no_disponible",
                       "estado_seguro_activo", "confirmacion_pendiente", "modo_prueba_activo"):
             clave = mensaje_de(causa)

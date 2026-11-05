@@ -10,7 +10,7 @@ Comprueba, en `_internal/autoclave/` de la carpeta compilada:
   3. `_internal/config/activacion_transporte.json` existe, es válido y NO es el K_t
      ficticio de prueba del formato v2 (§7.1, público): con él se fabricarían
      códigos de instalación con los vectores publicados;
-  4. la calibración Modbus es la neutra y no viaja la serial retirada (D8-3.18,
+  4. la calibración Modbus es la neutra y no viaja `calibration.yaml` (D8-3.18,
      T20-03; tools/verificar_calibracion_neutra.py).
 Sale con 0 si todo se cumple, con 1 (y los motivos) si algo falla, con 2 si el
 uso es incorrecto. La entrega no se publica si sale distinto de 0."""
