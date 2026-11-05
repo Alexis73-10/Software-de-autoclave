@@ -65,4 +65,34 @@ Conclusión: ninguna de las tres medidas basta sola en modo chaqueta. M3 (brecha
 
 ## Resultados con M1 + M2 + M3
 
-(Se completa en el commit A14-M3; ver abajo.)
+Misma planta y mismo arnés (`--etiqueta despues`). «vigente» es ahora el programa del repositorio con A14-M3 (`brecha_segura_temperatura` 0,3, `presion_add_esterilizacion` 15 sin cambio, `margen_chaqueta_est` 8). Las variantes `brecha_1_0` fuerzan 1,0 para comparar.
+
+| corrida | resultado | aislamientos | T máx (°C) | sobreimpulso (K) | T mín exp. (°C) | P máx (kPa) | en banda [T_est, T_est+1] |
+|---|---|---|---|---|---|---|---|
+| chaqueta_vigente | COMPLETADO | 0 | 134.59 | 0.59 | 134.00 | 311.6 | 100% |
+| camara_vigente | COMPLETADO | 0 | 134.87 | 0.87 | 134.01 | 319.4 | 100% |
+| chaqueta_vigente_15min | COMPLETADO | 0 | 134.60 | 0.60 | 134.00 | 311.6 | 100% |
+| camara_vigente_15min | COMPLETADO | 0 | 134.87 | 0.87 | 134.01 | 319.4 | 100% |
+| chaqueta_brecha_1_0_15min | COMPLETADO | 0 | 135.26 | 1.26 | 134.00 | 317.7 | 8% |
+| camara_brecha_1_0_15min | COMPLETADO | 0 | 135.30 | 1.30 | 134.01 | 319.8 | 4% |
+| chaqueta_brecha_0_3_15min | COMPLETADO | 0 | 134.60 | 0.60 | 134.00 | 311.6 | 100% |
+| camara_brecha_0_3_15min | COMPLETADO | 0 | 134.87 | 0.87 | 134.01 | 319.4 | 100% |
+
+Gráficas: `a14/despues_<corrida>.png`.
+
+Comparación del caso del equipo (134 °C, modo chaqueta, programa vigente):
+
+| | antes (brecha 1,0, sin M1/M2) | después (M1 + M2 + M3) |
+|---|---|---|
+| resultado | FALLO CIC-16 | COMPLETADO |
+| aislamientos | 6 | 0 |
+| sobreimpulso | 1,21 K | 0,59 K |
+| P máx en exposición | 319,4 kPa (techo) | 311,6 kPa (7,6 kPa bajo el techo) |
+| tiempo en [T_est, T_est + 1] | 42 % | 100 % |
+
+- Modo chaqueta: con M2 la chaqueta queda acotada a `P_sp + 8` ≈ 317,6 kPa y la cámara se sostiene en la banda `[307,6, 310,6]` kPa; no hay aislamientos. Con la brecha forzada a 1,0 tampoco hay aislamientos (M1 + M2), pero la temperatura queda en ≈135,3 °C (8 % en banda): M3 es lo que devuelve el control a la banda.
+- Modo cámara: sin regresión en el resultado (0 aislamientos, COMPLETADO); el sobreimpulso baja de 1,30 a 0,87 K y el diente de sierra desaparece. La P máx de 319,4 kPa es el primer tramo de RECUPERACION al entrar (el techo con su histéresis de 2 kPa rige igual que antes).
+- La temperatura mínima en exposición es 134,00 °C en todas las corridas (el valor de entrada); no baja hacia el umbral de falla (133,9 °C).
+- Los umbrales de falla, el debounce, F0, C-03, C-13, los alivios y el aislamiento VCH-AIS (CIC-15/16) no cambian.
+- Prueba automática del escenario: `tests/test_t28_a14_m3_brecha.py` (`test_simulado_134_chaqueta_m1_m2_m3_sin_aislamientos`: COMPLETADO, 0 aislamientos, sobreimpulso < 0,8 K fijo; `test_simulado_134_camara_sin_regresion`).
+- Valores de la planta PROVISIONALES: el resultado real se confirma en el banco (fila T28: repetir el ciclo de 134 °C del 5-nov).

@@ -3,7 +3,11 @@
 - P1 (D-14.1): coherencia de la salida de RECUPERACION con el techo de control.
 - Programas de fábrica de 134 °C con presion_add_esterilizacion = 15.
 - P2 (D-14.2) y su extensión (V-04): migración al cargar con auditoría, SIS-06
-  y .bak, y la salvaguarda del alivio de chaqueta.
+  y .bak, y la salvaguarda del alivio de chaqueta. La tanda 28 (A14-M3,
+  decisión de Cristian) retiró el paso 1 de P2 (brecha 0,3 → 1,0) y devolvió
+  la brecha a 0,3: las pruebas de P1/P2 que necesitan brecha 1,0 la fijan
+  explícitamente (con la marca de M3 cuando pasan por la carga); la migración
+  de la brecha se prueba en test_t28_a14_m3_brecha.py.
 - Parámetros de programa nuevos (histeresis_cierre_camara, max_reinicios_exposicion).
 - DEU-01: límites de presión desde Parámetros del equipo.
 - PRG-01 (D-PRG-1): roles sobre sondas no activas en el perfil de instalación."""
@@ -82,7 +86,8 @@ def test_minimo_de_p1_con_brecha_1(t_est, minimo):
                                                 (121.0, 9.0, 10.6)])
 def test_p1_rechaza_y_da_el_minimo(t_est, add, mostrado):
     nombre = "factory/instrumental_121.json" if t_est == 121.0 else "factory/instrumental_134.json"
-    p = _params(nombre, esterilizacion__presion_add_esterilizacion=add)
+    p = _params(nombre, esterilizacion__presion_add_esterilizacion=add,
+                esterilizacion__brecha_segura_temperatura=1.0)
     errores = cp.errores_coherencia(p)
     assert len(errores) == 1 and errores[0].startswith("Coherencia de recuperación")
     assert f"al menos {mostrado:.1f} kPa" in errores[0]
@@ -102,7 +107,8 @@ def test_p1_acepta(t_est, add):
 
 
 def test_p1_aplica_a_carga_liquida():
-    p = _params("factory/liquidos.json", esterilizacion__presion_add_esterilizacion=9.0)
+    p = _params("factory/liquidos.json", esterilizacion__presion_add_esterilizacion=9.0,
+                esterilizacion__brecha_segura_temperatura=1.0)
     assert any(e.startswith("Coherencia de recuperación") for e in cp.errores_coherencia(p))
 
 
@@ -117,7 +123,7 @@ def test_p1_no_evalua_valores_ausentes_o_no_numericos(valor):
 
 
 def test_set_param_rechaza_p1_y_no_cambia_nada():
-    c = Cycle("p", "P", _params(), 2)
+    c = Cycle("p", "P", _params(esterilizacion__brecha_segura_temperatura=1.0), 2)
     with pytest.raises(cp.ErrorCoherencia) as e:
         c.set_param("esterilizacion", ["presion_add_esterilizacion"], 12.0)
     assert e.value.codigo == cp.CODIGO_COHERENCIA_RECUPERACION
@@ -203,7 +209,10 @@ def test_migracion_agrega_las_claves_nuevas_sin_aviso():
 
 # ── P2 (D-14.2) y su extensión ──────────────────────────────────────────────
 
-def _instalar(tmp_path, nombre="user/instrumental_134.json", **valores):
+def _instalar(tmp_path, nombre="user/instrumental_134.json", marca_m3=False, **valores):
+    """`marca_m3`: la hoja de brecha_segura_temperatura lleva la marca de
+    A14-M3 (tanda 28), como un programa ya migrado al que luego se le fijó la
+    brecha a mano: la carga no la toca."""
     destino = tmp_path / "cycles"
     shutil.copytree(CICLOS / "factory", destino / "factory")
     (destino / "user").mkdir()
@@ -211,6 +220,9 @@ def _instalar(tmp_path, nombre="user/instrumental_134.json", **valores):
     for ruta, valor in valores.items():
         fase, clave = ruta.split("__")
         datos["parameters"][fase][clave]["value"] = valor
+    if marca_m3:
+        datos["parameters"]["esterilizacion"]["brecha_segura_temperatura"][
+            cp.MARCA_MIGRACION_T28_M3] = True
     ruta = destino / "user" / Path(nombre).name
     ruta.write_text(json.dumps(datos, indent=4, ensure_ascii=False), encoding="utf-8")
     return ruta
@@ -231,9 +243,11 @@ def _correcciones(ctx, cycle_id):
             for c, m in ctx.cycle_manager.migraciones_correctivas() if c.id == cycle_id}
 
 
-def test_p2_brecha_03_y_presion_add_al_minimo(tmp_path):
+def test_p2_presion_add_al_minimo(tmp_path):
+    """Paso 2 de P2 con una brecha 1,0 fijada a mano (marca de M3): sube
+    presion_add_esterilizacion al mínimo; la brecha no se toca."""
     from autoclave.services.domain.logging.db_manager import DbManager
-    ruta = _instalar(tmp_path, esterilizacion__brecha_segura_temperatura=0.3,
+    ruta = _instalar(tmp_path, marca_m3=True, esterilizacion__brecha_segura_temperatura=1.0,
                      esterilizacion__presion_add_esterilizacion=9.0)
     ctx = _cargar(tmp_path)
     c = ctx.cycle_manager.cycles["134_instrumental"]
@@ -241,14 +255,13 @@ def test_p2_brecha_03_y_presion_add_al_minimo(tmp_path):
     assert c.get_param("esterilizacion", "brecha_segura_temperatura") == 1.0
     assert c.get_param("esterilizacion", "presion_add_esterilizacion") == 15.0
     assert _correcciones(ctx, c.id) == {
-        "brecha_segura_temperatura": (0.3, 1.0, "migración tanda 16"),
         "presion_add_esterilizacion": (9.0, 15.0, "migración tanda 16")}
     # aviso SIS-06 por parámetro, con su unidad
     ctx._avisar_migraciones_correctivas()
     avisos = {i.valores["parametro"]: i.valores for i in ctx.alarm_manager.activas()
               if i.definicion.codigo == SIS_06}
-    assert set(avisos) == {"brecha_segura_temperatura", "presion_add_esterilizacion"}
-    assert avisos["brecha_segura_temperatura"]["unidad"] == "°C"
+    assert set(avisos) == {"presion_add_esterilizacion"}
+    assert avisos["presion_add_esterilizacion"]["unidad"] == "kPa"
     assert (avisos["presion_add_esterilizacion"]["anterior"],
             avisos["presion_add_esterilizacion"]["nuevo"]) == ("9", "15")
     assert ctx.alarm_manager.has_blocking_alarm() is False
@@ -259,29 +272,32 @@ def test_p2_brecha_03_y_presion_add_al_minimo(tmp_path):
     f = filas["134_instrumental/esterilizacion/presion_add_esterilizacion"]
     assert (f["valor_anterior"], f["valor_nuevo"]) == ("9.0", "15.0")
     assert f["detalle"]["origen"] == "migración tanda 16" and f["usuario"] == "sistema"
-    f = filas["134_instrumental/esterilizacion/brecha_segura_temperatura"]
-    assert (f["valor_anterior"], f["valor_nuevo"]) == ("0.3", "1.0")
+    assert "134_instrumental/esterilizacion/brecha_segura_temperatura" not in filas
     datos = json.loads(ruta.read_text(encoding="utf-8"))["parameters"]["esterilizacion"]
     assert datos["presion_add_esterilizacion"]["value"] == 15.0
     assert datos["brecha_segura_temperatura"]["value"] == 1.0
     bak = json.loads((ruta.parent / (ruta.name + ".bak")).read_text(encoding="utf-8"))
-    assert bak["parameters"]["esterilizacion"]["brecha_segura_temperatura"]["value"] == 0.3
+    assert bak["parameters"]["esterilizacion"]["presion_add_esterilizacion"]["value"] == 9.0
     # el siguiente arranque ya no migra
     assert _cargar(tmp_path).cycle_manager.migraciones_correctivas() == []
 
 
-def test_p2_solo_brecha_si_presion_add_ya_alcanza(tmp_path):
+def test_p2_ya_no_sube_la_brecha_03(tmp_path):
+    """A14-M3 (tanda 28): el paso 1 de P2 (0,3 → 1,0) está retirado; un
+    programa con 0,3 y presion_add suficiente no se migra."""
     _instalar(tmp_path, esterilizacion__brecha_segura_temperatura=0.3)
     ctx = _cargar(tmp_path)
-    assert _correcciones(ctx, "134_instrumental") == {
-        "brecha_segura_temperatura": (0.3, 1.0, "migración tanda 16")}
+    c = ctx.cycle_manager.cycles["134_instrumental"]
+    assert c.get_param("esterilizacion", "brecha_segura_temperatura") == 0.3
+    assert _correcciones(ctx, "134_instrumental") == {}
 
 
 def test_extension_sube_presion_add_aunque_la_brecha_ya_sea_1(tmp_path):
     """V-04: un programa con brecha 1,0 que incumple P1 al cargar (los de
     usuario de la compilación I: 121 °C/9) sube presion_add_esterilizacion al
     mínimo redondeado a 0,5 kPa, con la misma auditoría."""
-    _instalar(tmp_path, "user/instrumental_121.json",
+    _instalar(tmp_path, "user/instrumental_121.json", marca_m3=True,
+              esterilizacion__brecha_segura_temperatura=1.0,
               esterilizacion__presion_add_esterilizacion=9.0)
     ctx = _cargar(tmp_path)
     c = ctx.cycle_manager.cycles["instrumental_121"]
@@ -292,14 +308,17 @@ def test_extension_sube_presion_add_aunque_la_brecha_ya_sea_1(tmp_path):
 
 
 def test_extension_134_5_sube_a_15(tmp_path):
-    _instalar(tmp_path, "user/bowe_dick.json", esterilizacion__presion_add_esterilizacion=9.0)
+    _instalar(tmp_path, "user/bowe_dick.json", marca_m3=True,
+              esterilizacion__brecha_segura_temperatura=1.0,
+              esterilizacion__presion_add_esterilizacion=9.0)
     ctx = _cargar(tmp_path)
     c = ctx.cycle_manager.cycles["bowe_dick"]
     assert not c.danado and c.get_param("esterilizacion", "presion_add_esterilizacion") == 15.0
 
 
 def test_c04_4_y_p2_una_sola_correccion(tmp_path):
-    _instalar(tmp_path, esterilizacion__presion_add_esterilizacion=99.0)
+    _instalar(tmp_path, marca_m3=True, esterilizacion__brecha_segura_temperatura=1.0,
+              esterilizacion__presion_add_esterilizacion=99.0)
     ctx = _cargar(tmp_path)
     c = ctx.cycle_manager.cycles["134_instrumental"]
     assert c.get_param("esterilizacion", "presion_add_esterilizacion") == 15.0
@@ -309,34 +328,35 @@ def test_c04_4_y_p2_una_sola_correccion(tmp_path):
 
 def test_salvaguarda_del_alivio_no_migra_nada_y_avisa(tmp_path):
     """Con el alivio de chaqueta del equipo en 340 kPa, subir a 15 dejaría la
-    consigna + 10 en 344,2 kPa: no se migra nada (ni la brecha) y se avisa.
-    El programa queda como estaba (con brecha 0,3 y 9 cumple P1)."""
+    consigna + 10 en 344,2 kPa: no se migra nada y se avisa. Brecha 1,0
+    fijada a mano (marca de M3, tanda 28) y 9 kPa: el archivo queda como
+    estaba."""
     cp.fijar_config_equipo(_Config(presion_suministro_vapor=300, presion_alivio_chaqueta=340))
-    ruta = _instalar(tmp_path, esterilizacion__brecha_segura_temperatura=0.3,
+    ruta = _instalar(tmp_path, marca_m3=True, esterilizacion__brecha_segura_temperatura=1.0,
                      esterilizacion__presion_add_esterilizacion=9.0,
                      globals__presion_chaqueta=250)
     antes = ruta.read_text(encoding="utf-8")
     ctx = _cargar(tmp_path)
     c = ctx.cycle_manager.cycles["134_instrumental"]
-    assert c.get_param("esterilizacion", "brecha_segura_temperatura") == 0.3
+    assert c.get_param("esterilizacion", "brecha_segura_temperatura") == 1.0
     assert c.get_param("esterilizacion", "presion_add_esterilizacion") == 9.0
-    assert not c.danado
     assert ctx.cycle_manager.migraciones_correctivas() == []
     [(prog, m)] = ctx.cycle_manager.migraciones_no_aplicadas()
     assert prog is c and "alivio de chaqueta (340 kPa)" in m["motivo"]
     ctx._avisar_migraciones_correctivas()
     avisos = [i for i in ctx.alarm_manager.activas() if i.definicion.codigo == SIS_06]
-    assert {i.valores["parametro"] for i in avisos} == {"brecha_segura_temperatura",
-                                                        "presion_add_esterilizacion"}
+    assert {i.valores["parametro"] for i in avisos} == {"presion_add_esterilizacion"}
     assert all("no se migró" in i.valores["motivo"] for i in avisos)
     assert ruta.read_text(encoding="utf-8") == antes
 
 
 def test_salvaguarda_con_programa_que_incumple_p1_queda_danado_y_avisa(tmp_path):
-    """Brecha 1,0 y 9 kPa a 134 °C, alivio de chaqueta 340: la subida a 15 no
-    cabe; el programa no se toca, queda dañado por P1 y el aviso se emite."""
+    """Brecha 1,0 (marca de M3) y 9 kPa a 134 °C, alivio de chaqueta 340: la
+    subida a 15 no cabe; el programa no se toca, queda dañado por P1 y el
+    aviso se emite."""
     cp.fijar_config_equipo(_Config(presion_suministro_vapor=300, presion_alivio_chaqueta=340))
-    _instalar(tmp_path, esterilizacion__presion_add_esterilizacion=9.0,
+    _instalar(tmp_path, marca_m3=True, esterilizacion__brecha_segura_temperatura=1.0,
+              esterilizacion__presion_add_esterilizacion=9.0,
               globals__presion_chaqueta=250)
     ctx = _cargar(tmp_path)
     c = ctx.cycle_manager.cycles["134_instrumental"]

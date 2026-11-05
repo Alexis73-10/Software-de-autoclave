@@ -5,8 +5,8 @@
 | A14 | Pendiente | |
 | A14-diag | Hecho | 1074df35 |
 | A14-M1 | Hecho | e538773c |
-| A14-M2 | Hecho | (este commit) |
-| A14-M3 | Pendiente | |
+| A14-M2 | Hecho | 6f07cf1c |
+| A14-M3 | Hecho | (este commit) |
 | A14-docs | Pendiente | |
 | A12 | Pendiente | |
 | Revisor final + suite + CERRADO.txt | Pendiente | |

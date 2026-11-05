@@ -1,6 +1,7 @@
 """J12 (tanda 12): valores de los 8 JSON de programa.
 
-C-07.1: brecha_segura_temperatura = 1.0. C-13.4: esterilizacion.
+C-07.1: brecha_segura_temperatura = 1.0 (la tanda 28, A14-M3, la devuelve a
+0.3 por decisión de Cristian). C-13.4: esterilizacion.
 timeout_excursion_referencia = 5 min (int, 1–30). C-05.3: globals.
 delta_temp_chaqueta = 1.5 y margen_flujo_chaqueta = 15. Los 8 cargan sin
 errores y ningún programa de fábrica queda rechazado (T10)."""
@@ -74,9 +75,10 @@ def test_etiquetas_i18n_de_los_parametros_nuevos():
 
 
 @pytest.mark.parametrize("ruta", PROGRAMAS, ids=lambda r: "/".join(Path(r).parts[-2:]))
-def test_c_07_1_brecha_segura_temperatura_1(ruta):
-    """C-07.1: el control apunta a T_est + 1 K, dentro de la banda de +3 K.
-    OJO al unir: sin el techo en RECUPERACION de E12 (C-08.3) los ensayos de
-    simulador fallan por presión alta (ver informe J12)."""
+def test_c_07_1_brecha_segura_temperatura_03_t28_m3(ruta):
+    """C-07.1 (tanda 12) fijó 1.0; A14-M3 (tanda 28, decisión de Cristian) la
+    devuelve a 0.3 en todos los programas (banda PWM anclada a
+    Psat(T_est + 0.6), lejos del techo de control)."""
     p = json.loads(Path(ruta).read_text(encoding="utf-8"))["parameters"]
-    assert p["esterilizacion"]["brecha_segura_temperatura"]["value"] == 1.0
+    assert p["esterilizacion"]["brecha_segura_temperatura"]["value"] == 0.3
+    assert p["esterilizacion"]["brecha_segura_temperatura"]["value"] ==         cp.BRECHA_SEGURA_TEMPERATURA_DEFECTO

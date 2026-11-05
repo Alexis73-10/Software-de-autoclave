@@ -63,13 +63,21 @@ MARGEN_CHAQUETA_EST_DEFECTO = 8.0          # kPa (clase diferencia, 2–30)
 HIST_SALIDA_RECUPERACION_K = 0.3
 MARGEN_COHERENCIA_RECUPERACION_K = 0.3
 CODIGO_COHERENCIA_RECUPERACION = "COHERENCIA_RECUPERACION"
-# P2 (D-14.2): migración de brecha_segura_temperatura 0,3 → 1,0 y subida de
-# presion_add_esterilizacion al mínimo de P1, redondeado hacia arriba a este
-# paso (DECISIÓN SIN CONFIRMAR: 0,5 kPa)
-BRECHA_SEGURA_VIEJA = 0.3
-BRECHA_SEGURA_NUEVA = 1.0
+# P2 (D-14.2): subida de presion_add_esterilizacion al mínimo de P1,
+# redondeado hacia arriba a este paso (DECISIÓN SIN CONFIRMAR: 0,5 kPa). El
+# paso 1 de P2 (brecha_segura_temperatura 0,3 → 1,0) lo retiró la tanda 28
+# (A14-M3, decisión de Cristian): se aplicaba en cada carga y revertiría el 0,3.
 PASO_MIGRACION_PRESION_ADD = 0.5
 ORIGEN_MIGRACION_T16 = "migración tanda 16"
+# A14-M3 (tanda 28, decisión de Cristian): brecha_segura_temperatura = 0,3 °C
+# (defecto). Migración única al cargar: un programa con 1,0 (el valor de la
+# tanda 12/16) pasa a 0,3; un valor distinto de 1,0 y 0,3 no se toca. La marca
+# MARCA_MIGRACION_T28_M3 en la hoja del parámetro la hace idempotente: un 1,0
+# fijado después a mano se conserva.
+BRECHA_SEGURA_TEMPERATURA_DEFECTO = 0.3
+BRECHA_SEGURA_ANTERIOR_T16 = 1.0
+MARCA_MIGRACION_T28_M3 = "migrado_t28_m3"
+ORIGEN_MIGRACION_T28_M3 = "migración tanda 28 (M3)"
 
 # Códigos de rechazo (ErrorCoherencia.codigo) de los límites físicos
 CODIGO_LIMITE_CAMARA = "LIMITE_PRESION_CAMARA"

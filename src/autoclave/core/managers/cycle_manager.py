@@ -147,8 +147,41 @@ def migrar_parametros(parameters, correcciones: list | None = None,
                                      "nuevo": nuevo,
                                      "origen": catalogo_parametros.ORIGEN_MIGRACION_T12})
     if recuperacion:
+        # A14-M3 antes que P2: el mínimo de P1 se calcula con la brecha final
+        cambio = _migrar_brecha_t28(parameters, correcciones) or cambio
         cambio = _migrar_recuperacion(parameters, correcciones, no_migradas) or cambio
     return cambio
+
+
+def _migrar_brecha_t28(parameters: dict, correcciones) -> bool:
+    """A14-M3 (tanda 28, decisión de Cristian): migración única de
+    brecha_segura_temperatura 1,0 → 0,3. Solo una vez por programa: la hoja
+    del parámetro queda con la marca MARCA_MIGRACION_T28_M3 (en memoria; llega
+    al archivo cuando se reescribe, con la migración o con cualquier guardado).
+    Un programa ya marcado no se toca aunque tenga 1,0 (fijado a mano después),
+    y un valor distinto de 1,0 y 0,3 (p. ej. 0,7) tampoco: solo se marca. La
+    corrección va a `correcciones` con origen «migración tanda 28 (M3)»
+    (auditoría, SIS-06 y .bak en el backend, como C-04.4 y P2). Valores
+    ausentes o no numéricos no se tocan ni se marcan."""
+    cp = catalogo_parametros
+    est = parameters.get("esterilizacion")
+    if not isinstance(est, dict):
+        return False
+    hoja, brecha = _hoja_valor(est, "brecha_segura_temperatura")
+    if hoja is None or not _es_numero(brecha) or hoja.get(cp.MARCA_MIGRACION_T28_M3) is True:
+        return False
+    hoja[cp.MARCA_MIGRACION_T28_M3] = True
+    if abs(brecha - cp.BRECHA_SEGURA_ANTERIOR_T16) >= 1e-9:
+        return True                  # solo la marca: el valor no cambia
+    nuevo = cp.BRECHA_SEGURA_TEMPERATURA_DEFECTO
+    hoja["value"] = nuevo
+    logger.warning("Programa con esterilizacion.brecha_segura_temperatura = %r: migrado a %g °C (%s)",
+                   brecha, nuevo, cp.ORIGEN_MIGRACION_T28_M3)
+    if correcciones is not None:
+        correcciones.append({"fase": "esterilizacion", "parametro": "brecha_segura_temperatura",
+                             "anterior": brecha, "nuevo": nuevo,
+                             "origen": cp.ORIGEN_MIGRACION_T28_M3, "unidad": "°C"})
+    return True
 
 
 def _agregar_claves_t16(parameters: dict) -> bool:
@@ -194,11 +227,12 @@ def _redondear_arriba(valor: float, paso: float) -> float:
 
 def _migrar_recuperacion(parameters: dict, correcciones, no_migradas) -> bool:
     """P2 (tanda 16, D-14.2) y su extensión (V-04, DECISIÓN SIN CONFIRMAR):
-    1. brecha_segura_temperatura 0,3 → 1,0;
-    2. si, con la brecha resultante, el programa no cumple P1 (D-14.1),
+    1. (retirado en la tanda 28, A14-M3: era brecha_segura_temperatura
+       0,3 → 1,0 en cada carga; ahora la brecha la migra _migrar_brecha_t28);
+    2. si, con la brecha del programa, no cumple P1 (D-14.1),
        presion_add_esterilizacion sube al mínimo de P1 redondeado hacia arriba
-       a 0,5 kPa (DECISIÓN SIN CONFIRMAR). El paso 2 aplica a cualquier
-       programa que incumpla P1 al cargar, no solo a los que tenían 0,3;
+       a 0,5 kPa (DECISIÓN SIN CONFIRMAR). Aplica a cualquier programa que
+       incumpla P1 al cargar;
     3. salvaguarda: si con el valor nuevo la consigna de chaqueta + 10 llega
        al alivio de chaqueta (o el techo de cámara al alivio de cámara, o
        presion_add pasa del máximo del catálogo), no se migra NADA del
@@ -210,17 +244,13 @@ def _migrar_recuperacion(parameters: dict, correcciones, no_migradas) -> bool:
     if not isinstance(est, dict):
         return False
     cp = catalogo_parametros
-    hoja_b, brecha = _hoja_valor(est, "brecha_segura_temperatura")
+    _, brecha = _hoja_valor(est, "brecha_segura_temperatura")
     hoja_a, add = _hoja_valor(est, "presion_add_esterilizacion")
     _, t_est = _hoja_valor(est, "temperatura_esterilizacion")
     cambios = []                     # (hoja, parametro, anterior, nuevo, unidad)
-    brecha_final = brecha
-    if _es_numero(brecha) and abs(brecha - cp.BRECHA_SEGURA_VIEJA) < 1e-9:
-        brecha_final = cp.BRECHA_SEGURA_NUEVA
-        cambios.append((hoja_b, "brecha_segura_temperatura", brecha, brecha_final, "°C"))
     add_final = add
     if _es_numero(add):
-        minimo = cp.presion_add_minima_recuperacion(t_est, brecha_final)
+        minimo = cp.presion_add_minima_recuperacion(t_est, brecha)
         if minimo is not None and add < minimo - 1e-9:
             add_final = _redondear_arriba(minimo, cp.PASO_MIGRACION_PRESION_ADD)
             cambios.append((hoja_a, "presion_add_esterilizacion", add, add_final, "kPa"))

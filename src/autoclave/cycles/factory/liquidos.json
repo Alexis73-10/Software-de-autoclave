@@ -468,7 +468,7 @@
                 "max": 100
             },
             "brecha_segura_temperatura": {
-                "value": 1.0,
+                "value": 0.3,
                 "type": "float",
                 "unit": "°C",
                 "clase": "diferencia",
