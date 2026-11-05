@@ -11,8 +11,8 @@ AIN-04) y la de fábrica debe ser la nominal de MOD-04 (temperatura, canales
 kPa con adc_piso_senal 3850; gain 1.0, offset 0.0, sin
 adc_falla_* y con los márgenes por defecto). Revisión R (V19-s2-01): si falta,
 la verificación FALLA (antes solo avisaba).
-Tanda 20 (T20-03): la calibración serial (`calibration.yaml` y su plantilla
-neutra) se retiró; si la compilación todavía trae `calibration.yaml`, FALLA.
+Tanda 20 (T20-03): `calibration.yaml` (calibración en cuentas del ADC) ya no
+existe; si la compilación todavía lo trae, FALLA.
 Sale con 0 si todo está bien y con 1 (y el motivo) si algo falta o difiere: la
 entrega no se publica con la calibración del banco."""
 import hashlib
@@ -20,7 +20,7 @@ import sys
 from pathlib import Path
 
 NOMBRE_MODBUS = "calibration_modbus.yaml"
-# Calibración del enlace serial, retirada en la tanda 20 (T20-03).
+# Calibración en cuentas del ADC, retirada en la tanda 20 (T20-03).
 NOMBRE_SERIAL_RETIRADA = "calibration.yaml"
 
 
@@ -116,8 +116,8 @@ def main(argv) -> int:
     config = Path(argv[1]) / "_internal" / "autoclave" / "config"
     serial = config / NOMBRE_SERIAL_RETIRADA
     if serial.exists():
-        print(f"FALLA: la compilación trae {serial} (calibración del enlace "
-              f"serial, retirado en la tanda 20)")
+        print(f"FALLA: la compilación trae {serial} (calibración "
+              f"retirada en la tanda 20)")
         return 1
     modbus = config / NOMBRE_MODBUS
     if not modbus.is_file():
