@@ -15,7 +15,7 @@ from PySide6.QtCore import (
 
 from autoclave.core.runtime.alarmas_i18n import clave_motivo_bloqueo
 from autoclave.state_machine.alarms.catalogo import codigo_visible
-from autoclave.ui_qml.domain import entradas_mostradas
+from autoclave.ui_qml.domain import detalle_aviso, entradas_mostradas
 from autoclave.ui_qml.domain import pantalla_ciclo as dominio
 
 ESTADO_DESCONOCIDO = "DESCONOCIDO"
@@ -274,6 +274,7 @@ class UiBridge(QObject):
         self._alarms = AlarmListModel(self)
         # E5 (tanda 2026-10-14): NO ABRIR, paro, estado seguro y modo prueba
         self._seguridad = self._seguridad_de({})
+        self._apariciones: dict = {}
 
         self._timer = QTimer(self)
         self._timer.setInterval(intervalo_ms)
@@ -360,6 +361,10 @@ class UiBridge(QObject):
             "no_abrir": self._ui.get_campo("no_abrir", True),
             "motivo": self._ui.get_campo("camara_segura_motivo", ""),
             "motivo_textos": self._ui.get_campo("camara_segura_motivo_textos", None),
+            # ALD (tanda 26): código, valores y límites del motivo para el detalle
+            "motivo_codigo": self._ui.get_campo("camara_segura_motivo_codigo", None),
+            "motivo_valores": self._ui.get_campo("camara_segura_motivo_valores", None),
+            "limites": self._ui.get_campo("camara_segura_limites", None),
             # ESS-02: el motivo de NO ABRIR es solo un sensor sin lectura
             "motivo_es_sensor": self._ui.get_campo("camara_segura_motivo_es_sensor", False),
             "modo_prueba": self._ui.get_campo("test_mode_active", False),
@@ -369,6 +374,10 @@ class UiBridge(QObject):
             "estado_seguro": self._ui.get_campo("estado_seguro", {}),
             "sin_bd": self._ui.get_campo("sin_base_de_datos", False),
         }) if self._connected else self._seguridad_de({}), self.seguridadChanged)
+        # ALD: hora en que apareció cada fila sintética (solo informativa)
+        self._apariciones = detalle_aviso.actualizar_apariciones(
+            self._apariciones, detalle_aviso.claves_activas(self._seguridad, self._connected),
+            detalle_aviso.ahora_iso())
 
     @staticmethod
     def _seguridad_de(datos: dict) -> dict:
@@ -378,6 +387,10 @@ class UiBridge(QObject):
         return {
             "no_abrir": datos.get("no_abrir", True) is not False,
             "motivo": str(datos.get("motivo") or ""),
+            # ALD (tanda 26): datos del motivo para el detalle de NO ABRIR
+            "motivo_codigo": datos.get("motivo_codigo") if isinstance(datos.get("motivo_codigo"), str) else "",
+            "motivo_valores": dict(datos["motivo_valores"]) if isinstance(datos.get("motivo_valores"), dict) else {},
+            "limites": dict(datos["limites"]) if isinstance(datos.get("limites"), dict) else {},
             # I4 (tanda 6): el mismo motivo en es/en, si el backend lo mandó
             "motivo_textos": {k: v for k, v in datos["motivo_textos"].items()
                               if isinstance(k, str) and isinstance(v, str) and v}
@@ -454,6 +467,20 @@ class UiBridge(QObject):
         texto en español de siempre."""
         from autoclave import i18n
         return self._seguridad["motivo_textos"].get(i18n.idioma()) or self._seguridad["motivo"]
+
+    @Property("QVariantMap", notify=seguridadChanged)
+    def contextoAviso(self) -> dict:
+        """ALD (tanda 26): datos para armar el detalle de las filas sintéticas
+        (DetalleAviso.armar): motivo de NO ABRIR con valores y límites, causa
+        del estado seguro y hora de aparición de cada fila."""
+        s = self._seguridad
+        return {
+            "noAbrir": {"codigo": s.get("motivo_codigo", ""), "valores": s.get("motivo_valores", {}),
+                        "limites": s.get("limites", {}), "motivo": s.get("motivo", ""),
+                        "textos": s.get("motivo_textos", {})},
+            "causa": s.get("es_causa", ""),
+            "apariciones": dict(self._apariciones),
+        }
 
     @Property(bool, notify=seguridadChanged)
     def noAbrirPorSensor(self) -> bool:

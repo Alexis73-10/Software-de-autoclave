@@ -490,8 +490,30 @@ def _motivo_es_sensor(estado, programas, vigentes: bool, temp_max_ciclo) -> bool
         return False
 
 
+def _limites_camara_segura(temp_max_ciclo) -> dict:
+    """ALD (tanda 26): límites con que se juzga la cámara, solo lectura, para
+    el detalle de NO ABRIR (la UI muestra valor medido y límite). Mismos
+    números que camara_segura.evaluar: `temp_max_apertura` es el vigente (el
+    menor entre el del equipo y el del último ciclo), la presión va en kPa
+    absolutos. Un límite sin configuración o ante un error: None."""
+    try:
+        cfg = context.config_manager
+        temp_max = camara_segura._numero(cfg.get(camara_segura.CLAVE_TEMP_MAX))
+        del_ciclo = camara_segura._numero(temp_max_ciclo)
+        vigente = temp_max if del_ciclo is None or temp_max is None else min(temp_max, del_ciclo)
+        atm = camara_segura._numero(cfg.get(camara_segura.CLAVE_ATM))
+        rango = camara_segura._numero(cfg.get(camara_segura.CLAVE_RANGO))
+        return {"temp_max_apertura": vigente, "temp_max_apertura_equipo": temp_max,
+                "temp_max_apertura_ciclo": del_ciclo,
+                "presion_atmosferica": atm, "rango_presion_atm": rango}
+    except Exception:
+        logger.exception("/status: no se pudieron leer los límites de cámara segura")
+        return {}
+
+
 def _camara_segura_status(estado) -> dict:
     es_sensor = False
+    temp_max_ciclo = None
     try:
         programas = context.programas_para_seguridad()
         # S9, revisión ★ pasada 3 (R3-M1): con la presión al día (DI + AI +
@@ -517,7 +539,9 @@ def _camara_segura_status(estado) -> dict:
             # I4 (tanda 6): código, parámetros y textos es/en del motivo (o None)
             "camara_segura_motivo_codigo": campos.get("motivo_codigo"),
             "camara_segura_motivo_valores": campos.get("motivo_valores"),
-            "camara_segura_motivo_textos": campos.get("motivo_textos")}
+            "camara_segura_motivo_textos": campos.get("motivo_textos"),
+            # ALD (tanda 26): límites de solo lectura para el detalle de NO ABRIR
+            "camara_segura_limites": _limites_camara_segura(temp_max_ciclo)}
 
 
 def _sensores_programa(estado) -> dict:

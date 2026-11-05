@@ -2450,6 +2450,77 @@
     "cerrar": "Close",
     "sin_dato": "—"
   },
+  "aviso_detalle": {
+    "sin_conexion": {
+      "titulo": "No connection with the equipment",
+      "accion": "Do not open the door. Check that the equipment program is running; if the connection does not return, call technical service."
+    },
+    "modulo_es_desconectada": {
+      "titulo": "I/O module disconnected",
+      "accion": "Check the network cable and the I/O module power supply. Do not open the door until the connection is back. If it persists, call technical service."
+    },
+    "modulo_es_sin_datos": {
+      "titulo": "The I/O module is not sending valid data",
+      "accion": "Check the network cable and the I/O module power supply. Do not open the door. If it persists, call technical service."
+    },
+    "paro": {
+      "titulo": "Emergency stop",
+      "accion": "Release the emergency stop button. Do not open the door; the safe state must be confirmed afterwards."
+    },
+    "estado_seguro_pendiente": {
+      "titulo": "Safe state pending",
+      "accion": "Check that there is no leak and confirm with the Confirm and bring to safe state button; any operator can do it, without logging in."
+    },
+    "estado_seguro_en_curso": {
+      "titulo": "Taking the chamber to a safe state",
+      "accion": "Wait: the equipment is taking the chamber to a safe state. Do not open the door until the chamber is safe."
+    },
+    "no_abrir": {
+      "titulo": "DO NOT OPEN",
+      "accion": "Do not open the door until this notice disappears."
+    },
+    "modo_prueba": {
+      "titulo": "Test mode active",
+      "accion": "Cycles run in test mode are not valid for sterile loads. Leave test mode when the tests are done."
+    },
+    "arranque": {
+      "titulo": "Startup failure",
+      "accion": "Close the program and open it again. If the failure repeats, call technical service."
+    },
+    "no_abrir_motivos": {
+      "temp_alta": {
+        "descripcion": "Chamber temperature: {valor}. Limit to open: {limite} (the lower of the equipment limit and that of the last cycle's program).",
+        "accion": "Wait until the temperature drops below {limite}. Do not open the door before."
+      },
+      "sobrepresion": {
+        "descripcion": "Chamber pressure: {valor}. Safe range: {minimo} to {maximo} (atmospheric pressure ± range).",
+        "accion": "Wait until the chamber depressurizes to the safe range. Do not open the door."
+      },
+      "vacio": {
+        "descripcion": "Chamber pressure: {valor}. Safe range: {minimo} to {maximo} (atmospheric pressure ± range).",
+        "accion": "Wait until the chamber returns to atmospheric pressure. Do not open the door."
+      },
+      "sin_presion_camara": {
+        "descripcion": "No valid chamber pressure reading.",
+        "accion": "Check the chamber pressure sensor connection. If it persists, call technical service."
+      },
+      "sin_temp_camara": {
+        "descripcion": "No valid chamber temperature reading.",
+        "accion": "Check the Principal probe. If it persists, call technical service."
+      },
+      "sin_datos_vigentes": {
+        "descripcion": "No connection with the I/O module: data not current.",
+        "accion": "Check the network cable and the I/O module power supply. If it persists, call technical service."
+      },
+      "falta_config": {
+        "descripcion": "Missing configuration: {claves}.",
+        "accion": "Call technical service to complete the configuration."
+      },
+      "generico": {
+        "accion": "Call technical service if the notice does not go away."
+      }
+    }
+  },
   "calendario": {
     "titulo_desde": "From date",
     "titulo_hasta": "To date",
