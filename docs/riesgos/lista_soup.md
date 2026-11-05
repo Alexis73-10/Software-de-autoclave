@@ -66,3 +66,5 @@ No los importa `src/autoclave` y ya no entran en el ejecutable compilado con el 
 | pyqtgraph | — | No se importa. Quitado de `pyproject.toml` |
 
 Firmware ESP32 (`Hardware/Comunicacion_esclava_ESP32_V2` y `_V3`), su núcleo Arduino y sus librerías: **retirados en la tanda 20 (T20-03)** junto con el enlace serial (copia en `G:\Respaldos_autoclave\pre_tanda20_20261027_1448`, etiqueta `respaldo-serial-pre-t20`).
+
+Tanda 27 (5-nov-2026): sin cambios de dependencias; PySide6-Fluent-Widgets se conserva porque `ui_pyside` no se retira (DEP-01).
