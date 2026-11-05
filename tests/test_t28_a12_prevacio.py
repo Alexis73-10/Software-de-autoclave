@@ -109,7 +109,7 @@ def test_sin_el_parametro_usa_el_defecto_10(reloj):
     assert fase._paso == "DECOMPRESION"
 
 
-@pytest.mark.parametrize("valor,esperado", [(-5, 0.0), (0, 0.0), (45, 30.0), ("10", 10.0),
+@pytest.mark.parametrize("valor,esperado", [(-5, 2.0), (0, 2.0), (45, 15.0), ("10", 10.0),
                                             (None, 10.0), (True, 10.0)])
 def test_presion_inicio_vacio_recortada(valor, esperado):
     fase, _, _ = _fase({"presion_inicio_vacio": valor})
@@ -233,7 +233,7 @@ def test_programas_del_repo_con_los_parametros(ruta):
     p = json.loads(Path(ruta).read_text(encoding="utf-8"))["parameters"]
     h = p["prevacio"]["presion_inicio_vacio"]
     assert (h["value"], h["type"], h["unit"], h["clase"], h["min"], h["max"]) == \
-        (10.0, "float", "kPa", "diferencia", 0, 30)
+        (10.0, "float", "kPa", "diferencia", 2, 15)
     h = p["prevacio"]["timeout_descompresion"]
     assert (h["value"], h["type"], h["unit"], h["min"], h["max"]) == (5, "int", "min", 1, 30)
     assert cp.errores_programa(p) == []
@@ -244,9 +244,9 @@ def test_programas_del_repo_con_los_parametros(ruta):
 
 def test_catalogo_rangos():
     hoja = {"type": "float"}
-    assert cp.coercionar(hoja, "prevacio", ["presion_inicio_vacio"], 0) == 0
-    assert cp.coercionar(hoja, "prevacio", ["presion_inicio_vacio"], 30) == 30
-    for malo in (-0.1, 30.1, True, "10"):
+    assert cp.coercionar(hoja, "prevacio", ["presion_inicio_vacio"], 2) == 2
+    assert cp.coercionar(hoja, "prevacio", ["presion_inicio_vacio"], 15) == 15
+    for malo in (1.9, 15.1, True, "10"):
         with pytest.raises(ValueError):
             cp.coercionar(hoja, "prevacio", ["presion_inicio_vacio"], malo)
     hoja = {"type": "int"}
@@ -261,7 +261,7 @@ def _datos(nombre="factory/instrumental_134.json"):
     return json.loads((CICLOS / nombre).read_text(encoding="utf-8"))
 
 
-@pytest.mark.parametrize("clave,valor", [("presion_inicio_vacio", 31.0),
+@pytest.mark.parametrize("clave,valor", [("presion_inicio_vacio", 15.1),
                                          ("timeout_descompresion", 0)])
 def test_validacion_al_cargar_y_al_guardar(clave, valor):
     p = _datos()["parameters"]

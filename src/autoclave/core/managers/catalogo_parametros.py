@@ -207,7 +207,7 @@ _poner("esterilizacion", "max_reinicios_exposicion", 0, 10,
 # ── Tanda 28 ───────────────────────────────────────────────────────────────
 _poner("esterilizacion", "margen_chaqueta_est", 2, 30,
        "A14-M2 (tanda 28): margen del corte de vapor_chaqueta sobre la consigna")
-_poner("prevacio", "presion_inicio_vacio", 0, 30,
+_poner("prevacio", "presion_inicio_vacio", 2, 15,
        "A12 (tanda 28): presión sobre la atmosférica para arrancar el vacío del pulso")
 _poner("prevacio", "timeout_descompresion", 1, 30,
        "A12 (tanda 28): tiempo límite del paso de descompresión del pulso")

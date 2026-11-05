@@ -94,7 +94,7 @@ _CLAVES_NUEVAS_T28 = (
 _CLAVES_NUEVAS_A12 = (
     ("prevacio", "presion_inicio_vacio",
      {"value": catalogo_parametros.PRESION_INICIO_VACIO_DEFECTO, "type": "float", "unit": "kPa",
-      "clase": "diferencia", "min": 0, "max": 30}, "kPa"),
+      "clase": "diferencia", "min": 2, "max": 15}, "kPa"),
     ("prevacio", "timeout_descompresion",
      {"value": catalogo_parametros.TIMEOUT_DESCOMPRESION_DEFECTO, "type": "int", "unit": "min",
       "min": 1, "max": 30}, "min"),
