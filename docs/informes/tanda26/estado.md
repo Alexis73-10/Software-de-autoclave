@@ -2,4 +2,4 @@
 
 | Paso | Estado | Último commit |
 |---|---|---|
-| 2. ALD | Hecho | (ver git log: «ALD» tanda 26) |
+| 2. ALD | Hecho | eb0e2f81 |
