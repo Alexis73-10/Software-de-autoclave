@@ -5,7 +5,8 @@
 | A1 unidades | Hecho | ver git log |
 | A2 standby | Hecho | ver git log |
 | A3 INICIAR oculto | Hecho | ver git log |
-| A4 sin momentáneas | Hecho (revisor: aceptar; suite Parte A en curso) | ver git log |
+| A4 sin momentáneas | Hecho (revisor: aceptar) | 81c221b4 |
+| Parte A cierre (suite verde) | Hecho | ver git log |
 | 0 línea base | Pendiente | |
 | 1 inventario | Pendiente | |
 | 3 retiro ESP32 | Pendiente | |
