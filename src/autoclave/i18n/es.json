@@ -328,6 +328,7 @@
     "err_limite_presion_chaqueta": "No se puede guardar: «Presión de chaqueta» + «Rango de presión de chaqueta» llega al alivio de chaqueta ({alivio_chaqueta} kPa). La presión de chaqueta debe ser menor que {valor} kPa.",
     "aviso_techo_sobre_suministro": "Guardado con advertencia: el techo de presión de cámara supera el suministro (350 kPa). La cámara no lo alcanzará y la válvula de vapor de cámara quedará abierta en ese tramo.",
     "aviso_chaqueta_abierta": "Guardado con advertencia: la presión de chaqueta pedida supera el suministro (350 kPa). La válvula de vapor de chaqueta quedará abierta sin llegar a la consigna.",
+    "aviso_banda_pwm_techo": "Guardado con advertencia: la banda de control de esterilización queda a menos de 5 kPa del techo de presión. Puede haber sobreimpulso y aislamientos repetidos de la cámara; revise el margen de recuperación por temperatura o el margen de presión de esterilización.",
     "aviso_liquido_previo": "Con carga líquida solo se permiten los modos de descompresión 4, 5 y 0. Si el modo actual es otro, al guardar cambiará al modo 4.",
     "modos_titulo": "Modos disponibles"
   },

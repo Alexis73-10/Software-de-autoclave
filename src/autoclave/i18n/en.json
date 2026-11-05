@@ -328,6 +328,7 @@
     "err_limite_presion_chaqueta": "Cannot save: jacket pressure plus jacket pressure range reaches the jacket relief ({alivio_chaqueta} kPa). The jacket pressure must be lower than {valor} kPa.",
     "aviso_techo_sobre_suministro": "Saved with a warning: the chamber pressure ceiling is above the supply (350 kPa). The chamber will not reach it and the chamber steam valve will stay open in that stage.",
     "aviso_chaqueta_abierta": "Saved with a warning: the requested jacket pressure is above the supply (350 kPa). The jacket steam valve will stay open without reaching the setpoint.",
+    "aviso_banda_pwm_techo": "Saved with a warning: the sterilization control band is less than 5 kPa below the pressure ceiling. Overshoot and repeated chamber isolations may occur; review the temperature recovery margin or the sterilization pressure margin.",
     "aviso_liquido_previo": "With a liquid load only depressurization modes 4, 5 and 0 are allowed. If the current mode is another one, it will change to mode 4 when saved.",
     "modos_titulo": "Available modes"
   },

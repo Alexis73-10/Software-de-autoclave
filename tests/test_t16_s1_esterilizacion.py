@@ -90,8 +90,9 @@ def test_modo_chaqueta_recuperacion_conmuta_chaqueta_y_deja_camara_abierta(monke
 
 
 def test_modo_chaqueta_pwm_conmuta_solo_chaqueta(monkeypatch):
-    # PWM_ACTIVO: T >= 134 + 0.3 + 0.3; banda dentro de [Psat(T)-2, Psat(T)+1]
-    f, estado, set_do, reloj = _chaqueta(monkeypatch, temp=135.0, pres=ap.psat(135.0))
+    # PWM_ACTIVO: T >= 134 + 0.3 + 0.3; presión dentro de la banda [P_sp-2, P_sp+1]
+    # (A14-M1: P_sp = Psat(134 + 0.3 + 0.3), fija)
+    f, estado, set_do, reloj = _chaqueta(monkeypatch, temp=135.0, pres=ap.psat(134.6))
     f.update()
     for _ in range(12):
         reloj.avanzar(0.5)

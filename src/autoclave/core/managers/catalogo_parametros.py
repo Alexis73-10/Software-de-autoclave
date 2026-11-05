@@ -75,6 +75,12 @@ CODIGO_LIMITE_CONSIGNA = "LIMITE_CONSIGNA_CHAQUETA"
 # Claves de las advertencias no bloqueantes (texto opciones.<clave> en i18n)
 ADVERTENCIA_TECHO_CAMARA = "aviso_techo_sobre_suministro"
 ADVERTENCIA_CHAQUETA_ABIERTA = "aviso_chaqueta_abierta"
+# A14-M1 (tanda 28): la banda PWM de ESTERILIZACION, anclada a
+# P_sp = Psat(T_est + brecha_segura_temperatura + 0,3), queda cerca del techo
+# de control: P_sp + 1 > P_control_max - 5 (advertencia, no rechazo)
+ADVERTENCIA_BANDA_PWM_TECHO = "aviso_banda_pwm_techo"
+BANDA_PWM_ALTA_KPA = 1.0          # refleja _BANDA_PWM_ALTA de esterilizacion.py
+MARGEN_BANDA_TECHO_KPA = 5.0
 
 _PULSOS = ("a", "b", "c", "d")
 _MODOS_ENFRIAMIENTO = ("modo_4", "modo_5")
@@ -453,8 +459,45 @@ def _evaluar_limites(parameters: dict) -> tuple[list, list]:
                 f"({suministro:.0f} kPa): en preparación la válvula de vapor de "
                 f"chaqueta quedará abierta",
                 {("globals", "presion_chaqueta"), ("globals", "rango_presion_chaqueta")}))
+    advertencias.extend(_evaluar_banda_pwm(parameters))
     rechazos.extend(_evaluar_recuperacion(parameters))
     return rechazos, advertencias
+
+
+def consigna_pwm_esterilizacion(t_est, brecha) -> float | None:
+    """A14-M1 (tanda 28): P_sp = Psat(T_est + brecha_segura_temperatura +
+    histéresis de salida de RECUPERACION), kPa abs; la misma consigna que
+    calcula EsterilizacionFase al entrar. None si faltan valores o fuera de
+    IAPWS-IF97."""
+    if not (_num(t_est) and _num(brecha)):
+        return None
+    return _psat(t_est + brecha + HIST_SALIDA_RECUPERACION_K)
+
+
+_RUTAS_BANDA_PWM = {("esterilizacion", "temperatura_esterilizacion"),
+                    ("esterilizacion", "brecha_segura_temperatura"),
+                    ("esterilizacion", "presion_add_esterilizacion")}
+
+
+def _evaluar_banda_pwm(parameters: dict) -> list:
+    """A14-M1: advertencia no bloqueante si el borde alto de la banda PWM
+    (P_sp + 1) queda a menos de 5 kPa del techo P_control_max = Psat(T_est) +
+    presion_add_esterilizacion. Valores ausentes o no numéricos no se evalúan."""
+    t = _valor(parameters, "esterilizacion", "temperatura_esterilizacion")
+    brecha = _valor(parameters, "esterilizacion", "brecha_segura_temperatura")
+    add = _valor(parameters, "esterilizacion", "presion_add_esterilizacion")
+    p_sp = consigna_pwm_esterilizacion(t, brecha)
+    psat = _psat(t) if _num(t) else None
+    if p_sp is None or psat is None or not _num(add):
+        return []
+    alto, techo = p_sp + BANDA_PWM_ALTA_KPA, psat + add
+    if alto <= techo - MARGEN_BANDA_TECHO_KPA:
+        return []
+    return [(ADVERTENCIA_BANDA_PWM_TECHO,
+             f"esterilizacion: la banda de control llega a {alto:.1f} kPa (consigna "
+             f"{p_sp:.1f} + {BANDA_PWM_ALTA_KPA:.0f}), a menos de {MARGEN_BANDA_TECHO_KPA:.0f} kPa "
+             f"del techo de control ({techo:.1f} kPa): riesgo de sobreimpulso y de aislamientos "
+             f"repetidos", set(_RUTAS_BANDA_PWM))]
 
 
 def presion_add_minima_recuperacion(t_est, brecha) -> float | None:

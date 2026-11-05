@@ -607,6 +607,7 @@ class CycleManager:
                         # el .bak; si tampoco vale, el programa queda dañado
                         self._validar_al_cargar(cycle, full_path)
                         self._marca_sin_bitacora(cycle, full_path)
+                        self._registrar_advertencias(cycle)
                         self.cycles[cycle.id] = cycle
                         if source == "factory" and cycle.number is not None:
                             self.fabrica[cycle.number] = cycle.copia()
@@ -634,6 +635,17 @@ class CycleManager:
                   + (f" ({entidad})" if entidad else "") + ": requiere revisión de un técnico")
         logger.error("Programa %s DAÑADO, no ejecutable: %s", cycle.id, motivo)
         cycle.danado = [motivo] + list(getattr(cycle, "danado", None) or [])
+
+    @staticmethod
+    def _registrar_advertencias(cycle) -> None:
+        """A14-M1 (tanda 28): las advertencias no bloqueantes del programa
+        (p. ej. la banda PWM de esterilización cerca del techo) también al
+        cargar, en el log. Nunca lanza."""
+        try:
+            for clave, mensaje in cycle.advertencias():
+                logger.warning("Programa %s: advertencia %s: %s", cycle.id, clave, mensaje)
+        except Exception:
+            logger.exception("Programa %s: no se pudieron evaluar las advertencias", cycle.id)
 
     def _validar_al_cargar(self, cycle, full_path: str) -> None:
         errores = catalogo_parametros.errores_programa(cycle.parameters)

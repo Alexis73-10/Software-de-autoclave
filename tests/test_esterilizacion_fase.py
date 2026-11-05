@@ -189,15 +189,18 @@ def test_brecha_segura_presion_dispara_antes_de_completar_el_debounce_de_fallo(m
     set_do.vapor_camara_on.assert_called()  # pero se intentó en modo agresivo, no en duty-cycle pasivo
 
 
-# ── PWM_ACTIVO: banda fija [-2,+1] kPa sobre P_sat(T_actual) ────────────────
+# ── PWM_ACTIVO: banda fija [-2,+1] kPa sobre P_sp (A14-M1, tanda 28) ────────
+# P_sp = P_sat(T_est + brecha_segura_temperatura + 0.3), fija al entrar a la
+# fase (antes la banda seguía a P_sat(T_actual)).
+P_SP_134_03 = p_saturacion_kpa(134.0 + 0.3 + 0.3)
+
 
 def test_pwm_forzado_on_por_debajo_de_la_banda():
     fase, estado, set_do = _make_fase(t_est=134.0, brecha_seg=0.3)
     fase.update()
     temp = 135.0
-    p_sat_t = p_saturacion_kpa(temp)
     estado.sensores_temp["temp_camara"] = temp
-    estado.sensores_pres["pres_camara"] = p_sat_t - 3.0  # < p_sat_t - 2
+    estado.sensores_pres["pres_camara"] = P_SP_134_03 - 3.0  # < P_sp - 2
     set_do.reset_mock()
     result = fase.update()
     assert result == FaseResult.EN_CURSO
@@ -210,9 +213,8 @@ def test_pwm_forzado_off_por_encima_de_la_banda():
     fase, estado, set_do = _make_fase(t_est=134.0, brecha_seg=0.3)
     fase.update()
     temp = 135.0
-    p_sat_t = p_saturacion_kpa(temp)
     estado.sensores_temp["temp_camara"] = temp
-    estado.sensores_pres["pres_camara"] = p_sat_t + 2.0  # > p_sat_t + 1
+    estado.sensores_pres["pres_camara"] = P_SP_134_03 + 2.0  # > P_sp + 1
     set_do.reset_mock()
     result = fase.update()
     assert result == FaseResult.EN_CURSO
@@ -225,9 +227,8 @@ def test_pwm_duty_cycle_dentro_de_la_banda():
     fase, estado, set_do = _make_fase(t_est=134.0, brecha_seg=0.3, factor=50.0, intervalo=2)
     fase.update()
     temp = 135.0
-    p_sat_t = p_saturacion_kpa(temp)
     estado.sensores_temp["temp_camara"] = temp
-    estado.sensores_pres["pres_camara"] = p_sat_t - 0.5  # dentro de [-2,+1]
+    estado.sensores_pres["pres_camara"] = P_SP_134_03 - 0.5  # dentro de [-2,+1]
     set_do.reset_mock()
     result = fase.update()  # entra a PWM, primer pulso ON
     assert result == FaseResult.EN_CURSO
