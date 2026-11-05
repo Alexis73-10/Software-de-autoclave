@@ -9,6 +9,41 @@ Una entrada por **entrega** (compilación con Setup que se instala en el equipo)
 
 <!-- entradas: las agrega compilar_entrega.py debajo de esta línea, la más nueva primero -->
 
+## 1.0.0-alpha.17 — 2026-11-05
+
+- Etiqueta: `v1.0.0-alpha.17` (commit `chore(ver): 1.0.0-alpha.17`, sobre `23630c0`)
+- AppVerNum: `1.0.0.1017`
+- SHA-256 del Setup y del zip: en el mensaje de la etiqueta y en `entrega/v1.0.0-alpha.17_2026-11-05/SHA256SUMS.txt` (solo existen después de compilar)
+- Commits desde `v1.0.0-alpha.16`:
+  - 5aaa1f72 A12: rango de presion_inicio_vacio recortado a 2–15 kPa (decisión de Cristian tras la revisión H1)
+  - 4dac79d2 docs: prompt de la tanda 28 con A9-A14
+  - d0cc1d0b A12: prevacío, descompresión del pulso con presion_inicio_vacio y timeout_descompresion
+  - 32de931d A14-M3: brecha_segura_temperatura 0,3 con migración única 1,0 → 0,3
+  - 14017044 fix(textos): el test se llama Bowie & Dick (visible; el id bowe_dick no cambia)
+  - 6f07cf1c A14-M2: corte de vapor_chaqueta sobre la consigna más margen_chaqueta_est
+  - e538773c A14-M1: banda PWM de esterilización anclada a la consigna fija P_sp
+  - 1074df35 A14-diag: planta simulada de cámara y chaqueta y diagnóstico del sobreimpulso en esterilización
+  - e5684d38 docs(tanda27): CERRADO
+  - d259f6a3 docs(tanda27): estado final y suite final (11015 pasadas)
+  - 158290df A7: códigos y mensajes de incoherencia por regla en Parámetros del equipo
+  - 3f5e8c41 docs(tanda27): CLAUDE.md, HAZ-DEP-01, trazabilidad REQ-56..59 y nota SOUP
+  - 7f7100ba docs: AJUSTES tanda 27 depuración
+  - faa233d9 depuración: correcciones tras la revisión (prueba de readings, comentarios)
+  - f6c5eefd retiro del ESP32 (tanda 27, paso 3)
+  - 2c4849e9 depuración: 32 claves i18n sin uso (es y en)
+  - 33983a7a depuración: herramientas sin uso
+  - a3dc3801 depuración: símbolos Python sin uso
+  - 8b699564 depuración: base de rutas t15 sin las 3 rutas retiradas
+  - 46d21385 depuración: rutas sin cliente (código)
+  - 82bdb7f9 depuración: QML sin uso
+  - 30327f24 docs(tanda27): línea base e inventario (pasos 0 y 1), dudosos DEP-01..32
+  - af2a3fb0 docs(tanda27): parte A
+  - 81c221b4 A4: salidas de puerta y bomba de vacío como interruptor en modo prueba
+  - 0f62f79a A3: deslizador INICIAR oculto con modo prueba activo
+  - db21cafc A1+A2: unidades sincronizadas entre pantallas y sin standby en modo prueba
+  - 2595a9c4 docs(tanda27): estado inicial y prompts
+
+
 ## 1.0.0-alpha.16 — 2026-11-05
 
 - Etiqueta: `v1.0.0-alpha.16` (commit `chore(ver): 1.0.0-alpha.16`, sobre `a3d8f17`)
