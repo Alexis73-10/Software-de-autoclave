@@ -1739,23 +1739,6 @@
     "summary": "Get Current Cycle Progress"
    }
   },
-  "/cycle/current/readings": {
-   "get": {
-    "description": "Retorna todas las lecturas del ciclo activo (para la gráfica en vivo).\nSi no hay ciclo activo retorna lista vacía.",
-    "operationId": "get_current_cycle_readings_cycle_current_readings_get",
-    "responses": {
-     "200": {
-      "content": {
-       "application/json": {
-        "schema": {}
-       }
-      },
-      "description": "Successful Response"
-     }
-    },
-    "summary": "Get Current Cycle Readings"
-   }
-  },
   "/cycle/display-inputs": {
    "get": {
     "description": "Entradas mostradas del programa (1 a 3), las AI habilitadas del equipo y\nlas que ofrece el selector (O11, D11-7.1: sin los sensores No en uso).",
@@ -1958,44 +1941,6 @@
      }
     },
     "summary": "Get Cycle History Graph"
-   }
-  },
-  "/cycle/history/{ciclo_id}/readings": {
-   "get": {
-    "description": "Todas las lecturas de un ciclo histórico.",
-    "operationId": "get_cycle_readings_cycle_history__ciclo_id__readings_get",
-    "parameters": [
-     {
-      "in": "path",
-      "name": "ciclo_id",
-      "required": true,
-      "schema": {
-       "title": "Ciclo Id",
-       "type": "integer"
-      }
-     }
-    ],
-    "responses": {
-     "200": {
-      "content": {
-       "application/json": {
-        "schema": {}
-       }
-      },
-      "description": "Successful Response"
-     },
-     "422": {
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
-        }
-       }
-      },
-      "description": "Validation Error"
-     }
-    },
-    "summary": "Get Cycle Readings"
    }
   },
   "/cycle/history/{ciclo_id}/ticket": {
@@ -2380,22 +2325,6 @@
      }
     },
     "summary": "Get Cycle Summary"
-   }
-  },
-  "/cycles": {
-   "get": {
-    "operationId": "list_cycles_cycles_get",
-    "responses": {
-     "200": {
-      "content": {
-       "application/json": {
-        "schema": {}
-       }
-      },
-      "description": "Successful Response"
-     }
-    },
-    "summary": "List Cycles"
    }
   },
   "/db/estado": {

@@ -24,6 +24,11 @@ Cambios deliberados de la línea base (nada más cambia sin tocar este archivo):
 - Arranque retenido hasta la UI (tanda 26, ARQ-D1): ruta nueva
   ``POST /arranque/iniciar`` (tras ``/arranque/interfaz-lista``, router
   ``rutas/arranque.py``), misma regeneración; nada más cambió.
+- Depuración (tanda 27, paso 5): rutas retiradas por no tener cliente
+  ``GET /cycles``, ``GET /cycle/current/readings`` y
+  ``GET /cycle/history/{ciclo_id}/readings``. Se quitaron sus entradas de
+  ``rutas.json`` sin reordenar las demás y ``openapi.json`` se regeneró con
+  ``openapi_ordenado``; la única diferencia son esos tres paths.
 """
 import json
 from pathlib import Path
