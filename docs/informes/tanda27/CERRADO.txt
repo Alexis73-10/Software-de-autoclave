@@ -1,0 +1,7 @@
+Tanda 27 cerrada el 2026-11-05.
+Merge a dev: 39ac1408 (sin push). Etiqueta local de respaldo: respaldo-pre-depuracion.
+Suite: 11015 pasadas, 11 omitidas, 7 xfail, 0 rojas (docs/informes/tanda27/suite_final.txt). Rojas intermitentes en paralelo que pasan en serie: test_t21_pantalla_fin_ciclo_qml::test_la_cuenta_se_detiene_con_un_modal, test_t26_arq_revision::test_latido_se_renueva_en_cada_tick_retenido_aunque_verificar_sensores_lance.
+Dudosos: 36 (DEP-01..36, docs/informes/tanda27/dudosos.md). ui_pyside NO se retiro (DEP-01).
+Entrega NO compilada: python tools/entrega/compilar_entrega.py desde dev limpio. TOC de Autoclave.spec identico a la base (2328 modulos).
+Abiertas para Cristian: A5 y A6 (citadas en el prompt, sin definir; no implementadas); AJ27-A4-01 (tope de tiempo o inactividad con puerta/bomba ON); DECISIONES SIN CONFIRMAR de A3, A4 y A7; prueba de banco de HAZ-IO-07 con puerta real; T27-A7-01 en pantalla; 4 .docx de docs/arquitectura con el hardware anterior (DEP-33). Ver R27_informe.md.
+Nota: el archivo docs/mis_plans/prompt_claude_code_tanda28.md (nuevo de Cristian) entro en el commit de A7 por git add -A; las ediciones posteriores de Cristian siguen sin confirmar en el arbol de trabajo.
