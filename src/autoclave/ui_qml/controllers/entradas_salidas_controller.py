@@ -89,9 +89,6 @@ _CAUSAS_SOLO_CATALOGO = frozenset({"aire_atmosferico_con_presion",
                                    # Tanda 27 (A4, revisión)
                                    "salida_prueba_opuesta_sin_apagar"})
 
-# D-ES-08: sin actividad del usuario en la seccion el modo prueba se cierra
-INACTIVIDAD_UI_S = 5 * 60
-
 # Un /status del caché más viejo que esto no se muestra como vigente (el
 # sondeo es de 0,2 s con plazos de 0,8 s por petición)
 ANTIGUEDAD_MAX_S = 3.0

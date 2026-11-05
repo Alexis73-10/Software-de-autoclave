@@ -100,14 +100,6 @@ class UnidadesQml(QObject):
     def presion(self) -> str:
         return self._presion
 
-    @Property(str, notify=cambiado)
-    def simboloTemp(self) -> str:
-        return u.simbolo_temp(self._temperatura)
-
-    @Property(str, notify=cambiado)
-    def simboloPres(self) -> str:
-        return u.simbolo_pres(self._presion)
-
     # ── formato (el segundo argumento solo fuerza la re-evaluación) ───
 
     @Slot("QVariant", result=str)

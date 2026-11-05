@@ -325,7 +325,6 @@ def fijar_entradas(cm, numero: int, entradas, habilitadas: list[str]) -> tuple[l
     c = programa(cm, numero)
     _de_usuario(c)
     anterior = entradas_de(c, habilitadas)
-    c._entradas_previas = getattr(c, "entradas_mostradas", None)
     _escribir_campo(c, "entradas_mostradas", list(entradas))
     c.entradas_mostradas = list(entradas)
     return anterior, list(entradas)

@@ -316,10 +316,6 @@ class ConectividadController(QObject):
         v = (self._red.get("wifi") or {}).get("senal")
         return v if isinstance(v, int) else -1
 
-    @Property(bool, notify=datosChanged)
-    def redConectada(self) -> bool:
-        return self._red.get("conectado") is True
-
     @Property(str, notify=mensajeChanged)
     def mensaje(self) -> str:
         return self._mensaje
