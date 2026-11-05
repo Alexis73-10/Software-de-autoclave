@@ -31,6 +31,10 @@ def _fase(chaqueta=True, inhibir=False, extra=None, **kw):
     if chaqueta:
         estado.modo_vapor = "chaqueta"
         estado.inhibir_vapor_chaqueta = inhibir
+        # A14-M2 (tanda 28): lectura de chaqueta bajo Psat(T_obj) +
+        # presion_add_calentamiento + margen_chaqueta_est (sin lectura la
+        # chaqueta queda OFF); el corte M2 se prueba en test_t28_a14
+        estado.sensores_pres["pres_chaqueta"] = 300.0
     if extra:
         original = fase.cycle.get_param.side_effect
 

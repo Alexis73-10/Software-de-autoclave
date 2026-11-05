@@ -328,6 +328,7 @@
     "err_limite_presion_chaqueta": "No se puede guardar: «Presión de chaqueta» + «Rango de presión de chaqueta» llega al alivio de chaqueta ({alivio_chaqueta} kPa). La presión de chaqueta debe ser menor que {valor} kPa.",
     "aviso_techo_sobre_suministro": "Guardado con advertencia: el techo de presión de cámara supera el suministro (350 kPa). La cámara no lo alcanzará y la válvula de vapor de cámara quedará abierta en ese tramo.",
     "aviso_chaqueta_abierta": "Guardado con advertencia: la presión de chaqueta pedida supera el suministro (350 kPa). La válvula de vapor de chaqueta quedará abierta sin llegar a la consigna.",
+    "aviso_banda_pwm_techo": "Guardado con advertencia: la banda de control de esterilización queda a menos de 5 kPa del techo de presión. Puede haber sobreimpulso y aislamientos repetidos de la cámara; revise el margen de recuperación por temperatura o el margen de presión de esterilización.",
     "aviso_liquido_previo": "Con carga líquida solo se permiten los modos de descompresión 4, 5 y 0. Si el modo actual es otro, al guardar cambiará al modo 4.",
     "modos_titulo": "Modos disponibles"
   },
@@ -1264,6 +1265,11 @@
       "plantilla": "Sin lectura de {sensor} en la fase {fase}. En carga líquida la temperatura de la carga no se puede verificar. El ciclo se abortó.",
       "accion": "La carga NO está estéril. Revise la conexión de la sonda y repita el ciclo."
     },
+    "CIC-20": {
+      "titulo": "Descompresión del prevacío sin terminar",
+      "plantilla": "La presión de cámara no bajó a {maximo:.1f} kPa (atmosférica + {margen} kPa) en {minutos} min, en la descompresión del pulso {pulso} del prevacío. La bomba de vacío no se encendió. El ciclo se abortó.",
+      "accion": "La carga NO está estéril. Revise la válvula de descompresión rápida, el escape y el sensor de presión de cámara (calibración), y el valor «Presión para iniciar el vacío» del programa. Repita el ciclo."
+    },
     "COM-02": {
       "titulo": "Comunicación perdida durante el ciclo",
       "plantilla": "Se perdió la comunicación con el módulo E/S por más de {segundos:.1f} s en la fase {fase}. El ciclo se abortó.",
@@ -1466,7 +1472,7 @@
     "prevacio": {
       "timeout_bajo": "Tiempo máximo, en minutos, para que la cámara baje hasta la presión baja del pulso, contado desde que arrancan la bomba y la válvula de vacío. Se reinicia en cada pulso. Si vence, el ciclo falla.",
       "timeout_alto": "Tiempo máximo, en minutos, para que la cámara suba hasta la presión alta del pulso, contado desde la apertura del vapor. Se reinicia en cada pulso. Si vence, el ciclo falla.",
-      "conteo_pulso_a": "Número de pulsos tipo A. Los tipos se ejecutan en orden A → B → C → D, cada uno con sus propias presiones y esperas. Cada pulso: (1) si la cámara está sobre P_atm + rango atmosférico, escape rápido hasta bajar a ese valor; (2) bomba y válvula de vacío hasta la presión baja; (3) vapor a cámara con el escape lento abierto hasta la presión alta. 0 = tipo omitido. La fase completa se omite en equipos sin bomba de vacío.",
+      "conteo_pulso_a": "Número de pulsos tipo A. Los tipos se ejecutan en orden A → B → C → D, cada uno con sus propias presiones y esperas. Cada pulso: (1) si la cámara está sobre P_atm + «Presión para iniciar el vacío», escape rápido hasta bajar a ese valor (con «Tiempo límite de descompresión»); (2) bomba y válvula de vacío hasta la presión baja; (3) vapor a cámara con el escape lento abierto hasta la presión alta. 0 = tipo omitido. La fase completa se omite en equipos sin bomba de vacío.",
       "presion_alta_pulso_a": "Presión absoluta a la que se lleva la cámara inyectando vapor, con el escape lento abierto en paralelo, en cada pulso A. Valores por debajo de la atmosférica (≈101 kPa absolutos) producen pulsos subatmosféricos.",
       "tiempo_adicional_alto_a": "Segundos que el vapor y el escape lento siguen abiertos después de alcanzar la presión alta del pulso A. No hay regulación durante esta espera: la presión puede seguir subiendo. 0 = sin espera.",
       "presion_baja_pulso_a": "Presión absoluta de vacío que debe alcanzar la cámara en cada pulso A. La bomba y la válvula de vacío trabajan hasta llegar a este valor.",
@@ -1485,7 +1491,9 @@
       "presion_alta_pulso_d": "Presión absoluta a la que se lleva la cámara inyectando vapor, con el escape lento abierto en paralelo, en cada pulso D. Valores por debajo de la atmosférica (≈101 kPa absolutos) producen pulsos subatmosféricos.",
       "tiempo_adicional_alto_d": "Segundos que el vapor y el escape lento siguen abiertos después de alcanzar la presión alta del pulso D. No hay regulación durante esta espera: la presión puede seguir subiendo. 0 = sin espera.",
       "presion_baja_pulso_d": "Presión absoluta de vacío que debe alcanzar la cámara en cada pulso D. La bomba y la válvula de vacío trabajan hasta llegar a este valor.",
-      "tiempo_adicional_bajo_d": "Segundos que la bomba y la válvula de vacío siguen funcionando después de alcanzar la presión baja del pulso D, antes de inyectar vapor. 0 = sin espera."
+      "tiempo_adicional_bajo_d": "Segundos que la bomba y la válvula de vacío siguen funcionando después de alcanzar la presión baja del pulso D, antes de inyectar vapor. 0 = sin espera.",
+      "presion_inicio_vacio": "Al inicio de cada pulso, el escape rápido abre hasta que la cámara baja a la presión atmosférica del equipo + este valor; entonces arrancan la bomba y la válvula de vacío. Un valor muy bajo puede no alcanzarse nunca (la cámara queda cerca de la atmosférica) y el pulso se detiene hasta «Tiempo límite de descompresión». 0 = exactamente la atmosférica.",
+      "timeout_descompresion": "Tiempo máximo, en minutos, para que la cámara baje a la atmosférica + «Presión para iniciar el vacío» en el escape de cada pulso, contado desde el inicio del pulso. Se reinicia en cada pulso. Si vence, el ciclo falla (CIC-20) sin encender la bomba de vacío."
     },
     "calentamiento": {
       "histeresis_cierre_camara": "Equipos con chaqueta: cuánto debe bajar la presión de cámara bajo el techo de control (sostenido 3 s) para reabrir la válvula de vapor de cámara tras un aislamiento por sobrepresión.",
@@ -1515,6 +1523,7 @@
     },
     "esterilizacion": {
       "histeresis_cierre_camara": "Equipos con chaqueta: cuánto debe bajar la presión de cámara bajo P_control_max (sostenido 3 s) para reabrir la válvula de vapor de cámara tras un aislamiento por sobrepresión.",
+      "margen_chaqueta_est": "Equipos con chaqueta: la válvula de vapor de chaqueta se cierra si la presión de chaqueta supera la consigna de control en más de este margen (en Calentamiento, el techo Psat(T) + margen de presión de calentamiento; en Esterilización, la presión de saturación de la salida de recuperación). Evita que la chaqueta empuje la cámara hasta el techo y la aísle.",
       "max_reinicios_exposicion": "Cantidad de veces que una excursión de Referencia puede reiniciar el conteo de exposición. La siguiente excursión confirmada después de este tope aborta el ciclo (0 = la primera excursión aborta).",
       "escape_lento_on_ester": "Segundos que el escape lento permanece abierto en cada ciclo de su temporizador. El temporizador corre durante toda la fase, en paralelo e independiente del control de vapor. 0 = siempre cerrado (si el tiempo cerrado es mayor que 0).",
       "escape_lento_off_ester": "Segundos que el escape lento permanece cerrado en cada ciclo de su temporizador. 0 = siempre abierto durante toda la fase (prevalece sobre el tiempo abierto).",
@@ -2050,7 +2059,9 @@
       "tiempo_adicional_alto_d": "Tiempo adicional en presión alta D",
       "tiempo_adicional_bajo_d": "Tiempo adicional en presión baja D",
       "timeout_alto": "Tiempo límite para la presión alta",
-      "timeout_bajo": "Tiempo límite para la presión baja"
+      "timeout_bajo": "Tiempo límite para la presión baja",
+      "presion_inicio_vacio": "Presión para iniciar el vacío",
+      "timeout_descompresion": "Tiempo límite de descompresión"
     },
     "calentamiento": {
       "histeresis_cierre_camara": "Histéresis de reapertura de cámara",
@@ -2080,6 +2091,7 @@
     },
     "esterilizacion": {
       "histeresis_cierre_camara": "Histéresis de reapertura de cámara",
+      "margen_chaqueta_est": "Margen de chaqueta en esterilización",
       "max_reinicios_exposicion": "Reinicios máximos de la exposición",
       "brecha_error_presion": "Margen de falla por presión baja",
       "brecha_error_temperatura": "Margen de falla por temperatura baja",

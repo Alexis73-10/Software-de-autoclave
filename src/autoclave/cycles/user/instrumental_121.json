@@ -237,6 +237,21 @@
                 "unit": "min",
                 "min": 0,
                 "max": 3600
+            },
+            "presion_inicio_vacio": {
+                "value": 10.0,
+                "type": "float",
+                "unit": "kPa",
+                "clase": "diferencia",
+                "min": 0,
+                "max": 30
+            },
+            "timeout_descompresion": {
+                "value": 5,
+                "type": "int",
+                "unit": "min",
+                "min": 1,
+                "max": 30
             }
         },
         "calentamiento": {
@@ -475,6 +490,14 @@
                 "min": 1,
                 "max": 10
             },
+            "margen_chaqueta_est": {
+                "value": 8.0,
+                "type": "float",
+                "unit": "kPa",
+                "clase": "diferencia",
+                "min": 2,
+                "max": 30
+            },
             "intervalo_segmentos_ester": {
                 "value": 2,
                 "type": "int",
@@ -499,7 +522,7 @@
                 "max": 100
             },
             "brecha_segura_temperatura": {
-                "value": 1.0,
+                "value": 0.3,
                 "type": "float",
                 "unit": "°C",
                 "clase": "diferencia",

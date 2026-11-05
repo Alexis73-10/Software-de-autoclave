@@ -62,6 +62,8 @@ _EJEMPLOS = {
     "SEN-11": {"sensor": "Referencia", "fase": "Esterilización"},
     # FC-08 (tanda 21): Referencia sin lectura con carga líquida
     "CIC-19": {"sensor": "Referencia", "fase": "Esterilización"},
+    # A12 (tanda 28): descompresión del pulso de prevacío sin terminar
+    "CIC-20": {"maximo": 84.6, "margen": "10", "minutos": "5", "pulso": "A 2/4"},
     "SIS-04": {"motivo": "Mantenimiento vencido por fecha"},
     "SIS-05": {},
     # J12 (tanda 12, C-04.4): migración correctiva de un programa
@@ -143,6 +145,8 @@ def test_niveles_migrados_iguales_a_hoy():
         "CIC-15": Nivel.ALARMA, "CIC-16": Nivel.ALARMA, "CIC-17": Nivel.ALARMA,
         # FC-08 (tanda 21): bloqueante como CIC-12/13
         "CIC-19": Nivel.ALARMA,
+        # A12 (tanda 28): bloqueante como CIC-15
+        "CIC-20": Nivel.ALARMA,
         # D9-2 (tanda 9, H3): pasan de AVISO a ALARMA conservando su bloqueo
         "SEN-01": Nivel.ALARMA, "SEN-03": Nivel.ALARMA, "SEN-06": Nivel.ALARMA,
         "SEN-07": Nivel.ALARMA, "CIC-10": Nivel.ALARMA,

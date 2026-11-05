@@ -92,6 +92,10 @@ class BaseFase:
     def _pres_camara(self) -> float | None:
         return self.estado.sensores_pres.get("pres_camara")
 
+    def _pres_chaqueta(self) -> float | None:
+        """A14-M2 (tanda 28): lectura de pres_chaqueta (None si no hay)."""
+        return self.estado.sensores_pres.get("pres_chaqueta")
+
     def _pres_atm(self) -> float:
         return self.config.get("presion_admosferica") or 101.3
 

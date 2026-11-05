@@ -14,10 +14,18 @@
 #   PWM_ACTIVO     sale de RECUPERACION solo si (C-08.2, histéresis de salida)
 #                  T >= T_est + brecha_segura_temperatura + _HIST_RECUP_TEMP_K
 #                  Y P >= P_sat(T_est) - brecha_segura_presion + _HIST_RECUP_PRES_KPA
-#                  -> vapor_camara en PWM, banda fija [-2,+1] kPa sobre
-#                  P_sat(T_actual), techo de control
-#                  P_control_max = P_sat(T_est) + presion_add_esterilizacion
-#                  (fuerza OFF sin importar la banda local)
+#                  -> vapor_camara en PWM, banda fija [-2,+1] kPa sobre la
+#                  consigna de la fase P_sp (A14-M1, tanda 28), techo de
+#                  control P_control_max = P_sat(T_est) + presion_add_esterilizacion
+#                  (fuerza OFF sin importar la banda)
+#
+# A14-M1 (tanda 28, aprobado por Cristian): la banda PWM ya no sigue a
+# P_sat(T_actual) (realimentaba el alza de temperatura hasta el techo). Se
+# ancla a P_sp = P_sat(T_est + brecha_segura_temperatura + _HIST_RECUP_TEMP_K),
+# la presión de saturación de la salida de RECUPERACION, calculada una sola vez
+# al entrar a la fase. Banda [P_sp - 2, P_sp + 1]. Todo lo demás (techo,
+# histéresis de 2 kPa, aislamiento, RECUPERACION y C-08, factor e intervalo)
+# no cambia.
 #
 # El disparador por presión (brecha_segura_presion) cubre el caso en que la
 # presión cae de forma sostenida mientras la temperatura se mantiene cerca
@@ -79,6 +87,9 @@
 #     vapor_camara abierta, salvo un aislamiento en curso (no se reabre a
 #     ciegas una cámara aislada; DECISIÓN SIN CONFIRMAR).
 #   - COMPLETADO y FALLO: las dos OFF.
+#   - A14-M2 (tanda 28): vapor_chaqueta OFF también con pres_chaqueta >
+#     P_sp + margen_chaqueta_est o sin lectura de pres_chaqueta
+#     (corte_chaqueta_consigna.py). AND con la decisión y con D-CHQ.
 
 import math
 import time
@@ -93,6 +104,7 @@ from autoclave.state_machine.alarms.catalogo import nombre_legible
 from autoclave.core.managers import limites_equipo as le
 from autoclave.installation.profile import MODO_CHAQUETA
 from .aislamiento_camara import AislamientoCamara
+from . import corte_chaqueta_consigna as ccc
 from .debounce_acumulado import DebounceAcumulado
 from .base_fase import BaseFase, FaseResult
 
@@ -113,8 +125,8 @@ _HIST_RECUP_PRES_KPA = 1.0
 # C-08.3 (DECISIÓN SIN CONFIRMAR, tanda 12): histéresis del techo de control
 # en RECUPERACION: OFF en P >= P_control_max, ON de nuevo bajo P_control_max - 2
 _HIST_TECHO_KPA = 2.0
-_BANDA_PWM_BAJA = 2.0  # kPa por debajo de P_sat(T_actual) -> vapor ON forzado
-_BANDA_PWM_ALTA = 1.0  # kPa por encima de P_sat(T_actual) -> vapor OFF forzado
+_BANDA_PWM_BAJA = 2.0  # kPa por debajo de P_sp -> vapor ON forzado (A14-M1)
+_BANDA_PWM_ALTA = 1.0  # kPa por encima de P_sp -> vapor OFF forzado (A14-M1)
 # D8-2.8 (tanda 8): tope de la suma de pausas sin datos del módulo E/S en una
 # exposición (parámetro del equipo pausa_max_esterilizacion_s)
 _PAUSA_MAX_DEFECTO_S = 30.0
@@ -147,6 +159,10 @@ class EsterilizacionFase(BaseFase):
         self._tiempo_seg = None
         self._en_recuperacion = True
         self._techo_recup_off = False
+        # A14-M1: consigna fija de la banda PWM (kPa), al entrar a la fase
+        self.p_sp = None
+        # A14-M2: estado del corte por consigna (solo para el log)
+        self._corte_m2_previo = False
 
         # P6 / D-14.6: debounce acumulado de cada condición de falla
         self._debounce: dict[str, DebounceAcumulado] = {
@@ -561,11 +577,32 @@ class EsterilizacionFase(BaseFase):
             setattr(self, abierto_attr, True)
             setattr(self, timer_attr, now)
 
+    def _corte_consigna_chaqueta(self) -> bool:
+        """A14-M2: True si vapor_chaqueta debe quedar OFF por pres_chaqueta >
+        P_sp + margen_chaqueta_est (o sin lectura / sin consigna: falla
+        cerrada). Registra en el log el inicio y el fin del corte."""
+        pres = self._pres_chaqueta()
+        margen = ccc.margen_kpa(self.cycle)
+        cortar = ccc.debe_cortar(pres, self.p_sp, margen)
+        if cortar != self._corte_m2_previo:
+            umbral = ccc.umbral_kpa(self.p_sp, margen)
+            if cortar:
+                logger.warning("Esterilización: vapor_chaqueta cortada por consigna (A14-M2): "
+                               "pres_chaqueta %s kPa, umbral %s kPa",
+                               ccc.texto_lectura(pres),
+                               "?" if umbral is None else f"{umbral:.1f}")
+            else:
+                logger.info("Esterilización: fin del corte de vapor_chaqueta por consigna "
+                            "(pres_chaqueta %.1f kPa)", pres)
+            self._corte_m2_previo = cortar
+        return cortar
+
     def _vapor_on(self):
         """Abre la válvula actuadora del modo: vapor_camara (modo cámara) o
-        vapor_chaqueta (modo chaqueta; cerrada si CICLO la inhibe, D-CHQ)."""
+        vapor_chaqueta (modo chaqueta; cerrada si CICLO la inhibe, D-CHQ, o
+        con el corte por consigna A14-M2)."""
         if self._modo_chaqueta():
-            if self._inhibir_chaqueta():
+            if self._inhibir_chaqueta() or self._corte_consigna_chaqueta():
                 self.set_do.vapor_chaqueta_off()
             else:
                 self.set_do.vapor_chaqueta_on()
@@ -579,11 +616,15 @@ class EsterilizacionFase(BaseFase):
         else:
             self.set_do.vapor_camara_off()
 
-    def _control_vapor_pwm(self, temp, pres, factor_pct, intervalo, p_control_max, now):
+    @staticmethod
+    def consigna_pwm(t_est, brecha_seg) -> float:
+        """A14-M1: P_sp = P_sat(T_est + brecha_segura_temperatura +
+        _HIST_RECUP_TEMP_K), kPa abs. Lanza ValueError fuera de IAPWS-IF97."""
+        return p_saturacion_kpa(t_est + brecha_seg + _HIST_RECUP_TEMP_K)
+
+    def _control_vapor_pwm(self, pres, factor_pct, intervalo, p_control_max, now):
         # Techo de control independiente: corta el vapor sin importar la
-        # banda local, que sigue a T_actual (no a temperatura_esterilizacion
-        # fija) y podría arrastrar la presión hasta el umbral real de falla.
-        # En modo chaqueta el techo es el aislamiento VCH-AIS (un solo
+        # banda. En modo chaqueta el techo es el aislamiento VCH-AIS (un solo
         # mecanismo, evaluado antes en update()).
         if not self._modo_chaqueta() and pres >= p_control_max:
             self._vapor_off()
@@ -591,9 +632,10 @@ class EsterilizacionFase(BaseFase):
             self._t_pulso_pwm = None
             return
 
-        p_sat_t = p_saturacion_kpa(temp)
-        p_low = p_sat_t - _BANDA_PWM_BAJA
-        p_high = p_sat_t + _BANDA_PWM_ALTA
+        # A14-M1: banda fija alrededor de la consigna de la fase (no sigue a
+        # la temperatura medida)
+        p_low = self.p_sp - _BANDA_PWM_BAJA
+        p_high = self.p_sp + _BANDA_PWM_ALTA
 
         if pres < p_low:
             self._vapor_on()
@@ -680,9 +722,18 @@ class EsterilizacionFase(BaseFase):
                 self._timer_timeout_max = time.monotonic() + 2 * tiempo_seg
             self._inicializado = True
             self.estado.fase_en_sostenimiento = True
+            # A14-M1: consigna fija de la banda PWM, una vez por fase. Fuera
+            # de IAPWS-IF97 (programa que el catálogo ya rechaza) cae a
+            # P_sat(T_est), el valor más bajo y conservador del techo.
+            try:
+                self.p_sp = self.consigna_pwm(t_est, brecha_seg)
+            except (ValueError, TypeError):
+                self.p_sp = p_sat_est
             logger.info(
-                "Esterilización: iniciando %.0fs a %.1f°C | P_control_max=%.1f kPa",
-                tiempo_seg, t_est, p_control_max,
+                "Esterilización: iniciando %.0fs a %.1f°C | P_sp=%.1f kPa (banda %.1f–%.1f) "
+                "| P_control_max=%.1f kPa",
+                tiempo_seg, t_est, self.p_sp, self.p_sp - _BANDA_PWM_BAJA,
+                self.p_sp + _BANDA_PWM_ALTA, p_control_max,
             )
 
         # ── 1b. D8-2.8: tope de pausas sin datos en esta exposición ─────────
@@ -805,7 +856,7 @@ class EsterilizacionFase(BaseFase):
                 # aislamiento)
                 self._vapor_on()
             else:
-                self._control_vapor_pwm(temp, pres, factor_pct, intervalo, p_control_max, now)
+                self._control_vapor_pwm(pres, factor_pct, intervalo, p_control_max, now)
         elif self._en_recuperacion:
             # C-08.3: el techo de control también rige en RECUPERACION, con
             # histéresis (DECISIÓN SIN CONFIRMAR de la sesión principal): OFF
@@ -824,7 +875,7 @@ class EsterilizacionFase(BaseFase):
                 self.set_do.vapor_camara_on()
         else:
             self._techo_recup_off = False
-            self._control_vapor_pwm(temp, pres, factor_pct, intervalo, p_control_max, now)
+            self._control_vapor_pwm(pres, factor_pct, intervalo, p_control_max, now)
 
         # ── 5. Control de escapes (paralelo e independiente) ───────────────
         self._tick_dos_estados(

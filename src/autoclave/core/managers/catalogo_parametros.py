@@ -47,6 +47,16 @@ TIMEOUT_EXCURSION_REFERENCIA_DEFECTO = 5   # min (int, 1–30), C-13.4
 # Tanda 16 (VCH §5 y D-14.5): parámetros de programa nuevos
 HISTERESIS_CIERRE_CAMARA_DEFECTO = 3.0     # kPa (clase diferencia, 1–10)
 MAX_REINICIOS_EXPOSICION_DEFECTO = 3       # int, 0–10
+# Tanda 28 (A14-M2): margen sobre la consigna para el corte de vapor_chaqueta
+# en modo chaqueta (DECISIÓN SIN CONFIRMAR el defecto hasta el banco)
+MARGEN_CHAQUETA_EST_DEFECTO = 8.0          # kPa (clase diferencia, 2–30)
+# Tanda 28 (A12): prevacío, paso DECOMPRESION de cada pulso. La bomba arranca
+# con pres <= atm + presion_inicio_vacio (antes atm + rango_presion_atm, el
+# rango de cámara segura, que podía no alcanzarse nunca) y el paso tiene
+# tiempo límite propio. Defectos DECISIÓN SIN CONFIRMAR.
+PRESION_INICIO_VACIO_DEFECTO = 10.0        # kPa sobre la atmosférica (diferencia, 0–30)
+TIMEOUT_DESCOMPRESION_DEFECTO = 5          # min (int, 1–30)
+ORIGEN_MIGRACION_T28_A12 = "migración tanda 28 (A12)"
 
 # ── P1 (tanda 16, D-14.1): coherencia de la salida de RECUPERACION ─────────
 # Con vapor saturado, la temperatura más alta que permite el techo
@@ -60,13 +70,21 @@ MAX_REINICIOS_EXPOSICION_DEFECTO = 3       # int, 0–10
 HIST_SALIDA_RECUPERACION_K = 0.3
 MARGEN_COHERENCIA_RECUPERACION_K = 0.3
 CODIGO_COHERENCIA_RECUPERACION = "COHERENCIA_RECUPERACION"
-# P2 (D-14.2): migración de brecha_segura_temperatura 0,3 → 1,0 y subida de
-# presion_add_esterilizacion al mínimo de P1, redondeado hacia arriba a este
-# paso (DECISIÓN SIN CONFIRMAR: 0,5 kPa)
-BRECHA_SEGURA_VIEJA = 0.3
-BRECHA_SEGURA_NUEVA = 1.0
+# P2 (D-14.2): subida de presion_add_esterilizacion al mínimo de P1,
+# redondeado hacia arriba a este paso (DECISIÓN SIN CONFIRMAR: 0,5 kPa). El
+# paso 1 de P2 (brecha_segura_temperatura 0,3 → 1,0) lo retiró la tanda 28
+# (A14-M3, decisión de Cristian): se aplicaba en cada carga y revertiría el 0,3.
 PASO_MIGRACION_PRESION_ADD = 0.5
 ORIGEN_MIGRACION_T16 = "migración tanda 16"
+# A14-M3 (tanda 28, decisión de Cristian): brecha_segura_temperatura = 0,3 °C
+# (defecto). Migración única al cargar: un programa con 1,0 (el valor de la
+# tanda 12/16) pasa a 0,3; un valor distinto de 1,0 y 0,3 no se toca. La marca
+# MARCA_MIGRACION_T28_M3 en la hoja del parámetro la hace idempotente: un 1,0
+# fijado después a mano se conserva.
+BRECHA_SEGURA_TEMPERATURA_DEFECTO = 0.3
+BRECHA_SEGURA_ANTERIOR_T16 = 1.0
+MARCA_MIGRACION_T28_M3 = "migrado_t28_m3"
+ORIGEN_MIGRACION_T28_M3 = "migración tanda 28 (M3)"
 
 # Códigos de rechazo (ErrorCoherencia.codigo) de los límites físicos
 CODIGO_LIMITE_CAMARA = "LIMITE_PRESION_CAMARA"
@@ -75,6 +93,12 @@ CODIGO_LIMITE_CONSIGNA = "LIMITE_CONSIGNA_CHAQUETA"
 # Claves de las advertencias no bloqueantes (texto opciones.<clave> en i18n)
 ADVERTENCIA_TECHO_CAMARA = "aviso_techo_sobre_suministro"
 ADVERTENCIA_CHAQUETA_ABIERTA = "aviso_chaqueta_abierta"
+# A14-M1 (tanda 28): la banda PWM de ESTERILIZACION, anclada a
+# P_sp = Psat(T_est + brecha_segura_temperatura + 0,3), queda cerca del techo
+# de control: P_sp + 1 > P_control_max - 5 (advertencia, no rechazo)
+ADVERTENCIA_BANDA_PWM_TECHO = "aviso_banda_pwm_techo"
+BANDA_PWM_ALTA_KPA = 1.0          # refleja _BANDA_PWM_ALTA de esterilizacion.py
+MARGEN_BANDA_TECHO_KPA = 5.0
 
 _PULSOS = ("a", "b", "c", "d")
 _MODOS_ENFRIAMIENTO = ("modo_4", "modo_5")
@@ -180,6 +204,13 @@ for _fase in ("calentamiento", "esterilizacion"):
            "VCH §5 (tanda 16): reapertura de vapor_camara bajo el techo")
 _poner("esterilizacion", "max_reinicios_exposicion", 0, 10,
        "D-14.5 (tanda 16): tope de reinicios de la exposición")
+# ── Tanda 28 ───────────────────────────────────────────────────────────────
+_poner("esterilizacion", "margen_chaqueta_est", 2, 30,
+       "A14-M2 (tanda 28): margen del corte de vapor_chaqueta sobre la consigna")
+_poner("prevacio", "presion_inicio_vacio", 0, 30,
+       "A12 (tanda 28): presión sobre la atmosférica para arrancar el vacío del pulso")
+_poner("prevacio", "timeout_descompresion", 1, 30,
+       "A12 (tanda 28): tiempo límite del paso de descompresión del pulso")
 # modo 0 de descompresión se conserva (enfriamiento natural, decisión 1.2)
 _poner("descompresion", "modo", 0, 5, "modo 0 conservado (enfriamiento natural)")
 
@@ -453,8 +484,45 @@ def _evaluar_limites(parameters: dict) -> tuple[list, list]:
                 f"({suministro:.0f} kPa): en preparación la válvula de vapor de "
                 f"chaqueta quedará abierta",
                 {("globals", "presion_chaqueta"), ("globals", "rango_presion_chaqueta")}))
+    advertencias.extend(_evaluar_banda_pwm(parameters))
     rechazos.extend(_evaluar_recuperacion(parameters))
     return rechazos, advertencias
+
+
+def consigna_pwm_esterilizacion(t_est, brecha) -> float | None:
+    """A14-M1 (tanda 28): P_sp = Psat(T_est + brecha_segura_temperatura +
+    histéresis de salida de RECUPERACION), kPa abs; la misma consigna que
+    calcula EsterilizacionFase al entrar. None si faltan valores o fuera de
+    IAPWS-IF97."""
+    if not (_num(t_est) and _num(brecha)):
+        return None
+    return _psat(t_est + brecha + HIST_SALIDA_RECUPERACION_K)
+
+
+_RUTAS_BANDA_PWM = {("esterilizacion", "temperatura_esterilizacion"),
+                    ("esterilizacion", "brecha_segura_temperatura"),
+                    ("esterilizacion", "presion_add_esterilizacion")}
+
+
+def _evaluar_banda_pwm(parameters: dict) -> list:
+    """A14-M1: advertencia no bloqueante si el borde alto de la banda PWM
+    (P_sp + 1) queda a menos de 5 kPa del techo P_control_max = Psat(T_est) +
+    presion_add_esterilizacion. Valores ausentes o no numéricos no se evalúan."""
+    t = _valor(parameters, "esterilizacion", "temperatura_esterilizacion")
+    brecha = _valor(parameters, "esterilizacion", "brecha_segura_temperatura")
+    add = _valor(parameters, "esterilizacion", "presion_add_esterilizacion")
+    p_sp = consigna_pwm_esterilizacion(t, brecha)
+    psat = _psat(t) if _num(t) else None
+    if p_sp is None or psat is None or not _num(add):
+        return []
+    alto, techo = p_sp + BANDA_PWM_ALTA_KPA, psat + add
+    if alto <= techo - MARGEN_BANDA_TECHO_KPA:
+        return []
+    return [(ADVERTENCIA_BANDA_PWM_TECHO,
+             f"esterilizacion: la banda de control llega a {alto:.1f} kPa (consigna "
+             f"{p_sp:.1f} + {BANDA_PWM_ALTA_KPA:.0f}), a menos de {MARGEN_BANDA_TECHO_KPA:.0f} kPa "
+             f"del techo de control ({techo:.1f} kPa): riesgo de sobreimpulso y de aislamientos "
+             f"repetidos", set(_RUTAS_BANDA_PWM))]
 
 
 def presion_add_minima_recuperacion(t_est, brecha) -> float | None:

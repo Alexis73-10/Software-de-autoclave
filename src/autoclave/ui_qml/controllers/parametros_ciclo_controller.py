@@ -89,6 +89,8 @@ _MENSAJES = {
 _ADVERTENCIAS = {
     "aviso_techo_sobre_suministro": "opciones.aviso_techo_sobre_suministro",
     "aviso_chaqueta_abierta": "opciones.aviso_chaqueta_abierta",
+    # A14-M1 (tanda 28): banda PWM de esterilización cerca del techo
+    "aviso_banda_pwm_techo": "opciones.aviso_banda_pwm_techo",
 }
 
 

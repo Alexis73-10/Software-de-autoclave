@@ -260,7 +260,12 @@ class BackendContext:
         bitácora; la versión anterior queda en .bak), para no repetir la
         migración en cada arranque. DECISIÓN SIN CONFIRMAR (J12). Si la
         bitácora falla, el archivo no se toca (se repite en el siguiente
-        arranque). Nunca lanza."""
+        arranque). Nunca lanza.
+
+        A12 (tanda 28): los parámetros nuevos del prevacío agregados con su
+        defecto (`migraciones_agregadas`) se auditan igual (valor anterior
+        vacío, causa "migracion_parametro_nuevo") y reescriben el archivo; no
+        llevan aviso SIS-06."""
         from autoclave.core.managers import catalogo_parametros as cp
         from autoclave.core.managers.cycle_manager import escribir_parametros
         por_programa: dict = {}
@@ -268,7 +273,14 @@ class BackendContext:
             for cycle, m in self.cycle_manager.migraciones_correctivas():
                 if getattr(cycle, "danado", None):
                     continue        # V12 (SAF-07c): ni se audita ni se reescribe
-                por_programa.setdefault(cycle.id, (cycle, []))[1].append(m)
+                por_programa.setdefault(cycle.id, (cycle, []))[1].append(
+                    (m, "migracion_correctiva"))
+            agregadas = getattr(self.cycle_manager, "migraciones_agregadas", None)
+            for cycle, m in (agregadas() if callable(agregadas) else []):
+                if getattr(cycle, "danado", None):
+                    continue
+                por_programa.setdefault(cycle.id, (cycle, []))[1].append(
+                    (m, "migracion_parametro_nuevo"))
         except Exception:
             logger.exception("No se pudieron leer las migraciones correctivas")
             return
@@ -278,8 +290,8 @@ class BackendContext:
                       "valor_anterior": m["anterior"], "valor_nuevo": m["nuevo"],
                       "detalle": {"programa": cycle.id, "fase": m["fase"], "aplica": "siguiente",
                                   "automatico": True, "origen": m.get("origen", cp.ORIGEN_MIGRACION_T12),
-                                  "causa": "migracion_correctiva"}}
-                     for m in correcciones]
+                                  "causa": causa}}
+                     for m, causa in correcciones]
             try:
                 self.db.registrar_auditoria_lote(filas)
             except Exception:
@@ -290,6 +302,7 @@ class BackendContext:
             # que un reintento de abrir_base_datos no duplique las filas ni
             # reescriba de nuevo el archivo (pisaría el .bak con el original)
             cycle.migraciones_correctivas = []
+            cycle.migraciones_agregadas = []
             if getattr(cycle, "source", None) == "user" and getattr(cycle, "_path", None):
                 try:
                     escribir_parametros(cycle)

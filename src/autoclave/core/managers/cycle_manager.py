@@ -75,8 +75,81 @@ _CLAVES_NUEVAS_T16 = (
 )
 
 
+# Tanda 28 (A14-M2): margen_chaqueta_est al final de esterilizacion, mismo
+# patrón (sin aviso: no cambia ningún valor existente). Va junto a
+# histeresis_cierre_camara si el programa la tiene.
+_CLAVES_NUEVAS_T28 = (
+    ("esterilizacion", "margen_chaqueta_est",
+     {"value": catalogo_parametros.MARGEN_CHAQUETA_EST_DEFECTO, "type": "float", "unit": "kPa",
+      "clase": "diferencia", "min": 2, "max": 30}),
+)
+
+
+# Tanda 28 (A12): parámetros nuevos del paso DECOMPRESION del prevacío, al
+# final de la sección. A diferencia de las claves anteriores, CAMBIAN el
+# comportamiento de un programa existente (antes el umbral era el
+# rango_presion_atm del equipo y el paso no tenía tiempo límite): cada
+# agregado queda en `agregadas` para la auditoría (sin SIS-06) y el JSON de
+# usuario se reescribe con .bak, igual que una migración correctiva.
+_CLAVES_NUEVAS_A12 = (
+    ("prevacio", "presion_inicio_vacio",
+     {"value": catalogo_parametros.PRESION_INICIO_VACIO_DEFECTO, "type": "float", "unit": "kPa",
+      "clase": "diferencia", "min": 0, "max": 30}, "kPa"),
+    ("prevacio", "timeout_descompresion",
+     {"value": catalogo_parametros.TIMEOUT_DESCOMPRESION_DEFECTO, "type": "int", "unit": "min",
+      "min": 1, "max": 30}, "min"),
+)
+
+
+def _agregar_claves_a12(parameters: dict, agregadas) -> bool:
+    """A12: agrega presion_inicio_vacio y timeout_descompresion con su
+    defecto si faltan (solo en un programa con sección prevacio). Cada
+    agregado va a `agregadas` (si no es None) con origen «migración tanda 28
+    (A12)». Solo agrega: nunca cambia un valor existente."""
+    seccion = parameters.get("prevacio")
+    if not isinstance(seccion, dict):
+        return False
+    cambio = False
+    for fase, clave, hoja, unidad in _CLAVES_NUEVAS_A12:
+        if clave in seccion:
+            continue
+        seccion[clave] = copy.deepcopy(hoja)
+        cambio = True
+        logger.warning("Programa sin %s.%s: agregado con el defecto %g %s (%s)", fase, clave,
+                       hoja["value"], unidad, catalogo_parametros.ORIGEN_MIGRACION_T28_A12)
+        if agregadas is not None:
+            agregadas.append({"fase": fase, "parametro": clave, "anterior": None,
+                              "nuevo": hoja["value"], "unidad": unidad,
+                              "origen": catalogo_parametros.ORIGEN_MIGRACION_T28_A12})
+    return cambio
+
+
+def _agregar_claves_t28(parameters: dict) -> bool:
+    """A14-M2: agrega margen_chaqueta_est con su defecto si falta, después de
+    histeresis_cierre_camara (o al final de la sección). Solo agrega."""
+    cambio = False
+    for fase, clave, hoja in _CLAVES_NUEVAS_T28:
+        seccion = parameters.get(fase)
+        if not isinstance(seccion, dict) or clave in seccion:
+            continue
+        ancla = "histeresis_cierre_camara"
+        if ancla in seccion:
+            nuevo = {}
+            for k, v in seccion.items():
+                nuevo[k] = v
+                if k == ancla:
+                    nuevo[clave] = copy.deepcopy(hoja)
+            seccion.clear()
+            seccion.update(nuevo)
+        else:
+            seccion[clave] = copy.deepcopy(hoja)
+        cambio = True
+    return cambio
+
+
 def migrar_parametros(parameters, correcciones: list | None = None,
-                      no_migradas: list | None = None, recuperacion: bool = False) -> bool:
+                      no_migradas: list | None = None, recuperacion: bool = False,
+                      agregadas: list | None = None) -> bool:
     """Migra en el sitio los parámetros de un programa viejo. Devuelve True si
     cambió algo. `correcciones` (opcional) recibe un dict por cada migración
     correctiva (C-04.4 y P2 de la tanda 16): fase, parametro, anterior, nuevo,
@@ -85,7 +158,9 @@ def migrar_parametros(parameters, correcciones: list | None = None,
     `recuperacion` (tanda 16): aplica también P2 (_migrar_recuperacion). Solo
     la carga de programas desde archivo (CycleManager) lo pide: una copia ya
     viene migrada y la instantánea de un ciclo interrumpido debe conservar los
-    valores con los que corrió (DECISIÓN SIN CONFIRMAR)."""
+    valores con los que corrió (DECISIÓN SIN CONFIRMAR). `agregadas`
+    (opcional, A12 de la tanda 28) recibe un dict por cada parámetro nuevo
+    del prevacío agregado con su defecto (para la auditoría, sin SIS-06)."""
     cambio = _migrar_rango_calentamiento(parameters)
     if not isinstance(parameters, dict):
         return cambio
@@ -95,6 +170,8 @@ def migrar_parametros(parameters, correcciones: list | None = None,
             seccion[clave] = copy.deepcopy(hoja)
             cambio = True
     cambio = _agregar_claves_t16(parameters) or cambio
+    cambio = _agregar_claves_t28(parameters) or cambio
+    cambio = _agregar_claves_a12(parameters, agregadas) or cambio
     for fase, clave in _PRESION_ADD:
         hoja = parameters.get(fase, {}).get(clave) if isinstance(parameters.get(fase), dict) else None
         if not isinstance(hoja, dict):
@@ -113,8 +190,41 @@ def migrar_parametros(parameters, correcciones: list | None = None,
                                      "nuevo": nuevo,
                                      "origen": catalogo_parametros.ORIGEN_MIGRACION_T12})
     if recuperacion:
+        # A14-M3 antes que P2: el mínimo de P1 se calcula con la brecha final
+        cambio = _migrar_brecha_t28(parameters, correcciones) or cambio
         cambio = _migrar_recuperacion(parameters, correcciones, no_migradas) or cambio
     return cambio
+
+
+def _migrar_brecha_t28(parameters: dict, correcciones) -> bool:
+    """A14-M3 (tanda 28, decisión de Cristian): migración única de
+    brecha_segura_temperatura 1,0 → 0,3. Solo una vez por programa: la hoja
+    del parámetro queda con la marca MARCA_MIGRACION_T28_M3 (en memoria; llega
+    al archivo cuando se reescribe, con la migración o con cualquier guardado).
+    Un programa ya marcado no se toca aunque tenga 1,0 (fijado a mano después),
+    y un valor distinto de 1,0 y 0,3 (p. ej. 0,7) tampoco: solo se marca. La
+    corrección va a `correcciones` con origen «migración tanda 28 (M3)»
+    (auditoría, SIS-06 y .bak en el backend, como C-04.4 y P2). Valores
+    ausentes o no numéricos no se tocan ni se marcan."""
+    cp = catalogo_parametros
+    est = parameters.get("esterilizacion")
+    if not isinstance(est, dict):
+        return False
+    hoja, brecha = _hoja_valor(est, "brecha_segura_temperatura")
+    if hoja is None or not _es_numero(brecha) or hoja.get(cp.MARCA_MIGRACION_T28_M3) is True:
+        return False
+    hoja[cp.MARCA_MIGRACION_T28_M3] = True
+    if abs(brecha - cp.BRECHA_SEGURA_ANTERIOR_T16) >= 1e-9:
+        return True                  # solo la marca: el valor no cambia
+    nuevo = cp.BRECHA_SEGURA_TEMPERATURA_DEFECTO
+    hoja["value"] = nuevo
+    logger.warning("Programa con esterilizacion.brecha_segura_temperatura = %r: migrado a %g °C (%s)",
+                   brecha, nuevo, cp.ORIGEN_MIGRACION_T28_M3)
+    if correcciones is not None:
+        correcciones.append({"fase": "esterilizacion", "parametro": "brecha_segura_temperatura",
+                             "anterior": brecha, "nuevo": nuevo,
+                             "origen": cp.ORIGEN_MIGRACION_T28_M3, "unidad": "°C"})
+    return True
 
 
 def _agregar_claves_t16(parameters: dict) -> bool:
@@ -160,11 +270,12 @@ def _redondear_arriba(valor: float, paso: float) -> float:
 
 def _migrar_recuperacion(parameters: dict, correcciones, no_migradas) -> bool:
     """P2 (tanda 16, D-14.2) y su extensión (V-04, DECISIÓN SIN CONFIRMAR):
-    1. brecha_segura_temperatura 0,3 → 1,0;
-    2. si, con la brecha resultante, el programa no cumple P1 (D-14.1),
+    1. (retirado en la tanda 28, A14-M3: era brecha_segura_temperatura
+       0,3 → 1,0 en cada carga; ahora la brecha la migra _migrar_brecha_t28);
+    2. si, con la brecha del programa, no cumple P1 (D-14.1),
        presion_add_esterilizacion sube al mínimo de P1 redondeado hacia arriba
-       a 0,5 kPa (DECISIÓN SIN CONFIRMAR). El paso 2 aplica a cualquier
-       programa que incumpla P1 al cargar, no solo a los que tenían 0,3;
+       a 0,5 kPa (DECISIÓN SIN CONFIRMAR). Aplica a cualquier programa que
+       incumpla P1 al cargar;
     3. salvaguarda: si con el valor nuevo la consigna de chaqueta + 10 llega
        al alivio de chaqueta (o el techo de cámara al alivio de cámara, o
        presion_add pasa del máximo del catálogo), no se migra NADA del
@@ -176,17 +287,13 @@ def _migrar_recuperacion(parameters: dict, correcciones, no_migradas) -> bool:
     if not isinstance(est, dict):
         return False
     cp = catalogo_parametros
-    hoja_b, brecha = _hoja_valor(est, "brecha_segura_temperatura")
+    _, brecha = _hoja_valor(est, "brecha_segura_temperatura")
     hoja_a, add = _hoja_valor(est, "presion_add_esterilizacion")
     _, t_est = _hoja_valor(est, "temperatura_esterilizacion")
     cambios = []                     # (hoja, parametro, anterior, nuevo, unidad)
-    brecha_final = brecha
-    if _es_numero(brecha) and abs(brecha - cp.BRECHA_SEGURA_VIEJA) < 1e-9:
-        brecha_final = cp.BRECHA_SEGURA_NUEVA
-        cambios.append((hoja_b, "brecha_segura_temperatura", brecha, brecha_final, "°C"))
     add_final = add
     if _es_numero(add):
-        minimo = cp.presion_add_minima_recuperacion(t_est, brecha_final)
+        minimo = cp.presion_add_minima_recuperacion(t_est, brecha)
         if minimo is not None and add < minimo - 1e-9:
             add_final = _redondear_arriba(minimo, cp.PASO_MIGRACION_PRESION_ADD)
             cambios.append((hoja_a, "presion_add_esterilizacion", add, add_final, "kPa"))
@@ -313,8 +420,11 @@ class Cycle:
         self.migraciones_correctivas: list[dict] = []
         # P2 (tanda 16): migraciones que la salvaguarda del alivio no aplicó
         self.migraciones_no_aplicadas: list[dict] = []
+        # A12 (tanda 28): parámetros nuevos del prevacío agregados con su defecto
+        self.migraciones_agregadas: list[dict] = []
         migrar_parametros(parameters, self.migraciones_correctivas,
-                          self.migraciones_no_aplicadas, recuperacion=migrar_recuperacion)
+                          self.migraciones_no_aplicadas, recuperacion=migrar_recuperacion,
+                          agregadas=self.migraciones_agregadas)
         self.parameters = parameters
         # Indicativo del ciclo ("cycle_number" del JSON), único entre ciclos.
         # None si falta, no es entero positivo o está repetido.
@@ -607,6 +717,7 @@ class CycleManager:
                         # el .bak; si tampoco vale, el programa queda dañado
                         self._validar_al_cargar(cycle, full_path)
                         self._marca_sin_bitacora(cycle, full_path)
+                        self._registrar_advertencias(cycle)
                         self.cycles[cycle.id] = cycle
                         if source == "factory" and cycle.number is not None:
                             self.fabrica[cycle.number] = cycle.copia()
@@ -635,6 +746,17 @@ class CycleManager:
         logger.error("Programa %s DAÑADO, no ejecutable: %s", cycle.id, motivo)
         cycle.danado = [motivo] + list(getattr(cycle, "danado", None) or [])
 
+    @staticmethod
+    def _registrar_advertencias(cycle) -> None:
+        """A14-M1 (tanda 28): las advertencias no bloqueantes del programa
+        (p. ej. la banda PWM de esterilización cerca del techo) también al
+        cargar, en el log. Nunca lanza."""
+        try:
+            for clave, mensaje in cycle.advertencias():
+                logger.warning("Programa %s: advertencia %s: %s", cycle.id, clave, mensaje)
+        except Exception:
+            logger.exception("Programa %s: no se pudieron evaluar las advertencias", cycle.id)
+
     def _validar_al_cargar(self, cycle, full_path: str) -> None:
         errores = catalogo_parametros.errores_programa(cycle.parameters)
         if not errores:
@@ -646,14 +768,17 @@ class CycleManager:
                     respaldo = json.load(f).get("parameters", {})
                 correcciones: list[dict] = []
                 no_aplicadas: list[dict] = []
-                # R1-P3, C-04.4 y P2 (tanda 16)
-                migrar_parametros(respaldo, correcciones, no_aplicadas, recuperacion=True)
+                agregadas: list[dict] = []
+                # R1-P3, C-04.4, P2 (tanda 16), M3 y A12 (tanda 28)
+                migrar_parametros(respaldo, correcciones, no_aplicadas, recuperacion=True,
+                                  agregadas=agregadas)
                 if not catalogo_parametros.errores_programa(respaldo):
                     logger.error("Programa %s fuera del catálogo (%s); se usa %s",
                                  cycle.id, "; ".join(errores), os.path.basename(bak))
                     cycle.parameters = respaldo
                     cycle.migraciones_correctivas = correcciones
                     cycle.migraciones_no_aplicadas = no_aplicadas
+                    cycle.migraciones_agregadas = agregadas
                     return
             except Exception:
                 logger.exception("Programa %s: %s ilegible", cycle.id, os.path.basename(bak))
@@ -665,6 +790,12 @@ class CycleManager:
         """C-04.4 (tanda 12): [(programa, corrección)] de la última carga."""
         return [(c, m) for c in self.cycles.values()
                 for m in (getattr(c, "migraciones_correctivas", None) or [])]
+
+    def migraciones_agregadas(self) -> list[tuple["Cycle", dict]]:
+        """A12 (tanda 28): [(programa, parámetro agregado con su defecto)] de
+        la última carga."""
+        return [(c, m) for c in self.cycles.values()
+                for m in (getattr(c, "migraciones_agregadas", None) or [])]
 
     def migraciones_no_aplicadas(self) -> list[tuple["Cycle", dict]]:
         """P2 (tanda 16): [(programa, migración no aplicada por la salvaguarda
