@@ -3,3 +3,7 @@ Merge a dev: c46eeaba (sin push).
 Suite: 10873 pasadas, 11 omitidas, 7 xfail, 0 rojas tras corregir test_registro_arranque (438491e3); ver suite_final_1.txt.
 CMP: causa raiz = falta C:\Users\tecni\Documents\especifika_secretos\activacion_v2.json (K_t v2). ACCION PENDIENTE DE CRISTIAN antes de compilar: exportar-transporte del generador a esa ruta (o ESPECIFIKA_TRANSPORTE) y copiar vectores_formato_v2.json. Entrega NO compilada. Despues: python tools/entrega/compilar_entrega.py (desde dev limpio).
 Abiertas para Cristian: ARQ-04 (estado seguro de arranque diferido), puerta 1 sin iniciar, plazo de 3 s de SMP y residual SMP-01. Ver R26_informe.md.
+
+Actualizacion tanda26b (2026-11-05): respuestas de Cristian aplicadas. Merge a dev: 361b6e35 (sin push).
+Suite: 10906 pasadas, 11 omitidas, 7 xfail; 2 rojas intermitentes en paralelo (test_f6_sin_enviar_sincrono, test_t19_s2_calibracion) que pasan en serie (14 passed). Ver suite_final_2.txt.
+CMP sigue pendiente de Cristian (activacion_v2.json); entrega no compilada.
