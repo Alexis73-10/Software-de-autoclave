@@ -80,6 +80,11 @@ Etapas (corrida 1): instalación/procesos/servicios < 1 ms; configuración 0,026
 
 Riesgos HAZ-ARQ-01 (ALTA), HAZ-ARQ-02 (MEDIA), HAZ-SMP-01 (MEDIA) y HAZ-ALD-01 (MEDIA) en `docs/riesgos/registro_riesgos.md`; trazabilidad REQ-52 a REQ-55 en `docs/riesgos/matriz_trazabilidad.md`; `CLAUDE.md` con la sección de la tanda 26. Banco: bloque T26 (T26-01 a T26-06) de `docs/mis_plans/hoja_pruebas_banco_equipo_pruebas.md`: arranque real con las dos pantallas, reinicio por reasignación, latencia con el M31 real, ninguna bobina ON antes de la liberación, equipo retenido sin aviso y tarjeta de NO ABRIR.
 
-## RESULTADO DEL REVISOR: pendiente
+## Resultado del revisor
 
-## SUITE FINAL: pendiente
+- **ARQ (primera revisión, opus): aprobado con condiciones.** Ninguna ruta enciende salidas durante la retención; paro, módulo E/S, MOD-08 y apagado siguen. Corregidos H3 (lazo nace retenido por defecto), H4 (ALL_OFF de retención con reintento), H5 (un solo vigilante del dueño de prueba), H6 (sensores solo con AI vigente) y H7 (`interfaz-lista` antes de `iniciar` responde 409 `arranque_no_iniciado`); ver `AJUSTES.md`. **Abiertos para Cristian:** H1 = ARQ-04 (estado seguro de arranque diferido sin tope; sin alarma ni buzzer si la UI no aparece) y H2 (todo depende de que la puerta 1 envíe `iniciar`).
+- **Diff completo (revisor final, opus): aprobado con condiciones.** Sin hallazgos Críticos ni Altos; ninguna aserción de seguridad relajada (las pruebas existentes cambiadas son legítimas). Cuatro Bajos: (1) SMP: con un OFF aceptado pero aún sin reflejo en `/status` y dudas del modo prueba, el botón queda en «Activar» deshabilitado hasta ≤3,2 s y no se puede repetir el OFF; **se acepta como residual de HAZ-SMP-01** (corregirlo mostrando «Activar» sobre una salida realmente encendida sería peor), a confirmar por Cristian junto con el plazo de 3 s; (2) etiqueta puede mostrar ON con la salida apagada hasta 3,2 s (dentro del diseño); (3) texto de `temp_alta`: la frase «el menor entre el del equipo y el del programa» aparece aunque no haya ciclo previo (cosmético, pendiente); (4) la sigla ESP sigue solo en el mensaje del commit 767e9015 (historial inmutable; el renombrado a SMP está en 6f79f586).
+
+## Suite final
+
+`pytest tests -n auto -q`: 10873 pasadas, 11 omitidas, 7 xfail, 1 roja (`test_registro_arranque::test_instantanea_inicial_cumple_el_contrato`, contrato de `GET /arranque` ampliado por diseño); corregida en 438491e3 y en verde. Salida en `suite_final_1.txt`. Suite base antes de la tanda: 10789 pasadas, 0 rojas.
