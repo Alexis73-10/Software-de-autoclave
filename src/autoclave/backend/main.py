@@ -47,16 +47,56 @@ def arrancar_cuando_escuche(servidor, iniciar, intervalo_s: float = 0.05, dormir
 TOPE_INTERFAZ_S = 75.0   # tras quedar operable: si la UI no avisa, se imprime igual
 
 
+INTERVALO_LATIDO_S = 0.1   # sondeo de los dos eventos que arrancan el latido
+
+
+def _esperar_primero(eventos, plazo_s: float, intervalo_s: float = INTERVALO_LATIDO_S,
+                     reloj=time.monotonic):
+    """Espera hasta que alguno de `eventos` (los None se ignoran) esté fijado
+    o venza `plazo_s`. Devuelve el primero fijado o None."""
+    eventos = [e for e in eventos if e is not None]
+    limite = reloj() + plazo_s
+    while True:
+        for e in eventos:
+            if e.is_set():
+                return e
+        resto = limite - reloj()
+        if resto <= 0:
+            return None
+        if eventos:
+            eventos[0].wait(min(intervalo_s, resto))
+        else:
+            time.sleep(min(intervalo_s, resto))
+
+
 def latido_y_ticket(server, plazo_s: float = 120.0, tope_interfaz_s: float = TOPE_INTERFAZ_S) -> None:
     """R1 (tanda 2): latido de apagado y ticket de arranque, que antes hacía la
-    ventana principal de la UI anterior. Espera a que el arranque deje el
-    contexto operable (perfil cargado); si no llega, arranca solo el latido.
-    El latido arranca al quedar operable; el ticket espera además (en su hilo)
-    a que la UI termine la animación de arranque (POST /arranque/interfaz-lista),
-    con tope `tope_interfaz_s` tras el cual imprime igual (fail-safe: sin UI o
-    sin módulo E/S el ticket no se pierde)."""
+    ventana principal de la UI anterior.
+
+    Tanda 26 (ARQ-06): el latido (data/last_shutdown.json) arranca en cuanto
+    el contexto queda operable o llega POST /arranque/iniciar, lo que ocurra
+    primero (antes esperaba al contexto operable o a `plazo_s`). Solo escribe
+    la hora en el archivo: no actúa sobre salidas ni toca la retención. Si no
+    llega ninguno de los dos, arranca igual a los `plazo_s`.
+    El ticket sigue igual: espera hasta `plazo_s` (desde el inicio) a que el
+    contexto quede operable (perfil cargado; sin él no se imprime) y además,
+    en su hilo, a que la UI termine la animación de arranque
+    (POST /arranque/interfaz-lista), con tope `tope_interfaz_s` tras el cual
+    imprime igual (fail-safe: sin UI o sin módulo E/S el ticket no se pierde)."""
+    inicio = time.monotonic()
     operable = getattr(server, "_contexto_operable", None)
-    if operable is None or not operable.wait(plazo_s):
+    iniciado = getattr(getattr(server, "registro_arranque", None), "evento_iniciado", None)
+    if _esperar_primero((operable, iniciado), plazo_s) is None:
+        logger.warning("Ni contexto operable ni POST /arranque/iniciar en %.0f s: "
+                       "se arranca el latido igual", plazo_s)
+    try:
+        from autoclave.devices.printer import arranque_equipo
+        ultimo = arranque_equipo.iniciar_latido()
+    except Exception:
+        logger.exception("No se pudo iniciar el latido de apagado")
+        ultimo = None
+    resto = max(0.0, plazo_s - (time.monotonic() - inicio))
+    if operable is None or not operable.wait(resto):
         logger.warning("Arranque no operable en %.0f s: latido sin ticket de arranque", plazo_s)
 
     def esperar_interfaz() -> None:
@@ -72,9 +112,12 @@ def latido_y_ticket(server, plazo_s: float = 120.0, tope_interfaz_s: float = TOP
     try:
         from autoclave.devices.printer import arranque_equipo
         perfil = getattr(server.context, "profile", None) if operable and operable.is_set() else None
-        arranque_equipo.iniciar(perfil, antes_de_imprimir=esperar_interfaz)
+        # El latido ya corre: aquí solo el ticket, con el último apagado leído
+        # antes de que el latido lo pisara
+        arranque_equipo.iniciar(perfil, leer_ultimo=lambda: ultimo, arrancar_latido=lambda: None,
+                                antes_de_imprimir=esperar_interfaz)
     except Exception:
-        logger.exception("No se pudo iniciar el latido / ticket de arranque")
+        logger.exception("No se pudo iniciar el ticket de arranque")
 
 
 def main():

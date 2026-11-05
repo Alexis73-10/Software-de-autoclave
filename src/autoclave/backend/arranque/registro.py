@@ -77,6 +77,9 @@ class RegistroArranque:
         self.instancia = uuid.uuid4().hex
         # ARQ-D1: POST /arranque/iniciar recibido (las etapas ya corren)
         self._iniciado = False
+        # ARQ-06: el mismo hecho como evento, para que el latido de apagado
+        # (backend/main.latido_y_ticket) arranque al recibir iniciar sin sondear
+        self.evento_iniciado = threading.Event()
         # ARQ-D2: evento de liberación del control (BackendContext.arranque_liberado),
         # solo para publicarlo; lo vincula server.py
         self._liberado: threading.Event | None = None
@@ -88,6 +91,7 @@ class RegistroArranque:
         with self._lock:
             primera = not self._iniciado
             self._iniciado = True
+        self.evento_iniciado.set()
         if primera:
             logger.info("Arranque: iniciado por la interfaz (instancia %s)", self.instancia)
         return primera

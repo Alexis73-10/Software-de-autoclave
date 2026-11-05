@@ -1269,7 +1269,7 @@ class ControlLoop:
         de lectura de los sensores (las mismas de PREPARACION, que solo
         activan o resuelven alarmas). La recuperación de un ciclo
         interrumpido (estado seguro de arranque) queda pendiente y se
-        procesa en el primer tick liberado (DECISIÓN SIN CONFIRMAR). Nunca
+        procesa en el primer tick liberado (ARQ-04, confirmado por Cristian). Nunca
         lanza: el tick tiene que completarse para renovar el latido.
 
         H4 (revisión ARQ): el ALL_OFF queda hecho solo si el enlace lo

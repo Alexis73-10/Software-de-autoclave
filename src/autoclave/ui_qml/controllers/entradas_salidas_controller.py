@@ -96,7 +96,7 @@ ANTIGUEDAD_MAX_S = 3.0
 # Tanda 26 (SMP): orden pendiente por salida sostenida. Tras un PATCH aceptado
 # el botón muestra lo ORDENADO (con marca «pendiente») hasta que un /status
 # pedido después de la respuesta lo refleje o pasen PLAZO_ORDEN_PENDIENTE_S;
-# vencido, manda el /status. DECISIÓN SIN CONFIRMAR (3 s).
+# vencido, manda el /status. Plazo de 3 s confirmado por Cristian (tanda 26b).
 PLAZO_ORDEN_PENDIENTE_S = 3.0
 # Con alguna orden pendiente el caché se relee cada 200 ms (el caché de
 # UIServiceBackend se refresca a 5 Hz) en vez de esperar al Timer de 1 s.

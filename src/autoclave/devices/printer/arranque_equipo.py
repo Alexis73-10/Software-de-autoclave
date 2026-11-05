@@ -81,6 +81,16 @@ def _en_hilo(tarea) -> None:
     threading.Thread(target=tarea, name="ticket-arranque", daemon=True).start()
 
 
+def iniciar_latido(leer_ultimo=heartbeat.read_last_shutdown,
+                   arrancar_latido=lambda: heartbeat.start(interval=30)):
+    """Lee el último apagado ANTES de que el latido lo pise y arranca el
+    latido. Devuelve el último apagado leído (para el ticket). Tanda 26
+    (ARQ-06): backend/main.py lo llama por separado, antes del ticket."""
+    ultimo = leer_ultimo()
+    arrancar_latido()
+    return ultimo
+
+
 def iniciar(perfil, leer_ultimo=heartbeat.read_last_shutdown,
             arrancar_latido=lambda: heartbeat.start(interval=30), lanzar=_en_hilo,
             antes_de_imprimir=None) -> None:
@@ -88,8 +98,7 @@ def iniciar(perfil, leer_ultimo=heartbeat.read_last_shutdown,
     e imprime el ticket en segundo plano. Sin perfil (asistente de
     instalación pendiente) no imprime. `antes_de_imprimir` (opcional) bloquea
     el hilo del ticket hasta que la UI termine su animación de arranque."""
-    ultimo = leer_ultimo()
-    arrancar_latido()
+    ultimo = iniciar_latido(leer_ultimo, arrancar_latido)
     if perfil is None:
         logger.info("Sin perfil de instalación: no se imprime el ticket de arranque")
         return
