@@ -29,11 +29,8 @@ _ALIAS_ESTADO = {
 # (no se corre ninguna otra salida ni cambia el mapa de E/S de los módulos).
 SALIDAS_RETIRADAS = frozenset({"aire_comprimido_chaqueta"})
 
-# D-ES-09: salidas de movimiento de puerta y bomba de vacío se mantienen pulsadas
-SALIDAS_MOMENTANEAS = frozenset({
-    "abrir_puerta_1", "abrir_puerta_2", "cerrar_puerta_1", "cerrar_puerta_2",
-    "bomba_vacio",
-})
+# D-ES-09 (salidas momentáneas de puerta y bomba de vacío) se retiró en la
+# tanda 27 (A4, HAZ-IO-07): en modo prueba todas las salidas son interruptor.
 
 # raw_ai: 0-5 temperatura (RTD 1-6), 8-23 presión (AI 1-16; tanda 23, AIN-03)
 _OFFSET_RAW_PRESION = 8
@@ -193,9 +190,7 @@ def canales_digitales(tipo: str, config_dir: Path | None = None, profile=None) -
             "i18n": f"io.{tipo.lower()}.{nombre}",
             "id": f"{tipo} {mapa[clave] + 1:02d}",
         }
-        if tipo == "DO":
-            canal["momentanea"] = nombre in SALIDAS_MOMENTANEAS
-        else:
+        if tipo == "DI":
             canal["nc"] = nc.get(nombre, nombre in NC_POR_OMISION)
         salida.append(canal)
     return salida

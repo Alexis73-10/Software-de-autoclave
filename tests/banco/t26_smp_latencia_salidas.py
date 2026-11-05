@@ -167,7 +167,8 @@ def main():
     canales = client.get("/io/channels", headers=cab).json()
     ctrl._al_canales(Resultado("ok", canales, 200))
     _esperar(lambda: (ctrl.actualizar(), ctrl.modoPrueba)[1], 5)
-    candidatas = [c for c in canales["DO"] if not c.get("momentanea") and not c.get("bloqueada")]
+    # Tanda 27 (A4): ya no hay momentáneas; se siguen evitando vapor, aire y puertas
+    candidatas = [c for c in canales["DO"] if not c.get("bloqueada")]
     nombre = args.salida or next(
         (c["name"] for c in candidatas if c["name"] not in
          ("vapor_camara", "vapor_chaqueta", "aire_atmosferico_camara", "aire_admosferico_camara")

@@ -51,7 +51,7 @@ def presentar_salidas(canales, status) -> list[dict]:
     vivo = enlace_ok(status)
     salidas = _sensores(status).get("digital_outputs") or {}
     return [{"name": c["name"], "i18n": c["i18n"], "id": c["id"],
-             "momentanea": bool(c.get("momentanea")), "bloqueada": bool(c.get("bloqueada")),
+             "bloqueada": bool(c.get("bloqueada")),
              "encendida": _nivel(salidas.get(c["estado_key"])) if vivo else None}
             for c in canales]
 

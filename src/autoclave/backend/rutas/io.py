@@ -470,14 +470,15 @@ def put_units(body: _UnidadesBody,
 
 class _OutputSetBody(BaseModel):
     value: bool
+    # Tanda 27 (A4): ya no hay salidas momentáneas; el campo se conserva para no
+    # cambiar el esquema OpenAPI fijado (tanda 15) y se ignora con aviso en el log
     momentanea: bool = False
 
 
-# P-ES-3 / P-ES-4 (propuestas pendientes de confirmar): una salida momentánea
-# se apaga sola si no se renueva, y el modo prueba se cierra sin actividad.
-CADUCIDAD_MOMENTANEA_S = 1.5
+# P-ES-4 (propuesta pendiente de confirmar): el modo prueba se cierra sin
+# actividad de la sesión dueña. La caducidad de las salidas momentáneas
+# (P-ES-3) se retiró en la tanda 27 (A4, HAZ-IO-07): todas son interruptor.
 INACTIVIDAD_MODO_PRUEBA_S = 90.0
-_timers_momentaneas: dict[int, threading.Timer] = {}
 _timer_inactividad: threading.Timer | None = None
 _lock_vigilancias = threading.Lock()
 
@@ -485,16 +486,9 @@ _lock_vigilancias = threading.Lock()
 def _cancelar_vigilancias_prueba() -> None:
     global _timer_inactividad
     with _lock_vigilancias:
-        for t in _timers_momentaneas.values():
-            t.cancel()
-        _timers_momentaneas.clear()
         if _timer_inactividad is not None:
             _timer_inactividad.cancel()
             _timer_inactividad = None
-
-
-def _nombre_do(canal: int) -> str:
-    return next((n for n, i in EstadoAutoclave.map_do.items() if i + 1 == canal), str(canal))
 
 
 # TMG-07 / revisión P1 (TMG-03): cada entrada al modo prueba es una generación
@@ -503,44 +497,57 @@ def _nombre_do(canal: int) -> str:
 _generacion_prueba = 0
 
 
-def _caducar_momentanea(canal: int, timer: threading.Timer, generacion: int = -1) -> None:
-    """Hilo del temporizador: sin renovación a tiempo, apaga la salida."""
-    with _lock_vigilancias:
-        if _timers_momentaneas.get(canal) is not timer:
-            return   # renovada o cancelada mientras tanto
-        del _timers_momentaneas[canal]
-    with context.control_loop.bloqueo_maquina():
-        if not context.control_loop.test_mode_active or generacion != _generacion_prueba:
-            return
-        context.setdo.set_output(canal, False)
-        token = _token_modo_prueba
-    sesion = tokens.obtener(token, renovar=False) if token else None
-    dueno = tokens.quien_fue(token) if sesion is None else None   # TMG-08
-    _auditar("salida_prueba", sesion, usuario=dueno[0] if dueno else "",
-             entidad=_nombre_do(canal), valor_nuevo=False,
-             detalle={"motivo": "caducó sin renovación"})
+# Tanda 27 (A4), DECISIÓN SIN CONFIRMAR: enclavamiento abrir/cerrar de cada
+# puerta en modo prueba. Encender abrir_puerta_N apaga antes cerrar_puerta_N en
+# la misma orden, y al revés, para no alimentar el motor en los dos sentidos.
+_OPUESTA_PUERTA = {"abrir": "cerrar", "cerrar": "abrir"}
 
 
-def _armar_momentanea(canal: int) -> bool:
-    """Arma o renueva la caducidad. Devuelve True si era una renovación."""
-    with _lock_vigilancias:
-        previo = _timers_momentaneas.pop(canal, None)
-        if previo is not None:
-            previo.cancel()
-        generacion = _generacion_prueba
-        timer = threading.Timer(CADUCIDAD_MOMENTANEA_S,
-                                lambda: _caducar_momentanea(canal, timer, generacion))
-        timer.daemon = True
-        _timers_momentaneas[canal] = timer
-        timer.start()
-    return previo is not None
+def _salida_opuesta(clave: str) -> str | None:
+    """Clave de EstadoAutoclave de la salida opuesta de la misma puerta
+    (abrir_puerta_N <-> cerrar_puerta_N), o None si no es de movimiento de
+    puerta o la opuesta no tiene posición en el mapa."""
+    partes = clave.split("_puerta_")
+    if len(partes) != 2 or partes[0] not in _OPUESTA_PUERTA or not partes[1].isdigit():
+        return None
+    opuesta = f"{_OPUESTA_PUERTA[partes[0]]}_puerta_{partes[1]}"
+    return opuesta if opuesta in EstadoAutoclave.map_do else None
 
 
-def _desarmar_momentanea(canal: int) -> None:
-    with _lock_vigilancias:
-        previo = _timers_momentaneas.pop(canal, None)
-    if previo is not None:
-        previo.cancel()
+def _opuesta_de_puerta(clave: str, canal: int) -> tuple[int, str] | None:
+    """Tanda 27 (A4, revisión): (canal DO, nombre) del sentido contrario de la
+    salida de movimiento de puerta `clave` (canal `canal`). Se toma de door.do
+    de la puerta que declara ese canal, como el seguro de atrapamiento; si
+    ninguna lo declara, por el nombre (_salida_opuesta)."""
+    if clave.split("_puerta_")[0] not in _OPUESTA_PUERTA:
+        return None
+    for door in (context.doors or []):
+        do = getattr(door, "do", None)
+        if not isinstance(do, dict):
+            continue
+        for sentido, contrario in _OPUESTA_PUERTA.items():
+            otro = do.get(contrario)
+            if do.get(sentido) == canal and isinstance(otro, int) and not isinstance(otro, bool):
+                nombre = next((k for k, i in EstadoAutoclave.map_do.items() if i + 1 == otro),
+                              f"DO{otro}")
+                return otro, nombre
+    opuesta = _salida_opuesta(clave)
+    return (EstadoAutoclave.map_do[opuesta] + 1, opuesta) if opuesta is not None else None
+
+
+# Tanda 27 (A4, revisión): el enlace no aceptó el apagado del sentido contrario
+OPUESTA_SIN_APAGAR = "salida_prueba_opuesta_sin_apagar"
+_MOTIVO_OPUESTA_SIN_APAGAR = ("No se encendió la salida: no se confirmó el apagado del "
+                              "sentido contrario de la puerta")
+
+
+def _apagar_opuesta(canal: int, nombre: str) -> None:
+    """Apaga el sentido contrario y exige que el enlace acepte la orden (True);
+    si no, 409 sin encender nada (falla cerrada)."""
+    if context.setdo.set_output(canal, False) is not True:
+        logger.warning("Modo prueba: el apagado de %s (DO%d) no se confirmó; "
+                       "no se enciende el sentido contrario", nombre, canal)
+        raise _Rechazo(409, OPUESTA_SIN_APAGAR, _MOTIVO_OPUESTA_SIN_APAGAR)
 
 
 def _salir_por_inactividad(timer: threading.Timer, generacion: int = -1) -> None:
@@ -592,6 +599,8 @@ def io_channels(sesion: Sesion = Depends(_requiere_rol_prueba)):
     """B-ES-2: canales de Entradas / Salidas del equipo (io_enabled) con id
     físico, clave i18n y si la salida es momentánea (D-ES-02, D-ES-03, D-ES-09).
     D8-3.17: solo los canales que declara el perfil de instalación."""
+    # Tanda 27 (A4): D-ES-09 se retiró; el campo "momentanea" ya no se publica.
+    # El docstring no se toca porque forma parte del OpenAPI fijado (tanda 15).
     perfil = getattr(context, "profile", None)
     salidas = io_names.canales_digitales("DO", profile=perfil)
     for c in salidas:
@@ -722,9 +731,10 @@ def io_test_set_output(name: str, body: _OutputSetBody,
     if clave not in EstadoAutoclave.map_do:
         raise HTTPException(status_code=404, detail=f"Output '{name}' no encontrado")
     entidad = f"/io/test/output/{name}"
-    if body.momentanea and name not in io_names.SALIDAS_MOMENTANEAS:
-        raise HTTPException(status_code=422,
-                            detail=f"'{name}' no es una salida momentánea")
+    if body.momentanea:
+        # Tanda 27 (A4): ya no hay salidas momentáneas; se acepta y se ignora
+        logger.warning("Modo prueba: 'momentanea' en la orden de %s se ignora "
+                       "(todas las salidas son interruptor desde la tanda 27)", name)
     with guard_estado(DISTINTO_DE_CICLO_E_HIBERNACION, entidad, sesion):
         if not context.control_loop.test_mode_active:
             raise _Rechazo(409, "modo_prueba_inactivo", "El modo prueba no está activo")
@@ -780,33 +790,48 @@ def io_test_set_output(name: str, body: _OutputSetBody,
             codigo = canales.get(puerta_atrapada.do["abrir"])
             if codigo is not None:
                 context.setdo.set_output(index + 1, False)
-                _desarmar_momentanea(index + 1)
                 raise _Rechazo(409, codigo, salidas_prueba_seguridad.MOTIVOS[codigo])
-            # D-ES-16: la orden de cerrar con atrapamiento activo se convierte en abrir
-            context.setdo.set_output(index + 1, False)
+            # D-ES-16: la orden de cerrar con atrapamiento activo se convierte
+            # en abrir (el cierre se apaga antes: mismo orden que el enclavamiento;
+            # sin confirmar ese apagado, no se abre y la inversión no queda armada)
+            try:
+                _apagar_opuesta(index + 1, clave)
+            except _Rechazo:
+                _cierres_invertidos.discard(index + 1)
+                raise
             context.setdo.set_output(puerta_atrapada.do["abrir"], True)
-            _desarmar_momentanea(index + 1)
-            if body.momentanea:
-                _armar_momentanea(puerta_atrapada.do["abrir"])
             _marcar_actividad_prueba()
             if nueva:
                 _auditar("atrapamiento_orden_invertida", sesion, entidad=name,
                          detalle={"puerta": getattr(puerta_atrapada, "name", None)})
             return {"ok": True, "name": name, "value": False, "invertida": True}
+        contraria = _opuesta_de_puerta(clave, index + 1)
+        if contraria is not None and clave.startswith("abrir_"):
+            # Tanda 27 (A4): con interruptor, la inversión de D-ES-16 ya no
+            # termina al soltar el dedo; una orden propia de abrir la da por
+            # terminada (si no, el próximo cerrar seguiría abriendo)
+            _cierres_invertidos.discard(contraria[0])
+        enclavada = None
+        if body.value and contraria is not None:
+            # Tanda 27 (A4), DECISIÓN SIN CONFIRMAR: el sentido contrario se
+            # apaga ANTES de encender este, en la misma orden y bajo el mismo
+            # candado (el enlace escribe solo cambios: un OFF ya apagado no
+            # genera tráfico). Revisión: sin confirmar ese apagado, 409 y no
+            # se enciende este
+            opuesta = contraria[1]
+            _apagar_opuesta(*contraria)
+            enclavada = opuesta
+            logger.info("Modo prueba: %s encendida; %s apagada por enclavamiento", clave, opuesta)
         context.setdo.set_output(index + 1, body.value)
         if body.value:
             # R8 (revisión): evidencia de la salida accionada EN ESTE ARRANQUE
             _reasignacion.evidencia_do(clave)
-        renovacion = False
-        if body.value and body.momentanea:
-            renovacion = _armar_momentanea(index + 1)
-        else:
-            _desarmar_momentanea(index + 1)
         _marcar_actividad_prueba()
-    # una salida momentánea registra solo el primer y último pulso, no cada renovación
-    if not renovacion:
-        _auditar("salida_prueba", sesion, entidad=name, valor_nuevo=body.value)
-    return {"ok": True, "name": name, "value": body.value}
+    _auditar("salida_prueba", sesion, entidad=name, valor_nuevo=body.value)
+    respuesta = {"ok": True, "name": name, "value": body.value}
+    if enclavada is not None:
+        respuesta["apagada_por_enclavamiento"] = enclavada
+    return respuesta
 
 
 @router.post("/io/test/keepalive")

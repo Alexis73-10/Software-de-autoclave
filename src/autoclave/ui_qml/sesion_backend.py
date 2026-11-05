@@ -122,6 +122,8 @@ _CLAVES = {
     # Tanda 17 (ESG-02): protecciones permanentes del modo prueba
     "salida_prueba_camara_presurizada": "io.err_puerta_camara_presurizada",
     "salida_prueba_puerta_abierta": "io.err_vapor_puerta_abierta",
+    # Tanda 27 (A4, revisión): enclavamiento abrir/cerrar sin apagado confirmado
+    "salida_prueba_opuesta_sin_apagar": "io.err_opuesta_sin_apagar",
     "sin_base_de_datos": "io.err_sin_base",
     "auditoria_no_disponible": "io.err_sin_base",
     "sin_calibracion_previa": "io.err_sin_previa",

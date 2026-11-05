@@ -35,6 +35,9 @@ def entorno():
                                           "rango_presion_atm": 5.0}.get
     ctx.doors = [_puerta()]
     ctx.control_loop.test_mode_active = True
+    # tanda 27 (A4, revisión): el enlace acepta las órdenes (el enclavamiento
+    # exige el apagado confirmado del sentido contrario)
+    ctx.setdo.set_output.return_value = True
     srv, _ = cargar_servidor(ctx)
     cab = cabecera(srv, "tecnico", "tec1")
     modulo_backend("rutas.io")._token_modo_prueba = cab["Authorization"].split()[1]
@@ -263,7 +266,8 @@ def test_cerrar_con_atrapamiento_normal_pasa_sin_cambio(atrapada):
     client, ctx, _ = atrapada
     ctx.estado.sensores_di[_DI_ATRAP] = 1
     client.patch("/io/test/output/cerrar_puerta_1", json={"value": True})
-    assert _llamadas(ctx) == [(_canal("cerrar_puerta_1"), True)]
+    assert _llamadas(ctx) == [(_canal("abrir_puerta_1"), False),   # A4 (tanda 27): enclavamiento
+                             (_canal("cerrar_puerta_1"), True)]
 
 
 def test_puerta_sin_sensor_de_atrapamiento_pasa_sin_cambio(entorno):
@@ -271,7 +275,8 @@ def test_puerta_sin_sensor_de_atrapamiento_pasa_sin_cambio(entorno):
     ctx.doors = [_puerta()]
     ctx.doors[0].do = {"abrir": _canal("abrir_puerta_1"), "cerrar": _canal("cerrar_puerta_1")}
     client.patch("/io/test/output/cerrar_puerta_1", json={"value": True})
-    assert _llamadas(ctx) == [(_canal("cerrar_puerta_1"), True)]
+    assert _llamadas(ctx) == [(_canal("abrir_puerta_1"), False),   # A4 (tanda 27): enclavamiento
+                             (_canal("cerrar_puerta_1"), True)]
 
 
 def test_inversion_se_audita_una_sola_vez_por_pulsacion(atrapada):
@@ -296,4 +301,5 @@ def test_liberada_la_senal_el_cierre_no_se_reanuda_hasta_soltar(atrapada):
     client.patch("/io/test/output/cerrar_puerta_1", json={"value": False})   # suelta
     ctx.setdo.set_output.reset_mock()
     client.patch("/io/test/output/cerrar_puerta_1", json={"value": True})    # vuelve a pulsar
-    assert _llamadas(ctx) == [(_canal("cerrar_puerta_1"), True)]
+    assert _llamadas(ctx) == [(_canal("abrir_puerta_1"), False),   # A4 (tanda 27): enclavamiento
+                             (_canal("cerrar_puerta_1"), True)]

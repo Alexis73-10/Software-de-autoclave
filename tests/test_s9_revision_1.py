@@ -205,6 +205,7 @@ def prueba():
     ctx.control_loop.test_mode_active = True
     ctx.control_loop.apagando = False
     ctx.setdo.salida_bloqueada.return_value = False
+    ctx.setdo.set_output.return_value = True      # tanda 27 (A4, revisión)
     ctx.control_loop.salidas_prueba_bloqueadas.return_value = sps.bloqueadas(
         estado_seguro_activo=True, recuperacion_pendiente=False, camara_segura=False)
     srv, _ = cargar_servidor(ctx)

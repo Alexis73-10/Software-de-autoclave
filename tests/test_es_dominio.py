@@ -5,7 +5,7 @@ from autoclave.ui_qml.domain import entradas_salidas as d
 
 _CH_DI = [{"name": "paro_emergencia", "estado_key": "paro_emergencia", "i18n": "io.di.paro_emergencia", "id": "DI 11"}]
 _CH_DO = [{"name": "vapor_camara", "estado_key": "vapor_camara", "i18n": "io.do.vapor_camara",
-           "id": "DO 04", "momentanea": False, "bloqueada": False}]
+           "id": "DO 04", "bloqueada": False}]
 _ST = {"estado_modulo_es": "ok", "card_connected": True, "test_mode_active": False,
        "sensors": {"digital_inputs": {"paro_emergencia": 1}, "digital_outputs": {"vapor_camara": 1},
                    "temperature": {"camara": 121.5}, "pressure": {"camara": 205.0},
@@ -36,6 +36,12 @@ def test_entradas_sin_datos_nunca_cero():
 def test_salidas_estado_y_sin_datos():
     assert d.presentar_salidas(_CH_DO, _ST)[0]["encendida"] is True
     assert d.presentar_salidas(_CH_DO, None)[0]["encendida"] is None
+
+
+def test_salidas_sin_campo_momentanea():
+    """Tanda 27 (A4): un /io/channels viejo con "momentanea" no la propaga."""
+    viejo = [{**_CH_DO[0], "name": "bomba_vacio", "momentanea": True}]
+    assert "momentanea" not in d.presentar_salidas(viejo, _ST)[0]
 
 
 def test_sensor_con_lectura_y_adc():
