@@ -206,7 +206,8 @@ Decidió en todos: el director con el revisor de seguridad (aprobado con condici
 - Se pidió: que el latido arranque al quedar operable el contexto o al recibir `POST /arranque/iniciar`, lo primero que ocurra, sin esperar 120 s; sin actuar sobre salidas (tope de 75 s del ticket intacto).
 - Decidió: Cristian (5-nov).
 - Cambio: Cambia el momento de arranque del latido (`latido_y_ticket`).
-- Archivos: `src/autoclave/backend/main.py`.
+- Archivos: `src/autoclave/backend/main.py` (`_esperar_primero`, `latido_y_ticket`), `src/autoclave/backend/arranque/registro.py` (`evento_iniciado`), `src/autoclave/devices/printer/arranque_equipo.py` (`iniciar_latido`); pruebas `tests/test_t26b_respuestas_cristian.py` y dobles de `iniciar_latido` en `test_r1_arranque_equipo.py` y `test_arranque_interfaz_lista.py` (sin tocar aserciones).
+- Decisión del director, a confirmar por Cristian: se conserva un respaldo de 120 s si no llegan ni `iniciar` ni el contexto operable (el latido no toca salidas). También se cambió una palabra del docstring de `ControlLoop._tick_retenido` (sin cambio de lógica) al quitar la marca de ARQ-04.
 
 ## 2026-11-05 · tanda26b · H2 pantalla 2 sola
 - Se pidió: confirmar que la pantalla 2 sola no pide iniciar y el equipo queda retenido.
