@@ -152,11 +152,6 @@ def crear_app(repeticion, cycle_manager, config: dict, velocidad: float = 10.0,
         return {"id": c.id, "name": c.name, "number": getattr(c, "number", None),
                 "parameters": c.parameters}
 
-    @app.get("/cycles")
-    def cycles():
-        return [{"id": c.id, "name": c.name, "source": getattr(c, "source", "user")}
-                for c in cycle_manager.cycles.values()]
-
     @app.post("/cycle/start")
     def start():
         if not est.listo():
@@ -219,10 +214,6 @@ def crear_app(repeticion, cycle_manager, config: dict, velocidad: float = 10.0,
                              "temp_camara": m["temp_camara"], "temp_ref": m["temp_ref"],
                              "pres_camara": m["pres_camara"]})
         return {"ciclo_db_id": est.ciclo_id, "lecturas": lecturas}
-
-    @app.get("/cycle/current/readings")
-    def readings():
-        return {"ciclo_id": None, "lecturas": []}
 
     def _del_periodo(periodo: str, fecha: date | None):
         inicio, fin = periodos.rango(periodo, fecha or ahora().date())

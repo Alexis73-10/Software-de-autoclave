@@ -127,20 +127,6 @@ def _sin_originales_nulos(ciclo: dict) -> dict:
             if not (k in ("serie_original", "modelo_original") and v is None)}
 
 
-@router.get("/cycle/history/{ciclo_id}/readings")
-def get_cycle_readings(ciclo_id: int):
-    """Todas las lecturas de un ciclo histórico."""
-    ciclo = context.db.get_ciclo(ciclo_id)
-    if ciclo is None:
-        raise HTTPException(status_code=404, detail="Ciclo no encontrado")
-
-    rows = context.db.get_lecturas_ciclo(ciclo_id)
-    return {
-        "ciclo": {**_sin_originales_nulos(dict(ciclo)), **_no_conforme_json(ciclo)},   # P4 (D-14.4)
-        "lecturas": [dict(r) for r in rows],
-    }
-
-
 @router.get("/cycle/history/{ciclo_id}/ticket")
 def get_cycle_ticket(ciclo_id: int):
     """Lecturas marcadas para_imprimir (formato ticket)."""

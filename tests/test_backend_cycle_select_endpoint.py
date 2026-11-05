@@ -34,17 +34,6 @@ def select_client():
     return TestClient(srv.app), mock_ctx, user_cycle, factory_cycle
 
 
-def test_list_cycles_incluye_todos_con_source(select_client):
-    client, *_ = select_client
-    resp = client.get("/cycles")
-    assert resp.status_code == 200
-    # I4 (tanda 6): cada ciclo trae además `nombres` {es, en}
-    body = [{k: c[k] for k in ("id", "name", "source")} for c in resp.json()]
-    assert all("nombres" in c for c in resp.json())
-    assert {"id": "bowe_dick", "name": "Bowe & Dick", "source": "user"} in body
-    assert {"id": "fabrica_x", "name": "Fábrica X", "source": "factory"} in body
-
-
 def test_select_cycle_ok_llama_control_loop_y_sincroniza_cycle_manager(select_client):
     client, mock_ctx, user_cycle, _ = select_client
     resp = client.post("/cycle/select", json={"cycle_id": "bowe_dick"})

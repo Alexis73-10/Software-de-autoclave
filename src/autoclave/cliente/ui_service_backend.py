@@ -124,10 +124,6 @@ class UIServiceBackend:
     # LECTURA THREAD-SAFE DEL CACHE
     # ==============================
 
-    def _snapshot(self):
-        with self._lock:
-            return self._cache, self._config, self._cycle, self.connected
-
     def status_vigente(self):
         """(último /status, conectado, segundos desde que llegó o None,
         monotonic del envío de su petición o None). Solo lectura del caché, sin
@@ -158,10 +154,6 @@ class UIServiceBackend:
             "pres_chaqueta":pres.get("chaqueta"),
         }
 
-    def get_sensores_di(self):
-        with self._lock:
-            return self._cache.get("sensors", {}).get("digital_inputs", {})
-
     # ==============================
     # ALARMAS
     # ==============================
@@ -187,10 +179,6 @@ class UIServiceBackend:
     # ==============================
     # PUERTAS
     # ==============================
-
-    def get_estado_puertas(self):
-        with self._lock:
-            return dict(self._cache.get("doors", {}))
 
     def get_estado_puerta(self, nombre_puerta):
         with self._lock:
@@ -231,50 +219,6 @@ class UIServiceBackend:
     def get_cycle_param(self, param):
         with self._lock:
             return self._cycle.get(param)
-
-    # ==============================
-    # FASE CICLO
-    # ==============================
-
-    def get_fase_ciclo(self) -> str:
-        """Retorna la fase activa del ciclo ('PRECALENTAMIENTO', 'ESTERILIZACION', etc.)."""
-        with self._lock:
-            return self._cache.get("fase_ciclo", "")
-
-    def get_fase_en_sostenimiento(self) -> bool:
-        """True cuando la fase activa ya alcanzó las condiciones y está en sostenimiento."""
-        with self._lock:
-            return bool(self._cache.get("fase_en_sostenimiento", False))
-
-    def get_prevacio_progreso(self) -> str:
-        """Retorna el progreso del pre-vacío: 'A 1/4', 'B 2/4', etc."""
-        with self._lock:
-            return self._cache.get("prevacio_progreso", "")
-
-    # ==============================
-    # SENSORES EXTENDIDOS
-    # ==============================
-
-    def get_temp_camara_2(self):
-        """Retorna la temperatura del segundo sensor de cámara."""
-        with self._lock:
-            return self._cache.get("sensors", {}).get("temperature", {}).get("camara_2")
-
-    # ==============================
-    # LECTURAS EN VIVO (gráfica)
-    # ==============================
-
-    def get_current_cycle_readings(self) -> dict:
-        """
-        Llama al endpoint /cycle/current/readings y retorna el dict
-        con ciclo_id + lista de lecturas.
-        Devuelve {} si falla.
-        """
-        try:
-            return self.backend.get(path="/cycle/current/readings")
-        except Exception as e:
-            logger.debug("get_current_cycle_readings: %s", e)
-            return {}
 
     # ==============================
     # ACCIONES DE CICLO
@@ -424,15 +368,6 @@ class UIServiceBackend:
     # ==============================
     # SELECCIÓN DE CICLO ACTIVO
     # ==============================
-
-    def list_user_cycles(self) -> list[dict]:
-        """Lista los ciclos de usuario disponibles para seleccionar."""
-        try:
-            cycles = self.backend.get(path="/cycles")
-            return [c for c in cycles if c.get("source") == "user"]
-        except Exception as e:
-            logger.warning("list_user_cycles error: %s", e)
-            return []
 
     def refrescar_cache(self) -> None:
         """Pide un refresco inmediato de /cycle y /global_params (no espera al

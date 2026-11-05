@@ -13,28 +13,6 @@ def _make_service(backend):
     return service
 
 
-def test_list_user_cycles_filtra_solo_source_user():
-    backend = MagicMock()
-    backend.get.return_value = [
-        {"id": "bowe_dick", "name": "Bowe & Dick", "source": "user"},
-        {"id": "fabrica_x", "name": "Fábrica X", "source": "factory"},
-    ]
-    service = _make_service(backend)
-
-    result = service.list_user_cycles()
-
-    assert result == [{"id": "bowe_dick", "name": "Bowe & Dick", "source": "user"}]
-    backend.get.assert_called_once_with(path="/cycles")
-
-
-def test_list_user_cycles_retorna_vacio_si_falla_backend():
-    backend = MagicMock()
-    backend.get.side_effect = requests.RequestException("sin conexión")
-    service = _make_service(backend)
-
-    assert service.list_user_cycles() == []
-
-
 def test_select_cycle_ok():
     backend = MagicMock()
     backend.post.return_value = {"ok": True, "id": "bowe_dick", "name": "Bowe & Dick"}
