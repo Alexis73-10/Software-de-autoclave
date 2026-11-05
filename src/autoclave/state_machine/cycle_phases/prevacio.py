@@ -45,7 +45,7 @@ _PASO_HOLD_ALTO      = 'HOLD_ALTO'
 # (bomba_vacio + agua_bomba, vacio_camara + agua_intercambiador). Sin diodo
 # flyback en alguna de ellas, el golpe inductivo combinado de apagarlas
 # juntas puede acoplarse por EMI al módulo E/S y desconectarlo
-# (observado en el equipo de pruebas; se conserva con los módulos M31-U). Mitigación temporal: escalonar el apagado en dos grupos
+# (observado en un equipo de pruebas con la electrónica anterior; la mitigación se conserva con los módulos M31-U). Mitigación temporal: escalonar el apagado en dos grupos
 # separados por este intervalo, mientras se verifica/instala supresión en
 # las bobinas. No reemplaza el fix de hardware.
 _STAGGER_APAGADO_VACIO = 0.15  # segundos

@@ -148,3 +148,9 @@ Nota 1: BORRABLES que piden confirmación expresa aunque cumplen a–e: `Compone
 
 ### DEP-32 (Baja): excepciones de `tests/test_t27_sin_esp32.py`
 - Tolerar: `tests/test_t20_s2_retiro_serial.py`, la propia prueba, `docs/informes/`, `docs/mis_plans/`, `docs/superpowers/`, `docs/referencia/obsoleto/`, `docs/versiones/*`, registro de riesgos/matriz/SOUP, la nota de retiro de `docs/catalogo_alarmas.md`, `src/logs/`. El `'serial'` de `excludes` de los `.spec` no coincide con el patrón. Acción: aprobar la lista; `tools/ensayo_actualizacion_*.py` (BORRABLES) arrastran el bloque `calibration.yaml`: si no se borran, reescribir.
+
+## Añadidos tras el retiro del ESP32 (paso 3)
+- **DEP-33 (Media):** 4 `.docx` de `docs/arquitectura/` siguen describiendo el ESP32 (Capa_Interfaz_Hardware 19 menciones, Conversion_ADC 7, Backend 4, Puertas 3, Maquina_Estados 1). No se tocaron por ser Word y la prueba `test_t27_sin_esp32.py` no los ve. Acción propuesta: reescribirlos o moverlos a `docs/referencia/obsoleto/`.
+- **DEP-34 (Baja):** `docs/instalacion/LEEME_INSTALACION.md` es el LEEME de la compilación I y cita `data\calibration.yaml`; lo copia `tools/entrega/compilar_entrega.py:50` en cada entrega. Acción: actualizarlo en la próxima entrega.
+- **DEP-35 (Baja):** `asignacion_io.guardar_texto`, `status.reset_flags`, `hal/measures/units.get_temperature` y `get_last_update` (métodos sin uso en directorios de control), `converters.py:136 full_scale` (parámetro de firma) y `DbManager.get_lecturas_ciclo` (quedó sin uso al retirar las rutas de lecturas): no se borran por la regla «en control solo comentarios o constantes/imports muertos».
+- **DEP-36 (Baja):** `tools/ensayo_actualizacion_*` se borraron; el informe K10 los citaba solo como historia.

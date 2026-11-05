@@ -61,9 +61,10 @@ def _misma_fabrica(cfg_resp) -> bool:
     si el respaldo es del mismo enlace de E/S y de la misma fábrica. False si
     difiere en cualquier campo o si el activo no se puede leer (falla cerrada).
     Desde la tanda 20 (T20-03) el enlace es único (Modbus): esto rechaza un
-    respaldo cuya calibración no está en µA y décimas de °C (cuentas del ADC)
-    y también un respaldo con otra fábrica del mismo enlace: falla cerrada; la
-    fábrica no se restaura por respaldo."""
+    respaldo cuya sección de fábrica no es idéntica a la activa (lo que incluye
+    una calibración cuya escala no está en µA y décimas de °C) y también uno
+    con otra fábrica del mismo enlace: falla cerrada; la fábrica no se
+    restaura por respaldo."""
     try:
         activa = load_config(CALIBRATION_PATH)
     except Exception:
