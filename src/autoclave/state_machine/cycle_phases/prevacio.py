@@ -295,11 +295,11 @@ class PrevacioFase(BaseFase):
 
     def _presion_inicio_vacio(self) -> float:
         """A12: prevacio.presion_inicio_vacio (kPa sobre la atmosférica),
-        recortado a 0–30; sin un valor numérico, el defecto (10)."""
+        recortado a 2–15 (revisor A12, H1); sin un valor numérico, el defecto (10)."""
         valor = self.cycle.get_param("prevacio", "presion_inicio_vacio")
         if isinstance(valor, bool) or not isinstance(valor, (int, float)) or valor != valor:
             return float(PRESION_INICIO_VACIO_DEFECTO)
-        return float(min(max(valor, 0.0), 30.0))
+        return float(min(max(valor, 2.0), 15.0))
 
     def _timeout_descompresion_min(self) -> float:
         """A12: prevacio.timeout_descompresion (min), recortado a 1–30; sin un
