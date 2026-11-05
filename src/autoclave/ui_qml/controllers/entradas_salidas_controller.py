@@ -93,7 +93,7 @@ INACTIVIDAD_UI_S = 5 * 60
 # sondeo es de 0,2 s con plazos de 0,8 s por petición)
 ANTIGUEDAD_MAX_S = 3.0
 
-# Tanda 26 (ESP): orden pendiente por salida sostenida. Tras un PATCH aceptado
+# Tanda 26 (SMP): orden pendiente por salida sostenida. Tras un PATCH aceptado
 # el botón muestra lo ORDENADO (con marca «pendiente») hasta que un /status
 # pedido después de la respuesta lo refleje o pasen PLAZO_ORDEN_PENDIENTE_S;
 # vencido, manda el /status. DECISIÓN SIN CONFIRMAR (3 s).
@@ -257,7 +257,7 @@ class EntradasSalidasController(QObject):
         self._timer_relectura = QTimer(self)
         self._timer_relectura.setInterval(_SONDEO_RELECTURA_MS)
         self._timer_relectura.timeout.connect(self._revisar_relectura)
-        # ESP (tanda 26): {nombre: (valor ordenado, monotonic de la respuesta)}
+        # SMP (tanda 26): {nombre: (valor ordenado, monotonic de la respuesta)}
         self._pendientes = {}
         self._timer_pendientes = QTimer(self)
         self._timer_pendientes.setInterval(SONDEO_PENDIENTE_MS)
@@ -355,7 +355,7 @@ class EntradasSalidasController(QObject):
         self._resolver_pendientes(status, t_envio)
         self._reconstruir()
 
-    # -- orden pendiente por salida (ESP, tanda 26) ---------------------
+    # -- orden pendiente por salida (SMP, tanda 26) ---------------------
 
     def _vencer_pendientes(self) -> bool:
         """Quita las órdenes con más de PLAZO_ORDEN_PENDIENTE_S. True si quitó."""
@@ -381,7 +381,7 @@ class EntradasSalidasController(QObject):
                 nuevo = t_envio is None or t_envio > t
                 if nuevo and reales.get(n) is bool(valor):
                     del self._pendientes[n]
-                    logger_latencia.debug("ESP latencia %s=%s: primer /status que lo refleja "
+                    logger_latencia.debug("SMP latencia %s=%s: primer /status que lo refleja "
                                           "%.3f s tras la respuesta (t=%.3f)",
                                           n, "ON" if valor else "OFF", ahora - t, ahora)
         self._vencer_pendientes()
@@ -544,7 +544,7 @@ class EntradasSalidasController(QObject):
         self._salida_sin_confirmar = bool(sin_salida)
         self._avisar_cierre(self._modo_prueba or self._prueba_sin_confirmar)
         if not (self._modo_prueba or self._prueba_sin_confirmar or self._salida_sin_confirmar):
-            # ESP: modo prueba inactivo sin dudas: el backend apagó todo; las
+            # SMP: modo prueba inactivo sin dudas: el backend apagó todo; las
             # órdenes pendientes ya no dicen nada
             self._limpiar_pendientes()
         if cambio:
@@ -843,7 +843,7 @@ class EntradasSalidasController(QObject):
         t0 = time.monotonic()
         r = self._s().enviar("PATCH", f"/io/test/output/{nombre}", cuerpo)
         self._marcar_orden()
-        logger_latencia.debug("ESP latencia %s=%s: respuesta del PATCH %.3f s (t=%.3f, ok=%s)",
+        logger_latencia.debug("SMP latencia %s=%s: respuesta del PATCH %.3f s (t=%.3f, ok=%s)",
                               nombre, "ON" if encender else "OFF", self._t_orden - t0,
                               self._t_orden, getattr(r, "ok", None))
         if not encender and r.causa == "modo_prueba_inactivo":
@@ -853,12 +853,12 @@ class EntradasSalidasController(QObject):
                 self._reconstruir()
             return True
         if not r.ok:
-            # ESP: una orden rechazada no queda pendiente (la anterior
+            # SMP: una orden rechazada no queda pendiente (la anterior
             # aceptada, si la hay, sigue con su plazo)
             self._fallo(r)
             return False
         if not momentanea:
-            # ESP: lo que quedó ordenado; con atrapamiento (D-ES-16) el backend
+            # SMP: lo que quedó ordenado; con atrapamiento (D-ES-16) el backend
             # responde value False para esta salida
             d = r.datos if isinstance(r.datos, dict) else {}
             valor = d.get("value")

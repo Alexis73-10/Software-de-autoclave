@@ -1,0 +1,1 @@
+pytest tests -n auto -q en worktree limpio de 47dd1e6e (5-nov): 10789 passed, 11 skipped, 7 xfailed, 0 rojas, 840.80 s

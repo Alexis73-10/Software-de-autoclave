@@ -23,7 +23,7 @@ QML = RAIZ / "src" / "autoclave" / "ui_qml" / "qml"
 EXCEPCIONES_DELEGADOS = {
     "Componentes/PanelFinCiclo.qml": "FilaAcordeon: la causa se despliega en línea en el mismo panel (FC-13)",
     "Pantallas/OpcionesEntradasSalidas.qml": "avisos de corte del modo prueba: pantalla de otro frente "
-                                             "(T26-ESP); pendiente de abrir detalle",
+                                             "(T26-SMP); pendiente de abrir detalle",
 }
 
 

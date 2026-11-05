@@ -15,7 +15,7 @@ Síntoma: «Temperatura demasiado alta» no abría ninguna tarjeta. Causa: es el
 | `Reportes` › `ListaAlarmasPeriodo` | Alarmas del periodo | Sí (`abrir(fila.detalle)`) |
 | `PanelFinCiclo` (FilaAcordeon de `alarmas_ciclo`) | Alarmas del ciclo terminado | No: se despliega en línea con la causa (excepción justificada, FC-13) |
 | `PantallaCicloEnCurso` píldora «Alarmas/Observaciones (N)» | Contador | Lleva al panel de fin de ciclo (sin cambio) |
-| `OpcionesEntradasSalidas` `avisoCorte_i` (`/status.avisos_corte_prueba`) | Cortes del modo prueba | No (excepción: archivo de otro frente, T26-ESP; ver ALD-04) |
+| `OpcionesEntradasSalidas` `avisoCorte_i` (`/status.avisos_corte_prueba`) | Cortes del modo prueba | No (excepción: archivo de otro frente, T26-SMP; ver ALD-04) |
 | Insignias de campana, Reposo `avisoInstalacion` | Contador / aviso de instalación | No son alarmas |
 | Historial (ListaCiclos/DetalleCiclo) | Sin filas de alarma en QML | — |
 | Bandeja SIS-06 | No existe en el QML: SIS-06 llega como alarma del catálogo y se ve en las listas de arriba | — |
@@ -27,7 +27,7 @@ Catálogo: todas las alarmas de `CATALOGO` tienen `titulo` y `accion` en `alarma
 - **ALD-01 (ALTA):** las 8 filas de `SeccionEstadoSeguro` (incluida NO ABRIR) no abrían detalle; el operador no podía ver el valor medido ni el límite ni qué hacer. Corregido.
 - **ALD-02 (MEDIA):** `/status` no publicaba el límite con que se juzga la cámara (`temp_max_apertura` vigente, atm ± rango). Corregido como dato de solo lectura (`camara_segura_limites`), sin tocar la lógica.
 - **ALD-03 (MEDIA):** `alarmaArranque` de `Main.qml` no abría detalle. Corregido.
-- **ALD-04 (BAJA):** los avisos de corte del modo prueba en Entradas/Salidas no abren detalle; el archivo está fuera de este alcance (lo usa T26-ESP). Queda como excepción en la prueba (a).
+- **ALD-04 (BAJA):** los avisos de corte del modo prueba en Entradas/Salidas no abren detalle; el archivo está fuera de este alcance (lo usa T26-SMP). Queda como excepción en la prueba (a).
 - **ALD-05 (BAJA):** la hora de aparición de las filas sintéticas no existe en el backend; se toma en la UI (primer `/status` en que el puente ve la condición). Es informativa y se pierde al reiniciar la UI.
 
 ## 3. Qué cambió

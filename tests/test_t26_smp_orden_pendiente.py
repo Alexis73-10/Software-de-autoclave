@@ -1,4 +1,4 @@
-"""Tanda 26 (ESP): orden pendiente por salida sostenida en el modo prueba y
+"""Tanda 26 (SMP): orden pendiente por salida sostenida en el modo prueba y
 relectura rápida del caché de /status mientras haya una orden pendiente.
 
 Pruebas del prompt (§3.3): ON y un toque antes del /status -> se envía OFF;
@@ -16,7 +16,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from autoclave.ui_qml.sesion_backend import Resultado
 
-pytestmark = pytest.mark.req("HAZ-ESP-01")
+pytestmark = pytest.mark.req("HAZ-SMP-01")
 
 _CANALES = {
     "DI": [],

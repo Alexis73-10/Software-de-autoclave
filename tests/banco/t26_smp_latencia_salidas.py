@@ -1,10 +1,10 @@
-"""Tanda 26 (ESP): medición de la latencia de una salida en modo prueba con el
+"""Tanda 26 (SMP): medición de la latencia de una salida en modo prueba con el
 simulador M31 (127.0.0.1) y el backend completo (BackendContext, arranque,
 ModbusLink, ControlLoop real con su periodo de 0,5 s, rutas), más el caché de
 /status de la UI (UIServiceBackend, 0,2 s) y el controlador de Entradas/Salidas.
 
 No es una prueba automática. Uso (desde la raíz, PYTHONPATH=src):
-    python tests/banco/t26_esp_latencia_salidas.py [--n 10] [--salida nombre]
+    python tests/banco/t26_smp_latencia_salidas.py [--n 10] [--salida nombre]
 
 Instantes (time.monotonic) por orden ON/OFF de una salida sostenida:
   toque           -> llamada a EntradasSalidasController.alternar()
@@ -84,7 +84,7 @@ def main():
     from tests.helpers.m31_simulado import M31Simulado, config_para
 
     app = QCoreApplication.instance() or QCoreApplication(sys.argv)
-    tmp = Path(tempfile.mkdtemp(prefix="t26_esp_"))
+    tmp = Path(tempfile.mkdtemp(prefix="t26_smp_"))
     sim = M31Simulado()
     sim.iniciar()
     sim.di[EstadoAutoclave.map_di["paro_emergencia"]] = True

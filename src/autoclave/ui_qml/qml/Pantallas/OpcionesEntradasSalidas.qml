@@ -573,7 +573,7 @@ Item {
                         // M1 (revision FASE 6): el APAGADO de una sostenida encendida
                         // se ofrece siempre con modo prueba o con dudas (salida o
                         // entrada sin confirmar); encender sigue exigiendo `libre`
-                        // ESP (tanda 26): `apagar` lo arma el controlador (estado
+                        // SMP (tanda 26): `apagar` lo arma el controlador (estado
                         // ordenado si hay orden pendiente; si no, el leído)
                         readonly property bool puedeApagar: !modelData.momentanea
                                                             && modelData.apagar === true
@@ -608,7 +608,7 @@ Item {
                                 font.weight: Tipografia.pesoBold
                                 font.pixelSize: Escala.fuente(22)
                             }
-                            // ESP (tanda 26): marca de orden enviada sin reflejo en /status
+                            // SMP (tanda 26): marca de orden enviada sin reflejo en /status
                             Text {
                                 objectName: "pendienteSalida_" + tarjetaSalida.modelData.name
                                 anchors.right: parent.right

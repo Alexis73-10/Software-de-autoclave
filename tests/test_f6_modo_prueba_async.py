@@ -472,7 +472,7 @@ def test_m1_qml_ofrece_el_apagado_de_una_sostenida_encendida():
     assert "habilitado: tarjetaSalida.libre || tarjetaSalida.puedeApagar" in texto
     i = texto.index("readonly property bool puedeApagar:")
     regla = " ".join(texto[i:i + 400].split())
-    # Tanda 26 (ESP): `apagar` lo arma el controlador; sin orden pendiente es
+    # Tanda 26 (SMP): `apagar` lo arma el controlador; sin orden pendiente es
     # `encendida === true` (presentar_con_pendientes) y con una orden ON
     # pendiente también ofrece el apagado
     assert regla.startswith("readonly property bool puedeApagar: !modelData.momentanea "

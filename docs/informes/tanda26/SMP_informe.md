@@ -1,4 +1,4 @@
-# ESP — respuesta de las salidas en modo prueba (tanda 26)
+# SMP — respuesta de las salidas en modo prueba (tanda 26)
 
 Síntoma (Cristian): al activar una salida por error no se puede desactivar hasta que el botón cambia, y el cambio tarda.
 
@@ -10,7 +10,7 @@ Síntoma (Cristian): al activar una salida por error no se puede desactivar hast
 - Se conserva: apagar sale siempre (fase 6); encender exige `salidasHabilitadas` (rechazo local sin enviar) y las protecciones ESG-02 del backend; un ON rechazado **no** queda pendiente y no borra una orden aceptada anterior; un OFF con `modo_prueba_inactivo` cuenta como hecho (pendiente OFF); con atrapamiento (D-ES-16) se toma el `value` respondido; las momentáneas no cambian; `accionar` sigue síncrono. Al confirmarse el modo prueba inactivo sin dudas se limpian las órdenes pendientes.
 - **Log de desarrollo** (logger `autoclave.ui_qml.controllers.entradas_salidas_controller.latencia`, DEBUG, no bitácora): respuesta del PATCH y primer `/status` que refleja la orden, con `time.monotonic()`. **Backend sin tocar** (ni rutas, ni ModbusLink, ni ControlLoop): la escritura fc05 y el tick del lazo se miden desde fuera en el banco.
 
-## Medición (simulador M31, `tests/banco/t26_esp_latencia_salidas.py`)
+## Medición (simulador M31, `tests/banco/t26_smp_latencia_salidas.py`)
 
 Backend completo en proceso (BackendContext, arranque, ModbusLink con sondeo 0,1 s de producción, ControlLoop real 0,5 s, rutas por TestClient), caché `UIServiceBackend` real (0,2 s) y el controlador real. 12 órdenes ON/OFF alternas sobre `vapor_generador` (DO 1), 5-nov. Segundos desde el toque:
 
@@ -28,10 +28,10 @@ Limitaciones: HTTP en proceso (sin uvicorn ni red local: en el PC real se suman 
 
 ## Hallazgos
 
-- **ESP-01 (MEDIA) — toque doble enviaba ON dos veces.** Entre el ON y el primer `/status` que lo reflejaba (0,25–1,4 s medidos con la pantalla anterior) el botón seguía en «Activar» y un segundo toque volvía a mandar ON; `puedeApagar` exigía `encendida === true`, así que tampoco se ofrecía apagar. Corregido con la orden pendiente: el segundo toque envía OFF a los ~10 ms. Riesgo HAZ-ESP-01.
-- **ESP-02 (BAJA) — la pantalla esperaba el Timer de 1 s.** El retraso visible lo dominaba el Timer de 1 s de la pantalla más el descarte de `/status` anteriores a la orden. Reducido en la UI (relectura de 0,2 s con orden pendiente): mediana 0,81 → 0,42 s, máximo 1,39 → 0,64 s.
-- **ESP-03 (INFORMATIVO) — el PATCH no espera al lazo.** `rutas/io.py` `io_test_set_output` llama a `SetOutput.set_output` → `ModbusLink.set_output`, que escribe fc05 síncrono bajo `_cmd_lock` (≈10 ms con el simulador). Lo que demora el reflejo es la publicación: el hilo de sondeo lee fc01 cada 0,1 s, pero `estado.salidas_do` solo se actualiza en el tick del `ControlLoop` (`interval` 0,5 s + duración del tick, `estado.update(units.get_all())`) y el caché de la UI pide `/status` cada 0,2 s. **No se cambió** el periodo del lazo ni MOD-08 (restricción).
-- **ESP-04 (BAJA, residual) — lo ordenado puede no ser lo real hasta 3 s.** Si el backend corta la salida justo después de aceptarla (ESG-02 paso 2e, `avisos_corte_prueba`) o el módulo no la aplica, el botón muestra lo ordenado con la marca «pendiente» hasta 3 s; luego manda el `/status`. La etiqueta ON/OFF de la tarjeta sigue mostrando siempre lo leído y el aviso de corte sigue en pantalla. Ningún camino enciende nada por esto: el toque sobre una orden ON pendiente envía OFF.
+- **SMP-01 (MEDIA) — toque doble enviaba ON dos veces.** Entre el ON y el primer `/status` que lo reflejaba (0,25–1,4 s medidos con la pantalla anterior) el botón seguía en «Activar» y un segundo toque volvía a mandar ON; `puedeApagar` exigía `encendida === true`, así que tampoco se ofrecía apagar. Corregido con la orden pendiente: el segundo toque envía OFF a los ~10 ms. Riesgo HAZ-SMP-01.
+- **SMP-02 (BAJA) — la pantalla esperaba el Timer de 1 s.** El retraso visible lo dominaba el Timer de 1 s de la pantalla más el descarte de `/status` anteriores a la orden. Reducido en la UI (relectura de 0,2 s con orden pendiente): mediana 0,81 → 0,42 s, máximo 1,39 → 0,64 s.
+- **SMP-03 (INFORMATIVO) — el PATCH no espera al lazo.** `rutas/io.py` `io_test_set_output` llama a `SetOutput.set_output` → `ModbusLink.set_output`, que escribe fc05 síncrono bajo `_cmd_lock` (≈10 ms con el simulador). Lo que demora el reflejo es la publicación: el hilo de sondeo lee fc01 cada 0,1 s, pero `estado.salidas_do` solo se actualiza en el tick del `ControlLoop` (`interval` 0,5 s + duración del tick, `estado.update(units.get_all())`) y el caché de la UI pide `/status` cada 0,2 s. **No se cambió** el periodo del lazo ni MOD-08 (restricción).
+- **SMP-04 (BAJA, residual) — lo ordenado puede no ser lo real hasta 3 s.** Si el backend corta la salida justo después de aceptarla (ESG-02 paso 2e, `avisos_corte_prueba`) o el módulo no la aplica, el botón muestra lo ordenado con la marca «pendiente» hasta 3 s; luego manda el `/status`. La etiqueta ON/OFF de la tarjeta sigue mostrando siempre lo leído y el aviso de corte sigue en pantalla. Ningún camino enciende nada por esto: el toque sobre una orden ON pendiente envía OFF.
 
 ## Decisiones sin confirmar
 
@@ -42,9 +42,9 @@ Limitaciones: HTTP en proceso (sin uvicorn ni red local: en el PC real se suman 
 
 ## Puerta de entrada IEC 62304 (NTC-IEC 62304:2019 / IEC 62304:2006)
 
-1. Toca el mando manual de actuadores en modo prueba: se trata como Clase C. 2. Solicitud de cambio: prompt de la tanda 26 §3 (8.2.1). 3. Causa nueva: ESP-04 (lo mostrado puede adelantarse a lo real ≤ 3 s), acotada; no interfiere con ESG-02, MOD-08 ni el lazo, que quedan en el backend sin cambios (7.4.2). 4. Diseño afectado: controlador y pantalla de Entradas/Salidas; CLAUDE.md la anota el hilo principal (5.4). 5. Verificación: pruebas unitarias nuevas y regresión de entradas/salidas y modo prueba (5.5.5, 8.2.3); banco con M31 real pendiente. 6. SOUP sin cambios. 7. Trazabilidad: HAZ-ESP-01 (registro de riesgos, lo agrega el hilo principal §5); las pruebas llevan `req("HAZ-ESP-01")`.
+1. Toca el mando manual de actuadores en modo prueba: se trata como Clase C. 2. Solicitud de cambio: prompt de la tanda 26 §3 (8.2.1). 3. Causa nueva: SMP-04 (lo mostrado puede adelantarse a lo real ≤ 3 s), acotada; no interfiere con ESG-02, MOD-08 ni el lazo, que quedan en el backend sin cambios (7.4.2). 4. Diseño afectado: controlador y pantalla de Entradas/Salidas; CLAUDE.md la anota el hilo principal (5.4). 5. Verificación: pruebas unitarias nuevas y regresión de entradas/salidas y modo prueba (5.5.5, 8.2.3); banco con M31 real pendiente. 6. SOUP sin cambios. 7. Trazabilidad: HAZ-SMP-01 (registro de riesgos, lo agrega el hilo principal §5); las pruebas llevan `req("HAZ-SMP-01")`.
 
 ## Pruebas
 
-`tests/test_t26_esp_orden_pendiente.py` (14): ON y toque antes del `/status` → OFF; `/status` nuevo que lo refleja la resuelve; ON rechazado no queda pendiente; un rechazo no borra la aceptada; ventana vencida manda el `/status` (viejo o nuevo distinto); modo prueba sin confirmar → apagar disponible y encender no sale; `modo_prueba_inactivo`; atrapamiento; momentáneas sin cambio; relectura de 200 ms solo con orden pendiente; limpieza al salir del modo prueba; claves i18n es/en; la QML usa el armado del controlador.
+`tests/test_t26_smp_orden_pendiente.py` (14): ON y toque antes del `/status` → OFF; `/status` nuevo que lo refleja la resuelve; ON rechazado no queda pendiente; un rechazo no borra la aceptada; ventana vencida manda el `/status` (viejo o nuevo distinto); modo prueba sin confirmar → apagar disponible y encender no sale; `modo_prueba_inactivo`; atrapamiento; momentáneas sin cambio; relectura de 200 ms solo con orden pendiente; limpieza al salir del modo prueba; claves i18n es/en; la QML usa el armado del controlador.
 Ajustada `tests/test_f6_modo_prueba_async.py::test_m1_qml_ofrece_el_apagado_de_una_sostenida_encendida`: fijaba el texto literal `modelData.encendida === true`; ahora fija `modelData.apagar === true` y comprueba que, sin orden pendiente, `apagar` es exactamente `encendida === true` (misma regla M1, sin relajarla).
