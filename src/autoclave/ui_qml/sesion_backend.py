@@ -133,6 +133,13 @@ _CLAVES = {
     # inválida: no cierra la sesión. Antes caían en "Respuesta no reconocida".
     "reautenticacion_fallida": "reasignacion.err_clave",
     "reautenticacion_requerida": "reasignacion.err_clave_requerida",
+    # Tanda 26 (ARQ-07): 409 del arranque retenido. `arranque_retenido` lo da
+    # la compuerta de arranque (server.py) en las rutas que encenderían una
+    # salida (puertas, INICIAR, modo prueba...); `arranque_no_iniciado`,
+    # POST /arranque/interfaz-lista antes de /arranque/iniciar. Globales: la
+    # compuerta responde en cualquier ruta actuadora. Antes, error genérico.
+    "arranque_retenido": "sesion.arranque_retenido",
+    "arranque_no_iniciado": "sesion.arranque_no_iniciado",
     BACKEND_NO_RESPONDE: "sesion.backend_no_responde",
     ERROR_GENERICO: "sesion.error_generico",
 }

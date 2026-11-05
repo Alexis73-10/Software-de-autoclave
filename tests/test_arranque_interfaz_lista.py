@@ -51,6 +51,8 @@ def _capturar_iniciar(monkeypatch):
     def falso(perfil, antes_de_imprimir=None, **kw):
         llamadas.append((perfil, antes_de_imprimir))
     monkeypatch.setattr("autoclave.devices.printer.arranque_equipo.iniciar", falso)
+    # ARQ-06: el latido se arranca aparte; sin esto escribiría el archivo real
+    monkeypatch.setattr("autoclave.devices.printer.arranque_equipo.iniciar_latido", lambda: None)
     return llamadas
 
 

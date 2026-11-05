@@ -66,6 +66,8 @@ def test_latido_y_ticket_espera_el_contexto_operable(monkeypatch):
     from autoclave.backend import main
     llamadas = []
     monkeypatch.setattr(arranque_equipo, "iniciar", lambda perfil, **kw: llamadas.append(perfil))
+    # ARQ-06 (tanda 26): el latido se arranca aparte, antes del ticket
+    monkeypatch.setattr(arranque_equipo, "iniciar_latido", lambda: None)
     operable = threading.Event()
     operable.set()
     server = SimpleNamespace(_contexto_operable=operable, context=SimpleNamespace(profile="P"))

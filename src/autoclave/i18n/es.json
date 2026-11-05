@@ -900,6 +900,8 @@
     "sin_conexion_cierre": "La sesión se cerrará en {tiempo} si no vuelve la conexión",
     "validando": "Validando…",
     "error_generico": "No se pudo completar la operación",
+    "arranque_retenido": "El equipo aún está iniciando; espere a que termine el arranque e intente de nuevo",
+    "arranque_no_iniciado": "El arranque del equipo todavía no ha comenzado; espere a que termine e intente de nuevo",
     "rol_sin_permiso": "Su rol no tiene permiso para esta acción",
     "titulo_cambio_clave": "CAMBIAR CONTRASEÑA",
     "aviso_cambio_obligatorio": "Debe cambiar su contraseña antes de continuar",
@@ -2493,6 +2495,7 @@
     "no_abrir_motivos": {
       "temp_alta": {
         "descripcion": "Temperatura de la cámara: {valor}. Límite para abrir: {limite} (el menor entre el del equipo y el del programa del último ciclo).",
+        "descripcion_sin_programa": "Temperatura de la cámara: {valor}. Límite para abrir: {limite} (rige el límite del equipo; no hay programa con límite propio).",
         "accion": "Espere a que la temperatura baje de {limite}. No abra la puerta antes."
       },
       "sobrepresion": {

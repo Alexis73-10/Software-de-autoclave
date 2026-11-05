@@ -64,17 +64,19 @@ Etapas (corrida 1): instalación/procesos/servicios < 1 ms; configuración 0,026
 
 ## 3. Decisiones sin confirmar
 
-- SMP: plazo de 3 s de la orden pendiente; un rechazo no borra la orden aceptada anterior; la etiqueta ON/OFF muestra lo leído y solo el botón lo ordenado; marca de pendiente como texto aparte.
+- SMP: un rechazo no borra la orden aceptada anterior; la etiqueta ON/OFF muestra lo leído y solo el botón lo ordenado; marca de pendiente como texto aparte.
 - ALD: nivel y color de las filas sintéticas; textos de «qué hacer» (es/en); hora de aparición tomada en la UI.
-- ARQ: 60 s de `ARR_SIN_INTERFAZ`; reinicio del backend con la UI abierta (vigilancia 1 s, reenvío, barra); `AUTOCLAVE_ESPERA_INTERFAZ=0` solo fuera del compilado; etapa 8 mínima con plazo de 10 s y degradable; estado seguro de arranque diferido hasta la liberación; 409 `arranque_retenido` en las rutas actuadoras.
+- ARQ: 60 s de `ARR_SIN_INTERFAZ`; reinicio del backend con la UI abierta (vigilancia 1 s, reenvío, barra); `AUTOCLAVE_ESPERA_INTERFAZ=0` solo fuera del compilado; etapa 8 mínima con plazo de 10 s y degradable; 409 `arranque_retenido` en las rutas actuadoras. (Resueltos el 2026-11-05, ver §4: plazo de 3 s de SMP y residual, estado seguro de arranque diferido, ARQ-06, ARQ-07, H2.)
 
 ## 4. Preguntas abiertas para Cristian
 
-1. ARQ-04: con un ciclo interrumpido y la cámara a presión, ¿se acepta que el venteo automático espere a que la UI termine el arranque (segundos normalmente; sin tope si la UI no aparece)? La alternativa es exceptuar de la retención el protocolo de estado seguro de arranque (solo la lenta), lo que contradice «ninguna salida ON».
-2. ARQ-07: ¿texto propio en la UI para `arranque_retenido` o basta el error genérico?
-3. ARQ-06: ¿el latido de apagado debe arrancar aunque la UI nunca pida `iniciar` (hoy, a los 120 s)?
-4. ¿Se confirma que la pantalla 2 sola (puerta 1 caída) no pida `iniciar`? Hoy el equipo queda retenido y la pantalla 2 muestra «Sin respuesta del sistema de control» a los 20 s y la barra de reinicio si el backend se reinicia.
-5. CMP: exportar `activacion_v2.json` y `vectores_formato_v2.json` (acción de arriba) para poder compilar.
+1. ARQ-04 / H1 — **RESUELTA (2026-11-05, Cristian):** se acepta que el venteo del estado seguro de arranque espere a la liberación; no se exceptúa de la retención.
+2. ARQ-07 — **RESUELTA (2026-11-05, Cristian):** texto propio i18n es/en para el 409 `arranque_retenido` y `arranque_no_iniciado` en `sesion_backend`, con su prueba.
+3. ARQ-06 — **RESUELTA (2026-11-05, Cristian):** el latido de apagado arranca al quedar operable el contexto o al recibir `POST /arranque/iniciar`, lo que ocurra primero, sin esperar 120 s; no actúa sobre salidas (el tope de 75 s del ticket no cambia).
+4. H2 — **RESUELTA (2026-11-05, Cristian):** la pantalla 2 sola no pide iniciar; el equipo queda retenido; se acepta la dependencia de la puerta 1.
+5. SMP — **RESUELTA (2026-11-05, Cristian):** se aceptan el plazo de 3 s y el residual del revisor final (botón «Activar» deshabilitado hasta ≈3,2 s tras un OFF aceptado sin reflejo).
+6. Cosmético `temp_alta` — **RESUELTA (2026-11-05, Cristian):** la frase «el menor entre el del equipo y el del programa» solo cuando haya programa seleccionado.
+7. CMP (sigue abierta): exportar `activacion_v2.json` y `vectores_formato_v2.json` (acción de arriba) para poder compilar.
 
 ## 5. Riesgos, trazabilidad y banco
 
@@ -82,9 +84,20 @@ Riesgos HAZ-ARQ-01 (ALTA), HAZ-ARQ-02 (MEDIA), HAZ-SMP-01 (MEDIA) y HAZ-ALD-01 (
 
 ## Resultado del revisor
 
-- **ARQ (primera revisión, opus): aprobado con condiciones.** Ninguna ruta enciende salidas durante la retención; paro, módulo E/S, MOD-08 y apagado siguen. Corregidos H3 (lazo nace retenido por defecto), H4 (ALL_OFF de retención con reintento), H5 (un solo vigilante del dueño de prueba), H6 (sensores solo con AI vigente) y H7 (`interfaz-lista` antes de `iniciar` responde 409 `arranque_no_iniciado`); ver `AJUSTES.md`. **Abiertos para Cristian:** H1 = ARQ-04 (estado seguro de arranque diferido sin tope; sin alarma ni buzzer si la UI no aparece) y H2 (todo depende de que la puerta 1 envíe `iniciar`).
-- **Diff completo (revisor final, opus): aprobado con condiciones.** Sin hallazgos Críticos ni Altos; ninguna aserción de seguridad relajada (las pruebas existentes cambiadas son legítimas). Cuatro Bajos: (1) SMP: con un OFF aceptado pero aún sin reflejo en `/status` y dudas del modo prueba, el botón queda en «Activar» deshabilitado hasta ≤3,2 s y no se puede repetir el OFF; **se acepta como residual de HAZ-SMP-01** (corregirlo mostrando «Activar» sobre una salida realmente encendida sería peor), a confirmar por Cristian junto con el plazo de 3 s; (2) etiqueta puede mostrar ON con la salida apagada hasta 3,2 s (dentro del diseño); (3) texto de `temp_alta`: la frase «el menor entre el del equipo y el del programa» aparece aunque no haya ciclo previo (cosmético, pendiente); (4) la sigla ESP sigue solo en el mensaje del commit 767e9015 (historial inmutable; el renombrado a SMP está en 6f79f586).
+- **ARQ (primera revisión, opus): aprobado con condiciones.** Ninguna ruta enciende salidas durante la retención; paro, módulo E/S, MOD-08 y apagado siguen. Corregidos H3 (lazo nace retenido por defecto), H4 (ALL_OFF de retención con reintento), H5 (un solo vigilante del dueño de prueba), H6 (sensores solo con AI vigente) y H7 (`interfaz-lista` antes de `iniciar` responde 409 `arranque_no_iniciado`); ver `AJUSTES.md`. H1 = ARQ-04 y H2 (dependencia de la puerta 1) quedaron resueltos por Cristian el 2026-11-05 (§4).
+- **Diff completo (revisor final, opus): aprobado con condiciones.** Sin hallazgos Críticos ni Altos; ninguna aserción de seguridad relajada (las pruebas existentes cambiadas son legítimas). Cuatro Bajos: (1) SMP: con un OFF aceptado pero aún sin reflejo en `/status` y dudas del modo prueba, el botón queda en «Activar» deshabilitado hasta ≤3,2 s y no se puede repetir el OFF; **residual de HAZ-SMP-01 aceptado por Cristian el 2026-11-05** junto con el plazo de 3 s (corregirlo mostrando «Activar» sobre una salida realmente encendida sería peor); (2) etiqueta puede mostrar ON con la salida apagada hasta 3,2 s (dentro del diseño); (3) texto de `temp_alta`: la frase «el menor entre el del equipo y el del programa» aparece aunque no haya ciclo previo (cosmético; decidido el 2026-11-05, ver «Ajustes tras las respuestas»); (4) la sigla ESP sigue solo en el mensaje del commit 767e9015 (historial inmutable; el renombrado a SMP está en 6f79f586).
 
 ## Suite final
 
 `pytest tests -n auto -q`: 10873 pasadas, 11 omitidas, 7 xfail, 1 roja (`test_registro_arranque::test_instantanea_inicial_cumple_el_contrato`, contrato de `GET /arranque` ampliado por diseño); corregida en 438491e3 y en verde. Salida en `suite_final_1.txt`. Suite base antes de la tanda: 10789 pasadas, 0 rojas.
+
+## Ajustes tras las respuestas de Cristian (tanda26b)
+
+Fecha 2026-11-05. Decisiones de Cristian a las preguntas de §4; el código lo implementa otro agente en la misma rama.
+
+- ARQ-04/H1: sin cambio de código; el estado seguro de arranque sigue diferido hasta la liberación (aceptado).
+- ARQ-07: `sesion_backend.py` más `es.json`/`en.json` con texto propio para `arranque_retenido` y `arranque_no_iniciado`, con prueba.
+- ARQ-06: `backend/main.py` (`latido_y_ticket`): el latido arranca al quedar operable el contexto o al recibir `POST /arranque/iniciar`, sin esperar 120 s; no actúa sobre salidas.
+- H2, plazo de 3 s de SMP y residual SMP: aceptados, solo documentación.
+- `temp_alta`: `ui_qml/domain/detalle_aviso.py` incluye la frase del «menor entre el del equipo y el del programa» solo con programa seleccionado.
+- Siguen como `DECISIÓN SIN CONFIRMAR`: 60 s de `ARR_SIN_INTERFAZ`, D5, D7, D8 y el 409 de las rutas actuadoras.
