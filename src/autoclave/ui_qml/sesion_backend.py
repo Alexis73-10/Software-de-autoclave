@@ -185,9 +185,12 @@ _CODIGOS_PROGRAMAS = frozenset({     # ManejoCiclosController
     "nombre_repetido", "programa_activo", "programa_no_encontrado",
     "programa_existente",
 })
+# A7 (tanda 27): "incoherente" se separó en incoherente_empaque e
+# incoherente_limites (con `detalle`); /global_params ya no emite
+# "incoherente" (lo conserva solo /maintenance/atm-calibration).
 _CODIGOS_GLOBAL_PARAMS = frozenset({     # ParametrosEquipoController
     "no_existe", "solo_lectura", "tipo_invalido", "fuera_de_rango",
-    "incoherente", "calibracion_en_curso",
+    "incoherente_empaque", "incoherente_limites", "calibracion_en_curso",
 })
 _CODIGOS_ARCHIVO = frozenset({"ARCHIVO_NO_ESCRIBIBLE"})     # /language, /units
 _CODIGOS_IMPRESORA = frozenset({     # ParametrosEquipoController

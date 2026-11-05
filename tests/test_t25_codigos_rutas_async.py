@@ -24,7 +24,7 @@ ESPERADOS = {
     "/programas": {"nombre_repetido", "programa_activo", "programa_no_encontrado",
                    "programa_existente"},
     "/global_params": {"no_existe", "solo_lectura", "tipo_invalido", "fuera_de_rango",
-                       "incoherente", "calibracion_en_curso"},
+                       "incoherente_empaque", "incoherente_limites", "calibracion_en_curso"},
     "/language": {"ARCHIVO_NO_ESCRIBIBLE"},
     "/units": {"ARCHIVO_NO_ESCRIBIBLE"},
     "/printer/config": {"ARCHIVO_NO_ESCRIBIBLE", "reinicio_no_disponible",

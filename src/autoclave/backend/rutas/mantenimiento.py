@@ -140,8 +140,16 @@ def _aplicar_presion_atmosferica(valor: float, usuario: str) -> None:
     from autoclave.core.managers.config_manager import ErrorParametro
     cm = context.config_manager
     with cm.lock_cambios:
-        anterior, nuevo = cm.fijar("presion_atmosferica", valor, usuario,
-                                   permitir_solo_lectura=True, aplicar=False)
+        try:
+            anterior, nuevo = cm.fijar("presion_atmosferica", valor, usuario,
+                                       permitir_solo_lectura=True, aplicar=False)
+        except ErrorParametro as e:
+            # A7 (tanda 27): la calibración atmosférica conserva "incoherente"
+            # (motivo de la pantalla, calibracion_atm.motivo_incoherente y
+            # bitácora); solo /global_params usa los códigos nuevos
+            if e.codigo in ("incoherente_empaque", "incoherente_limites"):
+                raise ErrorParametro("incoherente", detalle=e.detalle) from e
+            raise
         aplicado = False
         try:
             with context.control_loop.bloqueo_maquina():

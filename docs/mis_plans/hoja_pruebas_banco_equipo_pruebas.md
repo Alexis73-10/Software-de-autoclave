@@ -196,6 +196,7 @@
 | T26-04 | Con el M31 real, ninguna bobina se enciende antes de la liberación | En seco (sin vapor) | ARQ-D2 (tanda 26); HAZ-ARQ-01 |
 | T26-05 | Sin que la interfaz avise: equipo retenido, todo apagado y ARR_SIN_INTERFAZ a los 60 s | En seco (sin vapor) | ARQ-D4 (tanda 26); HAZ-ARQ-02 |
 | T26-06 | Tarjeta de NO ABRIR con la cámara caliente: valor y límite | En seco (sin vapor) | ALD (tanda 26); HAZ-ALD-01 |
+| T27-A7-01 | Parámetros del equipo: mensaje de incoherencia propio de cada regla y rango efectivo | En seco (sin vapor) | A7 (tanda 27, AJ27-A7) |
 
 ## Bloque A. Arranque, instalación y módulo E/S (en seco)
 
@@ -3016,6 +3017,26 @@
   4. Tocar las otras filas de la sección de estado seguro y la alarma de arranque cuando estén visibles.
 - **Resultado esperado:** Se abre la ventana de detalle con «Temperatura de la cámara» y su valor, el límite vigente y qué hacer; el detalle no cambia ningún estado.
 - **Criterio de aprobado/fallo:** Aprobado si todas las filas abren su detalle y NO ABRIR muestra valor y límite. Es Fallo si alguna fila no abre.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+## Bloque T27. Ajustes de la tanda 27 (en seco, después de instalar)
+
+### T27-A7-01 — Parámetros del equipo: mensaje de incoherencia propio de cada regla y rango efectivo
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** A7 (tanda 27, AJ27-A7)
+- **Objetivo:** Un cambio incoherente de un límite de presión o del empaque muestra, dentro de la ventana de ajuste, el texto de su regla con los valores en la unidad vigente, y la ventana muestra el rango válido efectivo.
+- **Precondiciones:** Sesión de ingeniero o técnico, sin ciclo. Opciones › Parámetros del equipo. Anotar suministro, alivios, fondo de escala y corte de chaqueta vigentes.
+- **Pasos:**
+  1. Chaqueta › presión de suministro de vapor: leer la línea «Rango válido con los demás parámetros vigentes» (de fábrica, 100 – 384 kPa).
+  2. Ingresar un suministro igual al alivio de cámara (385 kPa de fábrica) y Guardar.
+  3. Cambiar las unidades a psi y repetir el paso 2.
+  4. Corte de vapor de chaqueta: ingresar alivio de chaqueta − 5 y Guardar.
+  5. Empaque › vacío de empaque: ingresar presión atmosférica − 5 y Guardar.
+  6. Volver a kPa y restaurar los valores anotados si alguno cambió.
+- **Resultado esperado:** Paso 2: dentro de la ventana, «La presión de suministro de vapor (385 kPa) debe quedar por debajo de los alivios de cámara (385 kPa) y de chaqueta (385 kPa).», en varias líneas si hace falta y sin cortar con «…»; nunca el texto de empaque. Paso 3: los mismos valores en psi. Paso 4: el texto del corte con su margen de 10 kPa. Paso 5: el texto del vacío de empaque. Ningún valor se guarda.
+- **Criterio de aprobado/fallo:** Aprobado si cada rechazo muestra el texto de su regla con los valores correctos y el rango efectivo coincide con lo que se acepta. Es Fallo si aparece el texto de empaque al cambiar un límite de presión o si se guarda un valor incoherente.
 - **Valor observado:** ______________________________________________
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________

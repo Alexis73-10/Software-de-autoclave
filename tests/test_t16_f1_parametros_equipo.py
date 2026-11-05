@@ -127,7 +127,7 @@ def cm(tmp_path):
 def test_config_manager_rechaza_incoherentes(cm, clave, valor):
     with pytest.raises(ErrorParametro) as e:
         cm.fijar(clave, valor, "ing")
-    assert e.value.codigo == "incoherente"
+    assert e.value.codigo == "incoherente_limites"
 
 
 def test_config_manager_acepta_coherentes(cm):

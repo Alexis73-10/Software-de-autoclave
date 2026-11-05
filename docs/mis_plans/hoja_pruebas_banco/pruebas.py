@@ -25,6 +25,8 @@ BLOQUES = [
     ("M", "Enlace Modbus TCP con los módulos M31-U y Setup con Modbus (tandas 19 y 20, en seco)"),
     ("T23", "Módulo E/S y numeración RTD 01–06 / AI 01–16 (tanda 23, en seco, después de instalar)"),
     ("T24", "Reasignación de E/S sin bloqueos, verificación por lectura y tipo RTD/AI (tanda 24, en seco, después de instalar)"),
+    # T26 vive solo en el .md (editado a mano); T27 se agrega aquí y a mano en el .md
+    ("T27", "Ajustes de la tanda 27 (en seco, después de instalar)"),
 ]
 
 PRUEBAS = [
@@ -1661,6 +1663,19 @@ PRUEBAS = [
                 "Restaurar la asignación anotada."],
          esperado="Paso 2: ninguna de esas salidas se enciende sola y SEN-09 sigue activa. Paso 4: SEN-09 se despeja para el paro y el control vuelve a operar con normalidad.",
          criterio="Aprobado si, antes de verificarlo, vapor y aire comprimido permanecen apagados. Es Fallo si alguna se enciende sola."),
+    # ── T27 ───────────────────────────────────────────────────────────────
+    dict(id="T27-A7-01", bloque="T27", modo="seco", origen="A7 (tanda 27, AJ27-A7)",
+         titulo="Parámetros del equipo: mensaje de incoherencia propio de cada regla y rango efectivo",
+         objetivo="Un cambio incoherente de un límite de presión o del empaque muestra, dentro de la ventana de ajuste, el texto de su regla con los valores en la unidad vigente, y la ventana muestra el rango válido efectivo.",
+         pre="Sesión de ingeniero o técnico, sin ciclo. Opciones › Parámetros del equipo. Anotar suministro, alivios, fondo de escala y corte de chaqueta vigentes.",
+         pasos=["Chaqueta › presión de suministro de vapor: leer la línea «Rango válido con los demás parámetros vigentes» (de fábrica, 100 – 384 kPa).",
+                "Ingresar un suministro igual al alivio de cámara (385 kPa de fábrica) y Guardar.",
+                "Cambiar las unidades a psi y repetir el paso 2.",
+                "Corte de vapor de chaqueta: ingresar alivio de chaqueta − 5 y Guardar.",
+                "Empaque › vacío de empaque: ingresar presión atmosférica − 5 y Guardar.",
+                "Volver a kPa y restaurar los valores anotados si alguno cambió."],
+         esperado="Paso 2: dentro de la ventana, «La presión de suministro de vapor (385 kPa) debe quedar por debajo de los alivios de cámara (385 kPa) y de chaqueta (385 kPa).», en varias líneas si hace falta y sin cortar con «…»; nunca el texto de empaque. Paso 3: los mismos valores en psi. Paso 4: el texto del corte con su margen de 10 kPa. Paso 5: el texto del vacío de empaque. Ningún valor se guarda.",
+         criterio="Aprobado si cada rechazo muestra el texto de su regla con los valores correctos y el rango efectivo coincide con lo que se acepta. Es Fallo si aparece el texto de empaque al cambiar un límite de presión o si se guarda un valor incoherente."),
 ]
 
 REGISTROS = [

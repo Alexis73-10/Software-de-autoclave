@@ -466,7 +466,7 @@ def test_empaque_incoherente_con_atm(cm, db, clave, valor):
     cm.vincular_bd(db)
     with pytest.raises(ErrorParametro) as e:
         cm.fijar(clave, valor)
-    assert e.value.codigo == "incoherente"
+    assert e.value.codigo == "incoherente_empaque"
 
 
 def test_empaque_coherente(cm, db):
