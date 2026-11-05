@@ -277,6 +277,9 @@ def main(argv=None) -> int:
             if args.door == 1 else None,
             vigilar_reinicio=True)
     progreso_arranque.iniciar()
+    # A1 (tanda 27): las unidades siguen a GET /units desde el arranque de la
+    # ventana (antes solo al abrir una pantalla de Opciones), como idioma y tema
+    unidades_qml.iniciar_sondeo()
     version = version_software()
 
     ui_service = UIServiceBackend(backend)

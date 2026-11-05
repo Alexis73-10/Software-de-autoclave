@@ -2,8 +2,8 @@
 | Paso | Estado | Último commit |
 |---|---|---|
 | Rama tanda27 + etiqueta respaldo-pre-depuracion | Hecho | (base c3b4e1dc) |
-| A1 unidades | Pendiente | |
-| A2 standby | Pendiente | |
+| A1 unidades | Hecho | ver git log |
+| A2 standby | Hecho | ver git log |
 | A3 INICIAR oculto | Pendiente | |
 | A4 sin momentáneas | Pendiente | |
 | 0 línea base | Pendiente | |

@@ -199,8 +199,12 @@ class Standby(QObject):
         desconectado se ve al tocar y su alarma (COM-01) despierta igual."""
         es = self._ui.get_campo("estado_seguro", {})
         es = es if isinstance(es, dict) else {}
+        # A2 (tanda 27): el modo prueba (/status.test_mode_active) tampoco
+        # entra a standby; al ir en esta bandera, entrar y salir del modo
+        # prueba cuenta como actividad (cambia `seguridad`, ver _hubo_evento)
         return (bool(self._ui.get_estado_flag("PARO_REAL"))
-                or es.get("activo") is True or es.get("requiere_confirmacion") is True)
+                or es.get("activo") is True or es.get("requiere_confirmacion") is True
+                or self._ui.get_campo("test_mode_active", False) is True)
 
     def _hubo_evento_de_equipo(self, estado, seguridad: bool = False) -> bool:
         alarmas = {a.get("id") for a in self._ui.get_alarmas() if isinstance(a, dict)}

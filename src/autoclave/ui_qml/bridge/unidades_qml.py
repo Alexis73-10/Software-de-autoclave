@@ -243,11 +243,20 @@ class UnidadesQml(QObject):
 instancia = UnidadesQml(sondear=False)
 
 
+def iniciar_sondeo(obj=None) -> None:
+    """Arranca el seguimiento de GET /units (idempotente). A1 (tanda 27): lo
+    llama app.py al crear la ventana, no solo la fábrica del singleton, que
+    solo corre si el QML importa Autoclave.Unidades (las 4 pantallas de
+    Opciones): una ventana que no las abría nunca seguía al backend."""
+    obj = obj or instancia
+    if not obj._timer.isActive():
+        obj._timer.start()
+        obj.refrescar()
+
+
 def _fabrica(_motor):
     QQmlEngine.setObjectOwnership(instancia, QQmlEngine.ObjectOwnership.CppOwnership)
-    if not instancia._timer.isActive():
-        instancia._timer.start()
-        instancia.refrescar()
+    iniciar_sondeo()
     return instancia
 
 
