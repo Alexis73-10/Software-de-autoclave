@@ -1,6 +1,7 @@
 # autoclave/services/control_loop.py
 
 import copy
+import json
 import time
 import threading
 from autoclave.state_machine.alarms.catalogo import COM_01, COM_04, TARJETA_SIN_TRAMA_VALIDA
@@ -150,6 +151,9 @@ class ControlLoop:
         # E4 (D-08): programa del ciclo interrumpido por un reinicio, a
         # recuperar con el primer dato vigente
         self._recuperacion_pendiente = None
+        # A13-M5 (tanda 28b): el programa de la recuperación es la instantánea
+        # del propio ciclo (si no, el secado tras fallo se omite)
+        self._recuperacion_programa_del_ciclo = False
         self._ticks_seguros_recuperacion = 0
         # Tanda 28 (A9): True = tras un ciclo interrumpido (o sin saberlo):
         # con la cámara no segura arranca el protocolo de estado seguro. False
@@ -372,7 +376,8 @@ class ControlLoop:
                 programas.append(p)
         return programas
 
-    def recuperar_ciclo_interrumpido(self, programa, interrumpido: bool = True) -> None:
+    def recuperar_ciclo_interrumpido(self, programa, interrumpido: bool = True,
+                                     programa_del_ciclo: bool = False) -> None:
         """E4 (D-08, SAF-08 de T5): tras un reinicio con un ciclo sin cerrar,
         su sensor Principal cuenta para la seguridad hasta que la cámara sea
         segura y, si no lo es, arranca el protocolo de estado seguro con ese
@@ -384,9 +389,15 @@ class ControlLoop:
         PREPARACION iguala la presión y drena con sus reglas. El programa
         sigue contando para la seguridad (NO ABRIR, límite de temperatura,
         venteo por la lenta en líquidos) hasta 3 lecturas seguras. Quien no
-        sepa si hubo un ciclo interrumpido pasa True (falla segura)."""
+        sepa si hubo un ciclo interrumpido pasa True (falla segura).
+
+        A13-M5 (tanda 28b): `programa_del_ciclo` True solo si `programa` es
+        la instantánea del propio ciclo interrumpido (o la de la marca de
+        estado seguro); si no (False por omisión, falla cerrada), el secado
+        tras fallo del protocolo de arranque se omite (programa_incierto)."""
         with self._sm_lock:
             self._recuperacion_pendiente = programa
+            self._recuperacion_programa_del_ciclo = programa_del_ciclo is True
             self._ticks_seguros_recuperacion = 0
             self._programa_ultimo_ciclo = programa
             self._recuperacion_con_protocolo = interrumpido is not False
@@ -507,6 +518,9 @@ class ControlLoop:
         # rige la misma regla del secado tras fallo (vapor residual)
         protocolo.profile = self.profile
         protocolo.alarm_manager = self.alarm_manager
+        # A13-M5 (tanda 28b): solo con la instantánea del propio ciclo
+        protocolo.programa_incierto = (
+            getattr(self, "_recuperacion_programa_del_ciclo", False) is not True)
         protocolo.ejecutar(abrir_valvulas=False, solo_lenta=True)
         protocolo.motivo_solo_lenta = "arranque tras un ciclo interrumpido con la cámara no segura"
         # Tanda 28 (A9): origen "ciclo_interrumpido" (antes "arranque")
@@ -543,6 +557,41 @@ class ControlLoop:
                              "sigue en curso; se mantiene la marca (falla cerrada)")
             return True
 
+    def _programa_para_marca(self) -> dict:
+        """A13-M5 (tanda 28b): {"programa": instantánea, "tipo_carga": ...}
+        del programa del protocolo de fin de ciclo en curso, para que un
+        arranque tras un corte sepa con certeza el tipo de carga. Solo si es
+        el programa del propio ciclo: el del ciclo en CICLO, el del estado
+        seguro (salvo un protocolo de arranque con programa incierto) o el de
+        la recuperación de arranque marcada como del ciclo. Si no, o ante un
+        error, {} (el arranque siguiente lo toma como incierto)."""
+        try:
+            programa = None
+            if self.estado_seguro.activo is True:
+                protocolo = getattr(self.estado_seguro, "_protocolo", None)
+                if getattr(protocolo, "programa_incierto", False) is not True:
+                    programa = self.estado_seguro.programa
+            elif self.estado.get_machine_state() == GlobalState.CICLO:
+                protocolo = getattr(getattr(self.state_machine, "ciclo", None), "_protocolo", None)
+                if getattr(protocolo, "ejecutado", False) is True:
+                    programa = getattr(protocolo, "cycle", None)
+            elif (self._recuperacion_pendiente is not None
+                  and getattr(self, "_recuperacion_programa_del_ciclo", False) is True):
+                programa = self._recuperacion_pendiente
+            instantanea = getattr(programa, "instantanea", None)
+            if not callable(instantanea):
+                return {}
+            datos = instantanea()
+            if not isinstance(datos, dict):
+                return {}
+            json.dumps(datos)                      # serializable o nada
+            return {"programa": datos,
+                    "tipo_carga": programa.get_param("globals", "tipo_carga")}
+        except Exception:
+            logger.exception("ControlLoop: no se pudo guardar el programa en la marca de "
+                             "estado seguro (el arranque lo tomará como incierto)")
+            return {}
+
     def _sincronizar_marca_estado_seguro(self) -> None:
         """Tanda 28 (A9-R1): escribe o borra la marca persistente cuando
         cambia protocolo_fin_ciclo_en_curso(). Solo en los cambios (escritura
@@ -557,9 +606,10 @@ class ControlLoop:
         try:
             if deseada:
                 origen = getattr(self.estado_seguro, "origen", None) if self.estado_seguro.activo else None
-                self.marca_estado_seguro.marcar({
-                    "desde": datetime.now().isoformat(timespec="seconds"),
-                    "origen": origen if isinstance(origen, str) else "fin_de_ciclo"})
+                detalle = {"desde": datetime.now().isoformat(timespec="seconds"),
+                           "origen": origen if isinstance(origen, str) else "fin_de_ciclo"}
+                detalle.update(self._programa_para_marca())
+                self.marca_estado_seguro.marcar(detalle)
             else:
                 self.marca_estado_seguro.borrar()
         except Exception:

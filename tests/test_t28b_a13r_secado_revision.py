@@ -266,7 +266,9 @@ def test_b4_arranque_tras_ciclo_interrumpido_arma_el_secado(monkeypatch):
     loop.estado.sensores_pres["pres_camara"] = 250.0
     loop.estado.sensores_temp["temp_camara"] = 125.0
     loop.estado.sensores_di["agua_bomba"] = 1           # agua de sello presente
-    loop.recuperar_ciclo_interrumpido(_programa("solido"), interrumpido=True)
+    # A13-M5 (tanda 28b): el secado solo se arma con la instantánea del ciclo
+    loop.recuperar_ciclo_interrumpido(_programa("solido"), interrumpido=True,
+                                      programa_del_ciclo=True)
     loop._procesar_recuperacion()
     es = loop.estado_seguro
     assert es.activo and es.causa == "ciclo_interrumpido"

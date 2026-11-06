@@ -56,6 +56,21 @@ class MarcaEstadoSeguro:
                              self.ruta)
             return True
 
+    def leer(self) -> dict | None:
+        """A13-M5 (tanda 28b): contenido de la marca (p. ej. la instantánea
+        del programa del protocolo en "programa"), o None si no existe, es
+        ilegible o no es un objeto. Solo para recuperar datos: la presencia
+        se juzga con presente() (falla cerrada)."""
+        with self._lock:
+            try:
+                datos = json.loads(self.ruta.read_text(encoding="utf-8"))
+            except FileNotFoundError:
+                return None
+            except Exception:
+                logger.exception("MarcaEstadoSeguro: %s ilegible", self.ruta)
+                return None
+            return datos if isinstance(datos, dict) else None
+
     def marcar(self, detalle: dict | None = None) -> None:
         """Escribe la marca (atómica). Lanza la excepción si no pudo: quien
         llama reintenta."""

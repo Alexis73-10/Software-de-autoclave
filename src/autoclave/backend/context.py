@@ -85,6 +85,30 @@ def _programa_desconocido():
                  {"globals": {"tipo_carga": {"value": "liquido"}}})
 
 
+# A13-M5 (tanda 28b): el programa del arranque es la instantánea del propio
+# ciclo interrumpido (único origen con el que corre el secado tras fallo)
+ORIGEN_INSTANTANEA = "instantanea"
+
+
+def _programa_de_marca_estado_seguro(marca):
+    """A13-M5: instantánea del programa que guardó la marca persistente del
+    protocolo de fin de ciclo (A9-R1), o None (sin marca, sin programa,
+    ilegible o ante cualquier error)."""
+    if marca is None:
+        return None
+    try:
+        datos = marca.leer()
+        instantanea = datos.get("programa") if isinstance(datos, dict) else None
+        if not isinstance(instantanea, dict):
+            return None
+        programa = Cycle.desde_instantanea(instantanea)
+        programa.get_param("globals", "tipo_carga")      # legible o se descarta
+        return programa
+    except Exception:
+        logger.exception("Arranque: programa de la marca de estado seguro ilegible")
+        return None
+
+
 MOTIVO_INTERRUMPIDO = ("Ciclo interrumpido: el equipo se reinició o perdió energía "
                        "sin cerrarlo. El ciclo no se reanuda; la carga NO está estéril.")
 
@@ -795,8 +819,11 @@ class BackendContext:
         # Tanda 28 (A9, Cristian 5-nov): el protocolo de estado seguro de
         # arranque solo corre tras un ciclo interrumpido (o si no se sabe); en
         # un encendido normal PREPARACION iguala la presión.
+        # A13-M5 (tanda 28b): con el origen del programa (el secado tras fallo
+        # solo corre con la instantánea del propio ciclo)
+        programa, del_ciclo = self._programa_para_arranque_con_origen()
         self.control_loop.recuperar_ciclo_interrumpido(
-            self._programa_para_arranque(), interrumpido=self.hubo_ciclo_interrumpido())
+            programa, interrumpido=self.hubo_ciclo_interrumpido(), programa_del_ciclo=del_ciclo)
         self.control_loop.start()
         self.iniciar_verificacion_asignacion()   # R8: solo tras una reasignación
         self.iniciar_vigilancia_asignacion()
@@ -1170,48 +1197,79 @@ class BackendContext:
         """Reconstruye el programa con el que corría el ciclo interrumpido:
         la instantánea (v3) o, en filas anteriores, el programa cargado con
         la asignación de sensores registrada (v2)."""
+        return BackendContext._programa_del_ciclo_interrumpido_con_origen(self)[0]
+
+    def _programa_del_ciclo_interrumpido_con_origen(self):
+        """(programa, origen) del ciclo interrumpido. A13-M5 (tanda 28b):
+        origen "instantanea" solo si viene de la instantánea del propio ciclo
+        (programa_json de la fila o la de la marca del contador, escrita al
+        iniciarlo); "copia_actual" (definición vigente del programa, que pudo
+        cambiar después), "desconocido" o None."""
         fila = getattr(self, "_ciclo_interrumpido", None)
         marca = getattr(self, "_marca_interrumpido", None)
         if not fila and marca:
             # Sin fila en la base (base caída o bloqueada): la marca del contador
             if marca.get("programa"):
                 try:
-                    return Cycle.desde_instantanea(marca["programa"])
+                    return Cycle.desde_instantanea(marca["programa"]), ORIGEN_INSTANTANEA
                 except Exception:
                     logger.exception("Instantánea de la marca de ciclo ilegible")
-            return _programa_desconocido()
+            return _programa_desconocido(), "desconocido"
         if not fila:
-            return None
+            return None, None
         try:
             if fila.get("programa_json"):
-                return Cycle.desde_instantanea(json.loads(fila["programa_json"]))
+                return (Cycle.desde_instantanea(json.loads(fila["programa_json"])),
+                        ORIGEN_INSTANTANEA)
             base = self.cycle_manager.cycles.get(fila.get("tipo_ciclo"))
             if base is None:
-                return None
+                return None, None
             programa = base.copia()
             if fila.get("asignacion_sensores"):
                 programa.sensores, _ = interpretar_asignacion(json.loads(fila["asignacion_sensores"]))
-            return programa
+            return programa, "copia_actual"
         except Exception:
             logger.exception("No se pudo reconstruir el programa del ciclo interrumpido")
-            return None
+            return None, None
 
     def _programa_para_arranque(self):
-        programa = self._programa_del_ciclo_interrumpido()
+        return BackendContext._programa_para_arranque_con_origen(self)[0]
+
+    def _programa_para_arranque_con_origen(self):
+        """(programa, del_ciclo) para el arranque tras un ciclo interrumpido.
+        A13-M5 (tanda 28b, decisión de Cristian del 6-nov): `del_ciclo` es
+        True solo si el programa es la instantánea del propio ciclo
+        interrumpido (fila o marca del contador) o la que guardó la marca
+        persistente del protocolo de fin de ciclo (A9-R1); la copia de la
+        definición actual, el último ciclo registrado o el programa
+        desconocido dan False y el secado tras fallo se omite
+        (programa_incierto). Falla cerrada: ante cualquier duda, False."""
+        con_origen = getattr(self, "_programa_del_ciclo_interrumpido_con_origen", None)
+        if callable(con_origen):
+            programa, origen = con_origen()
+        else:
+            programa, origen = self._programa_del_ciclo_interrumpido(), None
+        if programa is None:
+            programa = _programa_de_marca_estado_seguro(getattr(self, "marca_estado_seguro", None))
+            origen = ORIGEN_INSTANTANEA if programa is not None else None
         if programa is None:
             try:
                 recientes = self.db.get_ciclos_recientes(1)
                 fila = dict(recientes[0]) if recientes else None
                 if fila and fila.get("programa_json"):
                     programa = Cycle.desde_instantanea(json.loads(fila["programa_json"]))
+                    origen = "ultimo_ciclo"
             except Exception:
                 logger.exception("No se pudo leer el último ciclo registrado")
         if programa is None:
-            return _programa_desconocido()
+            return _programa_desconocido(), False
         # SAF-05 de T6: sin tipo de carga registrado, se recupera como líquido
         if programa.get_param("globals", "tipo_carga") is None:
             programa.parameters.setdefault("globals", {})["tipo_carga"] = {"value": "liquido"}
-        return programa
+        if origen != ORIGEN_INSTANTANEA:
+            logger.warning("Arranque: programa del ciclo interrumpido de origen incierto (%s); "
+                           "sin secado tras fallo (A13-M5)", origen or "desconocido")
+        return programa, origen == ORIGEN_INSTANTANEA
 
     def programas_para_seguridad(self) -> list:
         """Programas cuyos Principales deciden apertura y cámara segura

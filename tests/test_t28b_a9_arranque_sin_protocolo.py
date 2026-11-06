@@ -247,7 +247,10 @@ def test_construir_control_pasa_si_hubo_ciclo_interrumpido(monkeypatch):
     ctx._ciclo_interrumpido = None
     ctx._marca_interrumpido = None
     ctx.construir_control()
-    assert loop.recuperar_ciclo_interrumpido.call_args.kwargs == {"interrumpido": False}
+    # A13-M5 (tanda 28b): se pasa además el origen del programa (sin ciclos
+    # ni marca: el programa desconocido, no es del ciclo)
+    assert loop.recuperar_ciclo_interrumpido.call_args.kwargs == {"interrumpido": False,
+                                                                  "programa_del_ciclo": False}
 
 
 # ── 5. presentación ────────────────────────────────────────────────────────

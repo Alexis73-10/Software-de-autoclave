@@ -106,6 +106,8 @@ MOTIVOS_SECADO = (
     "puerta_abierta", "modo_prueba", "sellado",
     # A13, revisión de seguridad (tanda 28b): M1, M2 y B2
     "error", "sin_referencia_atm", "salidas_sin_confirmar",
+    # A13-M5 (tanda 28b): ciclo interrumpido con programa de origen incierto
+    "programa_incierto",
 )
 # A13-B1 (tanda 28b): motivos de corte que, con el secado todavía PENDIENTE
 # (no empezó), lo dejan OMITIDO: un paro, el modo prueba o un error interno
@@ -132,6 +134,11 @@ class ProtocoloFallo:
         # el protocolo; sin perfil no hay secado tras fallo (falla cerrada).
         self.profile = None
         self.alarm_manager = None
+        # A13-M5 (tanda 28b): True en el protocolo del arranque tras un ciclo
+        # interrumpido cuyo programa no es la instantánea del propio ciclo
+        # (copia de la definición actual, último ciclo o desconocido): el
+        # secado tras fallo se omite (programa_incierto). Lo fija ControlLoop
+        self.programa_incierto = False
         self.reset()
 
     def reset(self):
@@ -1093,6 +1100,10 @@ class ProtocoloFallo:
             return "no_aplica"
         if self._segundos_secado() <= 0:
             return "desactivado"
+        if self.programa_incierto is not False:
+            # A13-M5: el tipo de carga no es seguro (no es la instantánea del
+            # ciclo interrumpido): no se hace vacío con la carga desconocida
+            return "programa_incierto"
         if not self._carga_solida():
             return "carga_liquida"
         if not self._vacio_instalado():
