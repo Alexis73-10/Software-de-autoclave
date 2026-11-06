@@ -9,6 +9,7 @@ Reloj monotonic simulado (tests/helpers/t12_e12_apoyo.py)."""
 
 import glob
 import json
+import logging
 import types
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -22,6 +23,7 @@ from autoclave.state_machine.cycle_phases import calentamiento as cal_mod
 from autoclave.state_machine.cycle_phases import corte_chaqueta_consigna as ccc
 from autoclave.state_machine.cycle_phases import esterilizacion as est
 from autoclave.state_machine.cycle_phases.base_fase import FaseResult
+from autoclave.state_machine.states.ciclo import CicloResultado
 from tests import test_t16_s2_calentamiento_chaqueta as s2
 from tests.helpers import t12_e12_apoyo as ap
 
@@ -317,6 +319,175 @@ def test_h1_modo_camara_sin_cambio_en_el_tramo_on(monkeypatch):
     set_do.vapor_camara_off.assert_not_called()
     set_do.vapor_chaqueta_on.assert_not_called()
     set_do.vapor_chaqueta_off.assert_not_called()
+
+
+# ── H1: pruebas pedidas por la revisión del commit 5a94e685 ───────────────
+UMBRAL_EST = P_SP + 8.0                                   # P_sp + margen defecto
+
+
+def _cortes_m2(caplog):
+    inicio = [r for r in caplog.records
+              if r.name == est.logger.name and "cortada por consigna" in r.getMessage()]
+    fin = [r for r in caplog.records
+           if r.name == est.logger.name and "fin del corte de vapor_chaqueta" in r.getMessage()]
+    return len(inicio), len(fin)
+
+
+def test_h1_corte_se_despeja_dentro_de_t_on_y_vuelve_a_on(monkeypatch):
+    """(a) Comportamiento fijado: sin histéresis, si el corte se despeja dentro
+    del tramo ON, vapor_chaqueta vuelve a ON en ese mismo tick y el tramo
+    conserva su temporización (pasa a OFF al cumplirse t_on desde su inicio)."""
+    f, estado, set_do, reloj = _pwm_chaqueta_t_on_largo(monkeypatch)
+    inicio_tramo = f._t_pulso_pwm
+    reloj.avanzar(1.0)
+    estado.sensores_pres["pres_chaqueta"] = UMBRAL_EST + 0.5
+    f.update()
+    set_do.vapor_chaqueta_off.assert_called()
+    set_do.reset_mock()
+    reloj.avanzar(1.0)
+    estado.sensores_pres["pres_chaqueta"] = UMBRAL_EST - 0.5
+    f.update()
+    assert f._pwm_abierto is True and f._t_pulso_pwm == inicio_tramo
+    set_do.vapor_chaqueta_on.assert_called()
+    set_do.vapor_chaqueta_off.assert_not_called()
+    # el tramo ON termina a los 29,7 s de su inicio, no se reinicia
+    set_do.reset_mock()
+    reloj.avanzar(27.8)                                   # 29,8 s desde el inicio
+    f.update()
+    assert f._pwm_abierto is False
+    set_do.vapor_chaqueta_off.assert_called()
+
+
+def test_h1_log_del_corte_una_vez_con_doble_llamada_en_la_transicion(monkeypatch, caplog):
+    """(b) En el tick de transición a ON, _tick_dos_estados y el bloque H1
+    llaman dos veces a _vapor_on: el inicio y el fin del corte M2 se registran
+    una sola vez."""
+    caplog.set_level(logging.INFO, logger=est.logger.name)
+    # primer tick (temporizador sin armar): doble llamada con el corte ya activo
+    f, estado, set_do, reloj = ap.fase(monkeypatch, t_est=T_EST, presion_add=15.0,
+                                       brecha_seg=0.3, tiempo_min=30, temp=134.7, pres=P_SP,
+                                       intervalo=30, factor=1.0)
+    estado.modo_vapor = "chaqueta"
+    estado.inhibir_vapor_chaqueta = False
+    estado.sensores_pres["pres_chaqueta"] = UMBRAL_EST + 0.5
+    llamadas = MagicMock(wraps=f._vapor_on)
+    monkeypatch.setattr(f, "_vapor_on", llamadas)
+    f.update()
+    assert llamadas.call_count == 2                       # la doble llamada existe
+    assert _cortes_m2(caplog) == (1, 0)
+    set_do.vapor_chaqueta_on.assert_not_called()
+    # se despeja: un solo registro de fin
+    reloj.avanzar(1.0)
+    estado.sensores_pres["pres_chaqueta"] = UMBRAL_EST - 0.5
+    f.update()
+    assert _cortes_m2(caplog) == (1, 1)
+    # pasa a OFF (sin evaluar el corte) y vuelve a ON con el corte activo:
+    # transición OFF -> ON con doble llamada, un solo registro de inicio
+    reloj.avanzar(28.8)
+    f.update()
+    assert f._pwm_abierto is False
+    estado.sensores_pres["pres_chaqueta"] = UMBRAL_EST + 0.5
+    llamadas.reset_mock()
+    set_do.reset_mock()
+    reloj.avanzar(0.4)                                    # t_off = 0,3 s cumplido
+    f.update()
+    assert f._pwm_abierto is True and llamadas.call_count == 2
+    assert _cortes_m2(caplog) == (2, 1)
+    set_do.vapor_chaqueta_on.assert_not_called()
+    # siguen ticks con el corte: sin registros nuevos
+    reloj.avanzar(1.0)
+    f.update()
+    assert _cortes_m2(caplog) == (2, 1)
+
+
+def test_h1_aislamiento_a_mitad_del_tramo_on_con_el_corte_activo(monkeypatch):
+    """(c) Corte por consigna activo y, en un tick posterior del mismo tramo
+    ON, la cámara llega al techo: VCH-AIS fuerza las dos válvulas OFF y el
+    bloque H1 no corre (ni _vapor_on)."""
+    f, estado, set_do, reloj = _pwm_chaqueta_t_on_largo(monkeypatch)
+    reloj.avanzar(1.0)
+    estado.sensores_pres["pres_chaqueta"] = UMBRAL_EST + 0.5
+    f.update()
+    assert f._corte_m2_previo is True and f._pwm_abierto is True
+    llamadas = MagicMock(wraps=f._vapor_on)
+    monkeypatch.setattr(f, "_vapor_on", llamadas)
+    set_do.reset_mock()
+    reloj.avanzar(1.0)
+    ap.poner(estado, 134.7, p_saturacion_kpa(T_EST) + 15.0)   # techo P_control_max
+    assert f.update() == FaseResult.EN_CURSO
+    assert f._aislamiento().aislado is True
+    assert f._pwm_abierto is False and f._t_pulso_pwm is None
+    llamadas.assert_not_called()
+    set_do.vapor_camara_off.assert_called()
+    set_do.vapor_chaqueta_off.assert_called()
+    set_do.vapor_camara_on.assert_not_called()
+    set_do.vapor_chaqueta_on.assert_not_called()
+
+
+def test_h1_bajo_p_low_con_el_corte_activo(monkeypatch):
+    """(e) Rama P < p_low (ON forzado) con el corte activo: vapor_chaqueta OFF,
+    vapor_camara abierta; al despejarse el corte vuelve a ON (sin regresión de
+    la rama, que también hace la doble llamada)."""
+    f, estado, set_do, reloj = _pwm_chaqueta_t_on_largo(monkeypatch)
+    reloj.avanzar(1.0)
+    ap.poner(estado, 134.7, P_SP - est._BANDA_PWM_BAJA - 0.5)
+    estado.sensores_pres["pres_chaqueta"] = UMBRAL_EST + 0.5
+    f.update()
+    assert f._en_recuperacion is False
+    assert f._pwm_abierto is True and f._t_pulso_pwm is None   # rama ON forzado
+    set_do.vapor_chaqueta_off.assert_called()
+    set_do.vapor_chaqueta_on.assert_not_called()
+    set_do.vapor_camara_on.assert_called()
+    set_do.reset_mock()
+    reloj.avanzar(1.0)
+    estado.sensores_pres["pres_chaqueta"] = UMBRAL_EST - 0.5
+    f.update()
+    set_do.vapor_chaqueta_on.assert_called()
+    set_do.vapor_chaqueta_off.assert_not_called()
+
+
+def _ordenes_chaqueta(set_do):
+    return [c[0] for c in set_do.mock_calls
+            if c[0] in ("vapor_chaqueta_on", "vapor_chaqueta_off")]
+
+
+def test_h1_integracion_cicloestate_corte_por_consigna_en_el_tick(monkeypatch):
+    """(d) CicloState real con la EsterilizacionFase real, orden real del tick
+    (fase.update() y luego el corte D-CHQ de ciclo.py, paso 7): con
+    pres_chaqueta sobre P_sp + margen pero bajo presion_max_chaqueta_control
+    (D-CHQ inactivo), vapor_chaqueta queda OFF en el mismo tick en que aparece
+    el corte por consigna a mitad del tramo ON; lo apaga la fase, no CICLO."""
+    from autoclave.installation.profile import MODO_CHAQUETA
+    from tests import test_t16_s3_ciclo_chaqueta as s3
+
+    f, _, _, reloj = ap.fase(monkeypatch, t_est=T_EST, presion_add=15.0, brecha_seg=0.3,
+                             tiempo_min=30, intervalo=30, factor=1.0)
+    ciclo, estado, set_do, _ = s3._ciclo(pres_chaqueta=250.0, modo=MODO_CHAQUETA)
+    estado.sensores_temp["temp_camara"] = 134.7
+    estado.sensores_pres["pres_camara"] = P_SP
+    estado.avisos_ciclo = []
+    f.estado, f.set_do = estado, set_do
+    f.reset()
+    s3._con_fases(ciclo, f)
+    assert f.controla_vapor_chaqueta is True
+
+    assert ciclo.run() == CicloResultado.EN_CURSO        # inicio del tramo ON
+    assert f._pwm_abierto is True and estado.inhibir_vapor_chaqueta is False
+    assert _ordenes_chaqueta(set_do)[-1] == "vapor_chaqueta_on"
+
+    set_do.reset_mock()
+    reloj.avanzar(1.0)
+    estado.sensores_pres["pres_chaqueta"] = UMBRAL_EST + 0.5   # < 375 kPa
+    assert ciclo.run() == CicloResultado.EN_CURSO
+    assert estado.inhibir_vapor_chaqueta is False         # D-CHQ no actúa
+    assert f._pwm_abierto is True
+    assert _ordenes_chaqueta(set_do) and set(_ordenes_chaqueta(set_do)) == {"vapor_chaqueta_off"}
+
+    set_do.reset_mock()
+    reloj.avanzar(1.0)
+    estado.sensores_pres["pres_chaqueta"] = UMBRAL_EST - 0.5
+    ciclo.run()
+    assert _ordenes_chaqueta(set_do)[-1] == "vapor_chaqueta_on"
 
 
 @pytest.fixture

@@ -11,8 +11,13 @@
 # Es un AND con la decisión de la fase y con el corte D-CHQ: nunca los
 # reemplaza ni enciende nada. Sin lectura válida de pres_chaqueta, o sin
 # consigna o margen utilizables, corta (falla cerrada, como D-CHQ). Sin
-# histéresis: reabre en cuanto la lectura vuelve a estar en o bajo el umbral
-# (el PWM y el aislamiento ya espacian las órdenes).
+# histéresis por diseño: reabre en cuanto la lectura vuelve a estar en o bajo
+# el umbral. Las fases lo evalúan en cada tick en que piden vapor_chaqueta ON
+# (tramo ON del PWM de ESTERILIZACION desde H1, RECUPERACION y CALENTAMIENTO),
+# así que con una presión de chaqueta ruidosa alrededor del umbral la válvula
+# puede conmutar en cada tick (un fc05 por cambio). Añadir histéresis o
+# enclavar el corte por tramo es DECISIÓN PENDIENTE de Cristian y debe medirse
+# en banco (hoja de pruebas, bloque T28).
 #
 # El componente es puro: las fases lo consultan en cada tick.
 
