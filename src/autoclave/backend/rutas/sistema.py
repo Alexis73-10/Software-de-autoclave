@@ -330,56 +330,25 @@ def _avisos_corte_prueba() -> list:
 
 
 def _estado_seguro_status(estado=None, motivo_es_sensor: bool = False) -> dict:
-    """Protocolo de estado seguro (fin de ciclo §15): activo y si espera la
-    confirmación "Confirmar y llevar a estado seguro"."""
+    """Hotfix ES (6-nov): el protocolo automático de estado seguro se retiró.
+    Se conserva la forma de /status.estado_seguro para no romper clientes:
+    `activo` siempre false; `requiere_confirmacion` es la confirmación tras
+    soltar un paro real (causa "paro_liberado")."""
     es = getattr(context.control_loop, "estado_seguro", None)
-    activo = getattr(es, "activo", False) is True
-    # ESS-02: sin el texto de presión de cámara sin lectura (coherente con
-    # CIC-10, ESG-01); un estado seguro sin esa consulta da el de siempre
-    nombre = ("bloqueado_motivo_sin_presion" if hasattr(es, "bloqueado_motivo_sin_presion")
-              else "bloqueado_motivo")
-    motivo = getattr(es, nombre, None) if activo else None
-    # S9 (D9-1.2): paro_liberado / arranque / fallo / cancelado / completado
-    causa = getattr(es, "causa", None) if activo else None
     try:
         ack_confirma = getattr(context.control_loop.state_machine.ciclo,
                                "ack_confirma_estado_seguro", False) is True
     except Exception:
         ack_confirma = False
-    requiere = activo and getattr(es, "requiere_confirmacion", False) is True
-    return {"activo": activo,
-            # P-6 (tanda 6): el CONFIRMAR del ciclo también confirma el estado seguro
+    requiere = getattr(es, "requiere_confirmacion", False) is True
+    return {"activo": False,
+            # P-6 (tanda 6): el CONFIRMAR del ciclo también confirma el paro
             "ack_confirma_estado_seguro": ack_confirma,
             "requiere_confirmacion": requiere,
-            # ESS-02: la UI oculta las filas del estado seguro (solo se ve la
-            # alarma del sensor, con «No abrir la puerta»)
-            "silencioso_por_sensor": _silencioso_por_sensor(es, activo, requiere, estado,
-                                                            motivo_es_sensor),
-            # S4: CIC-10 (el protocolo no puede terminar solo); None si avanza
-            "bloqueado_motivo": motivo if isinstance(motivo, str) else None,
-            # Tanda 17 (ESG-01): detenido por la presión de cámara sin lectura
-            # (sin CIC-10: solo la alarma del sensor)
-            "detenido_sin_presion": activo and getattr(es, "detenido_sin_presion", False) is True,
-            "causa": causa if isinstance(causa, str) else None}
-
-
-def _silencioso_por_sensor(es, activo: bool, requiere: bool, estado,
-                           motivo_es_sensor: bool) -> bool:
-    """ESS-02: el estado seguro está activo, sin paro ni confirmación
-    pendiente, la cámara no es segura solo por sensores sin lectura (con su
-    alarma visible) y el protocolo no está detenido por otra cosa (sellado con
-    líquidos, tiempo límite con carga caliente). Solo presentación: el
-    protocolo, las válvulas, el bloqueo de puertas y de inicio y no_abrir no
-    cambian. Falla cerrada: ante cualquier duda, False (se muestra todo)."""
-    try:
-        if not activo or requiere or motivo_es_sensor is not True:
-            return False
-        if estado is None or estado.get_flag("PARO_EMERGENCIA"):
-            return False
-        return getattr(es, "bloqueo_no_sensor", True) is False
-    except Exception:
-        logger.exception("/status: no se pudo evaluar el silencio del estado seguro")
-        return False
+            "silencioso_por_sensor": False,
+            "bloqueado_motivo": None,
+            "detenido_sin_presion": False,
+            "causa": "paro_liberado" if requiere else None}
 
 
 # ESS-02: alarmas del sensor que deben estar a la vista para ocultar las filas

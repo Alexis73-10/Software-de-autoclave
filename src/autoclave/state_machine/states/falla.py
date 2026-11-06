@@ -10,8 +10,12 @@ class FallaState:
         self.estado = estado
         self.set_do = set_do
         self.alarm_manager = alarm_manager
+        # Hotfix ES (6-nov): callable () -> bool que nivela la presión de
+        # cámara igual que PREPARACION (lo fija la StateMachine). None = sin
+        # lazo (usos aislados).
+        self.nivelar_presion_camara = None
 
-    def run(self, puede_salir: bool = True) -> bool:
+    def run(self) -> bool:
         """
         Llamar en cada tick mientras el estado sea FALLA.
         Retorna True cuando el operador reconoció la falla y la máquina
@@ -30,9 +34,17 @@ class FallaState:
             self.set_do.buzer_emergencia()
             return False
 
-        # Fin de ciclo §15.4: se sale a PREPARACION solo con el estado seguro
-        # alcanzado; el reconocimiento queda guardado mientras tanto.
-        if self.estado.get_flag("RESET_FALLA") and puede_salir:
+        # Hotfix ES (6-nov): sin protocolo de estado seguro, FALLA maneja la
+        # presión de cámara como PREPARACION (sobrepresión: venteo, en
+        # líquidos por la lenta; vacío: aire atmosférico). Un error no impide
+        # el reconocimiento.
+        if self.nivelar_presion_camara is not None:
+            try:
+                self.nivelar_presion_camara()
+            except Exception:
+                logger.exception("FallaState: no se pudo nivelar la presión de cámara")
+
+        if self.estado.get_flag("RESET_FALLA"):
             self.estado.set_flag("RESET_FALLA", False)
             logger.info("FallaState: reset solicitado → transicionando a PREPARACION")
             return True

@@ -19,8 +19,7 @@ from autoclave.core.runtime import aire_atmosferico_prueba
 from autoclave.core.runtime import salidas_prueba_seguridad
 from autoclave.core.runtime.coherencia_puerta_presion import VigilanciaCoherenciaPuertaPresion
 from autoclave.core.runtime.status import EstadoAutoclave
-from autoclave.state_machine.estado_seguro import ProtocoloEstadoSeguro
-from autoclave.state_machine.cycle_phases.protocolo_fallo import ProtocoloFallo
+from autoclave.state_machine.estado_seguro import ConfirmacionParo
 from autoclave.installation.profile import entrada_requerida, numero_puertas
 
 import logging
@@ -151,17 +150,13 @@ class ControlLoop:
         self._recuperacion_pendiente = None
         self._ticks_seguros_recuperacion = 0
 
-        # Protocolo de estado seguro (fin de ciclo §15): una sola instancia que
-        # sobrevive a set_active_cycle. `al_evento_seguridad(evento, detalle)`
-        # lo fija el backend para el audit_log.
+        # Hotfix ES (6-nov): sin protocolo automático de estado seguro. Queda
+        # la confirmación tras soltar un paro real fuera de CICLO, una sola
+        # instancia que sobrevive a set_active_cycle (conserva el nombre
+        # `estado_seguro`). `al_evento_seguridad(evento, detalle)` lo fija el
+        # backend para el audit_log.
         self.al_evento_seguridad = None
-        self.estado_seguro = ProtocoloEstadoSeguro(
-            estado, config_manager, profile=profile,
-            programas_seguridad=self.programas_para_seguridad,
-            al_evento=self._evento_seguridad, alarm_manager=alarm_manager)
-        # S9, revisión ★ TMG-02/TMG-03: vigencia y número de la trama AI, para
-        # que el protocolo no tome una presión congelada por una vigente
-        self.estado_seguro.lectura_ai = self._lectura_ai
+        self.estado_seguro = ConfirmacionParo(estado, al_evento=self._evento_seguridad)
         # R2-A1 (revisión ★ pasada 2): proveedor común en el estado, para el
         # protocolo de fallo del ciclo (CicloState) y la fase DESCOMPRESION
         # (core/runtime/vigencia_ai.py)
@@ -349,12 +344,11 @@ class ControlLoop:
         último ciclo, también el de ese ciclo (se toma el máximo)."""
         if self.estado.get_machine_state() == GlobalState.CICLO:
             return [self.programa_en_ejecucion()]
-        # S9 (tanda 9, D9-1.3): con el programa cambiado durante el estado
-        # seguro o la recuperación de arranque, sus copias siguen contando
-        # aunque ya no sean el seleccionado ni el último ciclo
+        # S9 (tanda 9, D9-1.3): con el programa cambiado durante la
+        # recuperación de arranque, su copia sigue contando aunque ya no sea
+        # el seleccionado
         programas = []
-        for p in (self.cycle, self._programa_ultimo_ciclo, self.estado_seguro.programa,
-                  self._recuperacion_pendiente):
+        for p in (self.cycle, self._programa_ultimo_ciclo, self._recuperacion_pendiente):
             if p is not None and not any(p is q for q in programas):
                 programas.append(p)
         return programas
@@ -362,8 +356,8 @@ class ControlLoop:
     def recuperar_ciclo_interrumpido(self, programa) -> None:
         """E4 (D-08, SAF-08 de T5): tras un reinicio con un ciclo sin cerrar,
         su sensor Principal cuenta para la seguridad hasta que la cámara sea
-        segura y, si no lo es, arranca el protocolo de estado seguro con ese
-        programa (modo de descompresión, carga líquida) y con confirmación."""
+        segura. Hotfix ES (6-nov): ya no arranca ningún protocolo; PREPARACION
+        nivela la cámara y "NO ABRIR" sigue mientras no sea segura."""
         with self._sm_lock:
             self._recuperacion_pendiente = programa
             self._ticks_seguros_recuperacion = 0
@@ -391,8 +385,7 @@ class ControlLoop:
         with self._sm_lock:
             if self.estado.get_machine_state() == GlobalState.CICLO:
                 return False, "ciclo_en_curso"
-            copias = (self.estado_seguro.programa, self._programa_ultimo_ciclo,
-                      self._recuperacion_pendiente)
+            copias = (self._programa_ultimo_ciclo, self._recuperacion_pendiente)
             if not any(p is not None and p is not self.cycle
                        and getattr(p, "id", None) == programa_id for p in copias):
                 return False, "sin_copias"
@@ -423,8 +416,6 @@ class ControlLoop:
                 nuevo.sensores_formato_antiguo = False
                 return nuevo
 
-            if self.estado_seguro.programa is not None:
-                self.estado_seguro.reemplazar_programa(reemplazo(self.estado_seguro.programa))
             self._programa_ultimo_ciclo = reemplazo(self._programa_ultimo_ciclo)
             self._recuperacion_pendiente = reemplazo(self._recuperacion_pendiente)
             return True, "aplicado"
@@ -451,49 +442,41 @@ class ControlLoop:
             # S9, revisión ★ TMG-02: con la trama AI vencida la presión
             # publicada puede estar congelada: nunca cuenta como segura
             segura, motivo = False, "Sin lectura válida de presión de cámara (trama AI vencida)"
-        if segura:
-            # SAF-02 de T6: 3 ticks seguros seguidos antes de descartar
-            self._ticks_seguros_recuperacion += 1
-            if self._ticks_seguros_recuperacion >= _TICKS_SEGUROS_OLVIDAR_CICLO:
-                logger.info("ControlLoop: arranque con la cámara segura")
-                self._recuperacion_pendiente = None
-            return
+        # Hotfix ES (6-nov, decisión de Cristian): sin protocolo automático. La
+        # recuperación se resuelve con el primer dato vigente; el programa del
+        # ciclo interrumpido sigue en _programa_ultimo_ciclo (su Principal
+        # cuenta para "NO ABRIR" y el bloqueo de inicio hasta 3 ticks seguros,
+        # _seguir_programa_ultimo_ciclo) y PREPARACION nivela la cámara.
+        self._recuperacion_pendiente = None
         self._ticks_seguros_recuperacion = 0
-        logger.error("ControlLoop: arranque con la cámara no segura (%s) — "
-                     "estado seguro automático, solo la lenta", motivo)
-        # S9 (tanda 9, D9-1.1, revierte en parte E4/D-08): corre SOLO, sin
-        # confirmación (D9-1.2: solo tras un paro real de este encendido) y
-        # solo con la lenta (con vacío, aire atmosférico; sin presión no abre
-        # nada y queda detenido con CIC-10, D9-1.4)
-        protocolo = ProtocoloFallo(self.estado, self.set_do, programa, self.config_manager)
-        protocolo.ejecutar(abrir_valvulas=False, solo_lenta=True)
-        protocolo.motivo_solo_lenta = "arranque con la cámara no segura"
-        self.estado_seguro.iniciar(protocolo, origen="arranque")
-        if self.estado_seguro.activo:
-            self._recuperacion_pendiente = None     # entregada (si no, se reintenta)
+        if segura:
+            logger.info("ControlLoop: arranque con la cámara segura")
+            return
+        logger.warning("ControlLoop: arranque con la cámara no segura (%s) — sin protocolo "
+                       "automático; PREPARACION nivela la cámara y NO ABRIR sigue hasta que "
+                       "sea segura", motivo)
         self._evento_seguridad("arranque_camara_no_segura",
-                               {"programa": getattr(programa, "id", None), "motivo": motivo})
+                               {"programa": getattr(programa, "id", None), "motivo": str(motivo)})
 
     def _evento_seguridad(self, evento: str, detalle: dict) -> None:
         if self.al_evento_seguridad is not None:
             self.al_evento_seguridad(evento, detalle)
 
     def confirmar_estado_seguro(self) -> bool:
-        """"Confirmar y llevar a estado seguro" (cualquier operador). Bajo
+        """"Confirmar" tras soltar un paro real (cualquier operador). Hotfix ES:
+        sin protocolo; desde PREPARADO el equipo pasa a PREPARACION. Bajo
         _sm_lock para no intercalarse con el tick."""
         with self._sm_lock:
-            return self.estado_seguro.confirmar()
+            return self.state_machine.confirmar_paro()
 
     def temp_max_tras_ciclo(self):
         """`finalizacion.temp_max_apertura` del último ciclo mientras su
         Principal siga contando para la seguridad (SAF-04 de T4); si no, None.
-        S9 (D9-1.3): también la del programa del protocolo de estado seguro y
-        la de la recuperación de arranque; rige la menor."""
+        S9 (D9-1.3): también la de la recuperación de arranque; rige la menor."""
         if self.estado.get_machine_state() == GlobalState.CICLO:
             return None
         valores = []
-        for programa in (self._programa_ultimo_ciclo, self.estado_seguro.programa,
-                         self._recuperacion_pendiente):
+        for programa in (self._programa_ultimo_ciclo, self._recuperacion_pendiente):
             if programa is None:
                 continue
             try:
@@ -1592,12 +1575,9 @@ class ControlLoop:
                                    "del módulo E/S.")
                 return False, "No se puede activar el modo prueba con el paro de emergencia activado."
 
-            # S9 (tanda 9, D9-1.3, revierte SAF-03 de T6): permitido con el
-            # estado seguro activo o la recuperación pendiente. El protocolo
-            # se pausa (la máquina de estados no corre) y se reanuda al salir,
-            # tras el ALL_OFF de siempre.
+            # S9 (tanda 9, D9-1.3, revierte SAF-03 de T6): permitido con la
+            # recuperación pendiente (la máquina de estados no corre).
             self._test_mode.set()
-            self.estado_seguro.pausar("modo_prueba")
             # S9, revisión ★ TMG-05: la recuperación de arranque vuelve a
             # contar sus 3 ticks seguros desde cero al salir
             self._ticks_seguros_recuperacion = 0

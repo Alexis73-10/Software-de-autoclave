@@ -29,9 +29,6 @@ class preparacion_state:
         # Perfil de instalación (E1): entradas de suministro y puertas.
         # None = comportamiento previo (todo requerido, 2 puertas con empaque).
         self.profile = profile
-        # callable: protocolo de estado seguro en curso (E4, ciclo
-        # interrumpido): mientras dure, él maneja la cámara
-        self.estado_seguro_activo = None
 
         # Confirmadores de apagado (evitan chattering de valvula)
         self._confirmador_chaqueta = ConfirmadorApagado()
@@ -71,17 +68,6 @@ class preparacion_state:
         else:
             self.set_do.buzer_off()
             self.alarm_manager.resolver(SIS_01)
-
-        if self.estado_seguro_activo is not None and self.estado_seguro_activo():
-            # Sin venteo propio (la rápida está prohibida en líquidos calientes),
-            # sin chaqueta y sin avanzar: el estado seguro maneja la cámara
-            self.supervisor()
-            self._chaqueta_off_forzada()
-            self.set_do.vapor_camara_off()
-            # 2026-11-04 (usuario): el enfriamiento del drenaje sigue, para que
-            # agua_intercambiador no quede con la última orden
-            self.verificar_temperatura_drenaje()
-            return False
 
         # Suministro eléctrico caído: causa propia de la chaqueta (2026-11-04)
         controlar_chaqueta = not self._sin_suministro_electrico()
@@ -386,6 +372,27 @@ class preparacion_state:
             self.alarm_manager.activar(PRE_04, pres=presion_camara, maximo=pres_cam_max)
             return False, True
                 
+    def nivelar_presion_camara(self) -> bool:
+            """Hotfix ES (6-nov): solo el lazo de presión de cámara, para FALLA.
+            Misma decisión que ejecutor() sin el drenaje: sobrepresión → venteo
+            (en líquidos por la lenta, carga_liquida); vacío → aire
+            atmosférico; en banda → todo cerrado. Sin dato de presión no ordena
+            nada salvo cerrar la lenta propia (E0-3). True si está nivelada."""
+            from autoclave.state_machine.states.control_banda import (
+                aplicar_venteo, carga_liquida, cerrar_lenta_propia)
+            presion_ok, quiere_venteo = self.igualar_presion_camara()
+            if quiere_venteo is None:
+                cerrar_lenta_propia(self, self.set_do)
+                return False
+            if quiere_venteo:
+                aplicar_venteo(self, self.set_do, True,
+                               carga_liquida(getattr(self, "programas_seguridad", None), self.cycle))
+            else:
+                aplicar_venteo(self, self.set_do, False, False)
+            if presion_ok:
+                self.set_do.descompresion_lenta_off()
+            return presion_ok
+
     def drenar_camara(self):
             """Retorna (ok, quiere_descompresion_rapida). No acciona la
             válvula descompresion_rapida directamente: esa salida es
