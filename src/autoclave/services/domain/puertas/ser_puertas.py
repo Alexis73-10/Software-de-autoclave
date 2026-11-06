@@ -43,6 +43,8 @@ _CLAVE_ATM = "presion_admosferica"
 _CLAVE_RANGO = "rango_presion_atm"
 _CLAVE_TEMP_MAX = "temp_max_apertura"
 _MOTIVO_PARO = Motivo("paro", "Paro de emergencia activado")
+_MOTIVO_PARO_SIN_CONFIRMAR = Motivo("paro_sin_confirmar",
+                                    "Paro de emergencia soltado sin confirmar")
 
 
 def _numero(valor) -> float | None:
@@ -59,7 +61,8 @@ def _numero(valor) -> float | None:
 class ServicioPuertas:
 
     def __init__(self, doors, estado, profile, config, logger=logger, programas=None,
-                 temp_max_ciclo=None, estado_seguro_activo=None, presion_vigente=None):
+                 temp_max_ciclo=None, estado_seguro_activo=None, presion_vigente=None,
+                 paro_sin_confirmar=None):
         self.config = config
         # Callable -> lista de programas cuyos sensores Principales deciden la
         # temperatura de apertura (tanda §1.1; SAF-01 de T3: el seleccionado y,
@@ -72,6 +75,10 @@ class ServicioPuertas:
         # de cámara al día (ControlLoop.presion_vigente: DI + AI + estado
         # publicado). Sin él, como antes; con él, falla cerrada.
         self._presion_vigente = presion_vigente
+        # Hotfix ES (revisión, ALTA): callable -> bool, paro real soltado y sin
+        # "Confirmar" (ConfirmacionParo.esperando_confirmacion). Mientras sea
+        # True no se abre ni se cierra ninguna puerta. Sin él, como antes.
+        self._paro_sin_confirmar = paro_sin_confirmar
         self.doors = {d.name: d for d in doors}
         self.estado = estado
         self.profile = profile
@@ -100,6 +107,17 @@ class ServicioPuertas:
         """Con el paro de emergencia activo no se mueve ninguna puerta, ni por
         orden manual ni por la apertura automática."""
         return bool(self.estado.get_flag("PARO_EMERGENCIA"))
+
+    def _paro_por_confirmar(self) -> bool:
+        """Hotfix ES (revisión, ALTA): paro soltado y sin confirmar. Un error
+        al consultarlo cuenta como sin confirmar (falla cerrada)."""
+        if self._paro_sin_confirmar is None:
+            return False
+        try:
+            return self._paro_sin_confirmar() is True
+        except Exception:
+            logger.exception("ServicioPuertas: no se pudo consultar la confirmación del paro")
+            return True
 
     def _sensor_empaque(self, door_name) -> str | None:
         """Sensor de presión del empaque de la puerta, solo si lo tiene: las
@@ -234,6 +252,9 @@ class ServicioPuertas:
         Falla cerrada: sin lectura válida o sin configuración, no abre."""
         if self._paro_activo():
             return False, _MOTIVO_PARO
+        if self._paro_por_confirmar():
+            self.logger.warning("No se puede abrir: %s", _MOTIVO_PARO_SIN_CONFIRMAR)
+            return False, _MOTIVO_PARO_SIN_CONFIRMAR
         if self._estado_seguro_activo is not None:
             try:
                 activo = self._estado_seguro_activo() is True
@@ -285,6 +306,9 @@ class ServicioPuertas:
         vacío ni de temperatura (decisión 18). Falla cerrada."""
         if self._paro_activo():
             return False, _MOTIVO_PARO
+        if self._paro_por_confirmar():
+            self.logger.warning("No se puede cerrar: %s", _MOTIVO_PARO_SIN_CONFIRMAR)
+            return False, _MOTIVO_PARO_SIN_CONFIRMAR
         state = self.estado.get_door_state(door_name)
 
         if state in (DoorState.CERRADO, DoorState.CERRANDO):

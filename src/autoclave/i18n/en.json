@@ -1733,6 +1733,7 @@
   "puerta": {
     "desconocida": "Unknown door",
     "paro": "Emergency stop activated",
+    "paro_sin_confirmar": "Emergency stop released but not confirmed",
     "estado_seguro": "Safe-state protocol in progress",
     "sensor_temp_indeterminado": "Could not determine the temperature sensor",
     "error_evaluacion": "Could not evaluate whether the chamber is safe",

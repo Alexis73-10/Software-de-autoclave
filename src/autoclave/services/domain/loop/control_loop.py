@@ -157,6 +157,14 @@ class ControlLoop:
         # backend para el audit_log.
         self.al_evento_seguridad = None
         self.estado_seguro = ConfirmacionParo(estado, al_evento=self._evento_seguridad)
+        # Hotfix ES (revisión, ALTA): soltado el paro real y sin "Confirmar",
+        # SetOutput no enciende nada (las puertas re-afirmaban cerrar_on y
+        # bloquear_on en cada tick entre dos ALL_OFF). El modo prueba, que
+        # pausa la máquina de estados, conserva su control manual.
+        try:
+            self.set_do.paro_sin_confirmar = self._paro_sin_confirmar_salidas
+        except Exception:
+            logger.exception("ControlLoop: no se pudo fijar la confirmación del paro en SetOutput")
         # R2-A1 (revisión ★ pasada 2): proveedor común en el estado, para el
         # protocolo de fallo del ciclo (CicloState) y la fase DESCOMPRESION
         # (core/runtime/vigencia_ai.py)
@@ -730,6 +738,15 @@ class ControlLoop:
         lazo en el modo prueba en curso (cada uno {n, salida, codigo, aviso};
         `aviso` es la clave i18n o "")."""
         return [dict(a) for a in list(self._avisos_corte_prueba)]
+
+    def _paro_sin_confirmar_salidas(self) -> bool:
+        """Hotfix ES (revisión, ALTA): para SetOutput. Paro real soltado sin
+        "Confirmar" y fuera del modo prueba (en el modo prueba la máquina de
+        estados no corre y las salidas son manuales, como antes)."""
+        test_mode = getattr(self, "_test_mode", None)
+        if test_mode is not None and test_mode.is_set():
+            return False
+        return self.estado_seguro.esperando_confirmacion() is True
 
     @property
     def presion_vigente(self) -> bool:

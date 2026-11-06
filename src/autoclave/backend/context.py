@@ -739,6 +739,9 @@ class BackendContext:
             # S9, revisión ★ pasada 2 R2-M3: la apertura evalúa la cámara con
             # la presión al día (sin ControlLoop todavía: no vigente)
             presion_vigente=self.presion_vigente,
+            # Hotfix ES (revisión, ALTA): sin puertas tras soltar un paro real
+            # hasta "Confirmar"
+            paro_sin_confirmar=self.paro_sin_confirmar,
         )
 
         # Data logger (SQLite) + impresión en tiempo real
@@ -1176,6 +1179,12 @@ class BackendContext:
     def estado_seguro_activo(self) -> bool:
         loop = getattr(self, "control_loop", None)
         return bool(loop is not None and loop.estado_seguro.activo)
+
+    def paro_sin_confirmar(self) -> bool:
+        """Hotfix ES (revisión, ALTA): paro real soltado y sin "Confirmar".
+        Sin ControlLoop todavía no hay paro visto: False."""
+        loop = getattr(self, "control_loop", None)
+        return loop is not None and loop.estado_seguro.esperando_confirmacion() is True
 
     def temp_max_tras_ciclo(self):
         loop = getattr(self, "control_loop", None)

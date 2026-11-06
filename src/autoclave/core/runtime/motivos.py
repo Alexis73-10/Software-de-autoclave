@@ -56,7 +56,7 @@ CODIGOS = (
     "estado_desconocido", "falta_config", "sin_presion_camara", "camara_presurizada",
     "sin_presion_empaque", "empaque_presurizado", "no_acepto", "ya_abierta",
     "en_movimiento", "bloqueada", "no_abierta", "sin_datos_vigentes", "sin_temp_camara",
-    "sobrepresion", "vacio", "temp_alta", "no_permitida",
+    "sobrepresion", "vacio", "temp_alta", "no_permitida", "paro_sin_confirmar",
 )
 
 

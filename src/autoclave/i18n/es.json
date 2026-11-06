@@ -1733,6 +1733,7 @@
   "puerta": {
     "desconocida": "Puerta desconocida",
     "paro": "Paro de emergencia activado",
+    "paro_sin_confirmar": "Paro de emergencia soltado sin confirmar",
     "estado_seguro": "Protocolo de estado seguro en curso",
     "sensor_temp_indeterminado": "No se pudo determinar el sensor de temperatura",
     "error_evaluacion": "No se pudo evaluar la cámara segura",
