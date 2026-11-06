@@ -3061,6 +3061,22 @@
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
 
+### T28-A14-02 — Conmutaciones de `vapor_chaqueta` en el tramo ON con presión de chaqueta ruidosa (A14-M2, H1)
+
+- **Modo:** Con vapor  ·  **Origen:** A14-M2, defecto H1 (tanda 28); HAZ-EST-07
+- **Objetivo:** Medir cuántas veces conmuta `vapor_chaqueta` cuando `pres_chaqueta` oscila alrededor del umbral del corte por consigna (`P_sp + margen_chaqueta_est`, ≈317,6 kPa a 134 °C), ahora que el corte se reevalúa en cada tick del tramo ON del PWM (y en RECUPERACION y CALENTAMIENTO), sin histéresis. Con el resultado Cristian decide si hace falta histéresis o enclavar el corte por tramo.
+- **Precondiciones:** Equipo en modo chaqueta con esta entrega; programa de 134 °C de fábrica. Log del backend a nivel INFO (líneas «cortada por consigna (A14-M2)» y «fin del corte de vapor_chaqueta») y registro de `pres_chaqueta` con la mayor frecuencia disponible. Si se puede, captura del tráfico Modbus (órdenes fc05 a la bobina de `vapor_chaqueta`). Opcional: un programa de prueba con `intervalo_segmentos_ester` largo (p. ej. 30 s) y `factor_esterilizacion` bajo para alargar el tramo ON; anotar los valores usados.
+- **Pasos:**
+  1. Correr el ciclo hasta ESTERILIZACION y esperar a que `pres_chaqueta` llegue cerca del umbral (si no se acerca, ajustar `margen_chaqueta_est` en un programa de prueba y anotar el valor).
+  2. Durante al menos 5 min de exposición contar los pares inicio/fin del corte en el log y, si hay captura, las órdenes fc05 a `vapor_chaqueta`; anotar el ruido de `pres_chaqueta` (pico a pico) cerca del umbral.
+  3. Repetir el conteo en CALENTAMIENTO (ESTABLE_PREESTERILIZACION) si la chaqueta se acerca a su umbral (`Psat(T_obj) + presion_add_calentamiento + margen`).
+  4. Revisar si hay alarmas del módulo E/S o discrepancias de salidas durante las conmutaciones.
+- **Resultado esperado:** Sin conmutaciones por tick sostenidas; si las hay, quedan cuantificadas (conmutaciones por minuto y ruido de la lectura) para la decisión de Cristian.
+- **Criterio de aprobado/fallo:** Es una medición: se aprueba si queda el conteo con su ruido y no hay alarmas del módulo E/S ni discrepancias. Si la válvula conmuta en ticks consecutivos de forma sostenida, se anota como hallazgo para la decisión de histéresis o enclavamiento (no se cambia nada en el banco).
+- **Valor observado:** Conmutaciones en ESTERILIZACION ______ en ______ min · en CALENTAMIENTO ______ · órdenes fc05 ______ · ruido de `pres_chaqueta` ______ kPa p-p · `margen_chaqueta_est` usado ______ kPa · intervalo/factor ______
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
 ### T28-A12-01 — Prevacío: arranque del vacío a +10 kPa con la bomba de anillo líquido y tiempo límite (A12)
 
 - **Modo:** Con vapor  ·  **Origen:** A12 (tanda 28); HAZ-PRV-01, AJ28C-05, AJ28C-06
