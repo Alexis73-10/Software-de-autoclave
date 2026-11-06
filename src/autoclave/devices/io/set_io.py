@@ -50,6 +50,12 @@ class SetOutput:
         # inmediato del flanco confirmado, no usar el DO reportado una vez
         self._ultimo_pedido_paro: float | None = None
         self._ignorar_do_una_vez = False
+        # Hotfix ES (revisión, ALTA): callable -> bool que fija el ControlLoop:
+        # paro real ya soltado, sin "Confirmar" y fuera del modo prueba. Con
+        # él en True nada se enciende (salvo el buzzer), como con el paro
+        # activo: las puertas no re-afirman cerrar_on/bloquear_on entre dos
+        # ALL_OFF. None = como antes.
+        self.paro_sin_confirmar = None
         # R8 (SAF-02 de la re-revisión): funciones que el control automático
         # no puede encender (reasignadas sin verificar). El modo prueba usa
         # set_output(canal) directo y sí puede, para poder verificarlas.
@@ -146,6 +152,8 @@ class SetOutput:
             return False
         paro_real = get_flag("PARO_REAL") is True
         paro = paro_real or get_flag("PARO_EMERGENCIA") is True
+        if not paro and self._espera_confirmacion_paro():
+            return not self._es_buzzer(index)
         if not paro:
             self._avisadas_paro.clear()
             self._ultimo_pedido_paro = None     # TMG-03 de la re-revisión
@@ -165,6 +173,26 @@ class SetOutput:
         pedido = self._ultimo_pedido_paro
         return (pedido is not None
                 and time.monotonic() - pedido <= _VIGENCIA_PEDIDO_PARO_SEG)
+
+    def _espera_confirmacion_paro(self) -> bool:
+        """Hotfix ES (revisión, ALTA): paro soltado y sin confirmar. Un error
+        al consultarlo cuenta como sin confirmar (falla cerrada)."""
+        f = self.paro_sin_confirmar
+        if f is None:
+            return False
+        try:
+            return f() is True
+        except Exception:
+            logger.exception("SetOutput: no se pudo consultar la confirmación del paro")
+            return True
+
+    @staticmethod
+    def _es_buzzer(index) -> bool:
+        try:
+            return index == canal_do("buzer_alarma")
+        except Exception:
+            logger.exception("SetOutput: canal del buzzer")
+            return False
 
     def _salida(self, nombre: str, value: bool) -> None:
         """Orden a la salida de la función `nombre` en su canal asignado."""

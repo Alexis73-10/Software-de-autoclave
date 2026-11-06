@@ -1,0 +1,6 @@
+BLOQUEADO: el merge a dev tiene conflictos de fondo con la tanda 28 y necesita decisión de Cristian.
+Fecha: 2026-11-06. Rama hotfix-estado-seguro en 7c6d8d5a (retiro, pruebas, riesgo, CLAUDE.md y revisión hechos; suite: 11071 pasan, 1 roja preexistente test_t26_ald_detalle_alarmas).
+Causa: dev avanzó a fa18324a (tanda 28: A9 arranque sin protocolo con marca persistente, A10 estado seguro dice qué le falta, A13 secado tras fallo) sobre el mismo protocolo que el hotfix retira.
+Merge intentado en C:\Users\tecni\Documents\codigo_autoclave_merge y abortado (dev intacto). 18 archivos en conflicto: registro_riesgos.md, rutas/sistema.py, camara_segura.py, motivos.py, i18n es/en, control_loop.py, estado_seguro.py, state_machine.py, detalle_aviso.py, SeccionEstadoSeguro.qml y 7 pruebas (ess07, s9 x3, t17_s3, t2_p1, t6).
+Decisión pedida: qué se conserva de A9/A10/A13 sin el protocolo (A13 secado tras fallo y A10 dependen de él).
+Compilación: no hecha (sin merge).

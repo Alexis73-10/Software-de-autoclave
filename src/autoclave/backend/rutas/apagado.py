@@ -232,9 +232,11 @@ def _motivo_no_reiniciable() -> tuple[str, str] | None:
     if getattr(loop, "test_mode_active", False) is True or _salidas_sin_confirmar_pendiente():
         return "modo_prueba_activo", "Salga primero del modo prueba de salidas"
     es = getattr(loop, "estado_seguro", None)
+    # Hotfix ES (6-nov): sin protocolo, queda la confirmación tras un paro real
+    # (se perdería al reiniciar); `activo` ya siempre es False
+    if getattr(es, "requiere_confirmacion", False) is True:
+        return "confirmacion_pendiente", "Confirme primero el estado seguro"
     if getattr(es, "activo", False) is True:
-        if getattr(es, "requiere_confirmacion", False) is True:
-            return "confirmacion_pendiente", "Confirme primero el estado seguro"
         return "estado_seguro_activo", "La cámara se está llevando a estado seguro"
     return None
 

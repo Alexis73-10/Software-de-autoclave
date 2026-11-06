@@ -484,9 +484,9 @@
     "modal_confirmar_resultado_titulo": "Confirm cycle result",
     "modal_confirmar_cuerpo_fallo": "Cycle {n} ended in FAILURE. The load is NOT sterile and must be reprocessed. Confirming records the result and the screen returns to the menu.",
     "modal_confirmar_cuerpo_cancelado": "Cycle {n} was cancelled. The load is NOT sterile and must be reprocessed. Confirming records the result and the screen returns to the menu.",
-    "modal_estado_seguro_titulo": "Confirm and bring to safe state",
+    "modal_estado_seguro_titulo": "Confirm stop",
     "modal_estado_seguro_cuerpo": "The emergency stop was released. The load is NOT sterile.",
-    "modal_estado_seguro_nota": "Check that there are no steam or water leaks. On confirming, the chamber is brought to a safe state.",
+    "modal_estado_seguro_nota": "Check that there are no steam or water leaks before confirming.",
     "modal_nota_observacion": "Observation: {sensor} without reading since {hora} ({fase} phase).",
     "principal_sin_lectura": "Main probe without reading: call service",
     "presion_camara_sin_lectura": "Chamber pressure sensor without reading: call service",
@@ -857,23 +857,13 @@
     "sin_lectura": "—",
     "no_abrir": "DO NOT OPEN",
     "paro_no_abrir": "EMERGENCY STOP — DO NOT OPEN",
-    "estado_seguro_causa_ciclo_interrumpido": "Start-up after an interrupted cycle with the chamber not safe: the equipment brings it to a safe state on its own, without confirmation (there was no emergency stop).",
-    "estado_seguro_causa_fallo": "Cycle failure: the equipment is bringing the chamber to a safe state.",
-    "estado_seguro_causa_cancelado": "Cycle cancelled: the equipment is bringing the chamber to a safe state.",
-    "estado_seguro_causa_completado": "Cycle finished with the chamber not safe: the equipment is bringing it to a safe state.",
     "paro_liberado": "Emergency stop released. Check that there is no leak before continuing.",
-    "confirmar_estado_seguro": "Confirm and bring to safe state",
-    "estado_seguro_pausa_modo_prueba": "Paused: test mode active",
-    "estado_seguro_secando": "Drying residual steam",
-    "estado_seguro_espera": "Pending: {motivo}",
-    "estado_seguro_en_curso": "Bringing the chamber to a safe state",
+    "confirmar_estado_seguro": "Confirm stop",
     "estado_seguro_pendiente": "Emergency stop released — safe state pending",
     "paro_suelte": "Release the emergency stop button to continue. Until then no actions are available.",
     "confirmar_sin_sesion": "Available to any operator, no login required",
     "estado_seguro_en_curso_boton": "In progress…",
-    "estado_seguro_detenido_accion": "Check the Primary probe or assign another probe as Primary in OPTIONS › Cycle parameters › Sensors.",
     "asignar_sonda_principal": "Assign Primary probe",
-    "no_abrir_hasta_segura": "DO NOT OPEN until the chamber is safe",
     "seguridad_desconocida": "No connection with the equipment: the emergency stop and the chamber cannot be verified. DO NOT OPEN.",
     "modulo_es_desconectada": "I/O module disconnected: the emergency stop and the chamber cannot be verified. DO NOT OPEN.",
     "modulo_es_sin_datos": "The I/O module is not sending valid data: the emergency stop and the chamber cannot be verified. DO NOT OPEN.",
@@ -1748,6 +1738,7 @@
   "puerta": {
     "desconocida": "Unknown door",
     "paro": "Emergency stop activated",
+    "paro_sin_confirmar": "Emergency stop released but not confirmed",
     "estado_seguro": "Safe-state protocol in progress",
     "sensor_temp_indeterminado": "Could not determine the temperature sensor",
     "error_evaluacion": "Could not evaluate whether the chamber is safe",
@@ -1767,9 +1758,9 @@
     "no_abierta": "The door is not open ({estado})",
     "sin_datos_vigentes": "No connection with the I/O module: data not current",
     "sin_temp_camara": "No valid chamber temperature reading",
-    "sobrepresion": "Chamber overpressure ({pres})",
-    "vacio": "Chamber under vacuum ({pres})",
-    "temp_alta": "Temperature too high ({temp})",
+    "sobrepresion": "Chamber overpressure: {pres}, maximum {pres_max}",
+    "vacio": "Chamber under vacuum: {pres}, minimum {pres_min}",
+    "temp_alta": "Temperature {temp}, maximum {temp_max}",
     "no_permitida": "Door command not allowed",
     "secando_vapor_residual": "Drying residual steam from the chamber",
     "error_comunicacion": "Communication error"
@@ -2479,15 +2470,11 @@
     },
     "paro": {
       "titulo": "Emergency stop",
-      "accion": "Release the emergency stop button. Do not open the door; the safe state must be confirmed afterwards."
+      "accion": "Release the emergency stop button. Do not open the door; the stop must be confirmed afterwards."
     },
     "estado_seguro_pendiente": {
       "titulo": "Safe state pending",
-      "accion": "Check that there is no leak and confirm with the Confirm and bring to safe state button; any operator can do it, without logging in."
-    },
-    "estado_seguro_en_curso": {
-      "titulo": "Taking the chamber to a safe state",
-      "accion": "Wait: the equipment is taking the chamber to a safe state. Do not open the door until the chamber is safe."
+      "accion": "Check that there is no leak and confirm with the Confirm stop button; any operator can do it, without logging in."
     },
     "no_abrir": {
       "titulo": "DO NOT OPEN",
@@ -2500,16 +2487,6 @@
     "arranque": {
       "titulo": "Startup failure",
       "accion": "Close the program and open it again. If the failure repeats, call technical service."
-    },
-    "estado_seguro_espera": {
-      "temp_alta": "Temperature {valor}, limit {limite}",
-      "sobrepresion": "Pressure {valor}, safe range {minimo} to {maximo}",
-      "vacio": "Pressure {valor}, safe range {minimo} to {maximo}",
-      "sin_presion_camara": "Chamber pressure without a reading",
-      "sin_temp_camara": "Chamber temperature without a reading",
-      "sin_datos_vigentes": "I/O module data not current",
-      "falta_config": "Missing configuration: {claves}",
-      "secando_vapor_residual": "Drying residual steam"
     },
     "no_abrir_motivos": {
       "temp_alta": {

@@ -484,9 +484,9 @@
     "modal_confirmar_resultado_titulo": "Confirmar resultado del ciclo",
     "modal_confirmar_cuerpo_fallo": "El ciclo {n} terminó en FALLO. La carga NO está estéril y debe reprocesarse. Al confirmar se registra el resultado y la pantalla vuelve al menú.",
     "modal_confirmar_cuerpo_cancelado": "El ciclo {n} fue cancelado. La carga NO está estéril y debe reprocesarse. Al confirmar se registra el resultado y la pantalla vuelve al menú.",
-    "modal_estado_seguro_titulo": "Confirmar y llevar a estado seguro",
+    "modal_estado_seguro_titulo": "Confirmar paro",
     "modal_estado_seguro_cuerpo": "El paro de emergencia se liberó. La carga NO está estéril.",
-    "modal_estado_seguro_nota": "Verifique que no hay fugas de vapor ni de agua. Al confirmar, la cámara se lleva a estado seguro.",
+    "modal_estado_seguro_nota": "Verifique que no hay fugas de vapor ni de agua antes de confirmar.",
     "modal_nota_observacion": "Observación: {sensor} sin lectura desde las {hora} (fase {fase}).",
     "principal_sin_lectura": "Sonda principal sin lectura: llame a servicio",
     "presion_camara_sin_lectura": "Sensor de presión de cámara sin lectura: llame a servicio",
@@ -857,23 +857,13 @@
     "sin_lectura": "—",
     "no_abrir": "NO ABRIR",
     "paro_no_abrir": "PARO DE EMERGENCIA — NO ABRIR",
-    "estado_seguro_causa_ciclo_interrumpido": "Arranque tras un ciclo interrumpido con la cámara no segura: el equipo la lleva solo a estado seguro, sin confirmación (no hubo paro de emergencia).",
-    "estado_seguro_causa_fallo": "Fallo de ciclo: el equipo lleva la cámara a estado seguro.",
-    "estado_seguro_causa_cancelado": "Ciclo cancelado: el equipo lleva la cámara a estado seguro.",
-    "estado_seguro_causa_completado": "Ciclo terminado con la cámara no segura: el equipo la lleva a estado seguro.",
     "paro_liberado": "Paro liberado. Verifique que no haya fuga antes de continuar.",
-    "confirmar_estado_seguro": "Confirmar y llevar a estado seguro",
-    "estado_seguro_pausa_modo_prueba": "En pausa: modo prueba activo",
-    "estado_seguro_secando": "Secando vapor residual",
-    "estado_seguro_espera": "Pendiente: {motivo}",
-    "estado_seguro_en_curso": "Llevando la cámara a estado seguro",
+    "confirmar_estado_seguro": "Confirmar paro",
     "estado_seguro_pendiente": "Paro de emergencia liberado — estado seguro pendiente",
     "paro_suelte": "Desenclave el pulsador de paro de emergencia para continuar. Hasta entonces no hay acciones disponibles.",
     "confirmar_sin_sesion": "Disponible para cualquier operador, sin iniciar sesión",
     "estado_seguro_en_curso_boton": "En curso…",
-    "estado_seguro_detenido_accion": "Revise la sonda Principal o asigne otra sonda como Principal en OPCIONES › Parámetros del ciclo › Sensores.",
     "asignar_sonda_principal": "Asignar sonda Principal",
-    "no_abrir_hasta_segura": "NO ABRIR hasta que la cámara esté segura",
     "seguridad_desconocida": "Sin conexión con el equipo: no se puede verificar el paro ni la cámara. NO ABRIR.",
     "modulo_es_desconectada": "Módulo E/S desconectado: no se puede verificar el paro ni la cámara. NO ABRIR.",
     "modulo_es_sin_datos": "El módulo E/S no envía datos válidos: no se puede verificar el paro ni la cámara. NO ABRIR.",
@@ -1748,6 +1738,7 @@
   "puerta": {
     "desconocida": "Puerta desconocida",
     "paro": "Paro de emergencia activado",
+    "paro_sin_confirmar": "Paro de emergencia soltado sin confirmar",
     "estado_seguro": "Protocolo de estado seguro en curso",
     "sensor_temp_indeterminado": "No se pudo determinar el sensor de temperatura",
     "error_evaluacion": "No se pudo evaluar la cámara segura",
@@ -1767,9 +1758,9 @@
     "no_abierta": "La puerta no está abierta ({estado})",
     "sin_datos_vigentes": "Sin conexión con el módulo E/S: datos no vigentes",
     "sin_temp_camara": "Sin lectura válida de temperatura de cámara",
-    "sobrepresion": "Sobrepresión en cámara ({pres})",
-    "vacio": "Cámara en vacío ({pres})",
-    "temp_alta": "Temperatura demasiado alta ({temp})",
+    "sobrepresion": "Sobrepresión en cámara: {pres}, máximo {pres_max}",
+    "vacio": "Cámara en vacío: {pres}, mínimo {pres_min}",
+    "temp_alta": "Temperatura {temp}, máximo {temp_max}",
     "no_permitida": "Orden de puerta no permitida",
     "secando_vapor_residual": "Secando vapor residual de la cámara",
     "error_comunicacion": "Error de comunicación"
@@ -2479,15 +2470,11 @@
     },
     "paro": {
       "titulo": "Paro de emergencia",
-      "accion": "Desenclave el pulsador de paro de emergencia. No abra la puerta; después hay que confirmar el estado seguro."
+      "accion": "Desenclave el pulsador de paro de emergencia. No abra la puerta; después hay que confirmar el paro."
     },
     "estado_seguro_pendiente": {
       "titulo": "Estado seguro pendiente",
-      "accion": "Verifique que no haya fuga y confirme con el botón Confirmar y llevar a estado seguro; está disponible para cualquier operador, sin iniciar sesión."
-    },
-    "estado_seguro_en_curso": {
-      "titulo": "Llevando la cámara a estado seguro",
-      "accion": "Espere: el equipo lleva la cámara a estado seguro. No abra la puerta hasta que la cámara esté segura."
+      "accion": "Verifique que no haya fuga y confirme con el botón Confirmar paro; está disponible para cualquier operador, sin iniciar sesión."
     },
     "no_abrir": {
       "titulo": "NO ABRIR",
@@ -2500,16 +2487,6 @@
     "arranque": {
       "titulo": "Fallo de arranque",
       "accion": "Cierre el programa y ábralo de nuevo. Si el fallo se repite, llame a servicio técnico."
-    },
-    "estado_seguro_espera": {
-      "temp_alta": "Temperatura {valor}, límite {limite}",
-      "sobrepresion": "Presión {valor}, rango seguro de {minimo} a {maximo}",
-      "vacio": "Presión {valor}, rango seguro de {minimo} a {maximo}",
-      "sin_presion_camara": "Presión de cámara sin lectura",
-      "sin_temp_camara": "Temperatura de cámara sin lectura",
-      "sin_datos_vigentes": "Datos del módulo E/S no vigentes",
-      "falta_config": "Falta configuración: {claves}",
-      "secando_vapor_residual": "Secando vapor residual"
     },
     "no_abrir_motivos": {
       "temp_alta": {

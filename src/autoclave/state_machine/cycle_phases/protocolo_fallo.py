@@ -70,10 +70,12 @@ _SONDA_DRENAJE = "temp_drenaje"
 _HISTERESIS_ALIVIO_KPA = 5.0
 
 # A13 (tanda 28, Cristian 5-nov): secado corto tras un fallo con carga sólida.
-# Al llegar a la banda atmosférica, antes de que el estado seguro cuente sus 3
-# lecturas: SECADO (bomba + vacío, todo vapor y escapes cerrados) durante
+# Al llegar a la banda atmosférica: SECADO (bomba + vacío, todo vapor y escapes cerrados) durante
 # secado_tras_fallo_s (parámetro del equipo, 0 lo desactiva) y RUPTURA (aire
 # atmosférico hasta la banda, con tiempo límite). Ver _tick_secado.
+# Unión con el hotfix ES (6-nov, D4/D6): corre solo en CICLO, en el protocolo
+# de CicloState mientras espera la confirmación; al salir de CICLO finalizar()
+# lo deja en un estado final (nunca "pendiente") y no lo continúa nadie.
 CLAVE_SECADO_S = "secado_tras_fallo_s"
 SECADO_DEFECTO_S = 60
 SECADO_RANGO_S = (0, 300)
@@ -106,7 +108,9 @@ MOTIVOS_SECADO = (
     "puerta_abierta", "modo_prueba", "sellado",
     # A13, revisión de seguridad (tanda 28b): M1, M2 y B2
     "error", "sin_referencia_atm", "salidas_sin_confirmar",
-    # A13-M5 (tanda 28b): ciclo interrumpido con programa de origen incierto
+    # A13-M5 (tanda 28b): ciclo interrumpido con programa de origen incierto.
+    # Retirado con el secado en el arranque (unión hotfix ES, D5); el texto se
+    # conserva para el historial
     "programa_incierto",
 )
 # A13-B1 (tanda 28b): motivos de corte que, con el secado todavía PENDIENTE
@@ -134,11 +138,6 @@ class ProtocoloFallo:
         # el protocolo; sin perfil no hay secado tras fallo (falla cerrada).
         self.profile = None
         self.alarm_manager = None
-        # A13-M5 (tanda 28b): True en el protocolo del arranque tras un ciclo
-        # interrumpido cuyo programa no es la instantánea del propio ciclo
-        # (copia de la definición actual, último ciclo o desconocido): el
-        # secado tras fallo se omite (programa_incierto). Lo fija ControlLoop
-        self.programa_incierto = False
         self.reset()
 
     def reset(self):
@@ -656,9 +655,9 @@ class ProtocoloFallo:
         ventear por la lenta.
 
         `secado_tras_fallo` (A13, tanda 28): False solo para el COMPLETADO
-        reconocido con la cámara no segura (no es un fallo). FALLO, CANCELADO y
-        el arranque tras un ciclo interrumpido lo dejan en True (DECISIÓN SIN
-        CONFIRMAR para los dos últimos: el vapor residual es el mismo)."""
+        reconocido con la cámara no segura (no es un fallo; sin uso desde el
+        hotfix ES). FALLO y CANCELADO lo dejan en True (DECISIÓN SIN CONFIRMAR
+        para CANCELADO: el vapor residual es el mismo)."""
         if self._ejecutado:
             return
         # A13: lo que se sabe ya al disparar decide si el secado se omite
@@ -1100,10 +1099,6 @@ class ProtocoloFallo:
             return "no_aplica"
         if self._segundos_secado() <= 0:
             return "desactivado"
-        if self.programa_incierto is not False:
-            # A13-M5: el tipo de carga no es seguro (no es la instantánea del
-            # ciclo interrumpido): no se hace vacío con la carga desconocida
-            return "programa_incierto"
         if not self._carga_solida():
             return "carga_liquida"
         if not self._vacio_instalado():
@@ -1535,14 +1530,32 @@ class ProtocoloFallo:
     # ------------------------------------------------------------------
 
     def finalizar(self) -> None:
-        """Cierra toda válvula que el protocolo pudo abrir (PF-10)."""
-        if self._secado_fase in _SEC_EN_CURSO:
-            # A13: cierre forzado (p. ej. terminar() al entrar a un ciclo)
-            self.cortar_secado("no_aplica")
-        elif (self._secado_resultado or {}).get("estado") == SECADO_PENDIENTE:
-            # A13-M4 (tanda 28b): un secado que no llegó a empezar no queda
-            # "pendiente" publicado (camara_segura lo lee como NO ABRIR)
-            self._fijar_secado(SECADO_OMITIDO, "no_aplica")
+        """Cierra toda válvula que el protocolo pudo abrir (PF-10).
+
+        Unión con el hotfix ES (D6): lo llama la StateMachine al salir de
+        CICLO tras FALLO o CANCELADO. El secado tras fallo queda siempre en un
+        estado final (en curso → cortado; pendiente → omitido), nunca
+        "pendiente" (camara_segura lo leería como NO ABRIR sin nadie que lo
+        termine). Un error al cortarlo no lo deja pendiente."""
+        try:
+            if self._secado_fase in _SEC_EN_CURSO:
+                # A13: cierre forzado (salida de CICLO o terminar() al entrar a un ciclo)
+                self.cortar_secado("no_aplica")
+            elif (self._secado_resultado or {}).get("estado") == SECADO_PENDIENTE:
+                # A13-M4 (tanda 28b): un secado que no llegó a empezar no queda
+                # "pendiente" publicado (camara_segura lo lee como NO ABRIR)
+                self._fijar_secado(SECADO_OMITIDO, "no_aplica")
+        except Exception:
+            logger.exception("Protocolo fallo: error al cerrar el secado tras fallo; "
+                             "se da por cortado")
+            en_curso = self._secado_fase in _SEC_EN_CURSO
+            self._secado_fase = None
+            if (self._secado_resultado or {}).get("estado") == SECADO_PENDIENTE:
+                self._fijar_secado(SECADO_CORTADO if en_curso else SECADO_OMITIDO, "error")
+            try:
+                self._apagar_vacio()
+            except Exception:
+                logger.exception("Protocolo fallo: no se pudo apagar el vacío al cerrar")
         self.set_do.descompresion_rapida_off()
         self.set_do.descompresion_lenta_off()
         self.set_do.descompresion_chaqueta_off()

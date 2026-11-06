@@ -14,7 +14,6 @@ from pathlib import Path
 import pytest
 
 from autoclave.core.runtime import presion_sin_lectura as psl
-from autoclave.state_machine.estado_seguro import ProtocoloEstadoSeguro
 from autoclave.state_machine.states.ciclo import CicloResultado
 from tests import test_e1_ensayo_simulador as e1
 from tests.test_e1_ensayo_simulador import PROGRAMAS, programas  # noqa: F401
@@ -66,9 +65,6 @@ def _evento(canal, fase, extra_s):
             chaqueta |= bool(a["modulo_es"].on("descompresion_chaqueta"))
             lenta.append(bool(a["modulo_es"].on("descompresion_lenta")))
             e1._avanzar(a)
-        es = ProtocoloEstadoSeguro(a["estado"], a["config"],
-                                   programas_seguridad=lambda: [a["ciclo"].cycle])
-        es.iniciar(a["ciclo"]._protocolo)
         return {"llego_a_fase": llego is None, "P_al_perder": p_al_perder,
                 "resultado": primero, "fase_tras": fase_tras, "codigo": codigo,
                 "solo_lenta": a["ciclo"]._protocolo.solo_lenta,
@@ -78,7 +74,6 @@ def _evento(canal, fase, extra_s):
                 "lenta_abierta": any(lenta),
                 "sigue_en_fallo_tras_recuperar": a["estado"].fase_ciclo == "SENSOR_AUSENTE"
                 or a["ciclo"]._resultado_pendiente is not None,
-                "sale_de_falla_sin_tecnico": es.permite_salir_de_falla,
                 "P_final": round(a["planta"].p, 1)}
     return correr
 
@@ -110,7 +105,6 @@ def test_ensayo_s1(programas, monkeypatch, tmp_path, numero, evento):  # noqa: F
                 or r["chaqueta_tras"]), r
     assert r["lenta_abierta"] is True, r
     assert r["sigue_en_fallo_tras_recuperar"] is True, r
-    assert r["sale_de_falla_sin_tecnico"] is True, r
 
 
 def test_escribir_informe_s1():

@@ -1,16 +1,17 @@
-"""S4 (tanda 3): CIC-10 — estado seguro detenido por el Principal sin lectura.
-Un cambio de rol del Principal debe liberarlo (con una lectura válida) y la
-UI debe indicar qué hacer."""
+"""S4 (tanda 3): cambio de rol del Principal con la cámara no segura tras un
+ciclo. Hotfix ES (6-nov): el protocolo de estado seguro (y su CIC-10) se
+retiró; la reasignación sigue rigiendo la copia del programa del último
+ciclo, que cuenta para "NO ABRIR" hasta la cámara segura, con las mismas
+salvaguardas (SAF-01/SAF-02)."""
 
 import threading
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
-from autoclave.state_machine.cycle_phases.protocolo_fallo import ProtocoloFallo
-from autoclave.state_machine.estado_seguro import ProtocoloEstadoSeguro
+from autoclave.core.runtime import camara_segura
+from autoclave.state_machine.estado_seguro import ConfirmacionParo
 from autoclave.state_machine.machine.enum_global import GlobalState
 from autoclave.services.domain.loop.control_loop import ControlLoop
-from tests.helpers.backend_doble import modulo_backend
 
 _CFG = {"presion_admosferica": 101.3, "rango_presion_atm": 10.0, "temp_max_apertura": 80.0}
 _PARAMS = {("descompresion", "modo"): 4, ("descompresion", "modo_4", "timeout"): 60,
@@ -46,11 +47,7 @@ def _estado():
 def _montar():
     estado = _estado()
     programa = _Programa("temp_camara")
-    set_do = MagicMock()
-    prot = ProtocoloFallo(estado, set_do, programa, _Config(_CFG))
-    prot.ejecutar()
-    es = ProtocoloEstadoSeguro(estado, _Config(_CFG), programas_seguridad=lambda: [programa])
-    es.iniciar(prot)
+    es = ConfirmacionParo(estado)
     cl = ControlLoop.__new__(ControlLoop)
     cl._sm_lock = threading.RLock()
     cl.estado = SimpleNamespace(get_machine_state=lambda: GlobalState.FALLA,
@@ -62,35 +59,37 @@ def _montar():
     return estado, programa, es, cl
 
 
-def test_principal_sin_lectura_detiene_el_estado_seguro():
-    estado, programa, es, cl = _montar()
-    es.update()
-    assert es.bloqueado_motivo and "Principal sin lectura" in es.bloqueado_motivo
+def _segura(cl, estado):
+    return camara_segura.evaluar(estado, _Config(_CFG), [cl._programa_ultimo_ciclo])[0]
 
 
-def test_cambiar_el_principal_libera_el_estado_seguro_detenido():
+def test_principal_sin_lectura_mantiene_no_abrir():
     estado, programa, es, cl = _montar()
-    es.update()
-    assert es.bloqueado_motivo is not None
+    estado.sensores_pres["pres_camara"] = 101.3
+    assert _segura(cl, estado) is False
+
+
+def test_cambiar_el_principal_rige_la_copia_del_ultimo_ciclo():
+    estado, programa, es, cl = _montar()
+    estado.sensores_pres["pres_camara"] = 101.3
     nueva = {"temp_camara": "no_en_uso", "temp_2_camara": "principal", "temp_ref": "no_en_uso"}
     assert cl.aplicar_roles_sensores("usr_liq", nueva) == (True, "aplicado")
-    es.update()
-    assert es.bloqueado_motivo is None            # ya mira temp_2_camara (70 °C)
-    # SAF-02: la instantánea del ciclo terminado NO se muta; el protocolo usa una copia
+    assert _segura(cl, estado) is True            # ya mira temp_2_camara (70 °C)
+    # SAF-02: la instantánea del ciclo terminado NO se muta; se usa una copia
     assert programa.sensores["temp_camara"] == "principal"
-    assert es.programa is not programa and es.programa.sensores["temp_2_camara"] == "principal"
+    assert cl._programa_ultimo_ciclo is not programa
+    assert cl._programa_ultimo_ciclo.sensores["temp_2_camara"] == "principal"
 
 
 def test_nuevo_principal_mas_frio_que_otra_sonda_no_libera():
-    """SAF-01: una sonda fría no puede liberar el estado seguro con la carga caliente."""
+    """SAF-01: una sonda fría no puede liberar NO ABRIR con la carga caliente."""
     estado, programa, es, cl = _montar()
     estado.sensores_temp["temp_ref"] = 125.0       # otra sonda con lectura: caliente
     estado.sensores_temp["temp_2_camara"] = 70.0
     nueva = {"temp_camara": "no_en_uso", "temp_2_camara": "principal", "temp_ref": "no_en_uso"}
     aplicado, motivo = cl.aplicar_roles_sensores("usr_liq", nueva)
     assert aplicado is False and motivo == "principal_mas_frio_que_otra_sonda"
-    es.update()
-    assert es.programa is programa and es.bloqueado_motivo is not None   # sigue detenido
+    assert cl._programa_ultimo_ciclo is programa
 
 
 def test_nuevo_principal_sin_lectura_no_libera():
@@ -102,16 +101,14 @@ def test_nuevo_principal_sin_lectura_no_libera():
 
 
 def test_el_nuevo_principal_tambien_decide_la_camara_segura():
-    """El Principal nuevo caliente mantiene el estado seguro: no se libera a ciegas."""
+    """El Principal nuevo caliente mantiene NO ABRIR: no se libera a ciegas."""
     estado, programa, es, cl = _montar()
     estado.sensores_temp["temp_2_camara"] = 130.0
     estado.sensores_pres["pres_camara"] = 101.3
     assert cl.aplicar_roles_sensores("usr_liq", {"temp_camara": "no_en_uso",
                                                  "temp_2_camara": "principal",
                                                  "temp_ref": "no_en_uso"})[0] is True
-    for _ in range(5):
-        es.update()
-    assert es.activo                               # 130 °C: sigue sin ser segura
+    assert _segura(cl, estado) is False            # 130 °C: sigue sin ser segura
 
 
 def test_no_toca_la_instantanea_durante_un_ciclo():
@@ -128,17 +125,6 @@ def test_otro_programa_no_se_modifica():
     cl.aplicar_roles_sensores("otro", {"temp_camara": "no_en_uso",
                                        "temp_2_camara": "principal", "temp_ref": "no_en_uso"})
     assert programa.sensores["temp_camara"] == "principal"
-
-
-def test_el_status_expone_el_motivo_del_bloqueo():
-    from tests.helpers.backend_doble import cargar_servidor
-    ctx = MagicMock()
-    estado, programa, es, cl = _montar()
-    es.update()
-    ctx.control_loop.estado_seguro = es
-    srv, _ = cargar_servidor(ctx)
-    d = modulo_backend("rutas.sistema")._estado_seguro_status()
-    assert d["activo"] is True and "Principal sin lectura" in d["bloqueado_motivo"]
 
 
 def test_el_catalogo_indica_que_hacer():

@@ -10,8 +10,16 @@ No corre (y queda anotado) con carga líquida, sin bomba, con el sistema de
 vacío en falla, con el parámetro en 0...; un paro, una puerta abierta o el
 modo prueba lo cortan y no se reanuda solo.
 
-Piezas reales: ProtocoloFallo y ProtocoloEstadoSeguro; salidas en un doble
-que guarda el último valor ordenado.
+Piezas reales: ProtocoloFallo; salidas en un doble que guarda el último valor
+ordenado.
+
+Unión con el hotfix ES (6-nov, D4/D6): sin ProtocoloEstadoSeguro. El secado
+corre en el ProtocoloFallo de CicloState mientras espera la confirmación:
+`_Equipo.tick` hace lo mismo que el paso 0 de CicloState con el resultado
+pendiente (paro → apagar_por_paro + cortar_secado("paro"); si no,
+protocolo.update()) y registra los eventos con el ControlLoop real
+(`_seguir_secado_tras_fallo`). Se retiraron las aserciones del estado seguro
+(activo, 3 lecturas, motivo pendiente): NO ABRIR lo dice camara_segura (M4).
 """
 
 import time
@@ -26,7 +34,10 @@ from autoclave.installation.equipment import EquipmentClass
 from autoclave.installation.profile import DoorType, InstallationProfile, Role, vacio_instalado
 from autoclave.state_machine.cycle_phases import protocolo_fallo as pf
 from autoclave.state_machine.cycle_phases.protocolo_fallo import ProtocoloFallo
-from autoclave.state_machine.estado_seguro import ProtocoloEstadoSeguro
+from types import SimpleNamespace
+
+from autoclave.core.runtime import camara_segura
+from autoclave.services.domain.loop.control_loop import ControlLoop
 
 ATM, RANGO = 101.3, 5.0
 VACIO = ("bomba_vacio", "vacio_camara")
@@ -131,19 +142,36 @@ class _Equipo:
         self.protocolo.profile = _perfil(puertas)
         self.protocolo.alarm_manager = self.alarmas
         self.eventos = []
-        self.es = ProtocoloEstadoSeguro(
-            self.estado, self.config, profile=None,
-            programas_seguridad=lambda: [self.programa],
-            al_evento=lambda ev, det: self.eventos.append((ev, det)),
-            reloj=lambda: self.reloj[0])
+        # ControlLoop._seguir_secado_tras_fallo (real) sobre un doble mínimo
+        self._registro = SimpleNamespace(
+            state_machine=SimpleNamespace(ciclo=SimpleNamespace(_protocolo=self.protocolo)),
+            _secado_visto=None,
+            _evento_seguridad=lambda ev, det: self.eventos.append((ev, det)))
 
     def disparar(self, origen="fallo", **kw):
         self.protocolo.ejecutar(**kw)
-        self.es.iniciar(self.protocolo, origen=origen)
 
-    def tick(self, dt=0.25, vigentes=True):
-        self.es.update(datos_vigentes=vigentes)
+    def tick(self, dt=0.25):
+        """Un tick de CicloState con el resultado FALLO/CANCELADO pendiente."""
+        if self.estado.get_flag("PARO_EMERGENCIA"):
+            self.salidas.apagar_por_paro()
+            self.protocolo.cortar_secado("paro")
+        else:
+            self.protocolo.update()
+        ControlLoop._seguir_secado_tras_fallo(self._registro)
         self.reloj[0] += dt
+
+    def salir_de_ciclo(self):
+        """Confirmación: StateMachine._finalizar_protocolo_ciclo."""
+        self.protocolo.finalizar()
+        ControlLoop._seguir_secado_tras_fallo(self._registro)
+
+    def no_abrir(self):
+        return camara_segura.evaluar(self.estado, self.config, [self.programa])[0] is False
+
+    def motivo_no_abrir(self):
+        return getattr(camara_segura.evaluar(self.estado, self.config, [self.programa])[1],
+                       "codigo", None)
 
     def pres(self, valor):
         self.estado.sensores_pres["pres_camara"] = valor
@@ -163,12 +191,12 @@ def test_fallo_solido_vacio_60s_ruptura_y_estado_seguro_despues(monkeypatch, ori
     assert e.protocolo.secando
     assert all(e.salidas.on(s) for s in VACIO)
     assert not any(e.salidas.on(s) for s in VAPOR_Y_ESCAPES + ("aire_atmosferico_camara",))
-    assert e.es.motivo_pendiente["codigo"] == "secando_vapor_residual"
+    assert e.motivo_no_abrir() == "secando_vapor_residual"
     e.pres(20.0)                                     # el vacío baja la presión
     t0 = e.reloj[0]
     while e.reloj[0] - t0 < 59.5:
         e.tick()
-        assert e.es.activo and e.protocolo.secando
+        assert e.no_abrir() and e.protocolo.secando
         assert all(e.salidas.on(s) for s in VACIO)
         assert not e.salidas.on("aire_atmosferico_camara")
     while e.protocolo._secado_fase == "secado":
@@ -179,27 +207,26 @@ def test_fallo_solido_vacio_60s_ruptura_y_estado_seguro_despues(monkeypatch, ori
     e.tick()
     assert not any(e.salidas.on(s) for s in VACIO)
     assert e.protocolo._secado_fase == "ruptura" and e.salidas.on("aire_atmosferico_camara")
-    for _ in range(10):                              # sin llegar a la banda, sigue activo
+    for _ in range(10):                              # sin llegar a la banda, sigue
         e.tick()
-        assert e.es.activo and e.protocolo.secando
+        assert e.no_abrir() and e.protocolo.secando
     e.pres(ATM)                                      # ruptura completa
     e.tick()
     assert not e.protocolo.secando and not e.salidas.on("aire_atmosferico_camara")
     assert e.resultado() == {"estado": "hecho", "motivo": None, "segundos": 60}
-    assert e.es.activo                               # recién ahora cuenta las 3 lecturas
-    e.tick()
-    e.tick()
-    assert not e.es.activo
+    assert not e.no_abrir()                          # recién ahora la cámara es segura
     eventos = [ev for ev, _ in e.eventos]
     assert eventos.index("estado_seguro_secado_iniciado") < eventos.index(
-        "estado_seguro_secado_terminado") < eventos.index("estado_seguro_alcanzado")
+        "estado_seguro_secado_terminado")
+    e.salir_de_ciclo()                               # D6: el resultado final no cambia
+    assert e.resultado()["estado"] == "hecho"
     # nunca vapor ni escapes abiertos durante el secado tras fallo
     assert not any(e.salidas.on(s) for s in VAPOR_Y_ESCAPES)
 
 
-def test_estado_seguro_no_se_alcanza_antes_de_terminar_la_ruptura(monkeypatch):
+def test_no_abrir_hasta_terminar_la_ruptura(monkeypatch):
     """Aunque la cámara parezca segura (presión en banda, temperatura baja)
-    durante el secado y la ruptura, el estado seguro no termina."""
+    durante el secado y la ruptura, NO ABRIR sigue (M4)."""
     e = _Equipo(monkeypatch, segundos=5)
     e.config["secado_tras_fallo_vacio_s"] = 2        # A13-M3: vacío sostenido 2 s
     e.disparar()
@@ -207,17 +234,15 @@ def test_estado_seguro_no_se_alcanza_antes_de_terminar_la_ruptura(monkeypatch):
     e.pres(ATM - RANGO - 1.0)                        # vacío apenas bajo la banda
     ticks = 0
     while e.protocolo.secando:                       # secado, apagado y ruptura
-        assert e.es.activo and e.es.motivo_pendiente["codigo"] == "secando_vapor_residual"
+        assert e.motivo_no_abrir() == "secando_vapor_residual"
         if e.protocolo._secado_fase == "ruptura":
             e.pres(ATM)                              # la ruptura vuelve a la banda
         e.tick()
         ticks += 1
         assert ticks < 100
     assert ticks >= 5 / 0.25                         # duró al menos los 5 s
-    # ruptura con la presión ya en la banda: terminó; recién ahora cuenta
-    assert e.resultado()["estado"] == "hecho" and e.es.activo
-    e.tick(); e.tick()
-    assert not e.es.activo
+    # ruptura con la presión ya en la banda: terminó; recién ahora es segura
+    assert e.resultado()["estado"] == "hecho" and not e.no_abrir()
 
 
 def test_ruptura_que_no_llega_a_la_banda_sigue_con_aviso(monkeypatch):
@@ -230,7 +255,7 @@ def test_ruptura_que_no_llega_a_la_banda_sigue_con_aviso(monkeypatch):
         if not e.protocolo.secando:
             break
     assert e.resultado()["estado"] == "sin_ruptura"
-    assert e.es.activo                               # protocolo normal: cámara en vacío
+    assert e.no_abrir()                              # protocolo normal: cámara en vacío
 
 
 # ── cuándo no corre ────────────────────────────────────────────────────────
@@ -374,18 +399,10 @@ def test_falla_del_agua_de_la_bomba_lo_corta(monkeypatch):
     assert e.resultado()["motivo"] == "fallo_vacio"
 
 
-def test_modo_prueba_lo_corta(monkeypatch):
-    e = _en_secado(monkeypatch)
-    e.es.pausar("modo_prueba")
-    assert not any(e.salidas.on(s) for s in VACIO)
-    assert e.resultado()["motivo"] == "modo_prueba"
-
-
-def test_datos_no_vigentes_lo_cortan(monkeypatch):
-    e = _en_secado(monkeypatch)
-    e.tick(vigentes=False)
-    assert not any(e.salidas.on(s) for s in VACIO)
-    assert e.resultado()["motivo"] == "datos_no_vigentes"
+# Unión hotfix ES: se retiraron test_modo_prueba_lo_corta y
+# test_datos_no_vigentes_lo_cortan (los cortaba el protocolo de estado seguro;
+# en CICLO no se entra al modo prueba y la trama AI vencida la cubre
+# test_b4_ai_vencida_vista_por_el_protocolo_corta_el_secado de A13r).
 
 
 def test_presion_sin_lectura_lo_corta(monkeypatch):
@@ -497,14 +514,3 @@ def test_db_actualiza_avisos_ticket(tmp_path):
         fila = dict(db._conn.execute("SELECT avisos_ticket FROM ciclos WHERE id=?",
                                      (cid,)).fetchone())
     assert leer_avisos_ticket(fila["avisos_ticket"])[1] == ["x", {"clave": "k"}]
-
-
-def test_fila_de_estado_seguro_dice_secando_vapor_residual():
-    from autoclave import i18n
-    from autoclave.ui_qml.domain import detalle_aviso
-    ctx = {"causa": "fallo", "pendiente": {"codigo": "secando_vapor_residual", "valores": {},
-                                           "texto": "Secando vapor residual", "limites": {}}}
-    assert detalle_aviso.texto_espera(ctx, "es") == "Secando vapor residual"
-    assert detalle_aviso.texto_espera(ctx, "en") == i18n.t("sistema.estado_seguro_secando", "en")
-    fila = detalle_aviso.armar("estado_seguro_en_curso", ctx)
-    assert "Secando vapor residual" in fila["descripciones"]["es"]

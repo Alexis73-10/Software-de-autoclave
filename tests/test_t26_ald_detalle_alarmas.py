@@ -48,7 +48,7 @@ def test_toda_filaalarma_es_tocable():
             total += 1
             assert re.search(r"\btocable:\s*true\b", cuerpo), f"{f.name}: FilaAlarma sin tocable"
             assert "onPulsada" in cuerpo, f"{f.name}: FilaAlarma tocable sin onPulsada"
-    assert total >= 10
+    assert total >= 9          # hotfix ES: sin la fila «estado seguro en curso»
 
 
 def test_listas_de_alarmas_abren_el_detalle():

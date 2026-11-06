@@ -189,66 +189,8 @@ def test_paro_siempre_gana(clase, sensor_ajeno):
     set_do.vapor_chaqueta_on.assert_not_called()
 
 
-# ── Estado seguro activo ───────────────────────────────────────────────────
+# ── Estado seguro activo: retirado con el protocolo (hotfix ES, 6-nov) ────
 
-@pytest.mark.parametrize("clase", _ESTADOS)
-def test_estado_seguro_enfria_drenaje_caliente_sin_chaqueta(clase):
-    obj, set_do = _make(clase, temp_drenaje=90.0)
-    obj.estado_seguro_activo = lambda: True
-    assert obj.run() is False
-    set_do.agua_intercambiador_on.assert_called()
-    set_do.vapor_chaqueta_on.assert_not_called()
-    set_do.vapor_chaqueta_off.assert_called()
-    set_do.vapor_camara_off.assert_called()
-    # sin venteo propio
-    set_do.descompresion_rapida_on.assert_not_called()
-    set_do.descompresion_lenta_on.assert_not_called()
-    set_do.aire_admosferico_camara_on.assert_not_called()
-
-
-@pytest.mark.parametrize("clase", _ESTADOS)
-def test_estado_seguro_drenaje_sin_lectura_enfria(clase):
-    obj, set_do = _make(clase, temp_drenaje=None)
-    obj.estado_seguro_activo = lambda: True
-    obj.run()
-    set_do.agua_intercambiador_on.assert_called()
-
-
-@pytest.mark.parametrize("clase", _ESTADOS)
-def test_estado_seguro_drenaje_frio_apaga_intercambiador_tras_confirmar(clase):
-    obj, set_do = _make(clase, temp_drenaje=30.0)
-    obj.estado_seguro_activo = lambda: True
-    for _ in range(3):
-        obj.run()
-    set_do.agua_intercambiador_off.assert_called_once()
-
-
-@pytest.mark.parametrize("clase", _ESTADOS)
-def test_alternancia_estado_seguro_normal_supervisor_y_confirmador(clase):
-    # Chaqueta sobre el objetivo (305 > 300): el lazo la apaga tras 3 ticks
-    # seguidos (ConfirmadorApagado). El estado seguro la apaga ya y reinicia
-    # la cuenta; el supervisor en falla no la reinicia.
-    obj, set_do = _make(clase, pres_chaqueta=305.0)
-    seguro = [False]
-    obj.estado_seguro_activo = lambda: seguro[0]
-    temp = obj.estado.sensores_temp
-
-    obj.run()                                   # normal: cuenta 1
-    obj.run()                                   # normal: cuenta 2
-    set_do.vapor_chaqueta_off.assert_not_called()
-    seguro[0] = True
-    obj.run()                                   # estado seguro: OFF ya, cuenta a 0
-    set_do.vapor_chaqueta_off.assert_called_once()
-    set_do.reset_mock()
-
-    seguro[0] = False
-    obj.run()                                   # normal: cuenta 1
-    temp["temp_drenaje"] = None
-    obj.run()                                   # supervisor en falla: cuenta 2
-    set_do.vapor_chaqueta_off.assert_not_called()
-    obj.run()                                   # supervisor en falla: cuenta 3
-    set_do.vapor_chaqueta_off.assert_called_once()
-    set_do.vapor_chaqueta_on.assert_not_called()
 
 
 # ── Vaciado de chaqueta (PREPARADO) ────────────────────────────────────────

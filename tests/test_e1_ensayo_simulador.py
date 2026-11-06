@@ -32,7 +32,6 @@ from autoclave.services.domain.logging.cycle_logger import CycleLogger
 from autoclave.services.domain.logging.db_manager import DbManager
 from autoclave.state_machine.alarms.alarm_manager import AlarmManager
 from autoclave.state_machine.cycle_phases.protocolo_fallo import ProtocoloFallo
-from autoclave.state_machine.estado_seguro import ProtocoloEstadoSeguro
 from autoclave.state_machine.machine.enum_global import GlobalState
 from autoclave.state_machine.states.ciclo import CicloResultado, CicloState
 from tests import test_t11_programas_integracion as t11
@@ -209,40 +208,15 @@ def _evento_corte_y_reinicio(a, tmp_path=None, programa=None, monkeypatch=None, 
     set_do2 = SetOutput(modulo_es2, estado2, profile=None)
     planta.publicar(estado2)
     segura0, motivo0 = camara_segura.evaluar(estado2, a["config"], [programa_ciclo], None, datos_vigentes=True)
-    prot = ProtocoloFallo(estado2, set_do2, programa_ciclo, a["config"])
-    prot.ejecutar(abrir_valvulas=False)                         # recuperación: todo en 0, sin válvulas
-    es = ProtocoloEstadoSeguro(estado2, a["config"], programas_seguridad=lambda: [programa_ciclo])
-    es.iniciar(prot, requiere_confirmacion=True)
-    a["reloj"][0] += 5
-    sin_confirmar = []
-    for _ in range(int(60 / DT)):                               # sin confirmar nada se mueve
-        planta.publicar(estado2)
-        es.update()
-        sin_confirmar += [k for k, v in estado2.salidas_do.items() if v]
-        planta.paso()
-        a["reloj"][0] += DT
-    assert es.confirmar() is True                               # "Confirmar y llevar a estado seguro"
-    t0 = a["reloj"][0]
-    rapida_caliente = None
-    for _ in range(int(3 * 3600 / DT)):
-        planta.publicar(estado2)
-        es.update()
-        if modulo_es2.on("descompresion_rapida") and planta.t > 80.5:
-            rapida_caliente = max(rapida_caliente or 0, planta.t)
-        if not es.activo:
-            break
-        planta.paso()
-        a["reloj"][0] += DT
-    return {"evento": "corte_y_reinicio", "fase_final": "ESTADO SEGURO" if not es.activo else "NO LLEGÓ",
+    # Hotfix ES (6-nov): sin protocolo de estado seguro tras el reinicio; el
+    # ciclo interrumpido se cierra y registra igual (PREPARACION nivela la cámara)
+    return {"evento": "corte_y_reinicio", "fase_final": "INTERRUMPIDO",
             "motivo": "Ciclo interrumpido" if cerrados else "—", "alarmas": ["—"],
             "estado_ticket": "—", "operador_ticket": "—", "lecturas_ticket": 0,
             "salidas_proceso_al_final": [], "T": round(planta.t_sonda, 1), "P": round(planta.p, 1),
             "minutos": round((a["reloj"][0] - 1000.0) / 60, 1),
             "ciclos_cerrados_al_arrancar": len(cerrados), "marca_en_curso": bool(marca),
-            "marca_sobrevive_al_corte": bool(marca2), "camara_segura_al_reiniciar": segura0,
-            "sin_confirmar_salidas": sorted(set(sin_confirmar)) or "ninguna",
-            "min_hasta_estado_seguro": round((a["reloj"][0] - t0) / 60, 1),
-            "rapida_con_carga_caliente": rapida_caliente}
+            "marca_sobrevive_al_corte": bool(marca2), "camara_segura_al_reiniciar": segura0}
 
 
 _FUNCIONES = {"completo": _evento_completo, "cancelacion": _evento_cancelacion, "paro": _evento_paro,
@@ -278,12 +252,6 @@ def test_ensayo(programas, monkeypatch, tmp_path, numero, evento):
     else:
         assert r["marca_en_curso"] and r["marca_sobrevive_al_corte"] and r["ciclos_cerrados_al_arrancar"] == 1, r
         assert r["camara_segura_al_reiniciar"] is False                       # caliente y presurizada
-        assert r["sin_confirmar_salidas"] == "ninguna"                       # sin confirmar, nada se mueve
-        assert r["fase_final"] == "ESTADO SEGURO", r
-        if numero == 4:                                                       # líquidos: nunca la rápida caliente
-            assert r["rapida_con_carga_caliente"] is None, r
-        # sólidos: la descompresión del programa puede usar la rápida con la carga caliente
-        # (no hay líquido que hierva); el valor queda en la tabla como dato
     if evento in ("cancelacion", "paro", "perdida_modulo_es"):
         assert r["estado_ticket"] != "—"                         # el ticket se cerró con el estado del fallo
 
@@ -308,6 +276,5 @@ def test_escribir_informe():
             if evento == "corte_y_reinicio":
                 notas.append(f"- {numero} corte y reinicio: ciclos cerrados como interrumpidos={r['ciclos_cerrados_al_arrancar']}, "
                              f"marca en curso sobrevive={r['marca_sobrevive_al_corte']}, cámara segura al reiniciar="
-                             f"{r['camara_segura_al_reiniciar']}, salidas sin confirmar={r['sin_confirmar_salidas']}, "
-                             f"estado seguro en {r['min_hasta_estado_seguro']} min, rápida con carga caliente={r['rapida_con_carga_caliente']}")
+                             f"{r['camara_segura_al_reiniciar']}")
     Path("docs/informes/tanda3/E1_tabla.md").write_text("\n".join(filas) + "\n\n" + "\n".join(notas) + "\n", encoding="utf-8")

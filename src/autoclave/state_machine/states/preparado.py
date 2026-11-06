@@ -39,9 +39,6 @@ class preparado_state:
         # (T3/T4). Lo fija la StateMachine; None = el programa seleccionado.
         self.programas_seguridad = None
         self.temp_max_ciclo = None      # callable: temp_max del último ciclo (SAF-04 de T4)
-        # callable: protocolo de estado seguro en curso tras una cancelación
-        # (fin de ciclo §15): mientras dure, él maneja la cámara
-        self.estado_seguro_activo = None
 
 
         # Timer de estabilidad
@@ -96,24 +93,6 @@ class preparado_state:
         else:
             self.set_do.buzer_off()
             self.alarm_manager.resolver(SIS_01)
-
-        if self.estado_seguro_activo is not None and self.estado_seguro_activo():
-            # El protocolo de estado seguro de la cancelación maneja la cámara
-            # (en líquidos nunca la rápida): sin venteo propio, sin chaqueta y
-            # sin inicio. Antes que el supervisor, cuyas salidas seguras
-            # ventean con la rápida (TMG-01 de T5). Las alarmas sí se evalúan.
-            self.supervisor()
-            # Vaciado de chaqueta: en curso, o con una puerta abierta mientras
-            # está pendiente, se cancela sin reintento
-            self._cancelar_vaciado_si_corre_o_abre(vaciado, datos_vigentes, "estado seguro activo")
-            self.set_do.vapor_chaqueta_off()
-            self._confirmador_chaqueta.reset()
-            self.set_do.vapor_camara_off()
-            # 2026-11-04 (usuario): el enfriamiento del drenaje sigue, para que
-            # agua_intercambiador no quede con la última orden
-            self.mantener_drenaje()
-            self.timer_estabilidad = None
-            return False
 
         # Suministro eléctrico caído: causa propia de la chaqueta (2026-11-04)
         sin_electrico = self._sin_suministro_electrico()

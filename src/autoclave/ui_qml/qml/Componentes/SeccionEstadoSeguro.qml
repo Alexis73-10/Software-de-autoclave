@@ -10,8 +10,8 @@ import Autoclave.DetalleAviso
 // 1. Paro activo: fila de alarma alta "PARO DE EMERGENCIA — NO ABRIR", sin botón.
 // 2. Paro liberado, estado seguro pendiente: fila de alarma, aviso naranja y
 //    botón "Confirmar y llevar a estado seguro" (cualquier operador, sin sesión).
-// 3. Estado seguro en curso: botón deshabilitado "En curso…" y "NO ABRIR hasta
-//    que la cámara esté segura".
+// 3. (Retirado, hotfix ES 6-nov: ya no hay protocolo automático de estado
+//    seguro; la confirmación del paro lleva el equipo a PREPARACION.)
 // Además (DECISIÓN SIN CONFIRMAR D-U1-2/D-U1-3): "NO ABRIR" con la cámara no
 // segura y el MODO PRUEBA, como filas.
 // U4 (tanda 2): componente compartido por el panel de la campana (por grupo),
@@ -20,9 +20,8 @@ import Autoclave.DetalleAviso
 // real; sin datos del módulo E/S no se afirma paro).
 // Grupos (D3, nivel del catálogo): "emergencia" (sin conexión, módulo E/S, paro y
 // estado seguro), "alarma" (NO ABRIR) y "aviso" (modo prueba); "" = todos.
-// ESS-04 (28-oct): con `estadoSeguroSilencioso` del puente se ocultan las
-// filas del estado 3 (y no cuentan en la campana); con `noAbrirPorSensor`, la
-// fila NO ABRIR. El paro, la confirmación y la falta de datos nunca se ocultan.
+// ESS-04 (28-oct): con `noAbrirPorSensor` se oculta la fila NO ABRIR. El paro,
+// la confirmación y la falta de datos nunca se ocultan.
 Column {
     id: raiz
     property QtObject puente: null
@@ -38,25 +37,17 @@ Column {
     readonly property bool sinDatos: sinConexion || moduloEsDesconectada || moduloEsSinDatos
     readonly property bool paro: puente?.paroActivo ?? false
     readonly property bool confirmar: (puente?.estadoSeguroRequiereConfirmacion ?? false) && !paro
-    readonly property bool activoSinConfirmar: (puente?.estadoSeguroActivo ?? false) && !confirmar && !paro
-    // ESS-04 (28-oct): con un sensor sin lectura como único motivo, el estado
-    // seguro actúa en silencio: solo se ve la alarma del sensor («No abrir la
-    // puerta»). Nunca con paro, confirmación pendiente o sin datos (falla
-    // cerrada: sin el dato del puente, se muestra).
-    readonly property bool silencio: activoSinConfirmar && !sinDatos
-                                     && (puente?.estadoSeguroSilencioso ?? false) === true
-    readonly property bool enCurso: activoSinConfirmar && !silencio
     // las filas sin datos ya dicen NO ABRIR: no se repite. ESS-04: tampoco
-    // con el estado seguro activo (silencioso o no) ni si el motivo es solo
-    // un sensor sin lectura
-    readonly property bool noAbrir: (puente?.noAbrir ?? true) && !paro && !activoSinConfirmar && !sinDatos
+    // si el motivo es solo un sensor sin lectura (lo dice su alarma). Hotfix
+    // ES: la fila lleva el motivo con su valor y su límite
+    readonly property bool noAbrir: (puente?.noAbrir ?? true) && !paro && !sinDatos
                                     && (puente?.noAbrirPorSensor ?? false) !== true
     readonly property bool modoPrueba: puente?.modoPrueba ?? false
     // la petición de confirmar ya salió (ComandosSistema.ocupado)
     readonly property bool enviando: confirmar && (comandos?.ocupado ?? false)
 
     // filas por grupo (cuentan en la insignia de la campana y en los grupos)
-    readonly property int conteoEmergencia: (paro || confirmar || enCurso ? 1 : 0) + (sinDatos ? 1 : 0)
+    readonly property int conteoEmergencia: (paro || confirmar ? 1 : 0) + (sinDatos ? 1 : 0)
     readonly property int conteoAlarma: noAbrir ? 1 : 0
     readonly property int conteoAviso: modoPrueba ? 1 : 0
     readonly property int conteoTotal: conteoEmergencia + conteoAlarma + conteoAviso
@@ -82,7 +73,6 @@ Column {
         case "modulo_es_sin_datos": return moduloEsSinDatos
         case "paro": return paro
         case "estado_seguro_pendiente": return confirmar
-        case "estado_seguro_en_curso": return enCurso
         case "no_abrir": return (puente?.noAbrir ?? true) && !paro
         case "modo_prueba": return modoPrueba
         }
@@ -230,41 +220,7 @@ Column {
         texto: I18n.t("sistema.paro_liberado", I18n.lang)
     }
 
-    // ---- 3. estado seguro en curso ----
-    FilaAlarma {
-        objectName: "filaEstadoSeguroEnCurso"
-        tocable: true     // ALD (tanda 26): abre el detalle
-        onPulsada: raiz.abrirDetalle("estado_seguro_en_curso")
-        visible: raiz.enCurso && raiz.enGrupo("emergencia")
-        width: raiz.width
-        multilinea: true
-        prioridad: "media"
-        idAlarma: "ESTADO_SEGURO"
-        descripcion: I18n.t("sistema.estado_seguro_en_curso", I18n.lang)
-    }
-    // S9 (tanda 9, D9-1.2): por qué corre (arranque tras un ciclo interrumpido, A9,
-    // fallo, cancelación o fin de ciclo). Nunca dice "paro liberado": ese
-    // texto solo sale con la confirmación pendiente (estado 2).
-    readonly property string causa: puente?.estadoSeguroCausa ?? ""
-    readonly property string claveCausa: causa !== "" && causa !== "paro_liberado"
-                                         ? "sistema.estado_seguro_causa_" + causa : ""
-    Nota {
-        objectName: "avisoCausaEstadoSeguro"
-        visible: raiz.enCurso && raiz.claveCausa !== "" && raiz.enGrupo("emergencia")
-        texto: raiz.claveCausa !== "" ? I18n.t(raiz.claveCausa, I18n.lang) : ""
-    }
-    // A10 (tanda 28): qué le falta para terminar, para que no parezca
-    // colgado: «En pausa: modo prueba activo» o el motivo pendiente con su
-    // valor y su límite (texto armado en domain/detalle_aviso.py)
-    readonly property string textoEspera: raiz.enCurso
-                                          ? DetalleAviso.textoEspera(puente?.contextoAviso ?? ({}), I18n.lang) : ""
-    Nota {
-        objectName: "avisoEsperaEstadoSeguro"
-        visible: raiz.enCurso && raiz.textoEspera !== "" && raiz.enGrupo("emergencia")
-        texto: raiz.textoEspera
-    }
-
-    // Botón de los estados 2 y 3: azul y habilitado solo con la confirmación
+    // Botón del estado 2: azul y habilitado solo con la confirmación
     // pendiente y sin petición en vuelo
     // T21 (FC-10): el botón ocupa todo el ancho de la sección; si el texto
     // («Confirmar y llevar a estado seguro») no cabe, la letra baja
@@ -272,7 +228,7 @@ Column {
     Rectangle {
         id: botonConfirmar
         objectName: "botonConfirmarEstadoSeguro"
-        visible: (raiz.confirmar || raiz.enCurso) && raiz.enGrupo("emergencia")
+        visible: raiz.confirmar && raiz.enGrupo("emergencia")
         readonly property bool habilitado: raiz.confirmar && !raiz.enviando
         width: raiz.width
         height: Escala.px(96)
@@ -286,7 +242,7 @@ Column {
             BusyIndicator {
                 id: indicadorEnCurso
                 objectName: "indicadorEnCurso"
-                visible: (raiz.enCurso || raiz.enviando) && raiz.enGrupo("emergencia")
+                visible: raiz.enviando && raiz.enGrupo("emergencia")
                 running: visible
                 width: Escala.px(48); height: width
                 anchors.verticalCenter: parent.verticalCenter
@@ -299,7 +255,7 @@ Column {
                                 - (indicadorEnCurso.visible ? indicadorEnCurso.width + filaConfirmar.spacing : 0))
                 fontSizeMode: Text.HorizontalFit
                 minimumPixelSize: Escala.fuenteMinima
-                text: (raiz.enCurso || raiz.enviando)
+                text: raiz.enviando
                       ? I18n.t("sistema.estado_seguro_en_curso_boton", I18n.lang)
                       : I18n.t("sistema.confirmar_estado_seguro", I18n.lang)
                 color: Colores.textoSobreAccion
@@ -324,61 +280,6 @@ Column {
         font.family: Tipografia.familia
         font.pixelSize: Escala.fuente(20)
     }
-    Text {
-        objectName: "notaNoAbrirEnCurso"
-        visible: (raiz.enCurso || raiz.enviando) && raiz.enGrupo("emergencia")
-        width: raiz.width
-        horizontalAlignment: Text.AlignHCenter
-        wrapMode: Text.WordWrap
-        text: I18n.t("sistema.no_abrir_hasta_segura", I18n.lang)
-        color: Colores.textoGuia
-        font.family: Tipografia.familia
-        font.pixelSize: Escala.fuente(20)
-    }
-    // S4 (CIC-10, opciones A + B): el estado seguro no puede terminar solo.
-    // Indica qué hacer y abre la asignación de sondas (técnico/ingeniero, con
-    // su login). "NO ABRIR" sigue vigente; no hay forma de declarar la cámara
-    // segura a mano (opción C descartada).
-    readonly property string bloqueoMotivo: puente?.estadoSeguroBloqueadoMotivo ?? ""
-    // V8b (D8-5.11): el motivo en el idioma vigente (catálogo); si el backend
-    // manda uno desconocido, el texto tal cual
-    readonly property string bloqueoClave: puente?.estadoSeguroBloqueadoClave ?? ""
-    readonly property string bloqueoTexto: bloqueoClave !== "" && I18n.existe(bloqueoClave, I18n.lang)
-                                           ? I18n.t(bloqueoClave, I18n.lang) : bloqueoMotivo
-    // el botón solo ayuda si el motivo es el sensor Principal (no el tiempo límite con líquido)
-    // ESS-04 (DECISIÓN SIN CONFIRMAR): en silencio el botón pasa al detalle
-    // de la alarma del Principal (SEN-02/SEN-03, VentanaDetalleAlarma)
-    readonly property bool bloqueoPorSonda: puente?.estadoSeguroBloqueoPorSonda ?? false
-    Nota {
-        objectName: "avisoEstadoSeguroDetenido"
-        visible: raiz.bloqueoMotivo !== "" && raiz.enCurso && raiz.enGrupo("emergencia")
-        borde: true
-        fondo: Colores.advertenciaFondo
-        tinta: Colores.advertenciaTexto
-        texto: raiz.bloqueoTexto + (raiz.bloqueoPorSonda
-               ? ". " + I18n.t("sistema.estado_seguro_detenido_accion", I18n.lang) : ".")
-    }
-    Rectangle {
-        objectName: "botonAsignarSonda"
-        visible: raiz.bloqueoPorSonda && raiz.enCurso && raiz.enGrupo("emergencia")
-        width: raiz.width
-        height: Escala.px(80)
-        radius: height / 2
-        color: Colores.accionPrimario
-        Text {
-            objectName: "textoAsignarSonda"
-            anchors.centerIn: parent
-            width: Math.min(implicitWidth, parent.width - parent.height)
-            fontSizeMode: Text.HorizontalFit
-            minimumPixelSize: Escala.fuenteMinima
-            text: I18n.t("sistema.asignar_sonda_principal", I18n.lang)
-            color: Colores.textoSobreAccion
-            font.family: Tipografia.familia
-            font.weight: Tipografia.pesoBold
-            font.pixelSize: Escala.fuente(24)
-        }
-        MouseArea { anchors.fill: parent; onClicked: raiz.comandos?.asignarSondaPrincipal() }
-    }
     // rechazo del backend (p. ej. sin conexión o estado cambiado)
     Text {
         objectName: "mensajeConfirmar"
@@ -393,7 +294,7 @@ Column {
         font.pixelSize: Escala.fuente(20)
     }
 
-    // ---- cámara no segura (fuera del paro y del estado seguro) ----
+    // ---- cámara no segura (fuera del paro) ----
     FilaAlarma {
         objectName: "filaNoAbrir"
         tocable: true     // ALD (tanda 26): abre el detalle

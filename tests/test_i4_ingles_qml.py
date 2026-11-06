@@ -231,5 +231,7 @@ def test_bloqueo_por_sonda_sigue_leyendo_el_texto_en_espanol():
     s = UiBridge._seguridad_de({"estado_seguro": {"bloqueado_motivo": "Sonda Principal sin lectura"}})
     assert "Principal" in s["es_bloqueado"]
     assert s["es_bloqueado_sonda"] is True
-    qml = (QML / "Componentes" / "SeccionEstadoSeguro.qml").read_text(encoding="utf-8")
+    # hotfix ES (6-nov): el aviso de bloqueo salió de SeccionEstadoSeguro; el
+    # botón de asignar sonda queda en el detalle de la alarma (PanelNotificaciones)
+    qml = (QML / "Componentes" / "PanelNotificaciones.qml").read_text(encoding="utf-8")
     assert "puente?.estadoSeguroBloqueoPorSonda" in qml

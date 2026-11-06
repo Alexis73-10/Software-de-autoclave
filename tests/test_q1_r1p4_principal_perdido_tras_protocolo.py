@@ -10,7 +10,6 @@ import pytest
 
 from autoclave.state_machine.cycle_phases.protocolo_fallo import (
     _DEBOUNCE_LECTURAS, ProtocoloFallo)
-from autoclave.state_machine.estado_seguro import ProtocoloEstadoSeguro
 
 _CFG = {"presion_admosferica": 101.3, "rango_presion_atm": 10.0, "temp_max_apertura": 80.0}
 
@@ -132,35 +131,8 @@ def test_sin_presion_igual_pasa_a_solo_lenta():
     set_do.aire_comprimido_camara_off.assert_called()
 
 
-# ── estado seguro (fuera de CICLO, tras el reconocimiento) ─────────────────
-
-def _estado_seguro(prot, estado):
-    estado.get_flag = lambda f: False
-    eventos = []
-    es = ProtocoloEstadoSeguro(estado, _Config(_CFG),
-                               al_evento=lambda e, d: eventos.append((e, d)))
-    es.iniciar(prot)
-    return es, eventos
-
-
-def test_estado_seguro_pasa_a_solo_lenta_y_lo_registra():
-    prot, estado, set_do = _protocolo(4)
-    prot.ejecutar()                       # cancelación / fallo de fase
-    es, eventos = _estado_seguro(prot, estado)
-    es.update()
-    assert es.permite_salir_de_falla is False
-
-    estado.sensores_temp["temp_camara"] = None
-    for _ in range(_DEBOUNCE_LECTURAS):
-        es.update()
-
-    assert prot.solo_lenta is True
-    assert ("estado_seguro_solo_lenta", {"motivo": "sensor Principal sin lectura"}) in eventos
-    # criterio de P-2: FALLA puede pasar a PREPARACION sin técnico
-    assert es.permite_salir_de_falla is True
-    assert es.bloqueado_motivo is not None          # CIC-10 mientras no lea
-    es.update()
-    assert [e for e, _ in eventos].count("estado_seguro_solo_lenta") == 1
+# (Hotfix ES, 6-nov: se retiró la parte del estado seguro fuera de CICLO;
+# el protocolo de estado seguro ya no existe.)
 
 
 # ── CicloState con el resultado pendiente ─────────────────────────────────
