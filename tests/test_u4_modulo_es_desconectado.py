@@ -22,7 +22,7 @@ from autoclave.state_machine.alarms.alarm_manager import AlarmManager
 from autoclave.state_machine.alarms.catalogo import (
     CATALOGO, COM_01, COM_03, SIS_01, TARJETA_SIN_TRAMA_VALIDA,
 )
-from autoclave.state_machine.estado_seguro import ProtocoloEstadoSeguro
+from autoclave.state_machine.estado_seguro import ConfirmacionParo
 from tests.helpers.backend_doble import modulo_backend
 
 
@@ -447,36 +447,32 @@ def test_ciclo_paro_real_registra_sis01():
 # ---------------------------------------------------------------------------
 
 def _protocolo_es():
+    # Hotfix ES (6-nov): sin protocolo; queda la confirmación tras el paro real
     estado = EstadoAutoclave()
-    es = ProtocoloEstadoSeguro(estado, MagicMock(), programas_seguridad=lambda: [])
-    es.iniciar(MagicMock(ejecutado=True))
-    return es, estado
+    return ConfirmacionParo(estado), estado
 
 
 def test_estado_seguro_sin_datos_no_pide_confirmacion():
     es, estado = _protocolo_es()
     estado.set_flag("PARO_EMERGENCIA", True)          # sin datos (desconexión)
-    es.update(datos_vigentes=False)
+    es.update()
     assert es.requiere_confirmacion is False
-    es._protocolo.update.assert_not_called()          # pausado mientras tanto
-    # reconexión sin paro real: sigue solo, sin confirmación
-    estado.set_flag("PARO_EMERGENCIA", False)
-    es.update(datos_vigentes=True)
-    assert es.requiere_confirmacion is False
-    es._protocolo.update.assert_called_once()
+    estado.set_flag("PARO_EMERGENCIA", False)         # reconexión sin paro real
+    es.update()
+    assert es.requiere_confirmacion is False and es.esperando_confirmacion() is False
 
 
 def test_estado_seguro_paro_real_pide_confirmacion():
     es, estado = _protocolo_es()
     estado.set_flag("PARO_EMERGENCIA", True)
     estado.set_flag("PARO_REAL", True)
-    es.update(datos_vigentes=True)
+    es.update()
     assert es.requiere_confirmacion is True
+    assert es.esperando_confirmacion() is False       # con el paro activo, no
     estado.set_flag("PARO_EMERGENCIA", False)
     estado.set_flag("PARO_REAL", False)
-    es.update(datos_vigentes=True)
-    assert es.requiere_confirmacion is True           # hace falta confirmar
-    es._protocolo.update.assert_not_called()
+    es.update()
+    assert es.esperando_confirmacion() is True        # hace falta confirmar
     assert es.confirmar() is True
 
 
@@ -484,22 +480,20 @@ def test_estado_seguro_paro_real_y_desconexion_sigue_pidiendo_confirmacion():
     es, estado = _protocolo_es()
     estado.set_flag("PARO_EMERGENCIA", True)
     estado.set_flag("PARO_REAL", True)
-    es.update(datos_vigentes=True)
+    es.update()
     estado.set_flag("PARO_REAL", False)               # se pierde el módulo E/S
-    es.update(datos_vigentes=False)
+    es.update()
     estado.set_flag("PARO_EMERGENCIA", False)         # reconecta sin paro
-    es.update(datos_vigentes=True)
+    es.update()
     assert es.requiere_confirmacion is True
 
 
 def test_estado_seguro_sin_datos_no_registra_paro_activado():
     eventos = []
     estado = EstadoAutoclave()
-    es = ProtocoloEstadoSeguro(estado, MagicMock(), programas_seguridad=lambda: [],
-                               al_evento=lambda ev, det: eventos.append(ev))
-    es.iniciar(MagicMock(ejecutado=True))
+    es = ConfirmacionParo(estado, al_evento=lambda ev, det: eventos.append(ev))
     estado.set_flag("PARO_EMERGENCIA", True)
-    es.update(datos_vigentes=False)
+    es.update()
     assert "paro_activado" not in eventos
 
 

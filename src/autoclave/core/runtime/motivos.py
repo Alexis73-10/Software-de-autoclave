@@ -56,7 +56,7 @@ CODIGOS = (
     "estado_desconocido", "falta_config", "sin_presion_camara", "camara_presurizada",
     "sin_presion_empaque", "empaque_presurizado", "no_acepto", "ya_abierta",
     "en_movimiento", "bloqueada", "no_abierta", "sin_datos_vigentes", "sin_temp_camara",
-    "sobrepresion", "vacio", "temp_alta", "no_permitida",
+    "sobrepresion", "vacio", "temp_alta", "no_permitida", "paro_sin_confirmar",
     # A13-M4 (tanda 28b): secado tras fallo en curso o pendiente
     "secando_vapor_residual",
 )
@@ -80,10 +80,15 @@ def valores_json(motivo) -> dict:
     return salida
 
 
+# Hotfix ES: límites de cámara segura que se presentan como presión / temperatura
+_NOMBRES_PRES = ("pres", "pres_max", "pres_min")
+_NOMBRES_TEMP = ("temp", "temp_max")
+
+
 def _presentar(nombre, v, temperatura, presion, p_atm) -> str:
-    if nombre == "pres" and isinstance(v, (int, float)) and not isinstance(v, bool):
+    if nombre in _NOMBRES_PRES and isinstance(v, (int, float)) and not isinstance(v, bool):
         return u.formatear_pres(v, presion, p_atm)
-    if nombre == "temp" and isinstance(v, (int, float)) and not isinstance(v, bool):
+    if nombre in _NOMBRES_TEMP and isinstance(v, (int, float)) and not isinstance(v, bool):
         return u.formatear_temp(v, temperatura)
     return "" if v is None else str(v)
 

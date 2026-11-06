@@ -26,7 +26,9 @@ PanelModal {
     readonly property int conteoTotal: conteo + seguridad.conteoTotal
     readonly property bool urgente: seguridad.urgente
     readonly property bool parpadeo: seguridad.parpadeo
-    readonly property bool avisoEnCurso: seguridad.enCurso
+    // Hotfix ES (6-nov): ya no hay "estado seguro en curso" (protocolo
+    // retirado); se conserva la propiedad para las insignias que la leen
+    readonly property bool avisoEnCurso: false
 
     // Encima de los demás modales de la pantalla (SAF-02 de U1)
     z: 200

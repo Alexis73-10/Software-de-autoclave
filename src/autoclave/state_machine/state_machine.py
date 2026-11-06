@@ -5,9 +5,9 @@ from autoclave.state_machine.states.ciclo import CicloState
 from autoclave.state_machine.states.falla import FallaState
 from autoclave.state_machine.alarms.alarm_manager import AlarmManager
 from autoclave.core.runtime.sensores_ciclo import verificar_inicio
-from autoclave.state_machine.estado_seguro import ProtocoloEstadoSeguro
-from autoclave.core.runtime import camara_segura
+from autoclave.state_machine.estado_seguro import ConfirmacionParo
 from autoclave.state_machine.states.vaciado_chaqueta import limpiar_en as limpiar_vaciado_chaqueta
+from autoclave.state_machine.cycle_phases.valvula_reposo import cerrar_valvulas_descompresion
 import logging
 
 logger = logging.getLogger(__name__)
@@ -38,19 +38,17 @@ class StateMachine:
         self.ciclo       = CicloState(estado, set_do, cycle, config, self.alarm_manager, cap, door_service,
                                       profile)
         self.falla       = FallaState(estado, set_do, self.alarm_manager)
+        # Hotfix ES: FALLA nivela la presión de cámara con el mismo lazo que
+        # PREPARACION (venteo, en líquidos por la lenta; vacío: aire)
+        self.falla.nivelar_presion_camara = self.preparacion.nivelar_presion_camara
 
         self.prev_state  = None
 
-        # Protocolo de estado seguro común (fin de ciclo §15). El ControlLoop
-        # lo conserva entre reconstrucciones (set_active_cycle).
-        self.estado_seguro = estado_seguro if estado_seguro is not None else ProtocoloEstadoSeguro(
-            estado, config, profile=profile, programas_seguridad=programas_seguridad,
-            al_evento=al_evento_seguridad)
-        self.preparado.estado_seguro_activo = lambda: self.estado_seguro.activo
-        self.preparacion.estado_seguro_activo = lambda: self.estado_seguro.activo
-        self.estado_seguro.mantener_drenaje = self.ciclo._mantener_drenaje
-        if getattr(self.estado_seguro, "alarm_manager", None) is None:
-            self.estado_seguro.alarm_manager = self.alarm_manager
+        # Hotfix ES (6-nov): sin protocolo automático de estado seguro; queda
+        # la confirmación tras soltar un paro real fuera de CICLO. El
+        # ControlLoop la conserva entre reconstrucciones (set_active_cycle).
+        self.estado_seguro = estado_seguro if estado_seguro is not None else ConfirmacionParo(
+            estado, al_evento=al_evento_seguridad)
 
     # ------------------------------------------------------------------
     # Entry hook — llamado UNA vez al cambiar de estado
@@ -66,10 +64,6 @@ class StateMachine:
             limpiar_vaciado_chaqueta(self.estado, self.set_do)
 
         elif state == GlobalState.CICLO:
-            # Un ciclo nuevo cierra cualquier protocolo de estado seguro previo
-            # antes de reiniciar el ProtocoloFallo que comparte
-            if self.estado_seguro.activo:
-                self.estado_seguro.terminar()
             # Limpiar flags de ciclo anteriores y arrancar el pipeline
             self.estado.set_flag("CICLO_CANCELADO",  False)
             self.estado.set_flag("CICLO_CONFIRMADO", False)
@@ -82,26 +76,36 @@ class StateMachine:
             self.estado.set_flag("START_CICLO", False)
             logger.info("StateMachine: entrando a PREPARADO")
 
-    def _camara_segura_tras_ciclo(self, datos_vigentes: bool) -> bool:
-        """Cámara segura con el Principal del ciclo terminado y los de los
-        programas de seguridad (el mayor manda) y el menor temp_max_apertura
-        (global o del ciclo). Falla cerrada: cualquier error = no segura."""
-        try:
-            programa = self.ciclo.cycle
-            programas = [programa]
-            if self.programas_seguridad is not None:
-                programas += [p for p in (self.programas_seguridad() or [])
-                              if p is not None and p is not programa]
-            temp_max_ciclo = programa.get_param("finalizacion", "temp_max_apertura", default=None)
-            segura, motivo = camara_segura.evaluar(self.estado, self.config, programas,
-                                                   self.profile, datos_vigentes=datos_vigentes,
-                                                   temp_max_ciclo=temp_max_ciclo)
-            if not segura:
-                logger.info("StateMachine: cámara no segura al reconocer el ciclo: %s", motivo)
-            return segura is True
-        except Exception:
-            logger.exception("StateMachine: no se pudo evaluar la cámara al reconocer el ciclo")
+    def confirmar_paro(self) -> bool:
+        """Hotfix ES: "Confirmar" tras soltar un paro real. Sin protocolo: desde
+        PREPARADO el equipo pasa a PREPARACION; PREPARACION sigue igual y FALLA
+        sigue esperando su reconocimiento (que también confirma). Bajo el
+        _sm_lock del ControlLoop."""
+        if self.estado_seguro.confirmar() is not True:
             return False
+        if self.estado.get_machine_state() == GlobalState.PREPARADO:
+            self.estado.set_machine_state(GlobalState.PREPARACION)
+        return True
+
+    def _finalizar_protocolo_ciclo(self) -> None:
+        """Hotfix ES: al salir de CICLO tras FALLO o CANCELADO se cierran las
+        válvulas del protocolo de fallo del ciclo; el estado siguiente maneja
+        la cámara. Un error no impide la transición."""
+        try:
+            self.ciclo._protocolo.finalizar()
+        except Exception:
+            logger.exception("StateMachine: no se pudo cerrar el protocolo de fallo del ciclo")
+
+    def _cerrar_valvulas_reposo(self) -> None:
+        """Hotfix ES (revisión, MEDIA): al pasar de COMPLETADO a PREPARADO se
+        cierran las válvulas de descompresión que dejó abiertas la válvula de
+        reposo del modo (en modo 4/5 sólido, descompresion_chaqueta con
+        vapor_chaqueta encendida en PREPARADO); el lazo de PREPARADO retoma la
+        presión de cámara. Un error no impide la transición."""
+        try:
+            cerrar_valvulas_descompresion(self.set_do)
+        except Exception:
+            logger.exception("StateMachine: no se pudieron cerrar las válvulas de descompresión")
 
     # ------------------------------------------------------------------
     # Tick principal
@@ -115,22 +119,24 @@ class StateMachine:
             self.estado.estado_maquina.get("Estado")
         )
 
-        # Protocolo de estado seguro (§15): fuera de CICLO, antes del estado
+        # Hotfix ES: fuera de CICLO, seguimiento del paro real. Soltado y sin
+        # confirmar, las salidas siguen en 0 y ningún estado avanza (§15.2);
+        # con el paro activo cada estado manda su ALL_OFF y SIS-01.
         if current_state != GlobalState.CICLO:
-            # TMG-04 de T5: un error del estado seguro no impide que el estado
-            # corra (ni que FALLA mantenga el ALL_OFF del paro)
             try:
-                self.estado_seguro.update(datos_vigentes=datos_vigentes)
+                self.estado_seguro.update()
+                esperando = self.estado_seguro.esperando_confirmacion() is True
             except Exception:
-                logger.exception("StateMachine: error en el protocolo de estado seguro")
-                # A13-M1 (tanda 28b): el secado tras fallo no queda con la
-                # bomba y el vacío encendidos (el lazo sigue: MOD-08 no apaga)
-                cortar = getattr(self.estado_seguro, "cortar_secado", None)
-                if callable(cortar):
-                    try:
-                        cortar("error")
-                    except Exception:
-                        logger.exception("StateMachine: no se pudo cortar el secado tras fallo")
+                logger.exception("StateMachine: error en la confirmación del paro")
+                esperando = False
+            if esperando:
+                if current_state != self.prev_state:
+                    self.on_state_entry(current_state)
+                    self.prev_state = current_state
+                self.estado.set_flag("LISTO_PARA_CICLO", False)
+                self.set_do.apagar_por_paro()
+                self.set_do.buzer_off()
+                return
 
         # Detectar cambio de estado → disparar hook de entrada
         if current_state != self.prev_state:
@@ -181,33 +187,23 @@ class StateMachine:
 
             resultado = self.ciclo.run()
 
+            # Hotfix ES (6-nov): ningún fin de ciclo inicia un protocolo de
+            # estado seguro; PREPARADO/FALLA nivelan la cámara y "NO ABRIR" y
+            # el bloqueo de inicio siguen mientras la cámara no sea segura.
             if resultado == "COMPLETADO":
                 logger.info("StateMachine: ciclo completado → PREPARADO")
+                self._cerrar_valvulas_reposo()
                 self.estado.set_machine_state(GlobalState.PREPARADO)
-                # P-1 (tanda 6): tras cualquier fin, "NO ABRIR" y sin ciclo
-                # nuevo hasta la cámara segura. Si al reconocer el COMPLETADO
-                # la cámara no está segura, entra al mismo protocolo de estado
-                # seguro que tras un fallo o una cancelación.
-                if not self._camara_segura_tras_ciclo(datos_vigentes):
-                    logger.warning("StateMachine: COMPLETADO reconocido con la cámara no segura "
-                                   "→ protocolo de estado seguro")
-                    # TMG-07 / SAF-04 de T2: con paro o sin datos vigentes, sin
-                    # válvulas; el estado seguro las abre al volver los datos
-                    abrir = (datos_vigentes is True
-                             and not self.estado.get_flag("PARO_EMERGENCIA"))
-                    # A13 (tanda 28): un COMPLETADO no es un fallo: sin secado
-                    self.ciclo._protocolo.ejecutar(abrir_valvulas=abrir, secado_tras_fallo=False)
-                    self.estado_seguro.iniciar(self.ciclo._protocolo, origen="completado")
 
             elif resultado == "FALLO":
                 logger.error("StateMachine: fallo en ciclo → FALLA")
+                self._finalizar_protocolo_ciclo()
                 self.estado.set_machine_state(GlobalState.FALLA)
-                self.estado_seguro.iniciar(self.ciclo._protocolo, origen="fallo")
 
             elif resultado == "CANCELADO":
                 logger.warning("StateMachine: ciclo cancelado → PREPARADO")
+                self._finalizar_protocolo_ciclo()
                 self.estado.set_machine_state(GlobalState.PREPARADO)
-                self.estado_seguro.iniciar(self.ciclo._protocolo, origen="cancelado")
 
             # "EN_CURSO" o "ESPERANDO_CONFIRMACION" → no hacer nada, seguir en CICLO
 
@@ -216,11 +212,7 @@ class StateMachine:
         # ==============================================================
         elif current_state == GlobalState.FALLA:
             logger.debug("Estado actual: FALLA")
-            # P-2 (tanda 6): con el Principal perdido, el reconocimiento lleva a
-            # PREPARACION aunque el estado seguro siga venteando (sin técnico)
-            puede_salir = (not self.estado_seguro.activo
-                           or getattr(self.estado_seguro, "permite_salir_de_falla", False) is True)
-            if self.falla.run(puede_salir=puede_salir):
+            if self.falla.run():
                 self.alarm_manager.resolver_todas_por_reinicio()
                 self.estado.fase_ciclo = ""
                 self.estado.set_machine_state(GlobalState.PREPARACION)

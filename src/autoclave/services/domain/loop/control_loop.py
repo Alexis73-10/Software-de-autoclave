@@ -1,7 +1,6 @@
 # autoclave/services/control_loop.py
 
 import copy
-import json
 import time
 import threading
 from autoclave.state_machine.alarms.catalogo import COM_01, COM_04, TARJETA_SIN_TRAMA_VALIDA
@@ -20,8 +19,7 @@ from autoclave.core.runtime import aire_atmosferico_prueba
 from autoclave.core.runtime import salidas_prueba_seguridad
 from autoclave.core.runtime.coherencia_puerta_presion import VigilanciaCoherenciaPuertaPresion
 from autoclave.core.runtime.status import EstadoAutoclave
-from autoclave.state_machine.estado_seguro import ProtocoloEstadoSeguro
-from autoclave.state_machine.cycle_phases.protocolo_fallo import ProtocoloFallo
+from autoclave.state_machine.estado_seguro import ConfirmacionParo
 from autoclave.installation.profile import entrada_requerida, numero_puertas
 
 import logging
@@ -93,8 +91,7 @@ class ControlLoop:
     def __init__(self, units, door_service, doors, estado, link, set_do,
                  alarm_manager, cycle_manager, config_manager,
                  cycle_logger=None, interval=0.5, cap=None, realtime_printer=None,
-                 profile=None, arranque_liberado: threading.Event | None = None,
-                 marca_estado_seguro=None):
+                 profile=None, arranque_liberado: threading.Event | None = None):
         self.units          = units
         self.door_service   = door_service
         self.doors          = doors
@@ -151,34 +148,31 @@ class ControlLoop:
         # E4 (D-08): programa del ciclo interrumpido por un reinicio, a
         # recuperar con el primer dato vigente
         self._recuperacion_pendiente = None
-        # A13-M5 (tanda 28b): el programa de la recuperación es la instantánea
-        # del propio ciclo (si no, el secado tras fallo se omite)
-        self._recuperacion_programa_del_ciclo = False
         self._ticks_seguros_recuperacion = 0
-        # Tanda 28 (A9): True = tras un ciclo interrumpido (o sin saberlo):
-        # con la cámara no segura arranca el protocolo de estado seguro. False
-        # = encendido normal: sin protocolo, PREPARACION iguala la presión
-        self._recuperacion_con_protocolo = True
-        self._arranque_normal_avisado = False
-        # Tanda 28 (A9-R1, Cristian 6-nov): marca persistente del protocolo de
-        # fin de ciclo en curso (core/runtime/marca_estado_seguro.py). None =
-        # sin persistencia (pruebas, uso aislado). _marca_es_sincronizada: el
-        # último valor escrito con éxito (None = todavía no se sincronizó).
-        self.marca_estado_seguro = marca_estado_seguro
-        self._marca_es_sincronizada: bool | None = None
-        self._marca_es_error_avisado = False
+        # Tanda 28 (A9): True = tras un ciclo interrumpido (o sin saberlo).
+        # Hotfix ES (unión con la tanda 28, D1/D2): ya no decide ningún
+        # protocolo; solo se informa en el log y en la bitácora.
+        self._recuperacion_interrumpido = True
+        # A13 (tanda 28) en la unión con el hotfix ES (D4): último estado del
+        # secado tras fallo ya registrado en la bitácora (antes lo registraba
+        # el protocolo de estado seguro retirado)
+        self._secado_visto = None
 
-        # Protocolo de estado seguro (fin de ciclo §15): una sola instancia que
-        # sobrevive a set_active_cycle. `al_evento_seguridad(evento, detalle)`
-        # lo fija el backend para el audit_log.
+        # Hotfix ES (6-nov): sin protocolo automático de estado seguro. Queda
+        # la confirmación tras soltar un paro real fuera de CICLO, una sola
+        # instancia que sobrevive a set_active_cycle (conserva el nombre
+        # `estado_seguro`). `al_evento_seguridad(evento, detalle)` lo fija el
+        # backend para el audit_log.
         self.al_evento_seguridad = None
-        self.estado_seguro = ProtocoloEstadoSeguro(
-            estado, config_manager, profile=profile,
-            programas_seguridad=self.programas_para_seguridad,
-            al_evento=self._evento_seguridad, alarm_manager=alarm_manager)
-        # S9, revisión ★ TMG-02/TMG-03: vigencia y número de la trama AI, para
-        # que el protocolo no tome una presión congelada por una vigente
-        self.estado_seguro.lectura_ai = self._lectura_ai
+        self.estado_seguro = ConfirmacionParo(estado, al_evento=self._evento_seguridad)
+        # Hotfix ES (revisión, ALTA): soltado el paro real y sin "Confirmar",
+        # SetOutput no enciende nada (las puertas re-afirmaban cerrar_on y
+        # bloquear_on en cada tick entre dos ALL_OFF). El modo prueba, que
+        # pausa la máquina de estados, conserva su control manual.
+        try:
+            self.set_do.paro_sin_confirmar = self._paro_sin_confirmar_salidas
+        except Exception:
+            logger.exception("ControlLoop: no se pudo fijar la confirmación del paro en SetOutput")
         # R2-A1 (revisión ★ pasada 2): proveedor común en el estado, para el
         # protocolo de fallo del ciclo (CicloState) y la fase DESCOMPRESION
         # (core/runtime/vigencia_ai.py)
@@ -366,42 +360,27 @@ class ControlLoop:
         último ciclo, también el de ese ciclo (se toma el máximo)."""
         if self.estado.get_machine_state() == GlobalState.CICLO:
             return [self.programa_en_ejecucion()]
-        # S9 (tanda 9, D9-1.3): con el programa cambiado durante el estado
-        # seguro o la recuperación de arranque, sus copias siguen contando
-        # aunque ya no sean el seleccionado ni el último ciclo
+        # S9 (tanda 9, D9-1.3): con el programa cambiado durante la
+        # recuperación de arranque, su copia sigue contando aunque ya no sea
+        # el seleccionado
         programas = []
-        for p in (self.cycle, self._programa_ultimo_ciclo, self.estado_seguro.programa,
-                  self._recuperacion_pendiente):
+        for p in (self.cycle, self._programa_ultimo_ciclo, self._recuperacion_pendiente):
             if p is not None and not any(p is q for q in programas):
                 programas.append(p)
         return programas
 
-    def recuperar_ciclo_interrumpido(self, programa, interrumpido: bool = True,
-                                     programa_del_ciclo: bool = False) -> None:
+    def recuperar_ciclo_interrumpido(self, programa, interrumpido: bool = True) -> None:
         """E4 (D-08, SAF-08 de T5): tras un reinicio con un ciclo sin cerrar,
         su sensor Principal cuenta para la seguridad hasta que la cámara sea
-        segura y, si no lo es, arranca el protocolo de estado seguro con ese
-        programa (modo de descompresión, carga líquida).
-
-        Tanda 28 (A9, decisión de Cristian del 5-nov, reemplaza D9-1.1 en el
-        encendido normal): `interrumpido=False` (el último ciclo terminó o no
-        hay ciclo) NO inicia el protocolo aunque la cámara no sea segura;
-        PREPARACION iguala la presión y drena con sus reglas. El programa
-        sigue contando para la seguridad (NO ABRIR, límite de temperatura,
-        venteo por la lenta en líquidos) hasta 3 lecturas seguras. Quien no
-        sepa si hubo un ciclo interrumpido pasa True (falla segura).
-
-        A13-M5 (tanda 28b): `programa_del_ciclo` True solo si `programa` es
-        la instantánea del propio ciclo interrumpido (o la de la marca de
-        estado seguro); si no (False por omisión, falla cerrada), el secado
-        tras fallo del protocolo de arranque se omite (programa_incierto)."""
+        segura. Hotfix ES (6-nov): ya no arranca ningún protocolo; PREPARACION
+        nivela la cámara y "NO ABRIR" sigue mientras no sea segura.
+        `interrumpido` (tanda 28, A9) solo va al log y a la bitácora: con o
+        sin ciclo interrumpido el arranque es el mismo (unión hotfix ES, D2)."""
         with self._sm_lock:
             self._recuperacion_pendiente = programa
-            self._recuperacion_programa_del_ciclo = programa_del_ciclo is True
             self._ticks_seguros_recuperacion = 0
             self._programa_ultimo_ciclo = programa
-            self._recuperacion_con_protocolo = interrumpido is not False
-            self._arranque_normal_avisado = False
+            self._recuperacion_interrumpido = interrumpido is not False
 
     # S4: tolerancia con que un nuevo Principal puede leer menos que otra sonda
     _TOLERANCIA_NUEVO_PRINCIPAL_C = 2.0
@@ -425,8 +404,7 @@ class ControlLoop:
         with self._sm_lock:
             if self.estado.get_machine_state() == GlobalState.CICLO:
                 return False, "ciclo_en_curso"
-            copias = (self.estado_seguro.programa, self._programa_ultimo_ciclo,
-                      self._recuperacion_pendiente)
+            copias = (self._programa_ultimo_ciclo, self._recuperacion_pendiente)
             if not any(p is not None and p is not self.cycle
                        and getattr(p, "id", None) == programa_id for p in copias):
                 return False, "sin_copias"
@@ -457,8 +435,6 @@ class ControlLoop:
                 nuevo.sensores_formato_antiguo = False
                 return nuevo
 
-            if self.estado_seguro.programa is not None:
-                self.estado_seguro.reemplazar_programa(reemplazo(self.estado_seguro.programa))
             self._programa_ultimo_ciclo = reemplazo(self._programa_ultimo_ciclo)
             self._recuperacion_pendiente = reemplazo(self._recuperacion_pendiente)
             return True, "aplicado"
@@ -485,165 +461,71 @@ class ControlLoop:
             # S9, revisión ★ TMG-02: con la trama AI vencida la presión
             # publicada puede estar congelada: nunca cuenta como segura
             segura, motivo = False, "Sin lectura válida de presión de cámara (trama AI vencida)"
-        if segura:
-            # SAF-02 de T6: 3 ticks seguros seguidos antes de descartar
-            self._ticks_seguros_recuperacion += 1
-            if self._ticks_seguros_recuperacion >= _TICKS_SEGUROS_OLVIDAR_CICLO:
-                logger.info("ControlLoop: arranque con la cámara segura")
-                self._recuperacion_pendiente = None
-            return
+        # Hotfix ES (6-nov, decisión de Cristian): sin protocolo automático. La
+        # recuperación se resuelve con el primer dato vigente; el programa del
+        # ciclo interrumpido sigue en _programa_ultimo_ciclo (su Principal
+        # cuenta para "NO ABRIR" y el bloqueo de inicio hasta 3 ticks seguros,
+        # _seguir_programa_ultimo_ciclo) y PREPARACION nivela la cámara.
+        self._recuperacion_pendiente = None
         self._ticks_seguros_recuperacion = 0
-        if not self._recuperacion_con_protocolo:
-            # Tanda 28 (A9): encendido normal. Sin protocolo de estado seguro:
-            # la máquina sigue en PREPARACION, que iguala la presión (aire
-            # atmosférico con vacío; venteo con presión, por la lenta en
-            # líquidos) y drena. NO ABRIR y el bloqueo de apertura e inicio
-            # siguen por camara_segura. Un aviso por encendido en log y bitácora.
-            if not self._arranque_normal_avisado:
-                self._arranque_normal_avisado = True
-                logger.warning("ControlLoop: arranque normal con la cámara no segura (%s) — "
-                               "sin estado seguro; PREPARACION iguala la presión", motivo)
-                self._evento_seguridad("arranque_camara_no_segura",
-                                       {"programa": getattr(programa, "id", None),
-                                        "motivo": motivo, "estado_seguro": False})
+        if segura:
+            logger.info("ControlLoop: arranque con la cámara segura")
             return
-        logger.error("ControlLoop: arranque tras un ciclo interrumpido con la cámara no "
-                     "segura (%s) — estado seguro automático, solo la lenta", motivo)
-        # S9 (tanda 9, D9-1.1, revierte en parte E4/D-08): corre SOLO, sin
-        # confirmación (D9-1.2: solo tras un paro real de este encendido) y
-        # solo con la lenta (con vacío, aire atmosférico; sin presión no abre
-        # nada y queda detenido con CIC-10, D9-1.4)
-        protocolo = ProtocoloFallo(self.estado, self.set_do, programa, self.config_manager)
-        # A13 (tanda 28, DECISIÓN SIN CONFIRMAR): tras un ciclo interrumpido
-        # rige la misma regla del secado tras fallo (vapor residual)
-        protocolo.profile = self.profile
-        protocolo.alarm_manager = self.alarm_manager
-        # A13-M5 (tanda 28b): solo con la instantánea del propio ciclo
-        protocolo.programa_incierto = (
-            getattr(self, "_recuperacion_programa_del_ciclo", False) is not True)
-        protocolo.ejecutar(abrir_valvulas=False, solo_lenta=True)
-        protocolo.motivo_solo_lenta = "arranque tras un ciclo interrumpido con la cámara no segura"
-        # Tanda 28 (A9): origen "ciclo_interrumpido" (antes "arranque")
-        self.estado_seguro.iniciar(protocolo, origen="ciclo_interrumpido")
-        if self.estado_seguro.activo:
-            self._recuperacion_pendiente = None     # entregada (si no, se reintenta)
+        interrumpido = self._recuperacion_interrumpido is not False
+        logger.warning("ControlLoop: arranque%s con la cámara no segura (%s) — sin protocolo "
+                       "automático; PREPARACION nivela la cámara y NO ABRIR sigue hasta que "
+                       "sea segura", " tras un ciclo interrumpido" if interrumpido else "", motivo)
         self._evento_seguridad("arranque_camara_no_segura",
-                               {"programa": getattr(programa, "id", None), "motivo": motivo,
-                                "estado_seguro": True})
+                               {"programa": getattr(programa, "id", None), "motivo": str(motivo),
+                                "interrumpido": interrumpido})
 
-    def protocolo_fin_ciclo_en_curso(self) -> bool:
-        """Tanda 28 (A9-R1): True mientras el protocolo de fin de ciclo no
-        terminó de verdad: (a) el protocolo de estado seguro está activo
-        (también en pausa por paro o modo prueba, con la confirmación
-        pendiente o en PREPARACION con solo la lenta); (b) en CICLO, el
-        ProtocoloFallo del ciclo ya se ejecutó (FALLO o CANCELADO esperando la
-        confirmación: el ciclo ya está cerrado en la base); (c) arranque tras
-        un ciclo interrumpido que todavía no decidió (cámara segura con 3
-        lecturas o protocolo iniciado). Se vuelve False solo con la cámara
-        segura confirmada (estado_seguro_alcanzado o arranque con la cámara
-        segura) o al empezar un ciclo nuevo (que pone su propia marca en el
-        contador). Falla cerrada: ante un error, True."""
+    def _seguir_secado_tras_fallo(self) -> None:
+        """A13 (tanda 28), unión con el hotfix ES (D4): el secado tras fallo
+        corre solo en el ProtocoloFallo del ciclo (CICLO, esperando la
+        confirmación). Registra en log y bitácora cada cambio: inicio y
+        resultado (hecho, sin_vacio, sin_ruptura, omitido o cortado), con los
+        mismos eventos que antes registraba el protocolo de estado seguro.
+        Solo informa; nunca lanza."""
         try:
-            if self.estado_seguro.activo is True:
-                return True
-            if self.estado.get_machine_state() == GlobalState.CICLO:
-                protocolo = getattr(getattr(self.state_machine, "ciclo", None), "_protocolo", None)
-                if getattr(protocolo, "ejecutado", False) is True:
-                    return True
-            return (self._recuperacion_pendiente is not None
-                    and self._recuperacion_con_protocolo is not False)
+            protocolo = getattr(getattr(self.state_machine, "ciclo", None), "_protocolo", None)
+            secando = getattr(protocolo, "secando", False) is True
+            resultado = getattr(protocolo, "secado_resultado", None)
+            estado = "secando" if secando else (resultado or {}).get("estado")
+            if not isinstance(estado, str):
+                self._secado_visto = None          # protocolo sin disparar (ciclo nuevo)
+                return
+            if estado == self._secado_visto:
+                return
+            self._secado_visto = estado
+            if estado == "secando":
+                self._evento_seguridad("estado_seguro_secado_iniciado", {})
+            elif estado != "pendiente":
+                self._evento_seguridad("estado_seguro_secado_terminado",
+                                       {"resultado": estado,
+                                        "motivo": (resultado or {}).get("motivo"),
+                                        "segundos": (resultado or {}).get("segundos")})
         except Exception:
-            logger.exception("ControlLoop: no se pudo saber si el protocolo de fin de ciclo "
-                             "sigue en curso; se mantiene la marca (falla cerrada)")
-            return True
-
-    def _programa_para_marca(self) -> dict:
-        """A13-M5 (tanda 28b): {"programa": instantánea, "tipo_carga": ...}
-        del programa del protocolo de fin de ciclo en curso, para que un
-        arranque tras un corte sepa con certeza el tipo de carga. Solo si es
-        el programa del propio ciclo: el del ciclo en CICLO, el del estado
-        seguro (salvo un protocolo de arranque con programa incierto) o el de
-        la recuperación de arranque marcada como del ciclo. Si no, o ante un
-        error, {} (el arranque siguiente lo toma como incierto)."""
-        try:
-            programa = None
-            if self.estado_seguro.activo is True:
-                protocolo = getattr(self.estado_seguro, "_protocolo", None)
-                if getattr(protocolo, "programa_incierto", False) is not True:
-                    programa = self.estado_seguro.programa
-            elif self.estado.get_machine_state() == GlobalState.CICLO:
-                protocolo = getattr(getattr(self.state_machine, "ciclo", None), "_protocolo", None)
-                if getattr(protocolo, "ejecutado", False) is True:
-                    programa = getattr(protocolo, "cycle", None)
-            elif (self._recuperacion_pendiente is not None
-                  and getattr(self, "_recuperacion_programa_del_ciclo", False) is True):
-                programa = self._recuperacion_pendiente
-            instantanea = getattr(programa, "instantanea", None)
-            if not callable(instantanea):
-                return {}
-            datos = instantanea()
-            if not isinstance(datos, dict):
-                return {}
-            json.dumps(datos)                      # serializable o nada
-            return {"programa": datos,
-                    "tipo_carga": programa.get_param("globals", "tipo_carga")}
-        except Exception:
-            logger.exception("ControlLoop: no se pudo guardar el programa en la marca de "
-                             "estado seguro (el arranque lo tomará como incierto)")
-            return {}
-
-    def _sincronizar_marca_estado_seguro(self) -> None:
-        """Tanda 28 (A9-R1): escribe o borra la marca persistente cuando
-        cambia protocolo_fin_ciclo_en_curso(). Solo en los cambios (escritura
-        con fsync); si falla, se reintenta en el tick siguiente (aviso en el
-        log una vez por episodio). Con el apagado aceptado el tick no llega
-        aquí: la marca queda como estaba."""
-        if self.marca_estado_seguro is None:
-            return
-        deseada = self.protocolo_fin_ciclo_en_curso()
-        if deseada == self._marca_es_sincronizada:
-            return
-        try:
-            if deseada:
-                origen = getattr(self.estado_seguro, "origen", None) if self.estado_seguro.activo else None
-                detalle = {"desde": datetime.now().isoformat(timespec="seconds"),
-                           "origen": origen if isinstance(origen, str) else "fin_de_ciclo"}
-                detalle.update(self._programa_para_marca())
-                self.marca_estado_seguro.marcar(detalle)
-            else:
-                self.marca_estado_seguro.borrar()
-        except Exception:
-            if not self._marca_es_error_avisado:
-                self._marca_es_error_avisado = True
-                logger.exception("ControlLoop: no se pudo %s la marca de estado seguro en curso; "
-                                 "se reintenta", "escribir" if deseada else "borrar")
-            return
-        self._marca_es_error_avisado = False
-        if self._marca_es_sincronizada is not None or deseada:
-            logger.info("ControlLoop: marca de estado seguro en curso %s",
-                        "escrita" if deseada else "borrada")
-        self._marca_es_sincronizada = deseada
+            logger.exception("ControlLoop: no se pudo registrar el secado tras fallo")
 
     def _evento_seguridad(self, evento: str, detalle: dict) -> None:
         if self.al_evento_seguridad is not None:
             self.al_evento_seguridad(evento, detalle)
 
     def confirmar_estado_seguro(self) -> bool:
-        """"Confirmar y llevar a estado seguro" (cualquier operador). Bajo
+        """"Confirmar" tras soltar un paro real (cualquier operador). Hotfix ES:
+        sin protocolo; desde PREPARADO el equipo pasa a PREPARACION. Bajo
         _sm_lock para no intercalarse con el tick."""
         with self._sm_lock:
-            return self.estado_seguro.confirmar()
+            return self.state_machine.confirmar_paro()
 
     def temp_max_tras_ciclo(self):
         """`finalizacion.temp_max_apertura` del último ciclo mientras su
         Principal siga contando para la seguridad (SAF-04 de T4); si no, None.
-        S9 (D9-1.3): también la del programa del protocolo de estado seguro y
-        la de la recuperación de arranque; rige la menor."""
+        S9 (D9-1.3): también la de la recuperación de arranque; rige la menor."""
         if self.estado.get_machine_state() == GlobalState.CICLO:
             return None
         valores = []
-        for programa in (self._programa_ultimo_ciclo, self.estado_seguro.programa,
-                         self._recuperacion_pendiente):
+        for programa in (self._programa_ultimo_ciclo, self._recuperacion_pendiente):
             if programa is None:
                 continue
             try:
@@ -897,6 +779,15 @@ class ControlLoop:
         lazo en el modo prueba en curso (cada uno {n, salida, codigo, aviso};
         `aviso` es la clave i18n o "")."""
         return [dict(a) for a in list(self._avisos_corte_prueba)]
+
+    def _paro_sin_confirmar_salidas(self) -> bool:
+        """Hotfix ES (revisión, ALTA): para SetOutput. Paro real soltado sin
+        "Confirmar" y fuera del modo prueba (en el modo prueba la máquina de
+        estados no corre y las salidas son manuales, como antes)."""
+        test_mode = getattr(self, "_test_mode", None)
+        if test_mode is not None and test_mode.is_set():
+            return False
+        return self.estado_seguro.esperando_confirmacion() is True
 
     @property
     def presion_vigente(self) -> bool:
@@ -1382,14 +1273,12 @@ class ControlLoop:
                 if vigentes and self._recuperacion_pendiente is not None:
                     self._procesar_recuperacion()
                 self.state_machine.update(datos_vigentes=vigentes)
+                self._seguir_secado_tras_fallo()
             # S9, revisión ★ TMG-02: con la trama AI vencida no se cuenta
             # ningún tick como seguro (presión posiblemente congelada)
             self._seguir_programa_ultimo_ciclo(
                 vigentes=connected and not self.desconectado and self._di_vigente()
                 and self._ai_vigente())
-            # 5a. Tanda 28 (A9-R1): marca persistente del protocolo de fin de
-            # ciclo, también en modo prueba (el protocolo sigue activo, en pausa)
-            self._sincronizar_marca_estado_seguro()
             # S9 (D9-1.6): coherencia puerta-presión, fuera de ciclo y sin
             # modo prueba (las puertas no se actualizan en pausa: el conteo
             # vuelve a cero, revisión ★ TMG-03). TMG-06: un error aquí no
@@ -1745,12 +1634,9 @@ class ControlLoop:
                                    "del módulo E/S.")
                 return False, "No se puede activar el modo prueba con el paro de emergencia activado."
 
-            # S9 (tanda 9, D9-1.3, revierte SAF-03 de T6): permitido con el
-            # estado seguro activo o la recuperación pendiente. El protocolo
-            # se pausa (la máquina de estados no corre) y se reanuda al salir,
-            # tras el ALL_OFF de siempre.
+            # S9 (tanda 9, D9-1.3, revierte SAF-03 de T6): permitido con la
+            # recuperación pendiente (la máquina de estados no corre).
             self._test_mode.set()
-            self.estado_seguro.pausar("modo_prueba")
             # S9, revisión ★ TMG-05: la recuperación de arranque vuelve a
             # contar sus 3 ticks seguros desde cero al salir
             self._ticks_seguros_recuperacion = 0

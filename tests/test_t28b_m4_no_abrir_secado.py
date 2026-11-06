@@ -73,7 +73,7 @@ def test_durante_la_ruptura_y_el_apagado_es_no_abrir(monkeypatch):
     assert {"secado", "apagando", "ruptura"} <= vistas
 
 
-def test_al_terminar_la_ruptura_deja_de_ser_motivo_y_el_estado_seguro_cuenta_3(monkeypatch):
+def test_al_terminar_la_ruptura_deja_de_ser_motivo(monkeypatch):
     e = _Equipo(monkeypatch, segundos=2)
     e.config["secado_tras_fallo_vacio_s"] = 1
     e.disparar()
@@ -86,10 +86,6 @@ def test_al_terminar_la_ruptura_deja_de_ser_motivo_y_el_estado_seguro_cuenta_3(m
     assert not e.protocolo.secando and e.estado.secando_tras_fallo is False
     assert e.resultado()["estado"] == "hecho"
     assert _evaluar(e) == (True, "")
-    assert e.es.activo                                # el estado seguro no termina de inmediato
-    e.tick()
-    e.tick()
-    assert not e.es.activo
 
 
 def test_secado_cortado_libera_el_motivo(monkeypatch):
@@ -209,6 +205,3 @@ def test_textos_del_motivo(idioma):
                                                    "limites": {}}, idioma)
     assert desc and accion and "{" not in desc + accion
     assert desc == i18n.t(f"aviso_detalle.no_abrir_motivos.{SECANDO}.descripcion", idioma)
-    # la nota del estado seguro sigue con su texto propio
-    assert detalle_aviso.texto_espera({"pendiente": {"codigo": SECANDO}}, idioma) \
-        == i18n.t("sistema.estado_seguro_secando", idioma)

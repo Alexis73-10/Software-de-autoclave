@@ -415,7 +415,7 @@ def _encendidas(a):
 def test_retenido_10_s_sin_ninguna_salida_on_aunque_la_camara_este_a_presion(equipo):
     a, s9 = equipo
     s9._caliente_a_presion(a["planta"])
-    s9._arrancar(a)                       # ciclo interrumpido: estado seguro pendiente
+    s9._arrancar(a)                       # ciclo interrumpido: recuperación pendiente
     encendidas = set()
     for _ in range(int(10.0 / s9.TICK_S) + 1):     # 10 s simulados
         s9._tick(a)
@@ -426,12 +426,14 @@ def test_retenido_10_s_sin_ninguna_salida_on_aunque_la_camara_este_a_presion(equ
     assert a["loop"].estado_seguro.activo is False
     assert a["loop"]._recuperacion_pendiente is not None       # diferida, no perdida
     assert a["loop"]._retencion_apagado is True                 # ALL_OFF de la retención
-    # al liberar, el mismo tick procesa la recuperación (estado seguro, solo la lenta)
+    # al liberar, el mismo tick procesa la recuperación; hotfix ES (6-nov):
+    # sin protocolo, PREPARACION ventea la cámara
     a["loop"].arranque_liberado.set()
     for _ in range(4):
         s9._tick(a)
-    assert a["loop"].estado_seguro.activo is True
-    assert a["modulo_es"].on("descompresion_lenta")
+    assert a["loop"].estado_seguro.activo is False
+    assert a["loop"]._recuperacion_pendiente is None
+    assert a["modulo_es"].on("descompresion_lenta") or a["modulo_es"].on("descompresion_rapida")
 
 
 @pytest.mark.req("ARQ-D2")

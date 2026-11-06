@@ -8,7 +8,8 @@ segundos continuos (monotonic) mientras la bomba trabajaba. Si no:
 ruptura del vacío corre siempre (tope de 120 s). Falla cerrada: sin lectura
 de presión no hay verificación.
 
-Piezas reales: ProtocoloFallo y ProtocoloEstadoSeguro (arnés de A13).
+Piezas reales: ProtocoloFallo (arnés de A13; desde la unión con el hotfix ES,
+sin ProtocoloEstadoSeguro: el secado corre en CICLO).
 """
 
 import pytest
@@ -98,10 +99,8 @@ def test_bomba_que_no_hace_vacio_da_sin_vacio_con_aviso(monkeypatch):
     assert e.alarmas.activadas[0][1] == {"segundos": 5, "minimo": ATM - RANGO}
     terminado = [d for ev, d in e.eventos if ev == "estado_seguro_secado_terminado"]
     assert terminado and terminado[-1]["resultado"] == "sin_vacio"
-    # el estado seguro sigue y termina con sus 3 lecturas (no se queda colgado)
-    for _ in range(3):
-        e.tick()
-    assert not e.es.activo
+    # no se queda colgado: la cámara en la banda y fría ya no da NO ABRIR
+    assert not e.no_abrir()
 
 
 def test_vacio_parcial_sin_sostener_da_sin_vacio_y_la_ruptura_abre_el_aire(monkeypatch):

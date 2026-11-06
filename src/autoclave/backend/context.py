@@ -33,8 +33,6 @@ from autoclave.backend.arranque.secuencia import ErrorArranque
 from autoclave.backend.arranque.sin_bd import BdNoDisponible
 from autoclave.utils.paths import app_root, calibration_path
 from autoclave.core.runtime.contador_ciclos import ContadorCiclos
-from autoclave.core.runtime.marca_estado_seguro import NOMBRE_ARCHIVO as MARCA_ES_ARCHIVO
-from autoclave.core.runtime.marca_estado_seguro import MarcaEstadoSeguro
 from autoclave.core.runtime.sensores_ciclo import interpretar_asignacion
 from autoclave.core.managers.cycle_manager import Cycle
 
@@ -83,30 +81,6 @@ def _programa_desconocido():
     por omisión (lenta). Lado seguro (TMG-03 de T6)."""
     return Cycle("desconocido", "Programa desconocido",
                  {"globals": {"tipo_carga": {"value": "liquido"}}})
-
-
-# A13-M5 (tanda 28b): el programa del arranque es la instantánea del propio
-# ciclo interrumpido (único origen con el que corre el secado tras fallo)
-ORIGEN_INSTANTANEA = "instantanea"
-
-
-def _programa_de_marca_estado_seguro(marca):
-    """A13-M5: instantánea del programa que guardó la marca persistente del
-    protocolo de fin de ciclo (A9-R1), o None (sin marca, sin programa,
-    ilegible o ante cualquier error)."""
-    if marca is None:
-        return None
-    try:
-        datos = marca.leer()
-        instantanea = datos.get("programa") if isinstance(datos, dict) else None
-        if not isinstance(instantanea, dict):
-            return None
-        programa = Cycle.desde_instantanea(instantanea)
-        programa.get_param("globals", "tipo_carga")      # legible o se descarta
-        return programa
-    except Exception:
-        logger.exception("Arranque: programa de la marca de estado seguro ilegible")
-        return None
 
 
 MOTIVO_INTERRUMPIDO = ("Ciclo interrumpido: el equipo se reinició o perdió energía "
@@ -766,6 +740,9 @@ class BackendContext:
             # S9, revisión ★ pasada 2 R2-M3: la apertura evalúa la cámara con
             # la presión al día (sin ControlLoop todavía: no vigente)
             presion_vigente=self.presion_vigente,
+            # Hotfix ES (revisión, ALTA): sin puertas tras soltar un paro real
+            # hasta "Confirmar"
+            paro_sin_confirmar=self.paro_sin_confirmar,
         )
 
         # Data logger (SQLite) + impresión en tiempo real
@@ -812,7 +789,6 @@ class BackendContext:
             realtime_printer=self.realtime_printer,
             profile=self.profile,
             arranque_liberado=self.arranque_liberado,   # tanda 26, ARQ-D2
-            marca_estado_seguro=self.marca_estado_seguro,   # tanda 28, A9-R1
         )
         if al_cancelar_prueba is not None:
             self.control_loop.al_cancelar_modo_prueba(al_cancelar_prueba)
@@ -824,25 +800,14 @@ class BackendContext:
         self.control_loop.al_evento_seguridad = self._auditar_evento_seguridad
         # T2-b (tanda 7): DESPEJAR de COM-02/03 exige el enlace de vuelta en "ok"
         self.alarm_manager.enlace_ok = self._enlace_confirmado_ok
-        # E4 (D-08; SAF-01 de T6): se decide por el estado físico, no por la
-        # base. En CADA arranque, con el primer dato vigente, si la cámara no
-        # es segura el equipo entra en estado seguro con confirmación. El
-        # programa: el del ciclo interrumpido, si no el del último ciclo
-        # registrado y, si no, uno conservador (líquido, solo la lenta).
-        # Tanda 28 (A9, Cristian 5-nov): el protocolo de estado seguro de
-        # arranque solo corre tras un ciclo interrumpido (o si no se sabe); en
-        # un encendido normal PREPARACION iguala la presión.
-        # A13-M5 (tanda 28b): con el origen del programa (el secado tras fallo
-        # solo corre con la instantánea del propio ciclo)
-        try:
-            programa, del_ciclo = self._programa_para_arranque_con_origen()
-        except Exception:
-            # falla cerrada: el programa de siempre, de origen incierto
-            logger.exception("Arranque: no se pudo saber el origen del programa del ciclo "
-                             "interrumpido; se toma como incierto (A13-M5)")
-            programa, del_ciclo = self._programa_para_arranque(), False
+        # E4 (D-08; SAF-01 de T6): el programa del ciclo interrumpido, si no
+        # el del último ciclo registrado y, si no, uno conservador (líquido,
+        # solo la lenta) cuenta para NO ABRIR hasta que la cámara sea segura.
+        # Hotfix ES (6-nov) y unión con la tanda 28 (D1, D2, D5): ya no corre
+        # ningún protocolo de arranque; si hubo un ciclo interrumpido (A9)
+        # solo se informa en el log y en la bitácora.
         self.control_loop.recuperar_ciclo_interrumpido(
-            programa, interrumpido=self.hubo_ciclo_interrumpido(), programa_del_ciclo=del_ciclo)
+            self._programa_para_arranque(), interrumpido=self.hubo_ciclo_interrumpido())
         self.control_loop.start()
         self.iniciar_verificacion_asignacion()   # R8: solo tras una reasignación
         self.iniciar_vigilancia_asignacion()
@@ -918,14 +883,6 @@ class BackendContext:
         if getattr(self, "_contador_ciclos", None) is None:
             self._contador_ciclos = ContadorCiclos(app_root() / "data" / "ciclo_contador.json")
         return self._contador_ciclos
-
-    @property
-    def marca_estado_seguro(self) -> MarcaEstadoSeguro:
-        """Tanda 28 (A9-R1): marca persistente del protocolo de fin de ciclo
-        en curso (la escribe y la borra el ControlLoop)."""
-        if getattr(self, "_marca_estado_seguro", None) is None:
-            self._marca_estado_seguro = MarcaEstadoSeguro(app_root() / "data" / MARCA_ES_ARCHIVO)
-        return self._marca_estado_seguro
 
     @property
     def mantenimiento(self):
@@ -1176,20 +1133,14 @@ class BackendContext:
 
     def hubo_ciclo_interrumpido(self) -> bool:
         """Tanda 28 (A9): True si el arranque cerró un ciclo sin fecha de fin,
-        la marca persistente del contador dice que había un ciclo en curso,
-        un respaldo se importó sin cierre (A9-R3) o la marca persistente del
-        protocolo de fin de ciclo existe (A9-R1: el equipo se apagó o el
-        backend se reinició con el protocolo de fallo o de estado seguro sin
-        terminar; ilegible = presente). Falla segura (DECISIÓN SIN CONFIRMAR en
-        lo no listado por el prompt): sin base de datos (OPERANDO_SIN_BD), si
+        la marca persistente del contador dice que había un ciclo en curso o
+        un respaldo se importó sin cierre (A9-R3). Unión hotfix ES (D2): solo
+        informa (log y bitácora de arranque_camara_no_segura); ya no decide
+        ningún protocolo y la marca de estado seguro de A9-R1 se retiró.
+        Falla segura (DECISIÓN SIN CONFIRMAR en lo no listado por el prompt): sin base de datos (OPERANDO_SIN_BD), si
         el cierre de ciclos o la reimportación fallaron o si nunca se
         consultó, se trata como interrumpido."""
         try:
-            if self.marca_estado_seguro.presente() is not False:
-                logger.warning("Arranque: el protocolo de fin de ciclo no había terminado "
-                               "(marca de estado seguro en curso); se trata como ciclo "
-                               "interrumpido (A9-R1)")
-                return True
             if getattr(self, "sin_base_de_datos", False) is not False:
                 logger.warning("Arranque: sin base de datos; se trata como ciclo interrumpido "
                                "(A9, falla segura)")
@@ -1216,79 +1167,48 @@ class BackendContext:
         """Reconstruye el programa con el que corría el ciclo interrumpido:
         la instantánea (v3) o, en filas anteriores, el programa cargado con
         la asignación de sensores registrada (v2)."""
-        return BackendContext._programa_del_ciclo_interrumpido_con_origen(self)[0]
-
-    def _programa_del_ciclo_interrumpido_con_origen(self):
-        """(programa, origen) del ciclo interrumpido. A13-M5 (tanda 28b):
-        origen "instantanea" solo si viene de la instantánea del propio ciclo
-        (programa_json de la fila o la de la marca del contador, escrita al
-        iniciarlo); "copia_actual" (definición vigente del programa, que pudo
-        cambiar después), "desconocido" o None."""
         fila = getattr(self, "_ciclo_interrumpido", None)
         marca = getattr(self, "_marca_interrumpido", None)
         if not fila and marca:
             # Sin fila en la base (base caída o bloqueada): la marca del contador
             if marca.get("programa"):
                 try:
-                    return Cycle.desde_instantanea(marca["programa"]), ORIGEN_INSTANTANEA
+                    return Cycle.desde_instantanea(marca["programa"])
                 except Exception:
                     logger.exception("Instantánea de la marca de ciclo ilegible")
-            return _programa_desconocido(), "desconocido"
+            return _programa_desconocido()
         if not fila:
-            return None, None
+            return None
         try:
             if fila.get("programa_json"):
-                return (Cycle.desde_instantanea(json.loads(fila["programa_json"])),
-                        ORIGEN_INSTANTANEA)
+                return Cycle.desde_instantanea(json.loads(fila["programa_json"]))
             base = self.cycle_manager.cycles.get(fila.get("tipo_ciclo"))
             if base is None:
-                return None, None
+                return None
             programa = base.copia()
             if fila.get("asignacion_sensores"):
                 programa.sensores, _ = interpretar_asignacion(json.loads(fila["asignacion_sensores"]))
-            return programa, "copia_actual"
+            return programa
         except Exception:
             logger.exception("No se pudo reconstruir el programa del ciclo interrumpido")
-            return None, None
+            return None
 
     def _programa_para_arranque(self):
-        return BackendContext._programa_para_arranque_con_origen(self)[0]
-
-    def _programa_para_arranque_con_origen(self):
-        """(programa, del_ciclo) para el arranque tras un ciclo interrumpido.
-        A13-M5 (tanda 28b, decisión de Cristian del 6-nov): `del_ciclo` es
-        True solo si el programa es la instantánea del propio ciclo
-        interrumpido (fila o marca del contador) o la que guardó la marca
-        persistente del protocolo de fin de ciclo (A9-R1); la copia de la
-        definición actual, el último ciclo registrado o el programa
-        desconocido dan False y el secado tras fallo se omite
-        (programa_incierto). Falla cerrada: ante cualquier duda, False."""
-        con_origen = getattr(self, "_programa_del_ciclo_interrumpido_con_origen", None)
-        if callable(con_origen):
-            programa, origen = con_origen()
-        else:
-            programa, origen = self._programa_del_ciclo_interrumpido(), None
-        if programa is None:
-            programa = _programa_de_marca_estado_seguro(getattr(self, "marca_estado_seguro", None))
-            origen = ORIGEN_INSTANTANEA if programa is not None else None
+        programa = self._programa_del_ciclo_interrumpido()
         if programa is None:
             try:
                 recientes = self.db.get_ciclos_recientes(1)
                 fila = dict(recientes[0]) if recientes else None
                 if fila and fila.get("programa_json"):
                     programa = Cycle.desde_instantanea(json.loads(fila["programa_json"]))
-                    origen = "ultimo_ciclo"
             except Exception:
                 logger.exception("No se pudo leer el último ciclo registrado")
         if programa is None:
-            return _programa_desconocido(), False
+            return _programa_desconocido()
         # SAF-05 de T6: sin tipo de carga registrado, se recupera como líquido
         if programa.get_param("globals", "tipo_carga") is None:
             programa.parameters.setdefault("globals", {})["tipo_carga"] = {"value": "liquido"}
-        if origen != ORIGEN_INSTANTANEA:
-            logger.warning("Arranque: programa del ciclo interrumpido de origen incierto (%s); "
-                           "sin secado tras fallo (A13-M5)", origen or "desconocido")
-        return programa, origen == ORIGEN_INSTANTANEA
+        return programa
 
     def programas_para_seguridad(self) -> list:
         """Programas cuyos Principales deciden apertura y cámara segura
@@ -1309,6 +1229,12 @@ class BackendContext:
     def estado_seguro_activo(self) -> bool:
         loop = getattr(self, "control_loop", None)
         return bool(loop is not None and loop.estado_seguro.activo)
+
+    def paro_sin_confirmar(self) -> bool:
+        """Hotfix ES (revisión, ALTA): paro real soltado y sin "Confirmar".
+        Sin ControlLoop todavía no hay paro visto: False."""
+        loop = getattr(self, "control_loop", None)
+        return loop is not None and loop.estado_seguro.esperando_confirmacion() is True
 
     def temp_max_tras_ciclo(self):
         loop = getattr(self, "control_loop", None)

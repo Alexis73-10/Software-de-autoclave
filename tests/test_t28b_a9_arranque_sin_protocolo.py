@@ -13,6 +13,11 @@ encendido normal): arranque con la cámara no segura sin protocolo activo.
 - Antes de la liberación del arranque (tanda 26) no se enciende ninguna salida.
 
 Con el ControlLoop REAL y la planta simulada de S9/T11.
+
+Unión con el hotfix ES (6-nov, D1/D2): tampoco tras un ciclo interrumpido
+corre el protocolo (ya no existe); PREPARACION nivela la cámara en los dos
+casos y `interrumpido` solo va al log y a la bitácora. La marca persistente
+de A9-R1 se retiró.
 """
 
 import threading
@@ -25,7 +30,7 @@ from autoclave.state_machine.machine.enum_global import GlobalState
 from tests import test_t11_programas_integracion as t11
 from tests.test_e1_ensayo_simulador import programas  # noqa: F401
 from tests.test_s9_planta_simulada import (
-    DE_PROCESO, VALVULAS_PROHIBIDAS_LENTA, _caliente_a_presion, _en_vacio, _equipo, _tick,
+    DE_PROCESO, VALVULAS_PROHIBIDAS_LIQUIDO, _caliente_a_presion, _en_vacio, _equipo, _tick,
 )
 from tests.test_t11_programas_integracion import psat
 
@@ -48,6 +53,7 @@ def _recorrer(a, limite_s):
              "no_segura_con_listo": 0, "ticks_no_segura": 0, "aire_con_presion": 0}
     atm, rango = t11.P_ATM, float(a["config"].get("rango_presion_atm"))
     es = a["loop"].estado_seguro
+    seguidas = 0
     for _ in range(int(limite_s / t11.DT / 4)):
         _tick(a)
         visto["protocolo"] |= es.activo
@@ -62,7 +68,10 @@ def _recorrer(a, limite_s):
                 visto["no_segura_con_listo"] += 1
         if a["modulo_es"].on("aire_admosferico_camara") and a["p_publicada"] > atm + rango:
             visto["aire_con_presion"] += 1
-        if a["loop"]._recuperacion_pendiente is None and not es.activo:
+        # Unión hotfix ES: la recuperación se resuelve con el primer dato; se
+        # sigue hasta 3 lecturas seguras seguidas
+        seguidas = seguidas + 1 if _segura(a) else 0
+        if seguidas >= 3 and a["loop"]._recuperacion_pendiente is None and not es.activo:
             break
     visto["segura_al_final"] = _segura(a)
     visto["pendiente_al_final"] = a["loop"]._recuperacion_pendiente is not None
@@ -91,7 +100,7 @@ def test_arranque_normal_con_vacio_sin_protocolo_preparacion_abre_el_aire(progra
     assert v["segura_al_final"] is True and v["pendiente_al_final"] is False, v
     # un solo aviso en la bitácora, sin estado seguro
     avisos = [d for e, d in eventos if e == "arranque_camara_no_segura"]
-    assert len(avisos) == 1 and avisos[0]["estado_seguro"] is False
+    assert len(avisos) == 1 and avisos[0]["interrumpido"] is False
     assert not any(e == "estado_seguro_iniciado" for e, _ in eventos)
 
 
@@ -128,32 +137,35 @@ def test_arranque_normal_programa_liquido_ventea_solo_por_la_lenta(programas, mo
 
 # ── 2. tras un ciclo interrumpido ──────────────────────────────────────────
 
-def test_ciclo_interrumpido_liquido_corre_el_protocolo_solo_por_la_lenta(programas, monkeypatch):  # noqa: F811
+def test_ciclo_interrumpido_liquido_sin_protocolo_preparacion_solo_por_la_lenta(programas, monkeypatch):  # noqa: F811
+    """Unión hotfix ES (D1): tras un ciclo interrumpido tampoco hay protocolo;
+    PREPARACION ventea la carga líquida caliente solo por la lenta."""
     a = _equipo(programas[_LIQUIDO], monkeypatch, programas)
     eventos = _eventos(a)
     _caliente_a_presion(a["planta"])
     a["loop"].recuperar_ciclo_interrumpido(a["programa"].copia(), interrumpido=True)
     v = _recorrer(a, 4 * 3600)
-    assert v["protocolo"] is True and v["causas"] == {"ciclo_interrumpido"}, v
-    assert "descompresion_lenta" in v["abiertas_protocolo"], v
-    assert not v["abiertas_protocolo"] & set(VALVULAS_PROHIBIDAS_LENTA), v
+    assert v["protocolo"] is False and not v["causas"], v
+    assert "descompresion_lenta" in v["abiertas"], v
+    assert not v["abiertas"] & set(VALVULAS_PROHIBIDAS_LIQUIDO), v
     assert v["no_segura_con_listo"] == 0 and v["aire_con_presion"] == 0, v
     assert v["segura_al_final"] is True, v
-    iniciados = [d for e, d in eventos if e == "estado_seguro_iniciado"]
-    assert iniciados and iniciados[0]["origen"] == "ciclo_interrumpido"
+    assert not any(e == "estado_seguro_iniciado" for e, _ in eventos)
     avisos = [d for e, d in eventos if e == "arranque_camara_no_segura"]
-    assert avisos and avisos[0]["estado_seguro"] is True
+    assert avisos and avisos[0]["interrumpido"] is True
 
 
 def test_por_omision_se_trata_como_interrumpido(programas, monkeypatch):  # noqa: F811
-    """Quien llama sin decir si hubo ciclo interrumpido obtiene el protocolo
-    (falla segura)."""
+    """Quien llama sin decir si hubo ciclo interrumpido: se informa como
+    interrumpido (falla segura), sin protocolo."""
     a = _equipo(programas[_SOLIDO], monkeypatch, programas)
+    eventos = _eventos(a)
     _caliente_a_presion(a["planta"])
     a["loop"].recuperar_ciclo_interrumpido(a["programa"].copia())
     _tick(a)
-    assert a["loop"].estado_seguro.activo
-    assert a["loop"].estado_seguro.causa == "ciclo_interrumpido"
+    assert not a["loop"].estado_seguro.activo and a["loop"].estado_seguro.causa is None
+    avisos = [d for e, d in eventos if e == "arranque_camara_no_segura"]
+    assert avisos and avisos[0]["interrumpido"] is True
 
 
 # ── 3. retención del arranque (tanda 26): ninguna salida antes ─────────────
@@ -171,23 +183,12 @@ def test_ninguna_salida_antes_de_la_liberacion(programas, monkeypatch, interrump
         assert not _segura(a)                                # NO ABRIR
     a["loop"].arranque_liberado.set()
     v = _recorrer(a, 1800)
-    assert v["protocolo"] is interrumpido, v
+    assert v["protocolo"] is False, v
     assert "aire_admosferico_camara" in v["abiertas"], v
     assert v["segura_al_final"] is True, v
 
 
 # ── 4. el contexto decide si hubo ciclo interrumpido ───────────────────────
-
-@pytest.fixture(autouse=True)
-def _marca_aislada(tmp_path, monkeypatch):
-    """A9-R1 (tanda 28b): la marca persistente del estado seguro en curso de
-    estas pruebas vive en tmp (nunca la de data/ del repositorio)."""
-    from autoclave.backend.context import BackendContext
-    from autoclave.core.runtime.marca_estado_seguro import MarcaEstadoSeguro
-    marca = MarcaEstadoSeguro(tmp_path / "estado_seguro_en_curso.json")
-    monkeypatch.setattr(BackendContext, "marca_estado_seguro", property(lambda self: marca))
-    return marca
-
 
 def _contexto():
     from autoclave.backend.context import BackendContext
@@ -247,27 +248,4 @@ def test_construir_control_pasa_si_hubo_ciclo_interrumpido(monkeypatch):
     ctx._ciclo_interrumpido = None
     ctx._marca_interrumpido = None
     ctx.construir_control()
-    # A13-M5 (tanda 28b): se pasa además el origen del programa (sin ciclos
-    # ni marca: el programa desconocido, no es del ciclo)
-    assert loop.recuperar_ciclo_interrumpido.call_args.kwargs == {"interrumpido": False,
-                                                                  "programa_del_ciclo": False}
-
-
-# ── 5. presentación ────────────────────────────────────────────────────────
-
-def test_causa_arranque_retirada_y_ciclo_interrumpido_con_texto():
-    from autoclave import i18n
-    from autoclave.ui_qml.bridge.ui_bridge import _CAUSAS_ESTADO_SEGURO
-    assert "arranque" not in _CAUSAS_ESTADO_SEGURO
-    assert "ciclo_interrumpido" in _CAUSAS_ESTADO_SEGURO
-    for idioma in ("es", "en"):
-        assert i18n.existe("sistema.estado_seguro_causa_ciclo_interrumpido", idioma)
-        assert not i18n.existe("sistema.estado_seguro_causa_arranque", idioma)
-    assert "interrumpido" in i18n.t("sistema.estado_seguro_causa_ciclo_interrumpido", "es")
-
-
-def test_detalle_ald_nombra_el_ciclo_interrumpido():
-    from autoclave import i18n
-    from autoclave.ui_qml.domain import detalle_aviso
-    fila = detalle_aviso.armar("estado_seguro_en_curso", {"causa": "ciclo_interrumpido"})
-    assert i18n.t("sistema.estado_seguro_causa_ciclo_interrumpido", "es") in fila["descripciones"]["es"]
+    assert loop.recuperar_ciclo_interrumpido.call_args.kwargs == {"interrumpido": False}

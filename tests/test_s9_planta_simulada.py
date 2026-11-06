@@ -1,38 +1,28 @@
-"""S9 (tanda 9, D9-1): celdas de transición del arranque con la cámara no
-segura, repetidas con la planta simulada de T11/E1 en los 4 programas de
-fábrica, con el ControlLoop REAL (máquina de estados, estado seguro,
-PREPARACION, alarmas y SetOutput reales; el enlace es un doble que informa
-conexión y tramas vigentes).
+"""S9 (tanda 9, D9-1), rehecho en el hotfix ES (6-nov-2026): celdas del
+arranque con la cámara no segura, con la planta simulada de T11/E1 en los 4
+programas de fábrica y el ControlLoop REAL (máquina de estados, PREPARACION,
+alarmas y SetOutput reales; el enlace es un doble con tramas vigentes).
+
+Desde el hotfix ES ya no hay protocolo automático de estado seguro: con la
+cámara no segura al arrancar, PREPARACION la nivela (sobrepresión: venteo,
+con carga líquida por la lenta; vacío: aire atmosférico) y "NO ABRIR" y el
+bloqueo de inicio siguen mientras no sea segura.
 
 Celdas por programa (el programa es el del "ciclo interrumpido"):
-- arranque_presurizado: corte en esterilización, cámara caliente y a presión.
-  Sin confirmación, solo la lenta (nunca la rápida, la chaqueta ni el aire),
-  hasta la cámara segura.
-- arranque_vacio: corte en vacío. Sin confirmación, aire atmosférico y nunca
-  la lenta mientras hay vacío.
-- arranque_sin_presion: transductor de presión de cámara sin lectura (equipo
-  de pruebas sin sensores). Sin confirmación, ninguna válvula, CIC-10 + SEN-06,
-  modo prueba y cambio de programa permitidos, inicio de ciclo bloqueado.
-- paro_real_en_arranque: paro real pulsado y liberado durante el protocolo:
-  sí exige confirmación; nada se mueve hasta confirmar.
-- cambio_programa_en_protocolo: se elige otro programa con el protocolo en
-  marcha; el programa del protocolo sigue contando para la seguridad.
-- modo_prueba_en_protocolo (revisión ★ SAF-01): arranque presurizado, el
-  técnico entra a modo prueba: apertura/desbloqueo de puertas, rápida,
-  chaqueta y vapor bloqueados y forzados a cero por el lazo; al salir el
-  protocolo sigue hasta la cámara segura.
-- ai_vencida_en_protocolo (revisión ★ pasada 2, R2-M1): arranque
-  presurizado; a mitad del venteo el módulo E/S deja de mandar tramas AI (la
-  presión publicada queda congelada en la banda atmosférica): no se abre
-  nada nuevo, no pasa a cámara segura ni termina; al volver las tramas
-  sigue hasta la cámara segura.
-- arranque_vacio_con_fuga (revisión ★ SAF-03): arranque en vacío (aire
-  atmosférico abierto) y después la presión sube sobre atm + brecha: el aire
-  se cierra en el mismo tick.
+- arranque_presurizado: cámara caliente y a presión: PREPARACION ventea
+  hasta la banda atmosférica (líquidos: nunca la rápida).
+- arranque_vacio: cámara en vacío: aire atmosférico, nunca la lenta.
+- arranque_sin_presion: transductor de cámara sin lectura: ninguna válvula
+  de cámara, SEN-06 sin CIC-10, modo prueba y cambio de programa
+  permitidos, inicio de ciclo bloqueado.
+- paro_real_en_arranque: paro real pulsado y liberado: confirmación; nada
+  se mueve hasta confirmar; al confirmar, PREPARACION.
+- modo_prueba_en_arranque: ESG-02 con la cámara presurizada.
+- arranque_vacio_con_fuga (revisión SAF-03): con el aire abierto la
+  presión sube sobre atm + brecha: el aire se cierra en el mismo tick.
 
 En TODAS las celdas, cualquier tick con el aire atmosférico abierto y la
-presión publicada sobre atm + brecha cuenta como falla (revisión ★ SAF-03:
-por tick, no la unión de la corrida).
+presión publicada sobre atm + brecha cuenta como falla.
 
 Con S9_ESCRIBIR_INFORME=1 escribe docs/informes/tanda9/S9_ensayo_tabla.md."""
 
@@ -45,6 +35,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from autoclave.core.managers.config_manager import ConfigManager
+from autoclave.core.runtime import camara_segura
 from autoclave.core.runtime import presion_sin_lectura as psl
 from autoclave.core.runtime.status import EstadoAutoclave
 from autoclave.devices.io.set_io import SetOutput
@@ -59,8 +50,8 @@ from tests.test_t11_programas_integracion import DT, _Planta, _ModuloEs, psat
 RESULTADOS: dict[tuple[int, str], dict] = {}
 PASOS_PLANTA = 4                     # pasos de planta (DT) por tick del lazo
 TICK_S = DT * PASOS_PLANTA
-VALVULAS_PROHIBIDAS_LENTA = ("descompresion_rapida", "descompresion_chaqueta",
-                             "aire_comprimido_camara", "vapor_camara", "vapor_chaqueta")
+VALVULAS_PROHIBIDAS_LIQUIDO = ("descompresion_rapida", "descompresion_chaqueta",
+                               "aire_comprimido_camara", "vapor_camara")
 DE_PROCESO = ("descompresion_lenta", "descompresion_rapida", "descompresion_chaqueta",
               "aire_admosferico_camara", "aire_comprimido_camara", "vapor_camara",
               "vapor_chaqueta", "agua_chaqueta", "vacio_camara", "bomba_vacio")
@@ -130,33 +121,37 @@ def _arrancar(a):
     a["loop"].recuperar_ciclo_interrumpido(a["programa"].copia())
 
 
-def _seguir(a, limite_s=4 * 3600, cada=None):
-    """Hasta que termina el estado seguro (o el límite). Devuelve lo visto."""
+def _seguir(a, limite_s=2 * 3600, cada=None):
+    """Hasta que la presión de cámara queda en la banda atmosférica 3 ticks
+    seguidos (o el límite). Devuelve lo visto."""
     visto = {"confirmacion": False, "causas": set(), "abiertas": set(), "lenta_en_vacio": False,
-             "listo": False, "t0": a["reloj"][0], "aire_con_presion": 0}
+             "listo": False, "t0": a["reloj"][0], "aire_con_presion": 0, "activo": False}
     es = a["loop"].estado_seguro
     atm, rango = t11.P_ATM, float(a["config"].get("rango_presion_atm"))
+    seguidos = 0
     for i in range(int(limite_s / TICK_S)):
         _tick(a)
         if cada is not None:
             cada(i)
         visto["confirmacion"] |= es.requiere_confirmacion
+        visto["activo"] |= es.activo
         if es.causa:
             visto["causas"].add(es.causa)
-        if es.activo:
-            # salidas mientras el protocolo manda (al terminar, PREPARACION
-            # retoma su control normal en el mismo tick)
-            visto["abiertas"] |= {k for k in DE_PROCESO if a["modulo_es"].on(k)}
-            if a["modulo_es"].on("descompresion_lenta") and a["p_publicada"] < atm - rango:
-                visto["lenta_en_vacio"] = True
-        # SAF-03 (revisión ★): por tick, con o sin protocolo activo
+        visto["abiertas"] |= {k for k in DE_PROCESO if a["modulo_es"].on(k)}
+        if a["modulo_es"].on("descompresion_lenta") and a["p_publicada"] < atm - rango:
+            visto["lenta_en_vacio"] = True
+        # SAF-03 (revisión): por tick
         if a["modulo_es"].on("aire_admosferico_camara") and a["p_publicada"] > atm + rango:
             visto["aire_con_presion"] += 1
+        # con la presión fuera de la banda la cámara no es segura: nunca listo
+        if abs(a["p_publicada"] - atm) > rango:
             visto["listo"] |= bool(a["estado"].get_flag("LISTO_PARA_CICLO"))
-        if i > 2 and not es.activo and a["loop"]._recuperacion_pendiente is None:
+        segura, _ = camara_segura.evaluar_presion(a["estado"], a["config"])
+        seguidos = seguidos + 1 if segura else 0
+        if i > 2 and seguidos >= 3 and a["loop"]._recuperacion_pendiente is None:
             break
     visto["minutos"] = round((a["reloj"][0] - visto["t0"]) / 60, 1)
-    visto["estado_seguro_alcanzado"] = not es.activo
+    visto["presion_nivelada"] = seguidos >= 3
     visto["T"], visto["P"] = round(a["planta"].t_sonda, 1), round(a["planta"].p, 1)
     return visto
 
@@ -166,8 +161,8 @@ def _resumen(visto, **extra):
             "salidas_abiertas": sorted(visto["abiertas"]) or ["ninguna"],
             "lenta_en_vacio": visto["lenta_en_vacio"],
             "ticks_aire_abierto_con_presion": visto["aire_con_presion"],
-            "estado_seguro_alcanzado": visto["estado_seguro_alcanzado"],
-            "listo_durante_el_protocolo": visto["listo"], "min": visto["minutos"],
+            "presion_nivelada": visto["presion_nivelada"], "protocolo_activo": visto["activo"],
+            "listo_con_camara_no_segura": visto["listo"], "min": visto["minutos"],
             "T_final": visto["T"], "P_final": visto["P"], **extra}
 
 
@@ -204,10 +199,9 @@ def _arranque_sin_presion(a, programas_fabrica=None, **_):
     a["estado"].set_flag("START_CICLO", True)
     for _ in range(5):
         _tick(a)
-    return _resumen(visto, alarmas=activas, cic10_motivo=loop.estado_seguro.bloqueado_motivo,
+    return _resumen(visto, alarmas=activas,
                     modo_prueba_permitido=ok_prueba, motivo_prueba=motivo_prueba or "—",
                     cambio_programa_permitido=ok_programa, motivo_programa=motivo_programa or "—",
-                    estado_seguro_sigue_activo=loop.estado_seguro.activo,
                     inicio_bloqueado=a["estado"].get_machine_state() != GlobalState.CICLO)
 
 
@@ -230,34 +224,14 @@ def _paro_real_en_arranque(a, **_):
         _tick(a)
         movidas |= {k for k in DE_PROCESO if a["modulo_es"].on(k)}
     confirmado = loop.confirmar_estado_seguro()
+    estado_tras_confirmar = a["estado"].get_machine_state()
     visto = _seguir(a)
     return _resumen(visto, confirmacion_tras_paro=pide, causa_tras_paro=causa,
-                    salidas_sin_confirmar=sorted(movidas) or ["ninguna"], confirmado=confirmado)
+                    salidas_sin_confirmar=sorted(movidas) or ["ninguna"], confirmado=confirmado,
+                    estado_tras_confirmar=estado_tras_confirmar)
 
 
-def _cambio_programa_en_protocolo(a, programas_fabrica=None, **_):
-    _caliente_a_presion(a["planta"])
-    _arrancar(a)
-    loop = a["loop"]
-    for _ in range(20):
-        _tick(a)
-    del_protocolo = loop.estado_seguro.programa
-    otro = next(p for n, p in sorted(programas_fabrica.items())
-                if p.id != a["programa"].id)
-    ok, motivo = loop.set_active_cycle(otro)
-    sigue = {"en_programas": True, "temp_max": []}
-
-    def revisar(_i):
-        if loop.estado_seguro.activo:
-            sigue["en_programas"] &= any(p is del_protocolo for p in loop.programas_para_seguridad())
-            sigue["temp_max"].append(loop.temp_max_tras_ciclo())
-    visto = _seguir(a, cada=revisar)
-    return _resumen(visto, cambio_permitido=ok, motivo_cambio=motivo or "—",
-                    programa_protocolo_sigue_contando=sigue["en_programas"],
-                    temp_max_durante=sorted({v for v in sigue["temp_max"] if v is not None}))
-
-
-def _modo_prueba_en_protocolo(a, **_):
+def _modo_prueba_en_arranque(a, **_):
     from autoclave.core.runtime import salidas_prueba_seguridad as sps
     _caliente_a_presion(a["planta"])
     _arrancar(a)
@@ -283,36 +257,6 @@ def _modo_prueba_en_protocolo(a, **_):
                     encendidas_tras_un_tick=encendidas or ["ninguna"])
 
 
-def _ai_vencida_en_protocolo(a, **_):
-    _caliente_a_presion(a["planta"])
-    _arrancar(a)
-    loop = a["loop"]
-    for _ in range(30):
-        _tick(a)
-    original = a["publicar"]
-    congelada = {"P": t11.P_ATM}
-
-    def publicar(estado):
-        original(estado)
-        estado.sensores_pres["pres_camara"] = congelada["P"]      # Units congelada
-    a["publicar"] = publicar
-    a["link"].edad_ultima_ai.return_value = 10.0                  # sin tramas AI
-    antes = {k for k in DE_PROCESO if a["modulo_es"].on(k)}
-    nuevas, termino = set(), False
-    for _ in range(40):
-        _tick(a)
-        nuevas |= {k for k in DE_PROCESO if a["modulo_es"].on(k)} - antes
-        termino |= not loop.estado_seguro.activo
-    motivo = loop.estado_seguro.bloqueado_motivo
-    solo_lenta = getattr(loop.estado_seguro._protocolo, "solo_lenta", None)
-    a["publicar"] = original
-    a["link"].edad_ultima_ai.return_value = 0.1
-    visto = _seguir(a)
-    return _resumen(visto, nuevas_con_ai_vencida=sorted(nuevas) or ["ninguna"],
-                    termino_con_ai_vencida=termino, motivo_con_ai_vencida=motivo or "—",
-                    solo_lenta_con_ai_vencida=solo_lenta)
-
-
 def _arranque_vacio_con_fuga(a, **_):
     _en_vacio(a["planta"])
     _arrancar(a)
@@ -333,9 +277,7 @@ def _arranque_vacio_con_fuga(a, **_):
 _CELDAS = {"arranque_presurizado": _arranque_presurizado, "arranque_vacio": _arranque_vacio,
            "arranque_sin_presion": _arranque_sin_presion,
            "paro_real_en_arranque": _paro_real_en_arranque,
-           "cambio_programa_en_protocolo": _cambio_programa_en_protocolo,
-           "modo_prueba_en_protocolo": _modo_prueba_en_protocolo,
-           "ai_vencida_en_protocolo": _ai_vencida_en_protocolo,
+           "modo_prueba_en_arranque": _modo_prueba_en_arranque,
            "arranque_vacio_con_fuga": _arranque_vacio_con_fuga}
 
 
@@ -345,54 +287,47 @@ def test_ensayo_s9(programas, monkeypatch, numero, celda):  # noqa: F811
     a = _equipo(programas[numero], monkeypatch, programas)
     r = _CELDAS[celda](a, programas_fabrica=programas)
     RESULTADOS[(numero, celda)] = r
+    liquido = programas[numero].get_param("globals", "tipo_carga", default=None) in (None, "liquido")
+    # Hotfix ES: nunca hay protocolo automático
+    assert r["protocolo_activo"] is False, r
     if celda != "paro_real_en_arranque":
         assert r["confirmacion_pedida"] is False, r
         assert "paro_liberado" not in r["causas"], r
-    assert r["listo_durante_el_protocolo"] is False, r
+    assert r["listo_con_camara_no_segura"] is False, r
     assert r["ticks_aire_abierto_con_presion"] == 0, r        # SAF-03, por tick
-    if celda in ("arranque_presurizado", "paro_real_en_arranque", "cambio_programa_en_protocolo",
-                 "modo_prueba_en_protocolo", "ai_vencida_en_protocolo"):
-        assert "descompresion_lenta" in r["salidas_abiertas"], r
-        assert not set(r["salidas_abiertas"]) & set(VALVULAS_PROHIBIDAS_LENTA), r
-        assert r["lenta_en_vacio"] is False, r      # al enfriarse en vacío: aire atmosférico
-        assert r["estado_seguro_alcanzado"] is True, r
+    if celda in ("arranque_presurizado", "paro_real_en_arranque", "modo_prueba_en_arranque"):
+        venteo = "descompresion_lenta" if liquido else "descompresion_rapida"
+        assert venteo in r["salidas_abiertas"], r
+        if liquido:
+            assert not set(r["salidas_abiertas"]) & set(VALVULAS_PROHIBIDAS_LIQUIDO), r
+        assert r["lenta_en_vacio"] is False, r
+        assert r["presion_nivelada"] is True, r
     if celda == "arranque_vacio":
         assert "aire_admosferico_camara" in r["salidas_abiertas"], r
         assert r["lenta_en_vacio"] is False, r
-        assert r["estado_seguro_alcanzado"] is True, r
+        assert r["presion_nivelada"] is True, r
     if celda == "arranque_sin_presion":
-        assert r["salidas_abiertas"] == ["ninguna"], r
-        # Tanda 17 (ESG-01, decisión de Cristian): sin presión de cámara no se
-        # activa CIC-10; solo la alarma del sensor
+        assert not set(r["salidas_abiertas"]) & {"descompresion_lenta", "descompresion_rapida",
+                                                 "aire_admosferico_camara", "vapor_camara"}, r
         assert "SEN-06" in r["alarmas"] and "CIC-10" not in r["alarmas"], r
-        assert r["cic10_motivo"].startswith("Sensor de presión de cámara"), r
         assert r["modo_prueba_permitido"] and r["cambio_programa_permitido"], r
-        assert r["estado_seguro_sigue_activo"] and r["inicio_bloqueado"], r
-        assert r["causas"] == ["ciclo_interrumpido"], r
+        assert r["inicio_bloqueado"], r
+        assert r["causas"] == [], r
     if celda == "paro_real_en_arranque":
         assert r["confirmacion_tras_paro"] is True and r["causa_tras_paro"] == "paro_liberado", r
         assert r["salidas_sin_confirmar"] == ["ninguna"], r
         assert r["confirmado"] is True, r
-    if celda == "modo_prueba_en_protocolo":
+        assert r["estado_tras_confirmar"] == GlobalState.PREPARACION, r
+    if celda == "modo_prueba_en_arranque":
         assert r["modo_prueba_permitido"] is True, r
-        # Tanda 17 (ESG-02, decisión de Cristian): con lectura vigente de
-        # presión se retiran los bloqueos propios del estado seguro (la rápida
-        # y, con las puertas cerradas, el vapor de cámara quedan libres); solo
-        # quedan apertura y desbloqueo de puertas con la cámara presurizada
+        # ESG-02: con lectura vigente de presión solo quedan apertura y
+        # desbloqueo de puertas con la cámara presurizada
         assert set(r["bloqueadas_en_prueba"]) == {
             "abrir_puerta_1", "abrir_puerta_2", "desbloqueo_puerta_1", "desbloqueo_puerta_2"}, r
         assert r["encendidas_tras_un_tick"] == ["descompresion_rapida", "vapor_camara"], r
-    if celda == "ai_vencida_en_protocolo":
-        assert r["nuevas_con_ai_vencida"] == ["ninguna"], r
-        assert r["termino_con_ai_vencida"] is False, r
-        assert r["motivo_con_ai_vencida"].startswith("Sensor de presión de cámara"), r
     if celda == "arranque_vacio_con_fuga":
         assert r["fuga_aplicada"] is True, r
         assert "aire_admosferico_camara" in r["salidas_abiertas"], r
-    if celda == "cambio_programa_en_protocolo":
-        assert r["cambio_permitido"] is True, r
-        assert r["programa_protocolo_sigue_contando"] is True, r
-        assert r["temp_max_durante"] and max(r["temp_max_durante"]) <= 80.0, r
 
 
 def test_escribir_informe_s9():

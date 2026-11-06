@@ -14,7 +14,7 @@ from fastapi.testclient import TestClient
 from autoclave.core.runtime.status import EstadoAutoclave
 from autoclave.state_machine.alarms.alarm_manager import AlarmManager
 from autoclave.state_machine.cycle_phases.protocolo_fallo import ProtocoloFallo
-from autoclave.state_machine.estado_seguro import ProtocoloEstadoSeguro
+
 from autoclave.state_machine.machine.enum_global import GlobalState
 from autoclave.state_machine.state_machine import StateMachine
 from tests.test_t3_sensores_ciclo import _ASIG_REF, _ciclo
@@ -123,19 +123,6 @@ def test_reset_quita_solo_lenta():
 
 # ── Estado seguro y FALLA ─────────────────────────────────────────────────
 
-def test_estado_seguro_permite_salir_de_falla_solo_con_el_principal_perdido():
-    estado = SimpleNamespace(sensores_pres={"pres_camara": 250.0}, sensores_temp={},
-                             get_flag=lambda f: False)
-    es = ProtocoloEstadoSeguro(estado, _Config(_CFG))
-    prot = MagicMock(ejecutado=True, solo_lenta=True)
-    es.iniciar(prot)
-    assert es.permite_salir_de_falla is True
-    es.requiere_confirmacion = True                    # tras un paro: no
-    assert es.permite_salir_de_falla is False
-    es2 = ProtocoloEstadoSeguro(estado, _Config(_CFG))
-    es2.iniciar(MagicMock(ejecutado=True, solo_lenta=False))
-    assert es2.permite_salir_de_falla is False
-    assert ProtocoloEstadoSeguro(estado, _Config(_CFG)).permite_salir_de_falla is False
 
 
 def _sm():
@@ -149,20 +136,12 @@ def _sm():
     return sm, estado, es
 
 
-def test_falla_pasa_a_preparacion_con_el_protocolo_del_principal_perdido():
+def test_falla_pasa_a_preparacion_con_el_reconocimiento():
+    # Hotfix ES (6-nov): sin protocolo de estado seguro, FALLA sale con el
+    # reconocimiento (ya no espera a la cámara segura)
     sm, estado, es = _sm()
-    es.activo = True
-    es.permite_salir_de_falla = True
     sm.update()
     assert estado.get_machine_state() == GlobalState.PREPARACION
-
-
-def test_falla_sigue_esperando_el_estado_seguro_en_los_demas_casos():
-    sm, estado, es = _sm()
-    es.activo = True
-    es.permite_salir_de_falla = MagicMock()            # no es True: no cuenta
-    sm.update()
-    assert estado.get_machine_state() == GlobalState.FALLA
 
 
 # ── /cycle/start ───────────────────────────────────────────────────────────

@@ -22,14 +22,6 @@ class DetalleAvisoQml(QObject):
             contexto = contexto.toVariant()
         return detalle_aviso.armar(clave, contexto if isinstance(contexto, dict) else {})
 
-    @Slot("QVariant", str, result=str)
-    def textoEspera(self, contexto=None, idioma="es") -> str:
-        """A10 (tanda 28): nota de la fila de estado seguro en curso (pausa
-        por modo prueba o motivo pendiente con valor y límite)."""
-        if hasattr(contexto, "toVariant"):
-            contexto = contexto.toVariant()
-        return detalle_aviso.texto_espera(contexto if isinstance(contexto, dict) else {}, idioma)
-
 
 instancia = DetalleAvisoQml()
 

@@ -21,7 +21,7 @@ import pytest
 import autoclave.state_machine.cycle_phases.protocolo_fallo as modulo
 from autoclave.state_machine.cycle_phases.protocolo_fallo import (
     _DEBOUNCE_LECTURAS, ProtocoloFallo)
-from autoclave.state_machine.estado_seguro import ProtocoloEstadoSeguro
+
 
 _ASIG = {"temp_camara": "principal", "temp_2_camara": "no_en_uso", "temp_ref": "referencia"}
 _CFG = {"presion_admosferica": 101.3, "rango_presion_atm": 10.0, "temp_max_apertura": 80.0}
@@ -362,24 +362,6 @@ def test_cicloestado_fuera_del_enfriamiento_no_cambia(modo, sub):
 
 # ── Estado seguro: sale de FALLA (D8-2.6) pero NO ABRIR sigue ─────────────
 
-def test_estado_seguro_sellado_permite_salir_de_falla_y_no_es_segura():
-    prot, estado, set_do = _protocolo(4, ref=95.0)
-    prot.ejecutar()
-    _perder_principal(prot, estado)
-    estado.get_flag = lambda f: False
-    eventos = []
-    es = ProtocoloEstadoSeguro(estado, _Config(_CFG),
-                               al_evento=lambda e, d: eventos.append((e, d)))
-    es.iniciar(prot)
-    for _ in range(5):
-        es.update()
-    assert es.activo is True                          # la cámara no es segura
-    assert es.permite_salir_de_falla is True
-    estado.sensores_temp["temp_ref"] = 70.0
-    for _ in range(_DEBOUNCE_LECTURAS):
-        es.update()
-    assert prot.sellado is False
-    assert any(e == "estado_seguro_venteo_tras_sellado" for e, _ in eventos)
 
 
 # ── Revisión S2a ───────────────────────────────────────────────────────────
@@ -459,22 +441,3 @@ def test_sin_presion_sellada_no_alivia():
         prot.update()
     set_do.descompresion_lenta_on.assert_not_called()
 
-
-def test_cic10_vuelve_si_el_reinicio_la_resolvio():
-    # SAF-03: al salir de FALLA se resuelven todas; con la cámara sellada
-    # CIC-10 tiene que volver a verse
-    from autoclave.state_machine.alarms.alarm_manager import AlarmManager
-    from autoclave.state_machine.alarms.catalogo import CIC_10
-    prot, estado, _ = _protocolo(4, ref=110.0)
-    prot.ejecutar()
-    _perder_principal(prot, estado)
-    estado.get_flag = lambda f: False
-    am = AlarmManager()
-    es = ProtocoloEstadoSeguro(estado, _Config(_CFG), alarm_manager=am)
-    es.iniciar(prot)
-    es.update()
-    assert CIC_10 in [i.codigo for i in am.activas()]
-    for i in list(am.activas()):
-        am.resolver(i.codigo)
-    es.update()
-    assert CIC_10 in [i.codigo for i in am.activas()]

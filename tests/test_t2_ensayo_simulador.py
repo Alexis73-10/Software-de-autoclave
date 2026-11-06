@@ -8,8 +8,6 @@ from pathlib import Path
 
 import pytest
 
-from autoclave.core.runtime import camara_segura
-from autoclave.state_machine.estado_seguro import ProtocoloEstadoSeguro
 from autoclave.state_machine.states import ciclo as modulo_ciclo
 from autoclave.state_machine.states.ciclo import CicloResultado
 from tests import test_e1_ensayo_simulador as e1
@@ -28,39 +26,8 @@ def _hasta_pendiente(a, limite_s=4 * 3600):
     raise AssertionError("el ciclo no terminó")
 
 
-def _estado_seguro(a, limite_s=3 * 3600):
-    """Lo que hace la StateMachine al reconocer: protocolo + estado seguro."""
-    es = ProtocoloEstadoSeguro(a["estado"], a["config"],
-                               programas_seguridad=lambda: [a["ciclo"].cycle])
-    es.mantener_drenaje = a["ciclo"]._mantener_drenaje
-    es.iniciar(a["ciclo"]._protocolo)
-    rapida_caliente, t0 = None, a["reloj"][0]
-    for _ in range(int(limite_s / DT)):
-        a["planta"].publicar(a["estado"])
-        es.update()
-        if a["modulo_es"].on("descompresion_rapida") and a["planta"].t > 80.5:
-            rapida_caliente = max(rapida_caliente or 0, a["planta"].t)
-        if not es.activo:
-            break
-        e1._avanzar(a)
-    return es, rapida_caliente, round((a["reloj"][0] - t0) / 60, 1)
-
-
-def _evento_p1(a):
-    """Completo + reconocimiento: si la cámara no está segura, estado seguro."""
-    _hasta_pendiente(a)
-    a["estado"].set_flag("CICLO_CONFIRMADO", True)
-    a["planta"].publicar(a["estado"])
-    assert a["ciclo"].run() == CicloResultado.COMPLETADO
-    segura, motivo = camara_segura.evaluar(a["estado"], a["config"], [a["ciclo"].cycle], None)
-    if segura:
-        return {"camara_segura_al_reconocer": True, "fase_final": "PREPARADO",
-                "rapida_caliente": None, "min_estado_seguro": 0.0}
-    a["ciclo"]._protocolo.ejecutar(abrir_valvulas=True)
-    es, rapida, minutos = _estado_seguro(a)
-    return {"camara_segura_al_reconocer": False, "motivo": motivo,
-            "fase_final": "ESTADO SEGURO" if not es.activo else "NO LLEGÓ",
-            "rapida_caliente": rapida, "min_estado_seguro": minutos}
+# Hotfix ES (6-nov): se retiró el evento p1 (protocolo de estado seguro tras
+# reconocer un COMPLETADO con la cámara no segura); ver test_hotfix_es_retiro.py
 
 
 def _evento_p2(a):
@@ -107,7 +74,7 @@ def _evento_p3(a):
             "salidas_proceso": fuera}
 
 
-_EVENTOS = {"p1_completo_reconocido": _evento_p1, "p2_principal_perdido": _evento_p2,
+_EVENTOS = {"p2_principal_perdido": _evento_p2,
             "p3_di_vencida": _evento_p3}
 
 
@@ -117,12 +84,7 @@ def test_ensayo_t2(programas, monkeypatch, tmp_path, numero, evento):  # noqa: F
     a = e1._armar(programas[numero], monkeypatch, tmp_path)
     r = _EVENTOS[evento](a)
     RESULTADOS[(numero, evento)] = r
-    liquido = programas[numero].get_param("globals", "tipo_carga", default="solido") == "liquido"
-    if evento == "p1_completo_reconocido":
-        assert r["fase_final"] in ("PREPARADO", "ESTADO SEGURO"), r
-        if liquido:
-            assert r["rapida_caliente"] is None, r
-    elif evento == "p2_principal_perdido":
+    if evento == "p2_principal_perdido":
         assert r["fase_final"] == "SENSOR_AUSENTE" and r["solo_lenta"] is True, r
         assert not r["rapida_abierta"] and not r["chaqueta_abierta"] and not r["contrapresion"], r
         assert r["bloqueado"] is True                         # CIC-10: no puede terminar solo

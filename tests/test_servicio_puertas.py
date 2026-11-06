@@ -89,7 +89,7 @@ def test_la_configuracion_se_lee_en_vivo(entorno):
     estado.sensores_temp["temp_camara"] = 100.0
     config["temp_max_apertura"] = 90.0
     ok, motivo = servicio.request_open("Puerta 1")
-    assert not ok and "Temperatura demasiado alta" in motivo
+    assert not ok and "Temperatura 100 °C, máximo 90 °C" in motivo
 
 
 @pytest.mark.parametrize("pres,fragmento", [(81.0, "Sobrepresión"), (69.0, "vacío")])

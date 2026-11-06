@@ -135,7 +135,7 @@ r["2_aviso_naranja"] = visible(E, "avisoParoLiberado")
 boton = fila(E, "botonConfirmarEstadoSeguro")
 r["2_boton_habilitado"] = visible(E, "botonConfirmarEstadoSeguro") and bool(boton.property("habilitado"))
 r["2_parpadeo"] = p("urgente") and p("parpadeo")
-r["2_sin_indicador"] = not visible(E, "indicadorEnCurso")
+r["2_sin_indicador"] = fila(E, "indicadorEnCurso") is None or not visible(E, "indicadorEnCurso")
 comandos.setProperty("ocupado", True)
 r["2_enviando_deshabilita"] = not bool(boton.property("habilitado")) and visible(E, "indicadorEnCurso")
 comandos.setProperty("ocupado", False)
@@ -143,23 +143,12 @@ comandos.setProperty("mensaje", "Sin conexión")
 r["2_mensaje_rechazo"] = visible(E, "mensajeConfirmar")
 comandos.setProperty("mensaje", "")
 
-# 3. en curso: botón deshabilitado con indicador y nota NO ABRIR; insignia amarilla
+# 3. (hotfix ES, 6-nov) ya no hay "estado seguro en curso": sin confirmación
+# pendiente no queda ninguna fila del estado seguro ni el botón
 puente.setProperty("estadoSeguroRequiereConfirmacion", False)
-r["3_fila"] = visible(E, "filaEstadoSeguroEnCurso") and not visible(E, "filaEstadoSeguroPendiente")
-r["3_boton_deshabilitado"] = visible(E, "botonConfirmarEstadoSeguro") and not bool(boton.property("habilitado"))
-r["3_indicador"] = visible(E, "indicadorEnCurso") and visible(E, "notaNoAbrirEnCurso")
-r["3_insignia"] = p("avisoEnCurso") and not p("urgente") and not p("parpadeo")
-# S4 (CIC-10): estado seguro detenido: aviso con la acción y botón de asignar sonda
-r["s4_sin_bloqueo_oculto"] = (not visible(E, "avisoEstadoSeguroDetenido")
-                              and not visible(E, "botonAsignarSonda"))
-puente.setProperty("estadoSeguroBloqueadoMotivo", "Sensor Principal sin lectura")
-puente.setProperty("estadoSeguroBloqueoPorSonda", True)   # V8b: lo calcula ui_bridge
-r["s4_aviso"] = (visible(E, "avisoEstadoSeguroDetenido") and visible(E, "botonAsignarSonda")
-                 and "Sensor Principal sin lectura" in fila(E, "avisoEstadoSeguroDetenido").property("texto")
-                 and "Parámetros del ciclo" in fila(E, "avisoEstadoSeguroDetenido").property("texto"))
-r["s4_sigue_no_abrir"] = visible(E, "filaEstadoSeguroEnCurso") and fila(E, "botonDeclararSegura") is None
-puente.setProperty("estadoSeguroBloqueadoMotivo", "")
-puente.setProperty("estadoSeguroBloqueoPorSonda", False)
+r["3_sin_filas_en_curso"] = (fila(E, "filaEstadoSeguroEnCurso") is None
+                             and not visible(E, "botonConfirmarEstadoSeguro")
+                             and not p("avisoEnCurso"))
 puente.setProperty("estadoSeguroActivo", False)
 
 # sin conexión con el backend: seguridad desconocida, contada, roja fija

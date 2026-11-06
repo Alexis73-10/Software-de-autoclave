@@ -29,12 +29,11 @@ from autoclave.core.runtime.status import EstadoAutoclave
 from autoclave.devices.puertas.enum_doors import DoorState
 from autoclave.state_machine.alarms.alarm_manager import AlarmManager
 from autoclave.state_machine.cycle_phases.protocolo_fallo import ProtocoloFallo
-from autoclave.state_machine.estado_seguro import ProtocoloEstadoSeguro
 from autoclave.state_machine.machine.enum_global import GlobalState
 from tests.helpers.backend_doble import cabecera, cargar_servidor, modulo_backend
 from tests.test_s9_estado_seguro_arranque import (
     _CFG, _Config, _abiertas, _arrancar, _coherencia, _estado_puerta, _loop, _programa,
-    _sen10, _tick_es)
+    _sen10)
 
 
 def _canal(clave):
@@ -92,13 +91,6 @@ def _loop_vivo(alarmas=None):
     loop.units.get_all.return_value = {}
     loop.estado.sensores_di["paro_emergencia"] = 1
     return loop
-
-
-def test_control_loop_con_estado_seguro_bloquea_puertas_y_vapor():
-    loop = _loop_vivo()
-    _arrancar(loop, pres=250.0)
-    b = loop.salidas_prueba_bloqueadas()
-    assert set(b) == set(sps.SALIDAS_PUERTA) | set(sps.SALIDAS_VAPOR)
 
 
 def test_control_loop_con_recuperacion_pendiente_bloquea():
@@ -408,50 +400,23 @@ def test_ai_vigente_en_modos_4_5_si_abre_aire_comprimido():
     assert "aire_comprimido_camara_on" in _abiertas(set_do)
 
 
-def test_ai_vencida_el_estado_seguro_no_cuenta_ticks_seguros():
-    loop = _loop()
-    _arrancar(loop, pres=250.0)
-    es = loop.estado_seguro
-    lectura = {"v": (True, None)}
-    es.lectura_ai = lambda: lectura["v"]
-    loop.estado.sensores_pres["pres_camara"] = 101.3      # congelada en "segura"
-    loop.estado.sensores_temp["temp_camara"] = 30.0
-    lectura["v"] = (False, None)
-    _tick_es(loop, 6)
-    assert es.activo
-
-
-def test_ai_vigente_el_estado_seguro_termina():
-    loop = _loop()
-    _arrancar(loop, pres=250.0)
-    es = loop.estado_seguro
-    es.lectura_ai = lambda: (True, None)
-    loop.estado.sensores_pres["pres_camara"] = 101.3
-    loop.estado.sensores_temp["temp_camara"] = 30.0
-    _tick_es(loop, 6)
-    assert not es.activo
-
-
-def test_control_loop_entrega_su_lectura_ai_al_estado_seguro():
-    loop = _loop_vivo()
-    assert loop.estado_seguro.lectura_ai is not None
-    loop.link.edad_ultima_ai.return_value = 10.0
-    assert loop.estado_seguro.lectura_ai()[0] is False
-    loop.link.edad_ultima_ai.return_value = 0.1
-    loop.link.secuencia_ultima_ai.return_value = 42
-    assert loop.estado_seguro.lectura_ai() == (True, 42)
-
-
 def test_recuperacion_no_cuenta_ticks_seguros_con_ai_vencida():
     loop = _loop_vivo()
     loop.estado.sensores_pres["pres_camara"] = 101.3
     loop.estado.sensores_temp["temp_camara"] = 30.0
-    loop.recuperar_ciclo_interrumpido(_programa())
+    prog = _programa()
+    loop.recuperar_ciclo_interrumpido(prog)
     loop.link.edad_ultima_ai.return_value = 10.0
+    eventos = []
+    loop.al_evento_seguridad = lambda e, d: eventos.append((e, d))
     for _ in range(5):
         loop._procesar_recuperacion()
-    # nunca se da por segura con la trama AI vencida: arranca el protocolo
-    assert loop.estado_seguro.activo
+    # nunca se da por segura con la trama AI vencida (hotfix ES: sin protocolo;
+    # el Principal del ciclo sigue contando para NO ABRIR)
+    assert not loop.estado_seguro.activo
+    assert eventos and eventos[0][0] == "arranque_camara_no_segura"
+    assert "AI vencida" in eventos[0][1]["motivo"]
+    assert prog in loop.programas_para_seguridad()
 
 
 def test_recuperacion_espera_la_primera_ai_de_la_conexion():
@@ -464,16 +429,6 @@ def test_recuperacion_espera_la_primera_ai_de_la_conexion():
     loop._primera_di_mono = __import__("time").monotonic()   # R2-B2: desde la primera DI
     loop._procesar_recuperacion()
     assert not loop.estado_seguro.activo and loop._recuperacion_pendiente is not None
-
-
-def test_recuperacion_sin_ai_pasada_la_vigencia_arranca_el_protocolo():
-    loop = _loop_vivo()
-    loop.estado.sensores_pres["pres_camara"] = None
-    loop.recuperar_ciclo_interrumpido(_programa())
-    loop.link.edad_ultima_ai.return_value = None
-    loop._primera_di_mono = __import__("time").monotonic() - 10.0
-    loop._procesar_recuperacion()
-    assert loop.estado_seguro.activo
 
 
 # ── TMG-03: _seguir_presion_perdida cuenta tramas AI distintas ─────────────
@@ -575,23 +530,6 @@ def test_reanudar_tras_un_paro_conserva_la_espera_sin_sonda():
     assert prot._sin_sonda_desde == 123.0
 
 
-def test_estado_seguro_reanuda_tras_modo_prueba_con_el_indicador():
-    loop = _loop()
-    _arrancar(loop, pres=250.0)
-    _tick_es(loop)
-    prot = loop.estado_seguro._protocolo
-    prot.reanudar = MagicMock()
-    loop.estado_seguro.pausar("modo_prueba")
-    _tick_es(loop)
-    prot.reanudar.assert_called_once_with(tras_modo_prueba=True)
-    # la siguiente pausa (paro) ya no lleva el indicador
-    loop.estado.set_flag("PARO_EMERGENCIA", True)
-    _tick_es(loop)
-    loop.estado.set_flag("PARO_EMERGENCIA", False)
-    _tick_es(loop)
-    assert prot.reanudar.call_args_list[-1].kwargs.get("tras_modo_prueba", False) is False
-
-
 # ── TMG-05: contadores a cero ──────────────────────────────────────────────
 
 def test_reanudar_pone_a_cero_los_contadores_de_debounce():
@@ -615,7 +553,3 @@ def test_enter_test_mode_pone_a_cero_los_ticks_seguros_de_la_recuperacion():
     ok, _ = loop.enter_test_mode()
     assert ok and loop._ticks_seguros_recuperacion == 0
 
-
-def test_estado_seguro_tiene_lectura_ai_por_defecto_none():
-    es = ProtocoloEstadoSeguro(EstadoAutoclave(), _Config(_CFG))
-    assert es.lectura_ai is None
