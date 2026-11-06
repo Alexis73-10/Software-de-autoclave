@@ -123,6 +123,14 @@ class StateMachine:
                 self.estado_seguro.update(datos_vigentes=datos_vigentes)
             except Exception:
                 logger.exception("StateMachine: error en el protocolo de estado seguro")
+                # A13-M1 (tanda 28b): el secado tras fallo no queda con la
+                # bomba y el vacío encendidos (el lazo sigue: MOD-08 no apaga)
+                cortar = getattr(self.estado_seguro, "cortar_secado", None)
+                if callable(cortar):
+                    try:
+                        cortar("error")
+                    except Exception:
+                        logger.exception("StateMachine: no se pudo cortar el secado tras fallo")
 
         # Detectar cambio de estado → disparar hook de entrada
         if current_state != self.prev_state:

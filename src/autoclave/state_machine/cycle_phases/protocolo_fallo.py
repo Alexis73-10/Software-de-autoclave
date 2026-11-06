@@ -96,7 +96,13 @@ MOTIVOS_SECADO = (
     "desactivado", "no_aplica", "carga_liquida", "sin_bomba", "sin_secado_programa",
     "fallo_vacio", "paro", "datos_no_vigentes", "sin_presion", "sin_principal",
     "puerta_abierta", "modo_prueba", "sellado",
+    # A13, revisión de seguridad (tanda 28b): M1, M2 y B2
+    "error", "sin_referencia_atm", "salidas_sin_confirmar",
 )
+# A13-B1 (tanda 28b): motivos de corte que, con el secado todavía PENDIENTE
+# (no empezó), lo dejan OMITIDO: un paro, el modo prueba o un error interno
+# antes de la banda atmosférica no deben dejar que la bomba arranque después
+_MOTIVOS_OMITEN_PENDIENTE = ("paro", "modo_prueba", "error")
 
 
 class ProtocoloFallo:
@@ -1023,6 +1029,11 @@ class ProtocoloFallo:
         empezar): None si puede seguir."""
         if self.estado.get_flag("PARO_EMERGENCIA"):
             return "paro"
+        if not self._salidas_apagadas:
+            # A13-B2 (tanda 28b): con el ALL_OFF del disparo sin confirmar,
+            # update() manda reset_all_outputs en cada tick; el secado la
+            # volvería a encender: la bomba conmutaría cada tick
+            return "salidas_sin_confirmar"
         if not self._ai_vigente_tick:
             return "datos_no_vigentes"
         if not lectura_valida(self._pres_camara()):
@@ -1033,6 +1044,13 @@ class ProtocoloFallo:
             return "puerta_abierta"
         if self._sellado or self._alivio_abierto:
             return "sellado"
+        if not self._referencia_atm_configurada():
+            # A13-M2 (tanda 28b): sin referencia atmosférica la RUPTURA no abre
+            # el aire y el vacío no se rompería nunca: no se empieza y, si la
+            # referencia se pierde a mitad (cambio en Parámetros del equipo),
+            # se corta (bomba y vacío apagados ya; el protocolo sigue y, en
+            # vacío, tampoco abre el aire: NO ABRIR por camara_segura)
+            return "sin_referencia_atm"
         # el fallo del sistema de vacío solo corta mientras se hace vacío (la
         # ruptura con aire no usa la bomba)
         if self._secado_fase in (None, _SEC_SECADO) and self._fallo_de_vacio():
@@ -1078,8 +1096,13 @@ class ProtocoloFallo:
     def cortar_secado(self, motivo: str) -> None:
         """Corta el secado tras fallo en curso (paro, modo prueba, datos no
         vigentes, puerta, sensor...): bomba y vacío apagados ya y no se
-        reanuda solo; el protocolo sigue como hoy. Sin secado en curso, nada."""
+        reanuda solo; el protocolo sigue como hoy. Sin secado en curso, nada,
+        salvo A13-B1 (tanda 28b): con el secado todavía pendiente, un paro, el
+        modo prueba o un error lo dejan OMITIDO con ese motivo."""
         if self._secado_fase not in _SEC_EN_CURSO:
+            if (motivo in _MOTIVOS_OMITEN_PENDIENTE
+                    and (self._secado_resultado or {}).get("estado") == SECADO_PENDIENTE):
+                self._fijar_secado(SECADO_OMITIDO, motivo)
             return
         segundos = (time.monotonic() - self._secado_t0) if self._secado_t0 is not None else None
         self._apagar_vacio()
@@ -1141,6 +1164,22 @@ class ProtocoloFallo:
     # ------------------------------------------------------------------
 
     def update(self):
+        """A13-M1 (tanda 28b): un error en cualquier punto de un update() con
+        el secado en curso no deja la bomba y el vacío con la última orden ON
+        (MOD-08 no apaga: el lazo sigue vivo). Se corta el secado (motivo
+        "error", no se reanuda) y la excepción sigue su camino (la registra
+        quien llama, como siempre)."""
+        try:
+            self._update()
+        except Exception:
+            if self._secado_fase in _SEC_EN_CURSO:
+                try:
+                    self.cortar_secado("error")
+                except Exception:
+                    logger.exception("Protocolo fallo: no se pudo cortar el secado tras el error")
+            raise
+
+    def _update(self):
         if not self._ejecutado:
             return
 

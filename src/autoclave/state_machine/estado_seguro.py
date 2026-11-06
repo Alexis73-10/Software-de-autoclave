@@ -392,6 +392,14 @@ class ProtocoloEstadoSeguro:
                 logger.exception("Estado seguro: no se pudo resolver la alarma de bloqueo")
         self._alarma_bloqueo = None
 
+    def cortar_secado(self, motivo: str) -> None:
+        """A13-M1 (tanda 28b): corte del secado tras fallo desde fuera (la
+        StateMachine, ante un error del estado seguro). Nunca lanza."""
+        try:
+            self._cortar_secado(motivo)
+        except Exception:
+            logger.exception("Estado seguro: no se pudo cortar el secado tras fallo")
+
     def _cortar_secado(self, motivo: str) -> None:
         """A13: corta el secado tras fallo del protocolo, si lo hay."""
         cortar = getattr(self._protocolo, "cortar_secado", None)

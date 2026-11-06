@@ -205,7 +205,7 @@ El secado vive en `ProtocoloFallo` (`state_machine/cycle_phases/protocolo_fallo.
 
 ### Pruebas
 
-- Nuevas: `tests/test_t28b_a13_secado_tras_fallo.py` (35), con `ProtocoloFallo` y `ProtocoloEstadoSeguro` reales y salidas en un doble:
+- Nuevas: `tests/test_t28b_a13_secado_tras_fallo.py` (33; decía 35 por error, recontado en la revisión de la tanda 28b), con `ProtocoloFallo` y `ProtocoloEstadoSeguro` reales y salidas en un doble:
   - FALLO y CANCELADO sólidos con el equipo completo: 60 s de vacío con bomba y vacío en ON y vapor, escapes y aire en OFF; apagado escalonado; ruptura con aire; el estado seguro solo termina después, con 3 lecturas;
   - el estado seguro no se da por alcanzado antes de terminar la ruptura, aunque la cámara parezca segura;
   - ruptura que no llega a la banda: `sin_ruptura` y sigue el protocolo;
@@ -255,3 +255,34 @@ El secado vive en `ProtocoloFallo` (`state_machine/cycle_phases/protocolo_fallo.
 - 5.2/5.3/5.4: requisito, parámetro y diseño en CLAUDE.md y el registro de riesgos.
 - 5.5.5/5.6.6/8.2.3: unidad e integración del protocolo, del estado seguro, del ticket y de la base. Falta la revisión de seguridad, la suite completa (paso del director) y el banco (T28-A13-01).
 - SOUP: sin cambios.
+
+### Revisión de seguridad de A13 (tanda 28b): correcciones sin decisión pendiente
+
+Dos revisores de seguridad rechazaron 4db38ed8. Se corrigió lo que no requiere decisión de Cristian.
+
+- **M1 (MEDIA, corregido).** `StateMachine.update` atrapa cualquier excepción de `estado_seguro.update` y el lazo sigue. Si `ProtocoloFallo.update()` lanzaba antes de `_tick_secado`, `bomba_vacio` y `vacio_camara` quedaban con la última orden ON y MOD-08 no apagaba (el lazo seguía vivo). Ahora:
+  - `ProtocoloFallo.update()` envuelve el cuerpo (`_update()`): ante cualquier excepción con el secado en curso llama `cortar_secado("error")` (bomba, vacío y aire atmosférico OFF, resultado `cortado`, no se reanuda) y vuelve a lanzar, para que quien llama la registre como siempre. Cubre el bloque del secado y todo lo anterior, en `CicloState` y en el estado seguro.
+  - El `except` de `StateMachine.update` llama `estado_seguro.cortar_secado("error")` (método público nuevo que nunca lanza), para un error del estado seguro fuera del protocolo.
+- **M2 (MEDIA, corregido).** `_iniciar_secado` no exigía `_referencia_atm_configurada()`, pero la RUPTURA sí: sin referencia, el vacío no se rompía nunca. La referencia entra en `_motivo_corte_secado`, que rige al empezar y en cada tick: sin ella el secado queda `omitido` y, si se pierde a mitad (cambio en Parámetros del equipo), se corta. Motivo propio `sin_referencia_atm`. Evaluación de seguirla exigiendo durante el vacío: sí. Seguir haciendo vacío sin poder romperlo solo profundiza el vacío, y el protocolo normal tampoco abre el aire sin referencia: la cámara queda en vacío con NO ABRIR (lado seguro), igual que antes del secado.
+- **B1 (BAJA, corregido).** `cortar_secado` con el secado todavía `pendiente` y motivo `paro`, `modo_prueba` o `error` lo deja `omitido` con ese motivo. Antes no hacía nada y el secado podía arrancar después de un paro o del modo prueba. Aplica en `ProtocoloEstadoSeguro.update` (paro, también con la confirmación pendiente), `pausar("modo_prueba")` y `CicloState` (paro con el resultado pendiente). Los datos no vigentes antes de la banda no lo omiten: al volver se decide como siempre.
+- **B2 (BAJA, corregido).** Con el ALL_OFF del disparo sin confirmar, `update()` manda `reset_all_outputs` en cada tick y `_salidas_secado` volvía a encender la bomba: conmutaba cada tick. `not self._salidas_apagadas` entra en `_motivo_corte_secado` (condición de inicio y de corte), motivo `salidas_sin_confirmar`.
+- **B4 (pruebas, corregido).** Ver abajo. El conteo de `tests/test_t28b_a13_secado_tras_fallo.py` es **33** (el informe y HAZ-SFF-01 decían 35; recontado con `pytest --collect-only`). Corregido en HAZ-SFF-01 y aquí.
+- Textos nuevos `ticket_ciclo.secado_motivo.{error, sin_referencia_atm, salidas_sin_confirmar}` (es/en), en `MOTIVOS_SECADO` (la familia de `test_i18n`).
+
+**Pruebas:** `tests/test_t28b_a13r_secado_revision.py` (17, nuevo), con `ProtocoloFallo`, `ProtocoloEstadoSeguro`, `CicloState`, `StateMachine` y `ControlLoop` reales:
+- M1: excepción inyectada en `_seguir_presion_perdida` (antes del bloque del secado) y en `_tick_secado`; excepción del estado seguro atrapada por `StateMachine.update` (no lanza, bomba y vacío OFF y no vuelven a encenderse en los ticks siguientes); error antes de empezar = omitido.
+- M2: sin `presion_admosferica` o sin `rango_presion_atm` no empieza; referencia inválida a mitad lo corta (aire cerrado).
+- B1: paro y modo prueba antes de la banda lo omiten; datos no vigentes antes de la banda no.
+- B2: ALL_OFF sin confirmar desde el disparo (la bomba nunca recibe ON) y ALL_OFF que deja de confirmarse a mitad.
+- B4: `CicloState` real con el resultado FALLO pendiente y paro (`ciclo.py`, paro con resultado pendiente): omitido por paro; paro durante el secado en `CicloState`: cortado; secado empezado en `CicloState` que sigue en el estado seguro al confirmar (`iniciar` → `reanudar` sin perder el secado ni su fin) y termina `hecho` con sus 10 s; arranque tras un ciclo interrumpido (`_procesar_recuperacion`): el protocolo recibe `profile` y `alarm_manager` y el secado queda pendiente; trama AI vencida vista por el propio protocolo (datos DI vigentes): cortado por `datos_no_vigentes`.
+
+**Archivos:** `src/autoclave/state_machine/cycle_phases/protocolo_fallo.py`, `src/autoclave/state_machine/estado_seguro.py` (`cortar_secado` público), `src/autoclave/state_machine/state_machine.py`, `src/autoclave/i18n/es.json`, `src/autoclave/i18n/en.json`, `tests/test_t28b_a13r_secado_revision.py`, `docs/riesgos/registro_riesgos.md` (HAZ-SFF-01), `docs/riesgos/matriz_trazabilidad.md` (REQ-T28B-A13).
+
+**`DECISIÓN SIN CONFIRMAR`:** (1) un error interno antes de empezar también omite el secado (como el paro); (2) la referencia atmosférica se exige también durante el secado y la ruptura (corte, no espera); (3) redacción de los tres motivos nuevos.
+
+**Pendientes de decisión de Cristian (no implementados):**
+- **M3:** verificar que el vacío se logró durante el SECADO (hoy solo se cuenta el tiempo; una bomba que no hace vacío termina «hecho»).
+- **M4:** NO ABRIR durante el secado en `camara_segura` y `/status` (AJ28B-07: hoy la puerta queda bloqueada por el estado seguro activo, pero `camara_segura` no conoce el secado).
+- **M5:** tipo de carga en el ciclo interrumpido (el programa reconstruido o el desconocido decide si corre el secado).
+
+**Pendiente:** CLAUDE.md (viñeta de A13) no se tocó; el director o Cristian deben agregar M1, M2, B1 y B2. Revisión de seguridad de esta corrección y banco T28-A13-01.
