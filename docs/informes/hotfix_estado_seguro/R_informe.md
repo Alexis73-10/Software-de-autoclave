@@ -64,7 +64,7 @@ Puerta de entrada IEC 62304 (skill `auditor-iec62304`): función de seguridad (c
 ## 5. Dudas para Cristian / el director
 
 1. Confirmar la causa en el equipo con el log de la alpha.16 (§1): línea `arranque con la cámara no segura (<motivo>)`.
-2. El botón sigue diciendo «Confirmar y llevar a estado seguro» aunque ya no corre ningún protocolo (solo pasa a PREPARACION). ¿Cambiar el texto (p. ej. «Confirmar y continuar»)? No se cambió por ser texto aprobado.
+2. ~~El botón sigue diciendo «Confirmar y llevar a estado seguro»~~ Resuelto tras la revisión (§7): «Confirmar paro» / «Confirm stop».
 3. Paro real en FALLA: «Confirmar» sin reconocer la falla deja el equipo en FALLA (y vuelve a nivelar la cámara); el reconocimiento confirma y pasa a PREPARACION. Interpretación mía de «al confirmar … pasa a PREPARACION», para no saltarse el reconocimiento de la falla.
 4. Tras soltar el paro sin confirmar, la espera es un ALL_OFF completo (también `agua_intercambiador`), como durante el paro.
 5. Con la chaqueta en presión, la cámara puede quedar sobre `temp_max_apertura` mucho tiempo tras un ciclo: «NO ABRIR» y el bloqueo de inicio siguen (ahora con valor y límite). Antes el protocolo apagaba la chaqueta mientras corría; ahora no.
@@ -74,3 +74,13 @@ Puerta de entrada IEC 62304 (skill `auditor-iec62304`): función de seguridad (c
 ## 6. Commits
 
 Ver `estado.md`.
+
+## 7. Revisión de seguridad (6-nov): correcciones ALTA y MEDIA
+
+Pruebas nuevas: `tests/test_hotfix_es_revision.py` (16).
+
+1. **ALTA, paro soltado sin confirmar** (cf7fba48). Con el protocolo retirado, `ConfirmacionParo.activo` siempre vale False: tras soltar un paro real y antes de «Confirmar», `ServicioPuertas._can_open_physical` ya no rechazaba abrir (con cámara segura se aceptaba) y `SetOutput._paro_bloquea` dejaba pasar encendidos, así que `AdvancedDoor.update()` (paso 3 del lazo) re-afirmaba `cerrar_on`/`bloquear_on` en cada tick entre dos ALL_OFF de la máquina de estados (salidas conmutando). Corrección: (a) `ServicioPuertas` rechaza abrir **y** cerrar con el paro sin confirmar (motivo `paro_sin_confirmar`, es/en; callable `paro_sin_confirmar` desde `BackendContext`; falla cerrada si la consulta falla); (b) `SetOutput.paro_sin_confirmar` (lo fija el `ControlLoop`, `_paro_sin_confirmar_salidas`) extiende `_paro_bloquea` a la espera: nada se enciende salvo el buzzer. Se eligió (b) en lugar de no correr `door.update()` para que el estado observado de las puertas siga al día (cámara segura, coherencia puerta-presión). En modo prueba (la máquina de estados no corre) el control manual se conserva como antes. Prueba con `AdvancedDoor`, `SetOutput` y `StateMachine` reales en el orden del tick.
+2. **MEDIA, presión congelada en FALLA/PREPARACION** (2849c6e8). `igualar_presion_camara` (PREPARACION y, vía `nivelar_presion_camara`, FALLA) solo miraba `lectura_valida`. Ahora consulta `core/runtime/vigencia_ai.leer(estado)` (proveedor `estado.lectura_ai` del `ControlLoop`; falla cerrada) y trata la trama AI no vigente como «sin dato»: no ordena nada. **Residual:** como en el «sin dato» de siempre (E0-3), lo que ya estaba abierto (p. ej. el aire atmosférico) no se cierra desde ahí; y PREPARADO (`preparado.mantener_presion_camara`) sigue sin mirar la vigencia AI (fuera del encargo; mismo patrón).
+3. **MEDIA, válvulas de reposo abiertas en PREPARADO** (f12f74ce). La válvula de reposo del modo dejaba abiertas las de descompresión al pasar de COMPLETADO a PREPARADO (modo 4/5 sólido: `descompresion_chaqueta` abierta con `vapor_chaqueta` encendida). Ahora `StateMachine._cerrar_valvulas_reposo()` llama a `cerrar_valvulas_descompresion` en la transición (un error no la impide); el lazo de PREPARADO retoma la presión de cámara. El vaciado de chaqueta (líquidos 4/5) se arma antes y PREPARADO lo conduce igual.
+
+**BAJAS** (sin cambio de código salvo el texto, 91b52ae1): el botón y el título del modal dicen «Confirmar paro» / «Confirm stop» (claves `sistema.confirmar_estado_seguro`, `ciclo.modal_estado_seguro_titulo` sin cambio), la nota del modal pide verificar fugas antes de confirmar (ya no dice que la cámara se lleva a estado seguro), y las indicaciones de las alarmas de paro nombran el botón nuevo. Queda el título «Estado seguro pendiente» de la indicación y los nombres internos (`estado_seguro`, `confirmar_estado_seguro`), sin cambio. Las demás BAJAS del revisor no llegaron en el encargo con detalle: el director las anota aquí si hace falta.
