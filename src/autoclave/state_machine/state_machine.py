@@ -7,6 +7,7 @@ from autoclave.state_machine.alarms.alarm_manager import AlarmManager
 from autoclave.core.runtime.sensores_ciclo import verificar_inicio
 from autoclave.state_machine.estado_seguro import ConfirmacionParo
 from autoclave.state_machine.states.vaciado_chaqueta import limpiar_en as limpiar_vaciado_chaqueta
+from autoclave.state_machine.cycle_phases.valvula_reposo import cerrar_valvulas_descompresion
 import logging
 
 logger = logging.getLogger(__name__)
@@ -95,6 +96,17 @@ class StateMachine:
         except Exception:
             logger.exception("StateMachine: no se pudo cerrar el protocolo de fallo del ciclo")
 
+    def _cerrar_valvulas_reposo(self) -> None:
+        """Hotfix ES (revisión, MEDIA): al pasar de COMPLETADO a PREPARADO se
+        cierran las válvulas de descompresión que dejó abiertas la válvula de
+        reposo del modo (en modo 4/5 sólido, descompresion_chaqueta con
+        vapor_chaqueta encendida en PREPARADO); el lazo de PREPARADO retoma la
+        presión de cámara. Un error no impide la transición."""
+        try:
+            cerrar_valvulas_descompresion(self.set_do)
+        except Exception:
+            logger.exception("StateMachine: no se pudieron cerrar las válvulas de descompresión")
+
     # ------------------------------------------------------------------
     # Tick principal
     # ------------------------------------------------------------------
@@ -180,6 +192,7 @@ class StateMachine:
             # el bloqueo de inicio siguen mientras la cámara no sea segura.
             if resultado == "COMPLETADO":
                 logger.info("StateMachine: ciclo completado → PREPARADO")
+                self._cerrar_valvulas_reposo()
                 self.estado.set_machine_state(GlobalState.PREPARADO)
 
             elif resultado == "FALLO":

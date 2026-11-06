@@ -6,6 +6,8 @@
    bloquear_on entre dos ALL_OFF. El modo prueba conserva su control manual.
 2. MEDIA: FALLA y PREPARACION tratan la presión con la trama AI vencida
    (posiblemente congelada) como sin dato: no abren aire ni venteo.
+3. MEDIA: al pasar de COMPLETADO a PREPARADO se cierran las válvulas de
+   descompresión que dejó la válvula de reposo del modo.
 """
 
 from unittest.mock import MagicMock, patch
@@ -285,3 +287,47 @@ def test_proveedor_de_vigencia_que_falla_cuenta_como_vencida():
     estado.lectura_ai = roto
     sm.update()
     assert not _abre_algo_de_camara(set_do)
+
+
+# ── 3. MEDIA: COMPLETADO → PREPARADO cierra las válvulas de reposo ─────────
+
+def _sm_completado(set_do, estado):
+    cycle = MagicMock()
+    cycle.copia.return_value = cycle
+    cycle.sensores = None
+    sm = StateMachine(io=MagicMock(), estado=estado, set_do=set_do, cycle=cycle,
+                      config=_Config(_VALORES))
+    estado.set_machine_state(GlobalState.CICLO)
+    sm.prev_state = GlobalState.CICLO
+    sm.ciclo.run = MagicMock(return_value="COMPLETADO")
+    sm.ciclo._protocolo = MagicMock()
+    return sm
+
+
+def test_completado_a_preparado_cierra_las_valvulas_de_descompresion():
+    # modo 4/5 sólido: la válvula de reposo dejaba abiertas la de chaqueta y
+    # la rápida al entrar a PREPARADO, con vapor_chaqueta encendida
+    estado = EstadoAutoclave()
+    estado.set_flag("PARO_EMERGENCIA", False)
+    estado.set_flag("PARO_REAL", False)
+    io = _Io()
+    set_do = SetOutput(io, estado, profile=None)
+    set_do.descompresion_chaqueta_on()
+    set_do.descompresion_rapida_on()
+    sm = _sm_completado(set_do, estado)
+    io.ordenes.clear()
+    sm.update()
+    assert estado.get_machine_state() == GlobalState.PREPARADO
+    for nombre in ("descompresion_chaqueta", "descompresion_rapida", "descompresion_lenta"):
+        assert (_canal(nombre), False) in io.ordenes, nombre
+    # el protocolo de fallo no corre ni se finaliza en un COMPLETADO
+    sm.ciclo._protocolo.ejecutar.assert_not_called()
+
+
+def test_error_al_cerrar_las_valvulas_no_impide_pasar_a_preparado():
+    estado = EstadoAutoclave()
+    set_do = MagicMock()
+    set_do.descompresion_rapida_off.side_effect = RuntimeError("x")
+    sm = _sm_completado(set_do, estado)
+    sm.update()
+    assert estado.get_machine_state() == GlobalState.PREPARADO
