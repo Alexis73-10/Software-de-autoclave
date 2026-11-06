@@ -152,7 +152,7 @@ Dos revisores de seguridad rechazaron 2a5d7000. Cristian decidió la solución d
 
 **`DECISIÓN SIN CONFIRMAR`:** (1) la marca también cubre la ventana FALLO/CANCELADO en CICLO esperando la confirmación y el arranque interrumpido todavía sin decidir; (2) un respaldo que no se pudo reimportar cuenta como interrumpido; (3) el COMPLETADO sin confirmar no pone la marca.
 
-**Pendiente:** CLAUDE.md (viñeta de A9 en la sección de arranque) no se tocó: el implementador no puede editarlo; el director o Cristian deben agregar la marca persistente. Revisión de seguridad de esta corrección y banco T28-A9-01.
+**Pendiente:** ~~CLAUDE.md (viñeta de A9)~~ (agregada con M3–M5). Revisión de seguridad de esta corrección y banco T28-A9-01.
 
 ## A13. Secado corto tras un ciclo fallido
 
@@ -285,4 +285,107 @@ Dos revisores de seguridad rechazaron 4db38ed8. Se corrigió lo que no requiere 
 - **M4:** NO ABRIR durante el secado en `camara_segura` y `/status` (AJ28B-07: hoy la puerta queda bloqueada por el estado seguro activo, pero `camara_segura` no conoce el secado).
 - **M5:** tipo de carga en el ciclo interrumpido (el programa reconstruido o el desconocido decide si corre el secado).
 
-**Pendiente:** CLAUDE.md (viñeta de A13) no se tocó; el director o Cristian deben agregar M1, M2, B1 y B2. Revisión de seguridad de esta corrección y banco T28-A13-01.
+**Pendiente:** ~~CLAUDE.md (viñeta de A13)~~ (hecho con M3–M5, abajo). Revisión de seguridad de esta corrección y banco T28-A13-01.
+
+### Decisiones de Cristian sobre la revisión de A13 (6-nov): M3, M4 y M5
+
+> **Para el revisor: cambio de proceso clase C** (bomba de vacío, aire atmosférico, criterio de cámara segura y arranque tras un ciclo interrumpido). La revisión de seguridad de estos tres cambios está pendiente; la pide el director antes de unir.
+
+**M3, verificar el vacío (commit `8c12a72d`).**
+- `_tick_secado` ya no da «hecho» solo por tiempo. Mientras la bomba trabaja (fase SECADO), `_seguir_vacio` cuenta el tiempo continuo (monotonic) con la presión de cámara bajo `atm − rango_presion_atm` (las mismas claves `presion_admosferica` y `rango_presion_atm` del equipo). Si se sostiene `secado_tras_fallo_vacio_s` segundos, el vacío queda verificado.
+- Al terminar la ruptura: «hecho» solo con el vacío verificado; si no, **«sin_vacio»** (nunca «hecho»), con `logger.error`, aviso no bloqueante **CIC-20** «Secado tras fallo sin vacío» (despeje manual; detalle con el límite y los segundos) y el evento `estado_seguro_secado_terminado` con `resultado: "sin_vacio"`.
+- La ruptura corre siempre, también sin vacío (tope de 120 s, sin cambio). Si la ruptura vence, el resultado sigue siendo «sin_ruptura».
+- Falla cerrada: una lectura sin valor, no finita, la trama AI vencida o un error ponen el conteo en cero. Además, sin lectura de presión el secado se sigue cortando como antes (bomba OFF, «cortado (presión de cámara sin lectura)»): nunca «hecho».
+- Parámetro `secado_tras_fallo_vacio_s` en `global_params.json`, grupo Cámara segura: int, `seg`, defecto 10, rango 1–60, leído en cada uso (fuera de rango: el defecto, con error en el log). Si es mayor que `secado_tras_fallo_s`, se avisa en el log al empezar (el resultado será «sin_vacio»). i18n es/en del nombre y la descripción.
+- Bitácora: `estado_seguro_secado_iniciado` y `estado_seguro_secado_terminado` pasan a `bitacora.EVENTOS` con texto propio y categoría `seguridad` (resuelve AJ28B-08; ya no son eventos desconocidos).
+- Ticket, PDF e historial: estado `sin_vacio` en `ticket_formatter._ESTADOS_SECADO` y `ProtocoloFallo.ESTADOS_SECADO`; texto «Secado tras fallo: 60 s sin lograr vacío (la cámara puede conservar vapor residual)» / «… without reaching vacuum …».
+
+**M4, NO ABRIR durante el secado (commit `05cdc3a6`).**
+- `ProtocoloFallo` publica `estado.secando_tras_fallo` en cada transición de la fase del secado (un setter de `_secado_fase`): True desde el mismo tick en que empieza hasta el tick en que termina la ruptura o se corta.
+- `camara_segura.evaluar` y `motivos` dan «no segura» con el motivo **`secando_vapor_residual`** mientras ese indicador está activo, antes que las lecturas (solo «datos no vigentes» va primero). Con el resultado todavía «pendiente» (CicloState esperando la confirmación, o entre el tick del lazo y el del protocolo) también es «no segura», si nada más lo impide (una sobrepresión se sigue mostrando como sobrepresión).
+- Lo heredan `/status.camara_segura`, el interlock de puertas, el inicio de ciclo (PREPARADO), «Apagar equipo» y el aviso de Reasignación. `evaluar_presion` (protecciones del modo prueba) no cambia: el modo prueba ya corta el secado.
+- `finalizar()` con el secado pendiente lo deja «omitido (no aplica)»: un cierre forzado no deja NO ABRIR pegado.
+- El estado seguro sigue sin contar lecturas seguras durante el secado. Al terminar la ruptura cuenta sus 3 lecturas como antes.
+- Textos: `puerta.secando_vapor_residual`, `aviso_detalle.no_abrir_motivos.secando_vapor_residual` (descripción y acción) y `aviso_detalle.estado_seguro_espera.secando_vapor_residual`, es/en; `motivos.CODIGOS` y `detalle_aviso.MOTIVOS_NO_ABRIR`. Sin cambios en QML. Resuelve AJ28B-07.
+
+**M5, programa seguro en el ciclo interrumpido (commit `929ccbcb`).**
+- `BackendContext._programa_para_arranque_con_origen()` devuelve `(programa, del_ciclo)`. `del_ciclo` es True solo con la instantánea del propio ciclo interrumpido (`programa_json` de la fila o la de la marca del contador, escrita al iniciarlo) o con la que guardó la marca persistente de estado seguro. La copia de la definición actual (`base.copia()`), el último ciclo registrado y el programa desconocido dan False. `_programa_para_arranque()` conserva su firma.
+- Orden: fila / marca del contador → marca de estado seguro → último ciclo → desconocido (líquido).
+- `ControlLoop.recuperar_ciclo_interrumpido(programa, interrumpido, programa_del_ciclo=False)`: por omisión, incierto (falla cerrada). El protocolo de arranque recibe `programa_incierto = not programa_del_ciclo` y `_motivo_omision_secado_inicial` devuelve `programa_incierto` (después de «desactivado» y antes de la carga).
+- **Marca persistente:** sí conviene guardar el programa. En el caso de A9-R1 (FALLO ya cerrado en la base, protocolo en marcha, corte), no hay fila interrumpida ni marca del contador, y sin esto el programa salía del último ciclo registrado: incierto, sin secado. `ControlLoop._programa_para_marca()` agrega `programa` (instantánea) y `tipo_carga` a la marca (misma escritura atómica de A9-R1) solo si el programa es del propio ciclo: el del ciclo en CICLO, el del estado seguro (salvo un protocolo de arranque con programa incierto) o el de una recuperación marcada como del ciclo. Ante un error se escribe la marca sin programa. `MarcaEstadoSeguro.leer()` devuelve el contenido o None. Un `programa` ilegible se descarta y el arranque lo toma como incierto. La presencia sigue juzgándose con `presente()`, con falla cerrada.
+- Tipo de carga ilegible = líquida (no seca), sin cambio.
+- Texto `ticket_ciclo.secado_motivo.programa_incierto` es/en. Tras un reinicio, el resultado del secado no se reescribe en el ciclo interrumpido (el CycleLogger solo sigue el ciclo que cerró en el mismo proceso; limitación de A13 sin cambio). Queda en el log y la bitácora.
+
+**Pruebas nuevas:**
+- `tests/test_t28b_m3_vacio_secado.py` (27). Cubre:
+  - vacío logrado;
+  - bomba desconectada: «sin_vacio», CIC-20, bitácora, y el estado seguro que termina igual;
+  - vacío parcial sin sostener, con la ruptura que abre el aire;
+  - vacío tarde dentro y fuera del tiempo;
+  - ruptura vencida;
+  - sin lectura (corte, nunca hecho) y `_seguir_vacio` con None/NaN/inf/texto/bool;
+  - trama AI vencida;
+  - borde de la banda;
+  - parámetro inválido y cambiado en vuelo;
+  - catálogo, bitácora y línea del ticket es/en.
+- `tests/test_t28b_m4_no_abrir_secado.py` (17). Cubre:
+  - el primer tick;
+  - el motivo durante el vacío, el apagado y la ruptura;
+  - el fin de la ruptura con 3 lecturas;
+  - el corte;
+  - el pendiente con la cámara por lo demás segura, y el pendiente con sobrepresión;
+  - un secado omitido;
+  - `finalizar` con pendiente;
+  - CicloState real esperando la confirmación;
+  - `reset`;
+  - datos no vigentes primero, y un doble MagicMock;
+  - PREPARADO;
+  - `solo_por_sensor`;
+  - textos es/en y detalle ALD.
+- `tests/test_t28b_m5_programa_interrumpido.py` (31). Cubre:
+  - instantánea de la fila;
+  - **instantánea líquida contra la definición actual cambiada a sólido** (rige la instantánea, no seca);
+  - copia actual incierta;
+  - marcas del contador;
+  - último ciclo, sin nada, y contexto sin el método nuevo;
+  - marca de estado seguro con y sin programa, e ilegible (4 formas);
+  - protocolo con programa incierto, y tipo de carga no sólido o ilegible;
+  - ticket;
+  - ControlLoop (del ciclo/sólido = pendiente; incierto = `programa_incierto`; del ciclo/líquido = `carga_liquida`; sin decir el origen = incierto);
+  - marca que guarda o no el programa;
+  - integración: fallo sólido → marca → arranque siguiente con la definición cambiada → del ciclo;
+  - error al armar la instantánea;
+  - `construir_control` con el origen ilegible: incierto (corrección `352a3a00`).
+- Ajustadas sin relajar:
+  - A13: los dos casos que esperaban «hecho» con la presión fija en la atmosférica simulan ahora el vacío;
+  - el arranque interrumpido de A13r pasa `programa_del_ciclo=True`;
+  - `test_t28b_a9_arranque_sin_protocolo` espera además `programa_del_ciclo`;
+  - O2a: el parámetro nuevo;
+  - catálogo: el ejemplo de CIC-20.
+
+**Pruebas ejecutadas (M3–M5):**
+- Suite completa (`pytest tests -n 6`, con `PYTHONUTF8=1`): **11224 passed, 11 skipped, 7 xfailed, 4 failed**. Las 4 fallas:
+  - `test_t26_arq_revision.py::test_h3_construir_control_entrega_el_evento_sin_fijar` y `test_v8b_textos.py::test_descripciones_citan_nombres_visibles_de_parametros`: causadas por M5 y M3. Corregidas en `352a3a00`, con falla cerrada en `construir_control` y el texto sin comillas angulares. Pasan.
+  - `test_p9_opciones_puertas_nc.py::test_parametros_grupo_es_propiedad_que_cambia_al_guardar`: preexistente. Falla igual en `8ad21f1d`, antes de M3: espera Cámara segura con 2 claves y desde A13 tiene `secado_tras_fallo_s`. **AJ28B-10**, no corregida aquí (fuera del pedido).
+  - `test_t20_s3_setup_modbus.py::test_ejecuta_consulta_de_adaptadores_solo_lectura`: preexistente. Falla igual en `8ad21f1d` (consulta de adaptadores de red de la máquina). Ajena.
+- Tras la corrección, juntos: `tests/test_t28b_*.py`, arquitectura, T15 (rutas y OpenAPI sin cambio: `/status` no cambia de forma, solo el contenido de `camara_segura_motivo`), i18n, O2a, T26 ARQ y v8b. Resultado: **406 passed**.
+- AJ28B-05 (`test_qml_tocar_no_abrir_abre_detalle_con_valor_y_limite`) pasó en esta máquina con `PYTHONUTF8=1`. M4 no cambia QML.
+
+**`DECISIÓN SIN CONFIRMAR` (nuevas):**
+1. `secado_tras_fallo_vacio_s` con defecto 10 s y rango 1–60, continuo y solo en la fase SECADO.
+2. Vacío = presión **estrictamente** menor que `atm − rango` (el borde no cuenta).
+3. Aviso CIC-20: nivel AVISO, no bloquea, despeje manual; redacción es/en.
+4. Si la ruptura vence, el resultado es «sin_ruptura» aunque el vacío no se haya logrado.
+5. Sin lectura de presión el secado se sigue cortando («cortado (sin presión)»), no se marca «sin_vacio»: así no se sigue evacuando sin medir.
+6. Con un vacío débil que deja la presión dentro de la banda, la ruptura termina sin abrir el aire (la cámara ya está en la banda segura).
+7. NO ABRIR con el resultado «pendiente» solo si nada más lo impide (el motivo de presión o temperatura tiene prioridad en el texto).
+8. La instantánea de la marca del contador cuenta como del ciclo (es la misma que `programa_json`, escrita al iniciar el ciclo).
+9. La marca de estado seguro guarda la instantánea completa del programa.
+10. Redacción de los textos es/en nuevos.
+
+**Riesgos:**
+- HAZ-SFF-01 actualizado: M3 resuelto con verificación. Residual: con «sin_vacio» el estado seguro termina igual (aviso no bloqueante), y un transductor que lea de menos daría un falso «hecho».
+- HAZ-A9-01: la marca guarda el programa del propio ciclo.
+- Matriz `REQ-T28B-A13` con las tres pruebas nuevas.
+- Banco T28-A13-01, pasos 7 (NO ABRIR durante el secado) y 8 (bomba desconectada → «sin_vacio»).
+- CLAUDE.md: viñetas de A9 (marca persistente) y A13 (M1, M2, B1, B2, M3, M4, M5 y el parámetro nuevo).
