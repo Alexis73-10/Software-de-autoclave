@@ -484,9 +484,9 @@
     "modal_confirmar_resultado_titulo": "Confirmar resultado del ciclo",
     "modal_confirmar_cuerpo_fallo": "El ciclo {n} terminó en FALLO. La carga NO está estéril y debe reprocesarse. Al confirmar se registra el resultado y la pantalla vuelve al menú.",
     "modal_confirmar_cuerpo_cancelado": "El ciclo {n} fue cancelado. La carga NO está estéril y debe reprocesarse. Al confirmar se registra el resultado y la pantalla vuelve al menú.",
-    "modal_estado_seguro_titulo": "Confirmar y llevar a estado seguro",
+    "modal_estado_seguro_titulo": "Confirmar paro",
     "modal_estado_seguro_cuerpo": "El paro de emergencia se liberó. La carga NO está estéril.",
-    "modal_estado_seguro_nota": "Verifique que no hay fugas de vapor ni de agua. Al confirmar, la cámara se lleva a estado seguro.",
+    "modal_estado_seguro_nota": "Verifique que no hay fugas de vapor ni de agua antes de confirmar.",
     "modal_nota_observacion": "Observación: {sensor} sin lectura desde las {hora} (fase {fase}).",
     "principal_sin_lectura": "Sonda principal sin lectura: llame a servicio",
     "presion_camara_sin_lectura": "Sensor de presión de cámara sin lectura: llame a servicio",
@@ -858,7 +858,7 @@
     "no_abrir": "NO ABRIR",
     "paro_no_abrir": "PARO DE EMERGENCIA — NO ABRIR",
     "paro_liberado": "Paro liberado. Verifique que no haya fuga antes de continuar.",
-    "confirmar_estado_seguro": "Confirmar y llevar a estado seguro",
+    "confirmar_estado_seguro": "Confirmar paro",
     "estado_seguro_pendiente": "Paro de emergencia liberado — estado seguro pendiente",
     "paro_suelte": "Desenclave el pulsador de paro de emergencia para continuar. Hasta entonces no hay acciones disponibles.",
     "confirmar_sin_sesion": "Disponible para cualquier operador, sin iniciar sesión",
@@ -2457,11 +2457,11 @@
     },
     "paro": {
       "titulo": "Paro de emergencia",
-      "accion": "Desenclave el pulsador de paro de emergencia. No abra la puerta; después hay que confirmar el estado seguro."
+      "accion": "Desenclave el pulsador de paro de emergencia. No abra la puerta; después hay que confirmar el paro."
     },
     "estado_seguro_pendiente": {
       "titulo": "Estado seguro pendiente",
-      "accion": "Verifique que no haya fuga y confirme con el botón Confirmar y llevar a estado seguro; está disponible para cualquier operador, sin iniciar sesión."
+      "accion": "Verifique que no haya fuga y confirme con el botón Confirmar paro; está disponible para cualquier operador, sin iniciar sesión."
     },
     "no_abrir": {
       "titulo": "NO ABRIR",

@@ -484,9 +484,9 @@
     "modal_confirmar_resultado_titulo": "Confirm cycle result",
     "modal_confirmar_cuerpo_fallo": "Cycle {n} ended in FAILURE. The load is NOT sterile and must be reprocessed. Confirming records the result and the screen returns to the menu.",
     "modal_confirmar_cuerpo_cancelado": "Cycle {n} was cancelled. The load is NOT sterile and must be reprocessed. Confirming records the result and the screen returns to the menu.",
-    "modal_estado_seguro_titulo": "Confirm and bring to safe state",
+    "modal_estado_seguro_titulo": "Confirm stop",
     "modal_estado_seguro_cuerpo": "The emergency stop was released. The load is NOT sterile.",
-    "modal_estado_seguro_nota": "Check that there are no steam or water leaks. On confirming, the chamber is brought to a safe state.",
+    "modal_estado_seguro_nota": "Check that there are no steam or water leaks before confirming.",
     "modal_nota_observacion": "Observation: {sensor} without reading since {hora} ({fase} phase).",
     "principal_sin_lectura": "Main probe without reading: call service",
     "presion_camara_sin_lectura": "Chamber pressure sensor without reading: call service",
@@ -858,7 +858,7 @@
     "no_abrir": "DO NOT OPEN",
     "paro_no_abrir": "EMERGENCY STOP — DO NOT OPEN",
     "paro_liberado": "Emergency stop released. Check that there is no leak before continuing.",
-    "confirmar_estado_seguro": "Confirm and bring to safe state",
+    "confirmar_estado_seguro": "Confirm stop",
     "estado_seguro_pendiente": "Emergency stop released — safe state pending",
     "paro_suelte": "Release the emergency stop button to continue. Until then no actions are available.",
     "confirmar_sin_sesion": "Available to any operator, no login required",
@@ -2457,11 +2457,11 @@
     },
     "paro": {
       "titulo": "Emergency stop",
-      "accion": "Release the emergency stop button. Do not open the door; the safe state must be confirmed afterwards."
+      "accion": "Release the emergency stop button. Do not open the door; the stop must be confirmed afterwards."
     },
     "estado_seguro_pendiente": {
       "titulo": "Safe state pending",
-      "accion": "Check that there is no leak and confirm with the Confirm and bring to safe state button; any operator can do it, without logging in."
+      "accion": "Check that there is no leak and confirm with the Confirm stop button; any operator can do it, without logging in."
     },
     "no_abrir": {
       "titulo": "DO NOT OPEN",
