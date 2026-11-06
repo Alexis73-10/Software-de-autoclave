@@ -3062,6 +3062,22 @@
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
 
+### T28-A9-01 — Encendido con la cámara no segura: sin estado seguro en el normal, con estado seguro tras un ciclo interrumpido
+
+- **Modo:** En seco (vacío y presión residual) y con vapor (corte en ciclo de líquidos)  ·  **Origen:** A9 (tanda 28, HAZ-A9-01)
+- **Objetivo:** En un encendido normal con la cámara en vacío o con presión residual no aparece «Estado seguro en curso» y PREPARACION iguala la presión; tras un corte en pleno ciclo de líquidos el estado seguro corre con la causa «ciclo interrumpido», solo por la lenta.
+- **Precondiciones:** Último ciclo terminado (sin ciclo abierto). Equipo con aire atmosférico, lenta y rápida. Programa de líquidos disponible.
+- **Pasos:**
+  1. Con modo prueba, dejar la cámara a 20–30 kPa por debajo de la atmosférica (bomba de vacío) con las puertas cerradas; salir del modo prueba y apagar el equipo (Apagar equipo).
+  2. Encender. Observar la intro, la liberación y la pantalla de Preparación.
+  3. Repetir con 20–30 kPa por encima de la atmosférica (aire comprimido) y el último ciclo de un programa sólido.
+  4. Iniciar un ciclo de líquidos y cortar la alimentación en esterilización. Volver a encender.
+- **Resultado esperado:** Pasos 2 y 3: ninguna salida antes de que la interfaz se libere; no aparecen «Estado seguro en curso», la causa ni el botón «Confirmar y llevar a estado seguro»; sí «NO ABRIR» hasta la cámara segura y PRE-03 (vacío: abre `aire_atmosferico_camara`) o PRE-04 (presión: venteo de PREPARACION, rápida con sólido). Paso 4: «Estado seguro en curso» con la causa «Arranque tras un ciclo interrumpido…», solo la lenta mientras la carga siga caliente, sin confirmación.
+- **Criterio de aprobado/fallo:** Fallo si en el encendido normal aparece el estado seguro, si la puerta se puede abrir antes de la cámara segura, si alguna salida actúa antes de la liberación o si tras el corte en líquidos se abre la rápida con la carga caliente.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
 ## Registros que se deben conservar (expediente IEC 62304)
 
 - Esta hoja firmada (cada prueba con valor observado, resultado y firma).

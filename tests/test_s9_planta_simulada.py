@@ -368,7 +368,7 @@ def test_ensayo_s9(programas, monkeypatch, numero, celda):  # noqa: F811
         assert r["cic10_motivo"].startswith("Sensor de presión de cámara"), r
         assert r["modo_prueba_permitido"] and r["cambio_programa_permitido"], r
         assert r["estado_seguro_sigue_activo"] and r["inicio_bloqueado"], r
-        assert r["causas"] == ["arranque"], r
+        assert r["causas"] == ["ciclo_interrumpido"], r
     if celda == "paro_real_en_arranque":
         assert r["confirmacion_tras_paro"] is True and r["causa_tras_paro"] == "paro_liberado", r
         assert r["salidas_sin_confirmar"] == ["ninguna"], r

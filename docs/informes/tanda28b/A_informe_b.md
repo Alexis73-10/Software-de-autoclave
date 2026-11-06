@@ -64,3 +64,70 @@ Prueba de reproducción: `tests/test_t28b_a10_estado_seguro_rango.py`, con pieza
 - **Verificación:** se repitieron las pruebas de unidad e integración del estado seguro, de la cámara segura y de la interfaz (5.5.5, 8.2.3). Falta la prueba de banco T28-A10-01.
 - **SOUP:** sin cambios.
 - **Trazabilidad:** pendiente de agregar el requisito en la matriz cuando el director una los flujos. Este punto no pedía registro de riesgos.
+
+## A9. Arranque con la cámara no segura sin protocolo activo
+
+**Pedido (Cristian, 5-nov):** en un encendido normal (el último ciclo terminó o no hay ciclo) con la cámara en vacío o con presión residual no se inicia el protocolo de estado seguro; PREPARACION iguala la presión con sus reglas. Tras un ciclo interrumpido se conserva el protocolo de arranque, con el origen `ciclo_interrumpido`.
+
+> **Para el revisor: este punto toca control, actuadores y la lógica de estado seguro / NO ABRIR.** Revisión de seguridad pendiente (el implementador no puede lanzar el revisor; la debe pedir el director antes de unir).
+
+### Cambios
+
+- `services/domain/loop/control_loop.py`:
+  - `recuperar_ciclo_interrumpido(programa, interrumpido=True)`. Por omisión `True` (falla segura: quien no sabe, obtiene el protocolo).
+  - `_procesar_recuperacion`: con `interrumpido=False` y la cámara no segura, no arranca `ProtocoloEstadoSeguro`. Deja un aviso en el log y un evento `arranque_camara_no_segura` con `estado_seguro: false` (una vez por encendido). La recuperación queda pendiente hasta 3 lecturas seguras, como antes. Así el programa del último ciclo sigue contando en `programas_para_seguridad()` y `temp_max_tras_ciclo()` (NO ABRIR, bloqueo de apertura e inicio, límite de temperatura) y en el venteo de PREPARACION (`carga_liquida(programas, …)`: por la lenta en líquidos, T1/P-12).
+  - Con `interrumpido=True`, el protocolo de siempre (solo la lenta, sin confirmación, D9-1.2/1.4), con `origen="ciclo_interrumpido"` y `motivo_solo_lenta` actualizado; el evento lleva `estado_seguro: true`.
+- `backend/context.py`: `hubo_ciclo_interrumpido()`. Da True si `cerrar_ciclos_interrumpidos` cerró una fila o si hay marca del contador (`contador_ciclos.en_curso()`, independiente de la base). Falla segura con True en estos casos: sin base (`sin_base_de_datos`), si el cierre falló (no queda `_ciclo_interrumpido`), si nunca se consultó o ante un error. `construir_control` lo pasa como `interrumpido=`.
+- Interfaz: `_CAUSAS_ESTADO_SEGURO` cambia `arranque` por `ciclo_interrumpido`. La clave i18n `sistema.estado_seguro_causa_arranque` pasa a `sistema.estado_seguro_causa_ciclo_interrumpido` (es/en). El detalle ALD (`detalle_aviso._armar`, `estado_seguro_en_curso`) y `SeccionEstadoSeguro.qml` arman la clave con la causa, así que la toman sin cambios de lógica (solo se actualizó un comentario). Una causa `arranque` recibida de un backend viejo se muestra vacía.
+- Sin cambios: `camara_segura`, `ProtocoloEstadoSeguro`, `ProtocoloFallo`, PREPARACION (PRE-03/PRE-04 con su nivel), la retención de arranque (`_tick_retenido`, ARQ-04) y las protecciones del modo prueba (ESG-02). Con la recuperación pendiente, `salidas_prueba_bloqueadas` mantiene el bloqueo del protocolo sin lectura vigente de presión, igual que antes (es lo conservador).
+
+### Lo que dependía del origen «arranque»
+
+| Lugar | Ajuste |
+|---|---|
+| `sistema.estado_seguro_causa_arranque` (es/en) | Reemplazada por `…_ciclo_interrumpido` |
+| `ui_bridge._CAUSAS_ESTADO_SEGURO` y la familia i18n dinámica de `test_i18n` | `ciclo_interrumpido` |
+| Bitácora | `estado_seguro_iniciado` lleva `origen: ciclo_interrumpido`. `arranque_camara_no_segura` se conserva en los dos casos con `estado_seguro` true/false. Las filas viejas no cambian. |
+| ARQ-04 (tanda 26) | Sin cambio: la recuperación se procesa en el primer tick liberado. Prueba nueva: ninguna salida antes de liberar, en los dos casos. |
+| ESS / ESG-01/02, modo prueba | Solo aplican con el protocolo activo (caso interrumpido), sin cambio. |
+| Pruebas S9, T6, ESS-07, ESS, T17-ESG, U10b, S9-QML, `cap9_capturas_banco.py` | Llaman a `recuperar_ciclo_interrumpido(programa)` (caso interrumpido): solo cambia la causa esperada (`arranque` → `ciclo_interrumpido`) y el texto. No se relajó ninguna aserción. |
+
+### Pruebas
+
+- Nuevas: `tests/test_t28b_a9_arranque_sin_protocolo.py` (16), con el ControlLoop real y la planta simulada de S9:
+  - arranque normal con vacío: sin protocolo, PREPARACION abre `aire_admosferico_camara`, la cámara llega a segura, NO ABRIR mientras no lo es, nunca LISTO con la cámara no segura, nunca aire con presión, un solo aviso en la bitácora;
+  - arranque normal con sobrepresión y programa sólido: venteo de PREPARACION (rápida), sin protocolo;
+  - arranque normal con el último programa de líquidos: solo la lenta;
+  - ciclo interrumpido de líquidos: protocolo con causa `ciclo_interrumpido`, solo la lenta mientras manda el protocolo, evento con `origen`;
+  - por omisión, interrumpido;
+  - ninguna salida y NO ABRIR antes de la liberación (los dos casos);
+  - contexto: sin base, sin consulta y cierre fallido = interrumpido; fila o marca = interrumpido; sin nada = normal; `construir_control` pasa `interrumpido=False`;
+  - textos es/en y detalle ALD con la causa nueva.
+- Relacionadas, en verde: S9 (estado seguro de arranque, revisión 1, planta simulada con los 4 programas × 8 celdas, login y causa QML), T6, ESS-07, ESS, T17-ESG, T17-F2, U10b, i18n, línea base i18n, T26-ARQ, `test_tema_oscuro`, A10, secuencia de arranque, `test_arquitectura_capas`, `test_t15_rutas_equivalentes`. Resultado: 705 passed, 1 skipped, 4 xfailed en la tanda grande (una falla de texto, corregida y repetida en verde: `test_s9_login_y_causa_qml`), y 156 passed en la segunda.
+- Falla preexistente, ajena: `test_t26_ald_detalle_alarmas.py::test_qml_tocar_no_abrir_abre_detalle_con_valor_y_limite` falla igual sin los cambios (`git stash`): `UnicodeDecodeError` al leer la salida del subproceso QML (codificación de la consola). Anotada como **AJ28B-05**.
+
+### Hallazgos
+
+- **AJ28B-04 (MEDIA, corregido por el pedido):** en el encendido normal, el protocolo de estado seguro corría en cada arranque con la cámara no segura (D9-1.1) y mostraba «Estado seguro en curso» por una presión residual normal tras apagar con las puertas cerradas. Ahora lo resuelve PREPARACION.
+- **AJ28B-05 (BAJA, preexistente, sin cambio):** la prueba QML de ALD de NO ABRIR falla en esta máquina por la codificación de la salida del subproceso. No depende de A9.
+- **`DECISIÓN SIN CONFIRMAR`:**
+  1. En el encendido normal, el programa del último ciclo (o el desconocido = líquido, si no hay ninguno) sigue contando para NO ABRIR, el límite de temperatura y el venteo por la lenta en líquidos hasta 3 lecturas seguras. Es lo conservador y conserva SAF-01 de T3 / SAF-02 de T6.
+  2. La falla segura se extiende al cierre de ciclos que falla y a la ausencia de consulta, además de lo que pide el prompt (sin base).
+  3. El evento `arranque_camara_no_segura` sigue en la bitácora en el encendido normal (con `estado_seguro: false`), una vez por encendido.
+  4. Texto de la causa: «Arranque tras un ciclo interrumpido con la cámara no segura: el equipo la lleva solo a estado seguro, sin confirmación (no hubo paro de emergencia).» / inglés equivalente.
+
+### Riesgo, trazabilidad, CLAUDE.md y banco
+
+- `docs/riesgos/registro_riesgos.md`: sección nueva al final, HAZ-A9-01 (MEDIA), y tabla de controles modificados (HAZ-S9-01/D9-1.1 reemplazada en el encendido normal; HAZ-ARQ-01/ARQ-04 sin cambio).
+- `docs/riesgos/matriz_trazabilidad.md`: fila `REQ-T28B-A9`, con número provisional para no chocar con los otros flujos; se numera al unir.
+- `CLAUDE.md`: viñeta nueva al final de la sección de arranque de la tanda 26.
+- Banco: T28-A9-01 en el bloque T28 (flujo B).
+
+### Evaluación normativa (puerta de entrada, NTC-IEC 62304:2019 / IEC 62304:2006)
+
+- Clase C: toca el estado seguro de arranque, una medida de control de riesgo.
+- Solicitud de cambio (8.2.1): punto A9 del prompt de la tanda 28, decisión de Cristian del 5-nov.
+- 7.4.1/7.4.2: retira una medida de control (el protocolo) en el encendido normal. La reemplazan las reglas de PREPARACION, NO ABRIR y la falla segura del contexto. El riesgo nuevo queda en HAZ-A9-01.
+- 5.2/5.4: requisito y diseño actualizados en CLAUDE.md, el registro de riesgos y la trazabilidad.
+- 5.5.5/5.6.6/8.2.3: se repitieron las pruebas de unidad e integración del arranque y del estado seguro. Falta el banco (T28-A9-01) y la revisión de seguridad.
+- SOUP: sin cambios.

@@ -169,7 +169,7 @@ def test_ciclo_interrumpido_con_camara_caliente_arranca_en_estado_seguro():
     # S9 (tanda 9, D9-1.1/1.2, revierte E4/D-08): corre solo, sin
     # confirmación (no hubo paro en este encendido), solo por la lenta
     assert loop.estado_seguro.requiere_confirmacion is False
-    assert loop.estado_seguro.causa == "arranque"
+    assert loop.estado_seguro.causa == "ciclo_interrumpido"
     loop.set_do.descompresion_rapida_on.assert_not_called()
 
 

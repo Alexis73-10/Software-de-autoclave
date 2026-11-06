@@ -788,7 +788,11 @@ class BackendContext:
         # es segura el equipo entra en estado seguro con confirmación. El
         # programa: el del ciclo interrumpido, si no el del último ciclo
         # registrado y, si no, uno conservador (líquido, solo la lenta).
-        self.control_loop.recuperar_ciclo_interrumpido(self._programa_para_arranque())
+        # Tanda 28 (A9, Cristian 5-nov): el protocolo de estado seguro de
+        # arranque solo corre tras un ciclo interrumpido (o si no se sabe); en
+        # un encendido normal PREPARACION iguala la presión.
+        self.control_loop.recuperar_ciclo_interrumpido(
+            self._programa_para_arranque(), interrumpido=self.hubo_ciclo_interrumpido())
         self.control_loop.start()
         self.iniciar_verificacion_asignacion()   # R8: solo tras una reasignación
         self.iniciar_vigilancia_asignacion()
@@ -1096,6 +1100,27 @@ class BackendContext:
             except Exception:
                 logger.exception("No se pudo auditar el ciclo interrumpido")
         self._ciclo_interrumpido = cerrados[-1] if cerrados else None
+
+    def hubo_ciclo_interrumpido(self) -> bool:
+        """Tanda 28 (A9): True si el arranque cerró un ciclo sin fecha de fin
+        o la marca persistente del contador dice que había un ciclo en curso.
+        Falla segura (DECISIÓN SIN CONFIRMAR en lo no listado por el prompt):
+        sin base de datos (OPERANDO_SIN_BD), si el cierre de ciclos falló o si
+        nunca se consultó, se trata como interrumpido."""
+        try:
+            if getattr(self, "sin_base_de_datos", False) is not False:
+                logger.warning("Arranque: sin base de datos; se trata como ciclo interrumpido "
+                               "(A9, falla segura)")
+                return True
+            if not hasattr(self, "_ciclo_interrumpido"):
+                logger.warning("Arranque: no se pudo saber si hubo un ciclo interrumpido; "
+                               "se trata como interrumpido (A9, falla segura)")
+                return True
+            return bool(self._ciclo_interrumpido or getattr(self, "_marca_interrumpido", None))
+        except Exception:
+            logger.exception("Arranque: error al consultar el ciclo interrumpido; se trata "
+                             "como interrumpido (A9, falla segura)")
+            return True
 
     def _programa_del_ciclo_interrumpido(self):
         """Reconstruye el programa con el que corría el ciclo interrumpido:

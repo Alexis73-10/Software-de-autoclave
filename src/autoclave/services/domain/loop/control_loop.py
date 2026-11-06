@@ -150,6 +150,11 @@ class ControlLoop:
         # recuperar con el primer dato vigente
         self._recuperacion_pendiente = None
         self._ticks_seguros_recuperacion = 0
+        # Tanda 28 (A9): True = tras un ciclo interrumpido (o sin saberlo):
+        # con la cámara no segura arranca el protocolo de estado seguro. False
+        # = encendido normal: sin protocolo, PREPARACION iguala la presión
+        self._recuperacion_con_protocolo = True
+        self._arranque_normal_avisado = False
 
         # Protocolo de estado seguro (fin de ciclo §15): una sola instancia que
         # sobrevive a set_active_cycle. `al_evento_seguridad(evento, detalle)`
@@ -359,15 +364,25 @@ class ControlLoop:
                 programas.append(p)
         return programas
 
-    def recuperar_ciclo_interrumpido(self, programa) -> None:
+    def recuperar_ciclo_interrumpido(self, programa, interrumpido: bool = True) -> None:
         """E4 (D-08, SAF-08 de T5): tras un reinicio con un ciclo sin cerrar,
         su sensor Principal cuenta para la seguridad hasta que la cámara sea
         segura y, si no lo es, arranca el protocolo de estado seguro con ese
-        programa (modo de descompresión, carga líquida) y con confirmación."""
+        programa (modo de descompresión, carga líquida).
+
+        Tanda 28 (A9, decisión de Cristian del 5-nov, reemplaza D9-1.1 en el
+        encendido normal): `interrumpido=False` (el último ciclo terminó o no
+        hay ciclo) NO inicia el protocolo aunque la cámara no sea segura;
+        PREPARACION iguala la presión y drena con sus reglas. El programa
+        sigue contando para la seguridad (NO ABRIR, límite de temperatura,
+        venteo por la lenta en líquidos) hasta 3 lecturas seguras. Quien no
+        sepa si hubo un ciclo interrumpido pasa True (falla segura)."""
         with self._sm_lock:
             self._recuperacion_pendiente = programa
             self._ticks_seguros_recuperacion = 0
             self._programa_ultimo_ciclo = programa
+            self._recuperacion_con_protocolo = interrumpido is not False
+            self._arranque_normal_avisado = False
 
     # S4: tolerancia con que un nuevo Principal puede leer menos que otra sonda
     _TOLERANCIA_NUEVO_PRINCIPAL_C = 2.0
@@ -459,20 +474,36 @@ class ControlLoop:
                 self._recuperacion_pendiente = None
             return
         self._ticks_seguros_recuperacion = 0
-        logger.error("ControlLoop: arranque con la cámara no segura (%s) — "
-                     "estado seguro automático, solo la lenta", motivo)
+        if not self._recuperacion_con_protocolo:
+            # Tanda 28 (A9): encendido normal. Sin protocolo de estado seguro:
+            # la máquina sigue en PREPARACION, que iguala la presión (aire
+            # atmosférico con vacío; venteo con presión, por la lenta en
+            # líquidos) y drena. NO ABRIR y el bloqueo de apertura e inicio
+            # siguen por camara_segura. Un aviso por encendido en log y bitácora.
+            if not self._arranque_normal_avisado:
+                self._arranque_normal_avisado = True
+                logger.warning("ControlLoop: arranque normal con la cámara no segura (%s) — "
+                               "sin estado seguro; PREPARACION iguala la presión", motivo)
+                self._evento_seguridad("arranque_camara_no_segura",
+                                       {"programa": getattr(programa, "id", None),
+                                        "motivo": motivo, "estado_seguro": False})
+            return
+        logger.error("ControlLoop: arranque tras un ciclo interrumpido con la cámara no "
+                     "segura (%s) — estado seguro automático, solo la lenta", motivo)
         # S9 (tanda 9, D9-1.1, revierte en parte E4/D-08): corre SOLO, sin
         # confirmación (D9-1.2: solo tras un paro real de este encendido) y
         # solo con la lenta (con vacío, aire atmosférico; sin presión no abre
         # nada y queda detenido con CIC-10, D9-1.4)
         protocolo = ProtocoloFallo(self.estado, self.set_do, programa, self.config_manager)
         protocolo.ejecutar(abrir_valvulas=False, solo_lenta=True)
-        protocolo.motivo_solo_lenta = "arranque con la cámara no segura"
-        self.estado_seguro.iniciar(protocolo, origen="arranque")
+        protocolo.motivo_solo_lenta = "arranque tras un ciclo interrumpido con la cámara no segura"
+        # Tanda 28 (A9): origen "ciclo_interrumpido" (antes "arranque")
+        self.estado_seguro.iniciar(protocolo, origen="ciclo_interrumpido")
         if self.estado_seguro.activo:
             self._recuperacion_pendiente = None     # entregada (si no, se reintenta)
         self._evento_seguridad("arranque_camara_no_segura",
-                               {"programa": getattr(programa, "id", None), "motivo": motivo})
+                               {"programa": getattr(programa, "id", None), "motivo": motivo,
+                                "estado_seguro": True})
 
     def _evento_seguridad(self, evento: str, detalle: dict) -> None:
         if self.al_evento_seguridad is not None:

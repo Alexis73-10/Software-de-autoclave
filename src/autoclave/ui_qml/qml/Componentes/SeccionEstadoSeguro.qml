@@ -242,7 +242,7 @@ Column {
         idAlarma: "ESTADO_SEGURO"
         descripcion: I18n.t("sistema.estado_seguro_en_curso", I18n.lang)
     }
-    // S9 (tanda 9, D9-1.2): por qué corre (arranque con la cámara no segura,
+    // S9 (tanda 9, D9-1.2): por qué corre (arranque tras un ciclo interrumpido, A9,
     // fallo, cancelación o fin de ciclo). Nunca dice "paro liberado": ese
     // texto solo sale con la confirmación pendiente (estado 2).
     readonly property string causa: puente?.estadoSeguroCausa ?? ""

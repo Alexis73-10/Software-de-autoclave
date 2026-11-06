@@ -856,7 +856,7 @@
     "sin_lectura": "—",
     "no_abrir": "NO ABRIR",
     "paro_no_abrir": "PARO DE EMERGENCIA — NO ABRIR",
-    "estado_seguro_causa_arranque": "Arranque con la cámara no segura: el equipo la lleva solo a estado seguro, sin confirmación (no hubo paro de emergencia).",
+    "estado_seguro_causa_ciclo_interrumpido": "Arranque tras un ciclo interrumpido con la cámara no segura: el equipo la lleva solo a estado seguro, sin confirmación (no hubo paro de emergencia).",
     "estado_seguro_causa_fallo": "Fallo de ciclo: el equipo lleva la cámara a estado seguro.",
     "estado_seguro_causa_cancelado": "Ciclo cancelado: el equipo lleva la cámara a estado seguro.",
     "estado_seguro_causa_completado": "Ciclo terminado con la cámara no segura: el equipo la lleva a estado seguro.",

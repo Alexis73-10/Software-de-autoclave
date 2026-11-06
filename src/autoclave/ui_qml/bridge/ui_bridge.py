@@ -25,8 +25,11 @@ ESTADO_DESCONOCIDO = "DESCONOCIDO"
 _PRIORIDAD_POR_NIVEL = {"EMERGENCIA": "alta", "FALLA": "media", "ALERTA": "baja"}
 # Estado del módulo E/S en /status (campo estado_modulo_es; U4 de la tanda 2)
 _ESTADOS_MODULO_ES = ("desconectada", "sin_tramas_validas", "ok")
-# S9 (tanda 9, D9-1.2): causas del estado seguro que la UI sabe mostrar
-_CAUSAS_ESTADO_SEGURO = ("paro_liberado", "arranque", "fallo", "cancelado", "completado")
+# S9 (tanda 9, D9-1.2): causas del estado seguro que la UI sabe mostrar.
+# Tanda 28 (A9): "arranque" pasa a "ciclo_interrumpido" (en un encendido
+# normal ya no hay protocolo de estado seguro)
+_CAUSAS_ESTADO_SEGURO = ("paro_liberado", "ciclo_interrumpido", "fallo", "cancelado",
+                         "completado")
 
 
 # Estados de puerta que la pantalla presenta como "abierta" (acción disponible:
@@ -540,8 +543,8 @@ class UiBridge(QObject):
 
     @Property(str, notify=seguridadChanged)
     def estadoSeguroCausa(self) -> str:
-        """S9 (D9-1.2): "paro_liberado", "arranque", "fallo", "cancelado",
-        "completado" o "" (desconocida)."""
+        """S9 (D9-1.2): "paro_liberado", "ciclo_interrumpido", "fallo",
+        "cancelado", "completado" o "" (desconocida)."""
         return self._seguridad.get("es_causa", "")
 
     @Property(str, notify=seguridadChanged)

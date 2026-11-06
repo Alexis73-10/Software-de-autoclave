@@ -71,7 +71,7 @@ MOTIVO = ("Sensor de presión de cámara sin lectura: sin el sensor de presión 
 
 PASOS_ALARMAS = [
     {"campos": {"estado_seguro": {"activo": True, "requiere_confirmacion": False,
-                                  "causa": "arranque", "bloqueado_motivo": MOTIVO}},
+                                  "causa": "ciclo_interrumpido", "bloqueado_motivo": MOTIVO}},
      "pres_camara": None,
      "alarmas": [["CIC-10", {"motivo": MOTIVO}], ["SEN-06", {}]]},
     {"campana": True},

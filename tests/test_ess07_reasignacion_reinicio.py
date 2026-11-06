@@ -131,7 +131,7 @@ def _protocolo_previo(programa, pres, temp, ref):
 def test_reinicio_presion_vigente_arranca_estado_seguro_solo_lenta(tipo, modo):
     loop = _reiniciar(_programa(tipo, modo), pres=250.0, temp=125.0, ref=125.0)
     es = loop.estado_seguro
-    assert es.activo and es.causa == "arranque" and es.requiere_confirmacion is False
+    assert es.activo and es.causa == "ciclo_interrumpido" and es.requiere_confirmacion is False
     assert es._protocolo.solo_lenta is True           # (a) enclavamiento conservado
     _ticks(loop)
     abiertas = _abiertas(loop.set_do)
@@ -160,7 +160,7 @@ def test_reinicio_conserva_solo_lenta_aunque_el_sensor_vuelva_a_leer():
 def test_reinicio_sin_presion_no_abre_nada_y_mantiene_no_abrir():
     loop = _reiniciar(_programa("solido", 1), pres=None, temp=125.0, ref=125.0)
     es = loop.estado_seguro
-    assert es.activo and es.causa == "arranque"
+    assert es.activo and es.causa == "ciclo_interrumpido"
     _ticks(loop, 5)
     assert not _abiertas(loop.set_do)
     assert es._protocolo.presion_perdida is True
