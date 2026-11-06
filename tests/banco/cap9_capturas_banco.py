@@ -179,7 +179,7 @@ _SCRIPT_PRECICLO = textwrap.dedent(r"""
     r["pantalla_preciclo"] = any(o.property("visible") for o in buscar("PantallaPreciclo"))
 
     # 1. estado seguro del arranque, sin confirmación (D9-1.1/D9-1.2)
-    campos["estado_seguro"] = {"activo": True, "requiere_confirmacion": False, "causa": "arranque"}
+    campos["estado_seguro"] = {"activo": True, "requiere_confirmacion": False, "causa": "ciclo_interrumpido"}
     refrescar()
     r["1_causa"] = visibles("avisoCausaEstadoSeguro")
     r["1_confirmar"] = puente.estadoSeguroRequiereConfirmacion
@@ -187,7 +187,7 @@ _SCRIPT_PRECICLO = textwrap.dedent(r"""
 
     # 2. el mismo, detenido por la presión de cámara sin lectura: CIC-10 + SEN-06 (D9-1.4)
     ui.get_sensores_pres.return_value = {"pres_camara": None}
-    campos["estado_seguro"] = {"activo": True, "requiere_confirmacion": False, "causa": "arranque",
+    campos["estado_seguro"] = {"activo": True, "requiere_confirmacion": False, "causa": "ciclo_interrumpido",
                                "bloqueado_motivo": MOTIVO}
     alarmas[:] = [alarma("CIC-10", {"motivo": MOTIVO}), alarma("SEN-06", {})]
     refrescar()

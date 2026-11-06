@@ -98,6 +98,10 @@ CIC_19 = "CIC-19"
 # atm + presion_inicio_vacio en timeout_descompresion; FALLO bloqueante como
 # CIC-15 (la bomba no arranca a ciegas con la cámara a presión)
 CIC_20 = "CIC-20"
+# A13-M3 (tanda 28b): el secado tras fallo no logró vacío; aviso no
+# bloqueante, despeje manual (DECISIÓN SIN CONFIRMAR: nivel y textos).
+# Era CIC-20 en la rama tanda28b; renumerada a CIC-21 al unir (A12 ya usaba CIC-20)
+CIC_21 = "CIC-21"
 # M1 (tanda 3): aviso no bloqueante de mantenimiento vencido (id descriptivo
 # como OPERANDO_SIN_BD; nunca impide un ciclo)
 MANTENIMIENTO_VENCIDO = SIS_04
@@ -410,6 +414,12 @@ DEFINICIONES: tuple[DefinicionAlarma, ...] = (
        "La carga NO está estéril. Revise la válvula de descompresión rápida, el escape y el "
        "sensor de presión de cámara (calibración), y el valor «Presión para iniciar el vacío» "
        "del programa. Repita el ciclo."),
+    # A13-M3 (tanda 28b): secado tras fallo sin vacío verificado
+    _d(CIC_21, _AV, False, _M, "Secado tras fallo sin vacío",
+       "El secado tras el fallo no logró vacío: la presión de cámara no se mantuvo bajo "
+       "{minimo:.1f} kPa durante {segundos} s. La cámara puede conservar vapor residual.",
+       "Abra la puerta con precaución: puede salir vapor caliente. Revise la bomba de vacío, "
+       "su agua de sello y la válvula de vacío."),
     # F2 (tanda 16, D-CHQ / VCH-CHQ): no hay FALLO por esta vía (§4.6)
     _d(CIC_18, _AV, False, _A, "Presión de chaqueta en el límite de control",
        "La chaqueta llegó a {pres:.1f} kPa (límite {maximo:.1f} kPa) en la fase {fase}: la "

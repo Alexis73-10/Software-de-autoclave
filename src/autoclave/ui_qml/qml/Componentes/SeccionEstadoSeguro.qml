@@ -242,7 +242,7 @@ Column {
         idAlarma: "ESTADO_SEGURO"
         descripcion: I18n.t("sistema.estado_seguro_en_curso", I18n.lang)
     }
-    // S9 (tanda 9, D9-1.2): por qué corre (arranque con la cámara no segura,
+    // S9 (tanda 9, D9-1.2): por qué corre (arranque tras un ciclo interrumpido, A9,
     // fallo, cancelación o fin de ciclo). Nunca dice "paro liberado": ese
     // texto solo sale con la confirmación pendiente (estado 2).
     readonly property string causa: puente?.estadoSeguroCausa ?? ""
@@ -252,6 +252,16 @@ Column {
         objectName: "avisoCausaEstadoSeguro"
         visible: raiz.enCurso && raiz.claveCausa !== "" && raiz.enGrupo("emergencia")
         texto: raiz.claveCausa !== "" ? I18n.t(raiz.claveCausa, I18n.lang) : ""
+    }
+    // A10 (tanda 28): qué le falta para terminar, para que no parezca
+    // colgado: «En pausa: modo prueba activo» o el motivo pendiente con su
+    // valor y su límite (texto armado en domain/detalle_aviso.py)
+    readonly property string textoEspera: raiz.enCurso
+                                          ? DetalleAviso.textoEspera(puente?.contextoAviso ?? ({}), I18n.lang) : ""
+    Nota {
+        objectName: "avisoEsperaEstadoSeguro"
+        visible: raiz.enCurso && raiz.textoEspera !== "" && raiz.enGrupo("emergencia")
+        texto: raiz.textoEspera
     }
 
     // Botón de los estados 2 y 3: azul y habilitado solo con la confirmación

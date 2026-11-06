@@ -11,8 +11,9 @@
 #
 #  0. S9 (tanda 9, D9-1.1/1.2): al arrancar con la cámara no segura corre
 #     solo, sin confirmación; la confirmación se exige SOLO tras un paro real
-#     visto en este encendido (paso 1). `causa` distingue paro liberado /
-#     arranque / fin de ciclo para la UI.
+#     visto en este encendido (paso 1). Desde la tanda 28 (A9) solo tras un
+#     ciclo interrumpido (origen "ciclo_interrumpido"). `causa` distingue paro
+#     liberado / ciclo interrumpido / fin de ciclo para la UI.
 #  1. Paro activo: no hace nada (los estados mandan ALL_OFF continuo); si
 #     es un paro real (PARO_REAL, U4) se marca que hará falta una
 #     confirmación nueva. Sin datos del módulo E/S solo se pausa.
@@ -31,6 +32,7 @@ import logging
 import time
 
 from autoclave.core.runtime import camara_segura
+from autoclave.core.runtime.motivos import Motivo
 from autoclave.state_machine.alarms.catalogo import CIC_10
 from autoclave.state_machine.alarms.instancia import EstadoInstancia
 
@@ -56,8 +58,9 @@ class ProtocoloEstadoSeguro:
         self._paro_visto = False
         self._pausado = False
         self.requiere_confirmacion = False
-        # S9 (tanda 9, D9-1.2): por qué corre el protocolo ("arranque",
-        # "fallo", "cancelado" o "completado"); la UI lo distingue del paro
+        # S9 (tanda 9, D9-1.2): por qué corre el protocolo
+        # ("ciclo_interrumpido" —antes "arranque", tanda 28 A9—, "fallo",
+        # "cancelado" o "completado"); la UI lo distingue del paro
         self.origen = None
         self.alarm_manager = alarm_manager
         # Callable que mantiene el enfriamiento del drenaje mientras el
@@ -77,6 +80,17 @@ class ProtocoloEstadoSeguro:
         # S9, revisión ★ TMG-04: la pausa actual vino del modo prueba (al
         # reanudar, la espera sellada sin sonda empieza de nuevo)
         self._pausa_por_prueba = False
+        # A10 (tanda 28): motivo por el que la última evaluación de este
+        # protocolo NO dio la cámara segura (Motivo de camara_segura) y el
+        # temp_max del programa con que se evaluó; None si fue segura, si no
+        # se evaluó (paro, confirmación, pausa) o fuera del protocolo. Es el
+        # RESULTADO de un tick, no una copia de la configuración: los límites
+        # que se muestran se leen del config vivo al publicarlos.
+        self._motivo_pendiente = None
+        self._temp_max_pendiente = None
+        self._codigo_pendiente_en_log = None
+        # A13 (tanda 28): último estado del secado tras fallo ya registrado
+        self._secado_visto = None
 
     @property
     def activo(self) -> bool:
@@ -152,6 +166,43 @@ class ProtocoloEstadoSeguro:
         return (self.activo is True
                 and getattr(self._protocolo, "presion_perdida", False) is True)
 
+    @property
+    def en_pausa_modo_prueba(self) -> bool:
+        """A10 (tanda 28): el protocolo activo está en pausa por el modo
+        prueba (no cuenta ticks seguros, ESG-02/S9 D9-1.3). Deja de serlo en
+        el primer update() tras salir del modo prueba."""
+        return self.activo is True and self._pausado is True and self._pausa_por_prueba is True
+
+    @property
+    def motivo_pendiente(self) -> dict | None:
+        """A10 (tanda 28): por qué el protocolo activo todavía no termina
+        según su última evaluación de cámara segura: {"codigo", "valores",
+        "texto", "limites"} o None (segura en ese tick, sin evaluar o
+        inactivo). `limites` se lee del config en esta llamada
+        (camara_segura.limites). Solo presentación; nunca lanza."""
+        motivo = self._motivo_pendiente
+        if not self.activo or motivo is None:
+            return None
+        try:
+            from autoclave.core.runtime.motivos import codigo_de, valores_json
+            return {"codigo": codigo_de(motivo) or "", "valores": valores_json(motivo),
+                    "texto": str(motivo),
+                    "limites": camara_segura.limites(self.config, self._temp_max_pendiente)}
+        except Exception:
+            logger.exception("Estado seguro: no se pudo armar el motivo pendiente")
+            return None
+
+    def _fijar_pendiente(self, motivo, temp_max_ciclo=None) -> None:
+        """A10: guarda el motivo de este tick y deja en el log de desarrollo
+        cada cambio de código (una línea por cambio, no por tick)."""
+        self._motivo_pendiente = motivo if motivo else None
+        self._temp_max_pendiente = temp_max_ciclo
+        codigo = getattr(self._motivo_pendiente, "codigo", None)
+        if codigo != self._codigo_pendiente_en_log:
+            self._codigo_pendiente_en_log = codigo
+            if codigo is not None:
+                logger.info("Estado seguro: la cámara aún no es segura (%s)", self._motivo_pendiente)
+
     def _evento(self, evento: str, **detalle) -> None:
         logger.info("Estado seguro: %s %s", evento, detalle or "")
         if self.al_evento is None:
@@ -165,7 +216,7 @@ class ProtocoloEstadoSeguro:
     def causa(self) -> str | None:
         """S9 (D9-1.2): "paro_liberado" mientras espera la confirmación (solo
         tras un paro real visto en este encendido); si no, el origen del
-        protocolo ("arranque", "fallo", "cancelado", "completado"). None si
+        protocolo ("ciclo_interrumpido", "fallo", "cancelado", "completado"). None si
         no está activo. La UI elige el texto con esto: nunca dice "paro
         liberado" si no hubo paro."""
         if not self.activo:
@@ -177,7 +228,8 @@ class ProtocoloEstadoSeguro:
     def iniciar(self, protocolo, requiere_confirmacion: bool = False,
                 origen: str = "fallo") -> None:
         """Toma el ProtocoloFallo ya ejecutado del ciclo terminado (o el del
-        arranque con la cámara no segura, origen "arranque")."""
+        arranque tras un ciclo interrumpido con la cámara no segura, origen
+        "ciclo_interrumpido"; tanda 28, A9)."""
         if protocolo is None or not getattr(protocolo, "ejecutado", False):
             return
         self._protocolo = protocolo
@@ -188,8 +240,10 @@ class ProtocoloEstadoSeguro:
         # empezar a actuar se "reanuda" (pulsos y plazo del modo desde cero)
         self._pausado = True
         self._pausa_por_prueba = False
+        self._fijar_pendiente(None)
         self.requiere_confirmacion = requiere_confirmacion
         self.origen = origen
+        self._secado_visto = None
         self._evento("estado_seguro_iniciado", requiere_confirmacion=requiere_confirmacion,
                      origen=origen)
 
@@ -202,6 +256,9 @@ class ProtocoloEstadoSeguro:
             return
         self._pausado = True
         self._ticks_seguros = 0
+        self._fijar_pendiente(None)          # A10: en pausa no hay evaluación
+        # A13 (tanda 28): la pausa corta el secado tras fallo (no se reanuda)
+        self._cortar_secado("modo_prueba" if motivo == "modo_prueba" else "datos_no_vigentes")
         if motivo == "modo_prueba":
             self._pausa_por_prueba = True
         self._evento("estado_seguro_pausado", motivo=motivo)
@@ -221,6 +278,7 @@ class ProtocoloEstadoSeguro:
         if self._protocolo is not None:
             self._protocolo.finalizar()
         self._protocolo = None
+        self._fijar_pendiente(None)
         self._resolver_alarma_bloqueo()
 
     def _actualizar_alarma_bloqueo(self) -> None:
@@ -334,6 +392,45 @@ class ProtocoloEstadoSeguro:
                 logger.exception("Estado seguro: no se pudo resolver la alarma de bloqueo")
         self._alarma_bloqueo = None
 
+    def cortar_secado(self, motivo: str) -> None:
+        """A13-M1 (tanda 28b): corte del secado tras fallo desde fuera (la
+        StateMachine, ante un error del estado seguro). Nunca lanza."""
+        try:
+            self._cortar_secado(motivo)
+        except Exception:
+            logger.exception("Estado seguro: no se pudo cortar el secado tras fallo")
+
+    def _cortar_secado(self, motivo: str) -> None:
+        """A13: corta el secado tras fallo del protocolo, si lo hay."""
+        cortar = getattr(self._protocolo, "cortar_secado", None)
+        if not callable(cortar):
+            return
+        try:
+            cortar(motivo)
+        except Exception:
+            logger.exception("Estado seguro: no se pudo cortar el secado tras fallo")
+        self._seguir_secado()
+
+    def _seguir_secado(self) -> None:
+        """A13: registra (log y bitácora) cada cambio del secado tras fallo:
+        inicio y resultado (hecho, sin ruptura, omitido o cortado)."""
+        try:
+            protocolo = self._protocolo
+            secando = getattr(protocolo, "secando", False) is True
+            resultado = getattr(protocolo, "secado_resultado", None)
+            estado = "secando" if secando else (resultado or {}).get("estado")
+        except Exception:
+            return
+        if not isinstance(estado, str) or estado == self._secado_visto:
+            return
+        self._secado_visto = estado
+        if estado == "secando":
+            self._evento("estado_seguro_secado_iniciado")
+        elif estado != "pendiente":
+            self._evento("estado_seguro_secado_terminado", resultado=estado,
+                         motivo=(resultado or {}).get("motivo"),
+                         segundos=(resultado or {}).get("segundos"))
+
     def _ai_vigente(self) -> bool:
         """S9 (revisión ★ TMG-02): trama AI vigente según lectura_ai; sin
         lectura_ai, True (comportamiento anterior); ante un error, False."""
@@ -360,6 +457,8 @@ class ProtocoloEstadoSeguro:
                 self.requiere_confirmacion = True
             self._ticks_seguros = 0
             self._pausado = True
+            self._fijar_pendiente(None)      # A10: el paro tiene su propia fila
+            self._cortar_secado("paro")      # A13: todo OFF y no se reanuda solo
             return
         if self._paro_visto:
             self._paro_visto = False
@@ -368,6 +467,12 @@ class ProtocoloEstadoSeguro:
         if self.requiere_confirmacion or not datos_vigentes:
             self._ticks_seguros = 0
             self._pausado = True
+            # A13: sin datos vigentes el secado tras fallo se corta
+            self._cortar_secado("paro" if self.requiere_confirmacion else "datos_no_vigentes")
+            # A10: sin datos vigentes, ese es el motivo; con la confirmación
+            # pendiente, la fila propia lo dice
+            self._fijar_pendiente(None if self.requiere_confirmacion else Motivo(
+                "sin_datos_vigentes", "Sin conexión con el módulo E/S: datos no vigentes"))
             return
 
         if self._pausado:
@@ -403,6 +508,13 @@ class ProtocoloEstadoSeguro:
             except Exception:
                 logger.exception("Estado seguro: no se pudo mantener el drenaje")
         self._actualizar_alarma_bloqueo()
+        self._seguir_secado()
+        if getattr(self._protocolo, "secando", False) is True:
+            # A13 (tanda 28): secando vapor residual (vacío y ruptura): no se
+            # cuentan lecturas seguras hasta que termine
+            self._ticks_seguros = 0
+            self._fijar_pendiente(Motivo("secando_vapor_residual", "Secando vapor residual"))
+            return
 
         programas = None
         if self.programas_seguridad is not None:
@@ -411,6 +523,7 @@ class ProtocoloEstadoSeguro:
             except Exception:
                 logger.exception("Estado seguro: no se pudieron obtener los programas")
                 self._ticks_seguros = 0
+                self._fijar_pendiente(None)
                 return
         propio = getattr(self._protocolo, "cycle", None)
         if programas is None:
@@ -424,16 +537,23 @@ class ProtocoloEstadoSeguro:
             temp_max_ciclo = self._protocolo.cycle.get_param("finalizacion", "temp_max_apertura")
         except Exception:
             pass
-        segura, _ = camara_segura.evaluar(self.estado, self.config, programas, self.profile,
-                                          temp_max_ciclo=temp_max_ciclo)
+        # A10 (tanda 28): self.config es el ConfigManager vivo; atm, rango y
+        # temp_max_apertura se leen en cada tick (un cambio en Parámetros del
+        # equipo rige desde el tick siguiente). Criterio y 3 ticks sin cambio.
+        segura, motivo = camara_segura.evaluar(self.estado, self.config, programas, self.profile,
+                                               temp_max_ciclo=temp_max_ciclo)
         if segura and not self._ai_vigente():
             # S9, revisión ★ TMG-02: presión posiblemente congelada
             segura = False
+            motivo = Motivo("sin_presion_camara",
+                            "Sin lectura válida de presión de cámara (trama AI vencida)")
+        self._fijar_pendiente(None if segura else motivo, temp_max_ciclo)
         self._ticks_seguros = self._ticks_seguros + 1 if segura else 0
         if self._ticks_seguros >= _TICKS_SEGUROS:
             duracion = self._reloj() - self._t_inicio if self._t_inicio is not None else None
             self._protocolo.finalizar()
             self._protocolo = None
+            self._fijar_pendiente(None)
             self._resolver_alarma_bloqueo()
             self._evento("estado_seguro_alcanzado",
                          duracion_s=round(duracion, 1) if duracion is not None else None)

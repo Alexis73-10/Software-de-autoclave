@@ -146,7 +146,10 @@ def reimportar(respaldo: RespaldoCiclos, db, motivo_interrumpido: str,
     ciclo), lo completa (SAF-02 de T8); luego lo archiva. Un respaldo sin
     cierre se importa como INTERRUMPIDO. Un error deja el archivo en su sitio (se
     reintenta en el próximo arranque). `excluir`: uuids que no se tocan."""
-    resultado = {"importados": [], "completados": [], "ya_registrados": [], "errores": []}
+    # A9-R3 (tanda 28): "interrumpidos" = importados SIN cierre (quedaron
+    # INTERRUMPIDO al importarlos: el arranque los cuenta como interrumpidos)
+    resultado = {"importados": [], "completados": [], "ya_registrados": [], "errores": [],
+                 "interrumpidos": []}
     excluir = excluir or set()
     for ruta in respaldo.pendientes():
         datos = respaldo.leer(ruta)
@@ -166,4 +169,6 @@ def reimportar(respaldo: RespaldoCiclos, db, motivo_interrumpido: str,
             continue
         clave = {"importado": "importados", "completado": "completados"}.get(accion, "ya_registrados")
         resultado.setdefault(clave, []).append(uuid_ciclo)
+        if accion == "importado" and datos["cierre"] is None:
+            resultado["interrumpidos"].append(uuid_ciclo)
     return resultado

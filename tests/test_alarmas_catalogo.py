@@ -64,6 +64,8 @@ _EJEMPLOS = {
     "CIC-19": {"sensor": "Referencia", "fase": "Esterilización"},
     # A12 (tanda 28): descompresión del pulso de prevacío sin terminar
     "CIC-20": {"maximo": 84.6, "margen": "10", "minutos": "5", "pulso": "A 2/4"},
+    # A13-M3 (tanda 28b): secado tras fallo sin vacío (CIC-21 al unir)
+    "CIC-21": {"minimo": 96.3, "segundos": 10},
     "SIS-04": {"motivo": "Mantenimiento vencido por fecha"},
     "SIS-05": {},
     # J12 (tanda 12, C-04.4): migración correctiva de un programa

@@ -21,6 +21,10 @@ ESPERADO = {
     # D9-3 (tanda 9): pasan del grupo Puerta al grupo Cámara segura
     "temp_max_apertura": ("camara_segura", 80, 40, 120),
     "rango_presion_atm": ("camara_segura", 5, 1, 10),
+    # A13 (tanda 28): secado corto tras un fallo con carga sólida
+    "secado_tras_fallo_s": ("camara_segura", 60, 0, 300),
+    # A13-M3 (tanda 28b): vacío sostenido exigido al secado tras fallo
+    "secado_tras_fallo_vacio_s": ("camara_segura", 10, 1, 60),
     "intervalo_impresion": ("impresion", 60, 10, 3600),
     "intervalo_impresion_esterilizacion": ("impresion", 30, 10, 3600),
     "temp_segura_drenaje": ("drenaje", 70, 40, 90),
@@ -339,7 +343,9 @@ def test_controlador_grupos_y_datos():
                         "sistema", "maquina"]
     assert [p["clave"] for p in c.delGrupo("puerta")] == ["timeout_puerta"]
     assert [p["clave"] for p in c.delGrupo("camara_segura")] == ["temp_max_apertura",
-                                                                "rango_presion_atm"]
+                                                                "rango_presion_atm",
+                                                                "secado_tras_fallo_s",
+                                                                "secado_tras_fallo_vacio_s"]
     assert {p["clave"] for p in c.delGrupo("sistema")} == {"tiempo_standby", "tiempo_estable_alarma",
                                                            "presion_atmosferica",
                                                            "pausa_max_esterilizacion_s",

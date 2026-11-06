@@ -98,6 +98,45 @@ CLAVE_OBSERVACION_REFERENCIA = "ticket_ciclo.observacion_referencia"
 # FC-12 (tanda 21): usuario identificado que canceló el ciclo. Aviso:
 # {"clave": CLAVE_CANCELADO_POR, "usuario"}.
 CLAVE_CANCELADO_POR = "ticket_ciclo.cancelado_por"
+# A13 (tanda 28): secado corto tras el fallo. Aviso: {"clave":
+# CLAVE_SECADO_TRAS_FALLO, "estado" (pendiente | hecho | sin_ruptura | omitido
+# | cortado | sin_vacio), "segundos", "motivo"}; ver ProtocoloFallo. A13-M3
+# (tanda 28b): "sin_vacio" = el vacío no se logró ni se sostuvo (nunca "hecho").
+CLAVE_SECADO_TRAS_FALLO = "ticket_ciclo.secado_tras_fallo"
+_ESTADOS_SECADO = ("pendiente", "hecho", "sin_ruptura", "omitido", "cortado", "sin_vacio")
+
+
+def aviso_secado_tras_fallo(resultado) -> dict | None:
+    """Aviso del pie para el resultado del secado tras fallo
+    (estado.secado_tras_fallo) o None si no hay uno legible. Nunca lanza."""
+    try:
+        if not isinstance(resultado, dict) or resultado.get("estado") not in _ESTADOS_SECADO:
+            return None
+        segundos = resultado.get("segundos")
+        if isinstance(segundos, bool) or not isinstance(segundos, (int, float)):
+            segundos = None
+        motivo = resultado.get("motivo")
+        return {"clave": CLAVE_SECADO_TRAS_FALLO, "estado": resultado["estado"],
+                "segundos": None if segundos is None else int(segundos),
+                "motivo": motivo if isinstance(motivo, str) else None}
+    except Exception:
+        return None
+
+
+def _linea_secado(aviso: dict, p) -> str:
+    """«Secado tras fallo: 60 s» / «… omitido (carga líquida)» / ..."""
+    from autoclave import i18n
+    estado = aviso.get("estado") if aviso.get("estado") in _ESTADOS_SECADO else "pendiente"
+    motivo = aviso.get("motivo")
+    clave_motivo = _SECCION + "secado_motivo." + str(motivo)
+    texto_motivo = (i18n.t(clave_motivo, p.idioma)
+                    if isinstance(motivo, str) and i18n.existe(clave_motivo, p.idioma) else "---")
+    segundos = aviso.get("segundos")
+    segundos = (str(int(segundos)) if isinstance(segundos, (int, float))
+                and not isinstance(segundos, bool) else "---")
+    texto = i18n.t(_SECCION + "secado_estado." + estado, p.idioma,
+                   segundos=segundos, motivo=texto_motivo)
+    return f"{_t(p, 'secado_tras_fallo')}: {texto}"
 
 
 def observaciones_referencia(avisos) -> list[dict]:
@@ -153,6 +192,8 @@ def _linea_aviso(aviso, p: Presentacion) -> str:
                 return f"{_t(p, 'observacion')}: {texto}"
             if clave == CLAVE_CANCELADO_POR:
                 return f"{_t(p, 'cancelado_por')}: {aviso.get('usuario') or '---'}"
+            if clave == CLAVE_SECADO_TRAS_FALLO:
+                return _linea_secado(aviso, p)
         except Exception:
             return str(aviso)
     return f"{_t(p, 'aviso')}: {aviso_ticket(aviso, p)}"

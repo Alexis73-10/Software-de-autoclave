@@ -304,7 +304,7 @@ Item {
         property bool estadoSeguroActivo: true
         property bool estadoSeguroRequiereConfirmacion: false
         property bool estadoSeguroSilencioso: true
-        property string estadoSeguroCausa: "arranque"
+        property string estadoSeguroCausa: "ciclo_interrumpido"
         property string estadoSeguroBloqueadoMotivo: ""
         property string estadoSeguroBloqueadoClave: ""
         property bool estadoSeguroBloqueoPorSonda: false

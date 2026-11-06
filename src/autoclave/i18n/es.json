@@ -1,6 +1,6 @@
 {
-  "parametros_equipo": {"timeout_puerta": "Tiempo límite de puerta", "temp_max_apertura": "Temperatura segura de apertura", "rango_presion_atm": "Brecha de presión atmosférica (±)", "intervalo_impresion": "Tasa de impresión general", "intervalo_impresion_esterilizacion": "Tasa de impresión en esterilización", "temp_segura_drenaje": "Temperatura segura de drenaje", "rango_temp_drenaje": "Rango de temperatura de drenaje", "presion_empaque": "Presión de empaque", "vacio_empaque": "Vacío de empaque", "timeout_chaqueta": "Tiempo límite de chaqueta", "tiempo_standby": "Suspensión", "tiempo_estable_alarma": "Tiempo de estabilidad para alarma", "pausa_max_esterilizacion_s": "Pausa máxima en esterilización", "espera_sellado_sin_sonda_min": "Espera sellada sin sonda", "presion_atmosferica": "Presión atmosférica de referencia", "presion_max_chaqueta_control": "Presión máxima de chaqueta", "timeout_aislamiento_camara": "Tiempo límite de aislamiento de cámara", "max_aislamientos_camara": "Aislamientos de cámara permitidos", "ventana_aislamientos_camara": "Ventana de conteo de aislamientos", "presion_fondo_escala": "Fondo de escala del transductor", "presion_suministro_vapor": "Presión de suministro de vapor", "presion_alivio_camara": "Alivio de cámara", "presion_alivio_chaqueta": "Alivio de chaqueta"},
-  "parametros_equipo_desc": {"timeout_puerta": "Tiempo máximo para que la puerta termine de abrir o cerrar.", "temp_max_apertura": "Por encima de esta temperatura de cámara la puerta no se abre.", "rango_presion_atm": "Banda alrededor de la presión atmosférica en la que la cámara se considera a presión atmosférica para abrir la puerta.", "intervalo_impresion": "Cada cuánto se imprime una línea durante el ciclo.", "intervalo_impresion_esterilizacion": "Cada cuánto se imprime una línea durante la esterilización.", "temp_segura_drenaje": "Techo de temperatura del drenaje; por encima se enfría con agua.", "rango_temp_drenaje": "Tolerancia sobre la temperatura segura antes de la alarma.", "presion_empaque": "Presión del empaque de la puerta para considerarla sellada.", "vacio_empaque": "Presión bajo la cual el empaque se considera desinflado.", "timeout_chaqueta": "Tiempo máximo para que la chaqueta alcance su presión. Todavía no lo usa el control.", "tiempo_standby": "Minutos sin actividad antes de la suspensión de pantallas; 0 la desactiva.", "tiempo_estable_alarma": "Tiempo que una condición debe mantenerse antes de activar o despejar la alarma.", "pausa_max_esterilizacion_s": "Suma máxima de pausas por falta de datos del módulo E/S en una misma esterilización. Si se supera, el ciclo falla por comunicación inestable.", "espera_sellado_sin_sonda_min": "Carga líquida: si se pierde la sonda Principal durante el enfriamiento y no queda ninguna otra sonda válida, la cámara espera sellada este tiempo antes de ventear por la descompresión lenta.", "presion_atmosferica": "Presión atmosférica del lugar de instalación.", "presion_max_chaqueta_control": "Con la chaqueta en esta presión o más, la válvula de vapor de chaqueta se cierra siempre. Debe quedar al menos 10 kPa por debajo del alivio de chaqueta.", "timeout_aislamiento_camara": "Equipos con chaqueta: tiempo máximo que la cámara puede quedar aislada por sobrepresión sin que la presión baje. Si se supera, el ciclo falla.", "max_aislamientos_camara": "Equipos con chaqueta: cantidad de aislamientos de cámara por sobrepresión dentro de la ventana que hace fallar el ciclo.", "ventana_aislamientos_camara": "Equipos con chaqueta: ventana móvil en la que se cuentan los aislamientos de cámara.", "presion_fondo_escala": "Presión máxima que mide el transductor. Los alivios no pueden superarla.", "presion_suministro_vapor": "Presión absoluta del vapor regulado de suministro. Un techo de control por encima solo genera advertencia.", "presion_alivio_camara": "Presión de apertura de la válvula de alivio de la cámara. Se rechazan los programas cuyo techo de control la alcance.", "presion_alivio_chaqueta": "Presión de apertura de la válvula de alivio de la chaqueta. Se rechazan los programas cuya consigna de chaqueta la alcance."},
+  "parametros_equipo": {"timeout_puerta": "Tiempo límite de puerta", "temp_max_apertura": "Temperatura segura de apertura", "rango_presion_atm": "Brecha de presión atmosférica (±)", "intervalo_impresion": "Tasa de impresión general", "intervalo_impresion_esterilizacion": "Tasa de impresión en esterilización", "temp_segura_drenaje": "Temperatura segura de drenaje", "rango_temp_drenaje": "Rango de temperatura de drenaje", "presion_empaque": "Presión de empaque", "vacio_empaque": "Vacío de empaque", "timeout_chaqueta": "Tiempo límite de chaqueta", "tiempo_standby": "Suspensión", "tiempo_estable_alarma": "Tiempo de estabilidad para alarma", "pausa_max_esterilizacion_s": "Pausa máxima en esterilización", "espera_sellado_sin_sonda_min": "Espera sellada sin sonda", "presion_atmosferica": "Presión atmosférica de referencia", "presion_max_chaqueta_control": "Presión máxima de chaqueta", "timeout_aislamiento_camara": "Tiempo límite de aislamiento de cámara", "max_aislamientos_camara": "Aislamientos de cámara permitidos", "ventana_aislamientos_camara": "Ventana de conteo de aislamientos", "presion_fondo_escala": "Fondo de escala del transductor", "presion_suministro_vapor": "Presión de suministro de vapor", "presion_alivio_camara": "Alivio de cámara", "presion_alivio_chaqueta": "Alivio de chaqueta", "secado_tras_fallo_s": "Secado tras fallo", "secado_tras_fallo_vacio_s": "Vacío sostenido del secado tras fallo"},
+  "parametros_equipo_desc": {"timeout_puerta": "Tiempo máximo para que la puerta termine de abrir o cerrar.", "temp_max_apertura": "Por encima de esta temperatura de cámara la puerta no se abre.", "rango_presion_atm": "Banda alrededor de la presión atmosférica en la que la cámara se considera a presión atmosférica para abrir la puerta.", "intervalo_impresion": "Cada cuánto se imprime una línea durante el ciclo.", "intervalo_impresion_esterilizacion": "Cada cuánto se imprime una línea durante la esterilización.", "temp_segura_drenaje": "Techo de temperatura del drenaje; por encima se enfría con agua.", "rango_temp_drenaje": "Tolerancia sobre la temperatura segura antes de la alarma.", "presion_empaque": "Presión del empaque de la puerta para considerarla sellada.", "vacio_empaque": "Presión bajo la cual el empaque se considera desinflado.", "timeout_chaqueta": "Tiempo máximo para que la chaqueta alcance su presión. Todavía no lo usa el control.", "tiempo_standby": "Minutos sin actividad antes de la suspensión de pantallas; 0 la desactiva.", "tiempo_estable_alarma": "Tiempo que una condición debe mantenerse antes de activar o despejar la alarma.", "pausa_max_esterilizacion_s": "Suma máxima de pausas por falta de datos del módulo E/S en una misma esterilización. Si se supera, el ciclo falla por comunicación inestable.", "espera_sellado_sin_sonda_min": "Carga líquida: si se pierde la sonda Principal durante el enfriamiento y no queda ninguna otra sonda válida, la cámara espera sellada este tiempo antes de ventear por la descompresión lenta.", "presion_atmosferica": "Presión atmosférica del lugar de instalación.", "presion_max_chaqueta_control": "Con la chaqueta en esta presión o más, la válvula de vapor de chaqueta se cierra siempre. Debe quedar al menos 10 kPa por debajo del alivio de chaqueta.", "timeout_aislamiento_camara": "Equipos con chaqueta: tiempo máximo que la cámara puede quedar aislada por sobrepresión sin que la presión baje. Si se supera, el ciclo falla.", "max_aislamientos_camara": "Equipos con chaqueta: cantidad de aislamientos de cámara por sobrepresión dentro de la ventana que hace fallar el ciclo.", "ventana_aislamientos_camara": "Equipos con chaqueta: ventana móvil en la que se cuentan los aislamientos de cámara.", "presion_fondo_escala": "Presión máxima que mide el transductor. Los alivios no pueden superarla.", "presion_suministro_vapor": "Presión absoluta del vapor regulado de suministro. Un techo de control por encima solo genera advertencia.", "presion_alivio_camara": "Presión de apertura de la válvula de alivio de la cámara. Se rechazan los programas cuyo techo de control la alcance.", "presion_alivio_chaqueta": "Presión de apertura de la válvula de alivio de la chaqueta. Se rechazan los programas cuya consigna de chaqueta la alcance.", "secado_tras_fallo_s": "Carga sólida: tras un fallo o una cancelación, al llegar la cámara a la presión atmosférica se hace vacío durante este tiempo para retirar el vapor residual y luego se rompe el vacío con aire, antes de dar la cámara por segura. 0 lo desactiva.", "secado_tras_fallo_vacio_s": "Tiempo continuo que la presión de cámara debe quedar por debajo de la banda atmosférica durante el secado tras fallo para darlo por hecho. Si no se logra, el resultado queda sin vacío verificado y aparece un aviso."},
   "instalacion": {
     "aviso_pantalla2": "Instalación en curso en la pantalla 1",
     "titulo": "INSTALACIÓN DEL EQUIPO",
@@ -174,7 +174,7 @@
     "equipo_rango_efectivo": "Rango válido con los demás parámetros vigentes: {min} – {max}",
     "equipo_guia": "Los cambios solo se hacen sin ciclo en curso y se aplican sin reiniciar el equipo.",
     "equipo_grupos": {"puerta": "Puerta", "camara_segura": "Cámara segura", "impresion": "Impresión", "drenaje": "Drenaje", "empaque": "Empaque", "chaqueta": "Chaqueta", "sistema": "Sistema", "maquina": "Configuración de la máquina"},
-    "equipo_grupos_desc": {"puerta": "Tiempo límite de movimiento de la puerta", "camara_segura": "Temperatura máxima de apertura y banda atmosférica", "impresion": "Impresora y tasas de impresión", "drenaje": "Temperatura segura y rango", "empaque": "Presión y vacío de empaque", "chaqueta": "Tiempo límite de calentamiento, corte de presión, aislamientos de cámara y límites de presión del equipo", "sistema": "Suspensión, estabilidad y presión atmosférica", "maquina": "Idioma, unidades, número de serie y modelo"},
+    "equipo_grupos_desc": {"puerta": "Tiempo límite de movimiento de la puerta", "camara_segura": "Temperatura máxima de apertura, banda atmosférica y secado tras fallo", "impresion": "Impresora y tasas de impresión", "drenaje": "Temperatura segura y rango", "empaque": "Presión y vacío de empaque", "chaqueta": "Tiempo límite de calentamiento, corte de presión, aislamientos de cámara y límites de presión del equipo", "sistema": "Suspensión, estabilidad y presión atmosférica", "maquina": "Idioma, unidades, número de serie y modelo"},
     "equipo_rango_defecto": "Rango {min} – {max} · defecto {defecto}",
     "equipo_err_ciclo": "Con ciclo en curso los parámetros del equipo no se pueden cambiar.",
     "equipo_err_rango": "Valor fuera del rango permitido.",
@@ -857,12 +857,15 @@
     "sin_lectura": "—",
     "no_abrir": "NO ABRIR",
     "paro_no_abrir": "PARO DE EMERGENCIA — NO ABRIR",
-    "estado_seguro_causa_arranque": "Arranque con la cámara no segura: el equipo la lleva solo a estado seguro, sin confirmación (no hubo paro de emergencia).",
+    "estado_seguro_causa_ciclo_interrumpido": "Arranque tras un ciclo interrumpido con la cámara no segura: el equipo la lleva solo a estado seguro, sin confirmación (no hubo paro de emergencia).",
     "estado_seguro_causa_fallo": "Fallo de ciclo: el equipo lleva la cámara a estado seguro.",
     "estado_seguro_causa_cancelado": "Ciclo cancelado: el equipo lleva la cámara a estado seguro.",
     "estado_seguro_causa_completado": "Ciclo terminado con la cámara no segura: el equipo la lleva a estado seguro.",
     "paro_liberado": "Paro liberado. Verifique que no haya fuga antes de continuar.",
     "confirmar_estado_seguro": "Confirmar y llevar a estado seguro",
+    "estado_seguro_pausa_modo_prueba": "En pausa: modo prueba activo",
+    "estado_seguro_secando": "Secando vapor residual",
+    "estado_seguro_espera": "Pendiente: {motivo}",
     "estado_seguro_en_curso": "Llevando la cámara a estado seguro",
     "estado_seguro_pendiente": "Paro de emergencia liberado — estado seguro pendiente",
     "paro_suelte": "Desenclave el pulsador de paro de emergencia para continuar. Hasta entonces no hay acciones disponibles.",
@@ -1269,6 +1272,11 @@
       "titulo": "Descompresión del prevacío sin terminar",
       "plantilla": "La presión de cámara no bajó a {maximo:.1f} kPa (atmosférica + {margen} kPa) en {minutos} min, en la descompresión del pulso {pulso} del prevacío. La bomba de vacío no se encendió. El ciclo se abortó.",
       "accion": "La carga NO está estéril. Revise la válvula de descompresión rápida, el escape y el sensor de presión de cámara (calibración), y el valor «Presión para iniciar el vacío» del programa. Repita el ciclo."
+    },
+    "CIC-21": {
+      "titulo": "Secado tras fallo sin vacío",
+      "plantilla": "El secado tras el fallo no logró vacío: la presión de cámara no se mantuvo bajo {minimo:.1f} kPa durante {segundos} s. La cámara puede conservar vapor residual.",
+      "accion": "Abra la puerta con precaución: puede salir vapor caliente. Revise la bomba de vacío, su agua de sello y la válvula de vacío."
     },
     "COM-02": {
       "titulo": "Comunicación perdida durante el ciclo",
@@ -1763,6 +1771,7 @@
     "vacio": "Cámara en vacío ({pres})",
     "temp_alta": "Temperatura demasiado alta ({temp})",
     "no_permitida": "Orden de puerta no permitida",
+    "secando_vapor_residual": "Secando vapor residual de la cámara",
     "error_comunicacion": "Error de comunicación"
   },
   "roles": {
@@ -1886,6 +1895,8 @@
     "err_fecha": "La fecha debe tener el formato AAAA-MM-DD.",
     "ev_generico": "{evento} {entidad}",
     "ev": {
+      "estado_seguro_secado_iniciado": "inició el secado tras fallo (vapor residual)",
+      "estado_seguro_secado_terminado": "terminó el secado tras fallo",
       "equipo_instalado": "registró la instalación del equipo {entidad}",
       "ciclo_no_conforme_reconocido": "reconoció que la carga del ciclo NO CONFORME no es liberable",
       "ciclo_cancelado": "canceló el ciclo {nuevo}",
@@ -1948,6 +1959,8 @@
       "cuenta_sistema_rechazada": "intentó modificar la cuenta del sistema {entidad} (rechazado)"
     },
     "tipo": {
+      "estado_seguro_secado_iniciado": "Secado tras fallo iniciado",
+      "estado_seguro_secado_terminado": "Secado tras fallo terminado",
       "equipo_instalado": "Equipo instalado",
       "ciclo_no_conforme_reconocido": "Carga no liberable reconocida",
       "ciclo_cancelado": "Ciclo cancelado",
@@ -2268,7 +2281,10 @@
     "no_conforme_referencia": "NO CONFORME: punto de referencia sin verificar ({sensor})",
     "observacion": "Observación",
     "observacion_referencia": "{sensor} sin lectura desde {hora} ({fase})",
-    "cancelado_por": "Cancelado por"
+    "cancelado_por": "Cancelado por",
+    "secado_tras_fallo": "Secado tras fallo",
+    "secado_estado": {"pendiente": "pendiente al cerrar el ciclo", "hecho": "{segundos} s", "sin_ruptura": "{segundos} s (la ruptura del vacío no llegó a la presión atmosférica)", "omitido": "omitido ({motivo})", "cortado": "cortado a los {segundos} s ({motivo})", "sin_vacio": "{segundos} s sin lograr vacío (la cámara puede conservar vapor residual)"},
+    "secado_motivo": {"desactivado": "desactivado en Parámetros del equipo", "no_aplica": "no aplica", "carga_liquida": "carga líquida", "sin_bomba": "equipo sin bomba de vacío", "sin_secado_programa": "programa sin secado", "fallo_vacio": "falla del sistema de vacío", "paro": "paro de emergencia", "datos_no_vigentes": "sin datos vigentes del módulo E/S", "sin_presion": "presión de cámara sin lectura", "sin_principal": "sensor Principal sin lectura", "puerta_abierta": "puerta no confirmada cerrada", "modo_prueba": "modo prueba", "sellado": "cámara sellada o alivio por sobrepresión", "error": "error interno del control", "sin_referencia_atm": "presión atmosférica de referencia sin configurar", "salidas_sin_confirmar": "apagado de salidas sin confirmar", "programa_incierto": "programa del ciclo interrumpido incierto"}
   },
   "modos_programa": {
     "secado_intro": "Cómo se seca la carga. En los modos 1 y 2 la cámara debe alcanzar vacío dentro del tiempo límite del pulso y no perderlo; si no, el ciclo falla.",
@@ -2485,6 +2501,16 @@
       "titulo": "Fallo de arranque",
       "accion": "Cierre el programa y ábralo de nuevo. Si el fallo se repite, llame a servicio técnico."
     },
+    "estado_seguro_espera": {
+      "temp_alta": "Temperatura {valor}, límite {limite}",
+      "sobrepresion": "Presión {valor}, rango seguro de {minimo} a {maximo}",
+      "vacio": "Presión {valor}, rango seguro de {minimo} a {maximo}",
+      "sin_presion_camara": "Presión de cámara sin lectura",
+      "sin_temp_camara": "Temperatura de cámara sin lectura",
+      "sin_datos_vigentes": "Datos del módulo E/S no vigentes",
+      "falta_config": "Falta configuración: {claves}",
+      "secando_vapor_residual": "Secando vapor residual"
+    },
     "no_abrir_motivos": {
       "temp_alta": {
         "descripcion": "Temperatura de la cámara: {valor}. Límite para abrir: {limite} (el menor entre el del equipo y el del programa del último ciclo).",
@@ -2514,6 +2540,10 @@
       "falta_config": {
         "descripcion": "Falta configuración: {claves}.",
         "accion": "Llame a servicio técnico para completar la configuración."
+      },
+      "secando_vapor_residual": {
+        "descripcion": "El equipo está retirando el vapor residual de la cámara con vacío y luego romperá el vacío con aire (secado tras fallo).",
+        "accion": "Espere a que termine el secado. No abra la puerta: puede salir vapor caliente."
       },
       "generico": {
         "accion": "Llame a servicio técnico si el aviso no desaparece."

@@ -7,8 +7,16 @@ detiene bajo el lock con ALL_OFF y el proceso nuevo arranca con un
 ControlLoop nuevo. Lo único que sobrevive del protocolo anterior es el
 programa del último ciclo (BackendContext._programa_para_arranque) y la
 lectura física de la cámara: el equivalente sin hardware del reinicio es
-un ControlLoop recién construido que arranca con la cámara no segura (S9,
-origen "arranque").
+un ControlLoop recién construido que arranca con la cámara no segura (S9;
+origen "ciclo_interrumpido" desde la tanda 28, A9).
+
+Tanda 28b (A9-R2, revisión de seguridad de A9): el reinicio simulado sigue
+el camino de producción. El proceso anterior tenía el ciclo ya CERRADO en la
+base (el CycleLogger lo cierra apenas la fase sale de "en curso") y el
+protocolo de estado seguro activo, así que su ControlLoop escribió la marca
+persistente (A9-R1). El proceso nuevo abre esa base real, cierra los ciclos
+interrumpidos y clasifica con BackendContext.hubo_ciclo_interrumpido(); el
+resultado (no un True por omisión) decide si arranca el protocolo.
 
 Escenarios del §6.2: reinicio con el protocolo activo y presión vigente,
 con presión sin lectura y en FALLA con carga líquida. Las pruebas marcadas
@@ -31,6 +39,10 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 import autoclave.state_machine.cycle_phases.protocolo_fallo as modulo_protocolo
+from autoclave.core.runtime.contador_ciclos import ContadorCiclos
+from autoclave.core.runtime.marca_estado_seguro import MarcaEstadoSeguro
+from autoclave.core.runtime.respaldo_ciclos import RespaldoCiclos
+from autoclave.services.domain.logging.db_manager import DbManager
 from autoclave.core.managers.cycle_manager import Cycle
 from autoclave.core.runtime import asignacion_io as aio
 from autoclave.core.runtime import camara_segura
@@ -69,7 +81,18 @@ def _programa(tipo="liquido", modo=4, timeout_min=1):
     return prog
 
 
-def _loop_nuevo():
+_DIR = {}
+
+
+@pytest.fixture(autouse=True)
+def _directorio_de_datos(tmp_path):
+    """Carpeta de datos del equipo simulado (base, contador, marca)."""
+    _DIR["datos"] = tmp_path
+    yield
+    _DIR.clear()
+
+
+def _loop_nuevo(marca=None):
     """ControlLoop del proceso relanzado (mismo doble que S9)."""
     from autoclave.services.domain.loop.control_loop import ControlLoop
     cm = MagicMock()
@@ -78,7 +101,8 @@ def _loop_nuevo():
         loop = ControlLoop(arranque_liberado=evento_liberado(), units=MagicMock(), door_service=MagicMock(), doors=[],
                            estado=EstadoAutoclave(), link=MagicMock(), set_do=MagicMock(),
                            alarm_manager=AlarmManager(), cycle_manager=cm,
-                           config_manager=_Config(_CFG))
+                           config_manager=_Config(_CFG), marca_estado_seguro=marca)
+    loop.state_machine.ciclo._protocolo.ejecutado = False
     loop.cycle = None
     loop.set_do.reset_all_outputs.return_value = True
     loop.link.edad_ultima_ai.return_value = 0.1
@@ -87,14 +111,60 @@ def _loop_nuevo():
     return loop
 
 
+def _marca(datos):
+    return MarcaEstadoSeguro(datos / "estado_seguro_en_curso.json")
+
+
+def _proceso_anterior(datos, programa, resultado="FALLO", con_protocolo=True,
+                      cerrar=True):
+    """Proceso ANTES del reinicio, por el camino de producción: el ciclo
+    quedó cerrado en la base (CycleLogger, fase fuera de "en curso") y, con
+    el protocolo de estado seguro activo, su ControlLoop escribió la marca.
+    `cerrar=False`: corte con el ciclo en curso (fila sin fecha de fin)."""
+    db = DbManager(datos / "autoclave.db")
+    try:
+        cid = db.crear_ciclo(1, "p", "p", 134, 4, "M", "S", "1",
+                             programa_json=json.dumps(programa.instantanea()))
+        if cerrar:
+            db.cerrar_ciclo(cid, resultado, motivo_fallo="prueba")
+    finally:
+        db.close()
+    viejo = _loop_nuevo(marca=_marca(datos))
+    if con_protocolo:
+        protocolo = ProtocoloFallo(viejo.estado, viejo.set_do, programa, _Config(_CFG))
+        protocolo.ejecutar(abrir_valvulas=False)
+        viejo.estado_seguro.iniciar(protocolo, origen="fallo")
+        assert viejo.estado_seguro.activo
+    viejo._sincronizar_marca_estado_seguro()
+    # aquí se detiene el lazo (reasignación, corte, caída): nada más se escribe
+
+
+def _clasificar(datos):
+    """Proceso nuevo: etapa 6 (base real) y clasificación de producción."""
+    from autoclave.backend.context import BackendContext
+    ctx = BackendContext()
+    ctx.db = DbManager(datos / "autoclave.db")
+    ctx._contador_ciclos = ContadorCiclos(datos / "ciclo_contador.json")
+    ctx._marca_estado_seguro = _marca(datos)
+    ctx._respaldo_ciclos = RespaldoCiclos(datos / "respaldo_ciclos")
+    try:
+        ctx._numeracion_y_ciclos_interrumpidos()
+        return ctx.hubo_ciclo_interrumpido()
+    finally:
+        ctx.db.close()
+
+
 def _reiniciar(programa, pres, temp, ref=None):
-    """Proceso nuevo: recuperación con el programa del último ciclo y primer
-    tick con datos vigentes."""
-    loop = _loop_nuevo()
+    """Reasignación en FALLA con el protocolo actuando → reinicio del backend
+    → clasificación real → primer tick con datos vigentes."""
+    datos = _DIR["datos"]
+    _proceso_anterior(datos, programa)
+    interrumpido = _clasificar(datos)
+    loop = _loop_nuevo(marca=_marca(datos))
     loop.estado.sensores_pres["pres_camara"] = pres
     loop.estado.sensores_temp["temp_camara"] = temp
     loop.estado.sensores_temp["temp_ref"] = ref
-    loop.recuperar_ciclo_interrumpido(programa)
+    loop.recuperar_ciclo_interrumpido(programa, interrumpido=interrumpido)
     loop._procesar_recuperacion()
     return loop
 
@@ -131,7 +201,7 @@ def _protocolo_previo(programa, pres, temp, ref):
 def test_reinicio_presion_vigente_arranca_estado_seguro_solo_lenta(tipo, modo):
     loop = _reiniciar(_programa(tipo, modo), pres=250.0, temp=125.0, ref=125.0)
     es = loop.estado_seguro
-    assert es.activo and es.causa == "arranque" and es.requiere_confirmacion is False
+    assert es.activo and es.causa == "ciclo_interrumpido" and es.requiere_confirmacion is False
     assert es._protocolo.solo_lenta is True           # (a) enclavamiento conservado
     _ticks(loop)
     abiertas = _abiertas(loop.set_do)
@@ -160,7 +230,7 @@ def test_reinicio_conserva_solo_lenta_aunque_el_sensor_vuelva_a_leer():
 def test_reinicio_sin_presion_no_abre_nada_y_mantiene_no_abrir():
     loop = _reiniciar(_programa("solido", 1), pres=None, temp=125.0, ref=125.0)
     es = loop.estado_seguro
-    assert es.activo and es.causa == "arranque"
+    assert es.activo and es.causa == "ciclo_interrumpido"
     _ticks(loop, 5)
     assert not _abiertas(loop.set_do)
     assert es._protocolo.presion_perdida is True
@@ -253,6 +323,62 @@ def test_hallazgo_reinicio_liquido_en_contrapresion_no_debe_ventear_caliente(mod
     loop = _reiniciar(_programa("liquido", modo), pres=220.0, temp=118.0, ref=118.0)
     _ticks(loop, 10)
     assert "descompresion_lenta_on" not in _abiertas(loop.set_do)
+
+
+# ── 3b. A9-R2: ciclo FALLO cerrado → reinicio → clasificación (base real) ──
+
+@pytest.mark.parametrize("marca, esperado", [
+    ("presente", True), ("ausente", False), ("corrupta", True)])
+def test_fallo_cerrado_reinicio_clasificacion(marca, esperado):
+    datos = _DIR["datos"]
+    programa = _programa("solido", 1)
+    _proceso_anterior(datos, programa, con_protocolo=(marca != "ausente"))
+    if marca == "corrupta":
+        _marca(datos).ruta.write_bytes(b"\x00\xff{")
+    assert _marca(datos).presente() is (marca != "ausente")
+    interrumpido = _clasificar(datos)
+    assert interrumpido is esperado
+    loop = _loop_nuevo(marca=_marca(datos))
+    loop.estado.sensores_pres["pres_camara"] = 250.0
+    loop.estado.sensores_temp["temp_camara"] = 125.0
+    loop.recuperar_ciclo_interrumpido(programa, interrumpido=interrumpido)
+    loop._procesar_recuperacion()
+    assert loop.estado_seguro.activo is esperado
+    if esperado:
+        assert loop.estado_seguro.causa == "ciclo_interrumpido"
+    assert _no_abrir(loop)                              # NO ABRIR en los dos casos
+
+
+def test_corte_con_el_ciclo_en_curso_reinicio_clasificacion():
+    datos = _DIR["datos"]
+    _proceso_anterior(datos, _programa("solido", 1), con_protocolo=False, cerrar=False)
+    assert _marca(datos).presente() is False
+    assert _clasificar(datos) is True                   # fila sin fecha de fin
+
+
+def test_completado_cerrado_sin_protocolo_es_encendido_normal():
+    datos = _DIR["datos"]
+    _proceso_anterior(datos, _programa("solido", 1), resultado="COMPLETADO",
+                      con_protocolo=False)
+    assert _clasificar(datos) is False
+
+
+def test_marca_borrada_al_terminar_el_protocolo_el_reinicio_es_normal():
+    datos = _DIR["datos"]
+    programa = _programa("solido", 1)
+    _proceso_anterior(datos, programa)
+    assert _clasificar(datos) is True
+    nuevo = _loop_nuevo(marca=_marca(datos))
+    nuevo.estado.sensores_pres["pres_camara"] = 101.3
+    nuevo.estado.sensores_temp["temp_camara"] = 40.0
+    nuevo.recuperar_ciclo_interrumpido(programa, interrumpido=True)
+    for _ in range(3):                                  # cámara segura al arrancar
+        nuevo._sincronizar_marca_estado_seguro()
+        nuevo._procesar_recuperacion()
+    nuevo._sincronizar_marca_estado_seguro()
+    assert nuevo._recuperacion_pendiente is None and not nuevo.estado_seguro.activo
+    assert _marca(datos).presente() is False
+    assert _clasificar(datos) is False
 
 
 # ── 4. Ventana del reinicio: puertas ───────────────────────────────────────

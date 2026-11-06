@@ -57,6 +57,8 @@ CODIGOS = (
     "sin_presion_empaque", "empaque_presurizado", "no_acepto", "ya_abierta",
     "en_movimiento", "bloqueada", "no_abierta", "sin_datos_vigentes", "sin_temp_camara",
     "sobrepresion", "vacio", "temp_alta", "no_permitida",
+    # A13-M4 (tanda 28b): secado tras fallo en curso o pendiente
+    "secando_vapor_residual",
 )
 
 

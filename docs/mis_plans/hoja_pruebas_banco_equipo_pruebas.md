@@ -199,6 +199,9 @@
 | T27-A7-01 | Parámetros del equipo: mensaje de incoherencia propio de cada regla y rango efectivo | En seco (sin vapor) | A7 (tanda 27, AJ27-A7) |
 | T28-A14-01 | Ciclo de 134 °C en modo chaqueta: sin aislamientos, sobreimpulso y mínima en exposición | Con vapor | A14 (tanda 28); HAZ-EST-07 |
 | T28-A12-01 | Prevacío con bomba de anillo líquido: arranque del vacío a +10 kPa y CIC-20 | Con vapor | A12 (tanda 28); HAZ-PRV-01 |
+| T28-A10-01 | El estado seguro termina al ampliar la brecha de presión atmosférica, y dice qué le falta | En seco (sin vapor) | A10 (tanda 28) |
+| T28-A9-01 | Encendido con la cámara no segura: sin estado seguro en el normal, con estado seguro tras un ciclo interrumpido | En seco y con vapor | A9 (tanda 28); HAZ-A9-01 |
+| T28-A13-01 | Secado corto tras un ciclo fallido con carga sólida (y CIC-21 sin vacío) | Con vapor y en seco | A13 (tanda 28); HAZ-SFF-01 |
 
 ## Bloque A. Arranque, instalación y módulo E/S (en seco)
 
@@ -3106,6 +3109,63 @@
 - **Resultado esperado:** La card queda entera a un costado de la línea y del punto del cursor, dentro del área, en un hueco sin curvas cuando existe (si no, donde menos las cruza); no parpadea ni cambia de lado sin motivo (AJ28D-03); la CPU no se dispara ni la interfaz se traba al arrastrar (AJ28D-02/04).
 - **Criterio de aprobado/fallo:** Aprobado si no tapa curvas ni cursor, los saltos no molestan y el arrastre es fluido. Fallo si tapa el cursor, se sale del área, salta de lado repetidamente o la interfaz se traba.
 - **Observación:** La regla de ubicación de la tarjeta (hueco libre, menor cruce, reserva alrededor del cursor) es `DECISIÓN SIN CONFIRMAR` con Cristian.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### T28-A10-01 — El estado seguro termina al ampliar la brecha de presión atmosférica, y dice qué le falta
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** A10 (tanda 28, AJ28B-01/02)
+- **Objetivo:** Con el estado seguro en curso por una brecha muy estrecha, ampliar `rango_presion_atm` lo termina en 3 lecturas si la cámara queda dentro; si no termina, la fila de estado seguro dice por qué (pausa por modo prueba, o el motivo con su valor y su límite).
+- **Precondiciones:** Sesión de técnico o ingeniero, sin ciclo. Anotar `rango_presion_atm` y `temp_max_apertura` vigentes. Cámara cerrada, a temperatura ambiente.
+- **Pasos:**
+  1. Opciones › Parámetros del equipo › Cámara segura: brecha de presión atmosférica a 1 kPa.
+  2. Llevar la cámara a 2–3 kPa por encima (o por debajo) de la atmosférica de referencia (modo prueba con `aire_comprimido_camara` o la bomba de vacío; salir del modo prueba) y reiniciar el programa para que arranque el estado seguro, o provocar un fallo en un ciclo de prueba.
+  3. Con la fila «Llevando la cámara a estado seguro» a la vista, leer la nota «Pendiente: Presión …, rango seguro de … a …» y tocar la fila (detalle).
+  4. Entrar al modo prueba: la nota debe decir «En pausa: modo prueba activo» (también en inglés si se cambia el idioma).
+  5. Con el modo prueba activo, ampliar la brecha a 5 kPa. Salir del modo prueba.
+  6. Repetir con la cámara a la atmosférica pero con la sonda Principal por encima de `temp_max_apertura` (o con el límite bajado temporalmente por debajo de la temperatura de cámara).
+  7. Restaurar los valores anotados.
+- **Resultado esperado:** Paso 3: la nota y el detalle nombran la presión medida y el rango seguro vigente (con 1 kPa). Paso 4: «En pausa: modo prueba activo», sin conteo. Paso 5: al salir del modo prueba, la fila de estado seguro desaparece sola en menos de 1 s (3 lecturas) si la cámara está dentro de ±5 kPa. Paso 6: el estado seguro no termina y la nota dice «Pendiente: Temperatura X °C, límite Y °C»; termina solo al bajar la temperatura.
+- **Criterio de aprobado/fallo:** Aprobado si el estado seguro termina tras ampliar la brecha (fuera del modo prueba) y, mientras no termina, la fila siempre dice el motivo. Es Fallo si la fila queda sin motivo, si sigue tras 3 lecturas con la cámara segura o si termina con la temperatura sobre el límite.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### T28-A9-01 — Encendido con la cámara no segura: sin estado seguro en el normal, con estado seguro tras un ciclo interrumpido
+
+- **Modo:** En seco (vacío y presión residual) y con vapor (corte en ciclo de líquidos)  ·  **Origen:** A9 (tanda 28, HAZ-A9-01)
+- **Objetivo:** En un encendido normal con la cámara en vacío o con presión residual no aparece «Estado seguro en curso» y PREPARACION iguala la presión; tras un corte en pleno ciclo de líquidos el estado seguro corre con la causa «ciclo interrumpido», solo por la lenta.
+- **Precondiciones:** Último ciclo terminado (sin ciclo abierto). Equipo con aire atmosférico, lenta y rápida. Programa de líquidos disponible.
+- **Pasos:**
+  1. Con modo prueba, dejar la cámara a 20–30 kPa por debajo de la atmosférica (bomba de vacío) con las puertas cerradas; salir del modo prueba y apagar el equipo (Apagar equipo).
+  2. Encender. Observar la intro, la liberación y la pantalla de Preparación.
+  3. Repetir con 20–30 kPa por encima de la atmosférica (aire comprimido) y el último ciclo de un programa sólido.
+  4. Iniciar un ciclo de líquidos y cortar la alimentación en esterilización. Volver a encender.
+  5. (A9-R1, tanda 28b) Provocar un FALLO o cancelar un ciclo sólido en esterilización y confirmar; con «Estado seguro en curso» todavía en pantalla y la cámara con presión, cortar la alimentación. Volver a encender. Repetir cortando antes de confirmar el fallo (pantalla de fin de ciclo). Repetir con «Apagar equipo» en lugar del corte.
+  6. Tras el paso 5, dejar que el estado seguro termine; apagar y encender otra vez.
+- **Resultado esperado:** Pasos 2 y 3: ninguna salida antes de que la interfaz se libere; no aparecen «Estado seguro en curso», la causa ni el botón «Confirmar y llevar a estado seguro»; sí «NO ABRIR» hasta la cámara segura y PRE-03 (vacío: abre `aire_atmosferico_camara`) o PRE-04 (presión: venteo de PREPARACION, rápida con sólido). Paso 4: «Estado seguro en curso» con la causa «Arranque tras un ciclo interrumpido…», solo la lenta mientras la carga siga caliente, sin confirmación. Paso 5: en los tres casos, al encender vuelve «Estado seguro en curso» con la causa «Arranque tras un ciclo interrumpido…» (no un encendido normal), aunque el ciclo figure cerrado como FALLO/CANCELADO en el historial; si se corta otra vez antes de terminar, vuelve a aparecer en el encendido siguiente. Paso 6: encendido normal, sin estado seguro.
+- **Criterio de aprobado/fallo:** Fallo si en el encendido normal aparece el estado seguro, si la puerta se puede abrir antes de la cámara segura, si alguna salida actúa antes de la liberación o si tras el corte en líquidos se abre la rápida con la carga caliente; también si en el paso 5 el equipo arranca como encendido normal (sin estado seguro) o si en el paso 6 el estado seguro vuelve a aparecer.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### T28-A13-01 — Secado corto tras un ciclo fallido con carga sólida
+
+- **Modo:** Con vapor (ciclo sólido que se hace fallar o se cancela) y en seco para los casos de omisión  ·  **Origen:** A13 (tanda 28, HAZ-SFF-01)
+- **Objetivo:** Tras un FALLO o una cancelación de un programa sólido con secado, al llegar la cámara a la presión atmosférica el equipo hace vacío durante `secado_tras_fallo_s`, rompe el vacío con aire y solo entonces da la cámara por segura; con carga líquida, sin bomba o con el parámetro en 0 no lo hace y el ticket lo dice.
+- **Precondiciones:** Equipo con bomba de vacío y agua de sello. `secado_tras_fallo_s` = 60 (Opciones › Parámetros del equipo › Cámara segura). Programa sólido con secado (p. ej. Instrumental 134). Cronómetro.
+- **Pasos:**
+  1. Iniciar el programa sólido y cancelarlo en calentamiento (o provocar un fallo). Confirmar.
+  2. Observar la fila de estado seguro hasta que la cámara llegue a la presión atmosférica: debe aparecer «Secando vapor residual», con la bomba y el vacío encendidos y el vapor y los escapes cerrados (Entradas/Salidas en otra pantalla, sin modo prueba).
+  3. Cronometrar el vacío (≈60 s) y la ruptura con aire hasta la presión atmosférica. Intentar abrir la puerta durante el secado y la ruptura.
+  4. Repetir y, a mitad del secado, pulsar el paro de emergencia; liberarlo.
+  5. Repetir con un programa de líquidos, y con el parámetro en 0.
+  6. Revisar el ticket, el historial y el PDF de cada ciclo.
+  7. (M4, tanda 28b) Durante el secado y la ruptura de los pasos 2–3, mirar la otra pantalla y el detalle de la fila: «NO ABRIR» con el motivo «Secando vapor residual de la cámara» desde el primer segundo del secado hasta el final de la ruptura; intentar abrir la puerta y apagar el equipo.
+  8. (M3, tanda 28b) Repetir el paso 1 con la bomba de vacío desconectada (sin alimentación o con la válvula de vacío cerrada a mano): la presión no baja de la banda.
+- **Resultado esperado:** Paso 2–3: vacío ≈60 s, luego aire hasta la banda; la puerta no abre y el estado seguro no termina hasta después de la ruptura. Paso 7: NO ABRIR con ese motivo en todo el secado y la ruptura; la puerta no abre y «Apagar equipo» informa cámara no segura. Paso 8: tras los 60 s, ruptura igual; aviso «Secado tras fallo sin vacío» (CIC-21) en la bandeja con su detalle; historial y PDF con «Secado tras fallo: 60 s sin lograr vacío (…)»; bitácora con «terminó el secado tras fallo» (resultado sin_vacio); nunca «Secado tras fallo: 60 s» a secas. Paso 4: bomba y vacío se apagan con el paro y no vuelven a encenderse solos; el protocolo sigue como antes. Paso 5: sin vacío. Paso 6: ticket al cierre con «Secado tras fallo: pendiente al cerrar el ciclo»; historial, reimpresión y PDF con «Secado tras fallo: 60 s», «cortado a los N s (paro de emergencia)», «omitido (carga líquida)» u «omitido (desactivado en Parámetros del equipo)».
+- **Criterio de aprobado/fallo:** Fallo si hay vacío con carga líquida, con una puerta abierta o tras un paro; si el vapor o un escape se abren durante el secado; si la puerta abre o el estado seguro termina antes de la ruptura; si NO ABRIR desaparece durante el secado o la ruptura; si con la bomba desconectada el resultado dice «hecho» o no aparece el aviso; o si el historial no dice el resultado.
 - **Valor observado:** ______________________________________________
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________

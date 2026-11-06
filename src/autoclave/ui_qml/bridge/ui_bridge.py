@@ -25,8 +25,11 @@ ESTADO_DESCONOCIDO = "DESCONOCIDO"
 _PRIORIDAD_POR_NIVEL = {"EMERGENCIA": "alta", "FALLA": "media", "ALERTA": "baja"}
 # Estado del módulo E/S en /status (campo estado_modulo_es; U4 de la tanda 2)
 _ESTADOS_MODULO_ES = ("desconectada", "sin_tramas_validas", "ok")
-# S9 (tanda 9, D9-1.2): causas del estado seguro que la UI sabe mostrar
-_CAUSAS_ESTADO_SEGURO = ("paro_liberado", "arranque", "fallo", "cancelado", "completado")
+# S9 (tanda 9, D9-1.2): causas del estado seguro que la UI sabe mostrar.
+# Tanda 28 (A9): "arranque" pasa a "ciclo_interrumpido" (en un encendido
+# normal ya no hay protocolo de estado seguro)
+_CAUSAS_ESTADO_SEGURO = ("paro_liberado", "ciclo_interrumpido", "fallo", "cancelado",
+                         "completado")
 
 
 # Estados de puerta que la pantalla presenta como "abierta" (acción disponible:
@@ -414,6 +417,10 @@ class UiBridge(QObject):
             "es_silencioso": es.get("silencioso_por_sensor") is True,
             # S9 (D9-1.2): por qué corre el estado seguro; "" si no se conoce
             "es_causa": es.get("causa") if es.get("causa") in _CAUSAS_ESTADO_SEGURO else "",
+            # A10 (tanda 28): en pausa por el modo prueba y motivo por el que
+            # aún no termina (valor y límite vigentes); sin dato, nada
+            "es_pausa_prueba": es.get("en_pausa_modo_prueba") is True,
+            "es_pendiente": dict(es["motivo_pendiente"]) if isinstance(es.get("motivo_pendiente"), dict) else {},
             # S4 (CIC-10): el protocolo no puede terminar solo; motivo o ""
             "es_bloqueado": str(es.get("bloqueado_motivo") or ""),
             # V8b (D8-5.11): el mismo motivo como clave del catálogo ("" si no se
@@ -494,6 +501,10 @@ class UiBridge(QObject):
                         "limites": s.get("limites", {}), "motivo": s.get("motivo", ""),
                         "textos": s.get("motivo_textos", {})},
             "causa": s.get("es_causa", ""),
+            # A10 (tanda 28): pausa por modo prueba y motivo pendiente del
+            # estado seguro (DetalleAviso.textoEspera / detalle ALD)
+            "pausaPrueba": s.get("es_pausa_prueba", False) is True,
+            "pendiente": dict(s.get("es_pendiente") or {}),
             "apariciones": dict(self._apariciones),
         }
 
@@ -532,8 +543,8 @@ class UiBridge(QObject):
 
     @Property(str, notify=seguridadChanged)
     def estadoSeguroCausa(self) -> str:
-        """S9 (D9-1.2): "paro_liberado", "arranque", "fallo", "cancelado",
-        "completado" o "" (desconocida)."""
+        """S9 (D9-1.2): "paro_liberado", "ciclo_interrumpido", "fallo",
+        "cancelado", "completado" o "" (desconocida)."""
         return self._seguridad.get("es_causa", "")
 
     @Property(str, notify=seguridadChanged)

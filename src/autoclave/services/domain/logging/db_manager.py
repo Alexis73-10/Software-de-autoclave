@@ -1022,6 +1022,14 @@ class DbManager:
             )
             self._conn.commit()
 
+    def actualizar_avisos_ticket(self, ciclo_id: int, avisos_ticket: dict | None) -> None:
+        """A13 (tanda 28): reescribe las líneas de aviso del pie de un ciclo ya
+        cerrado (el secado tras fallo se conoce después del cierre)."""
+        with self._lock:
+            self._conn.execute("UPDATE ciclos SET avisos_ticket=? WHERE id=?",
+                               (_valores_fallo_json(avisos_ticket), ciclo_id))
+            self._conn.commit()
+
     def importar_ciclo_respaldo(self, encabezado: dict, lecturas: list[dict],
                                 cierre: dict | None, motivo_interrumpido: str) -> bool:
         """Reimporta un ciclo del respaldo JSONL (T8, §7.4) en una sola

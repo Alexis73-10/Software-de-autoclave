@@ -101,7 +101,7 @@ _SCRIPT = textwrap.dedent(r"""
     esperar()
 
     # D9-1.2: estado seguro del arranque (sin confirmación)
-    campos["estado_seguro"] = {"activo": True, "requiere_confirmacion": False, "causa": "arranque"}
+    campos["estado_seguro"] = {"activo": True, "requiere_confirmacion": False, "causa": "ciclo_interrumpido"}
     refrescar()
     r["causa_arranque"] = textos("avisoCausaEstadoSeguro")
     r["paro_liberado_sin_paro"] = len(notas("avisoParoLiberado"))
@@ -152,7 +152,7 @@ def r():
 
 
 def test_causa_del_arranque_sin_paro_liberado(r):
-    assert r["causa_arranque"] and r["causa_arranque"][0].startswith("Arranque con la cámara no segura")
+    assert r["causa_arranque"] and r["causa_arranque"][0].startswith("Arranque tras un ciclo interrumpido")
     assert r["paro_liberado_sin_paro"] == 0
     assert r["confirmar_visible_sin_paro"] is False
 

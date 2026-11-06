@@ -180,7 +180,7 @@ def test_status_publica_detenido_sin_presion():
     es.activo = True
     es.detenido_sin_presion = True
     es.bloqueado_motivo = "Sensor de presión de cámara sin lectura"
-    es.causa = "arranque"
+    es.causa = "ciclo_interrumpido"
     d = modulo_backend("rutas.sistema")._estado_seguro_status()
     assert d["detenido_sin_presion"] is True
     es.activo = False

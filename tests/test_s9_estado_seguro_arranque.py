@@ -89,7 +89,7 @@ def test_arranque_presurizado_sin_confirmacion_y_solo_la_lenta():
     _arrancar(loop, pres=250.0, programa=_programa(modo=1))        # el modo 1 usaría la rápida
     es = loop.estado_seguro
     assert es.activo and es.requiere_confirmacion is False
-    assert es.causa == "arranque"
+    assert es.causa == "ciclo_interrumpido"
     _tick_es(loop, 5)
     abiertas = _abiertas(loop.set_do)
     assert "descompresion_lenta_on" in abiertas
@@ -127,7 +127,7 @@ def test_paro_real_en_este_encendido_si_exige_confirmacion():
     assert loop.estado_seguro.requiere_confirmacion is True
     assert loop.estado_seguro.causa == "paro_liberado"
     assert loop.confirmar_estado_seguro() is True
-    assert loop.estado_seguro.causa == "arranque"
+    assert loop.estado_seguro.causa == "ciclo_interrumpido"
 
 
 def test_sin_datos_del_modulo_es_no_exige_confirmacion():
@@ -139,7 +139,7 @@ def test_sin_datos_del_modulo_es_no_exige_confirmacion():
     loop.estado.set_flag("PARO_EMERGENCIA", False)
     _tick_es(loop)
     assert loop.estado_seguro.requiere_confirmacion is False
-    assert loop.estado_seguro.causa == "arranque"
+    assert loop.estado_seguro.causa == "ciclo_interrumpido"
 
 
 @pytest.mark.parametrize("origen", ["fallo", "cancelado", "completado"])
@@ -169,7 +169,7 @@ def test_arranque_sin_presion_no_abre_nada_y_activa_cic10():
     loop = _loop(alarmas)
     _arrancar(loop, pres=None, temp=30.0)
     es = loop.estado_seguro
-    assert es.activo and es.requiere_confirmacion is False and es.causa == "arranque"
+    assert es.activo and es.requiere_confirmacion is False and es.causa == "ciclo_interrumpido"
     _tick_es(loop, 2)
     assert not any(i.codigo == CIC_10 for i in alarmas.activas())     # debounce: 3 lecturas
     _tick_es(loop)
@@ -506,7 +506,7 @@ def test_control_loop_no_evalua_la_coherencia_en_ciclo():
 
 # ── D9-1.2: la causa llega a la UI ─────────────────────────────────────────
 
-@pytest.mark.parametrize("causa", ["paro_liberado", "arranque", "fallo", "cancelado",
+@pytest.mark.parametrize("causa", ["paro_liberado", "ciclo_interrumpido", "fallo", "cancelado",
                                    "completado"])
 def test_puente_publica_la_causa(causa):
     from autoclave.ui_qml.bridge.ui_bridge import UiBridge
@@ -518,9 +518,11 @@ def test_puente_causa_desconocida_o_ausente_es_vacia():
     from autoclave.ui_qml.bridge.ui_bridge import UiBridge
     assert UiBridge._seguridad_de({})["es_causa"] == ""
     assert UiBridge._seguridad_de({"estado_seguro": {"causa": "otra"}})["es_causa"] == ""
+    # Tanda 28 (A9): "arranque" ya no es una causa (encendido normal sin protocolo)
+    assert UiBridge._seguridad_de({"estado_seguro": {"causa": "arranque"}})["es_causa"] == ""
 
 
-@pytest.mark.parametrize("causa", ["arranque", "fallo", "cancelado", "completado"])
+@pytest.mark.parametrize("causa", ["ciclo_interrumpido", "fallo", "cancelado", "completado"])
 def test_textos_de_causa_en_los_dos_idiomas(causa):
     from autoclave import i18n
     for idioma in ("es", "en"):
@@ -537,5 +539,5 @@ def test_status_publica_la_causa_y_sin_confirmacion():
     ctx.control_loop.estado_seguro = loop.estado_seguro
     srv, _ = cargar_servidor(ctx)
     d = modulo_backend("rutas.sistema")._estado_seguro_status()
-    assert d["activo"] is True and d["causa"] == "arranque"
+    assert d["activo"] is True and d["causa"] == "ciclo_interrumpido"
     assert d["requiere_confirmacion"] is False

@@ -60,6 +60,10 @@ EVENTOS = (
     "contrasena_fijada_instalacion",
     # BIT-02 (tanda 17): única fila de la instalación, al terminar el asistente
     "equipo_instalado",
+    # A13 (tanda 28; M3 de la tanda 28b): secado tras fallo del protocolo de
+    # estado seguro (inicio y resultado: hecho, sin_vacio, cortado...).
+    # AJ28B-08: antes se registraban como evento desconocido
+    "estado_seguro_secado_iniciado", "estado_seguro_secado_terminado",
 )
 
 # BIT-01/03/04 (tanda 17): eventos que ya no van a audit_log sino al log de
@@ -107,6 +111,7 @@ _CATEGORIA = {
         "apagado_windows_rechazado", "ciclo_no_conforme_reconocido", "ciclo_cancelado",
         "arranque_camara_no_segura", "salidas_sin_confirmar", "salidas_confirmadas",
         "salidas_confirmadas_tras_reintento", "inicio_descartado_por_modo_prueba",
+        "estado_seguro_secado_iniciado", "estado_seguro_secado_terminado",
     ),
     "configuracion": (
         "param_sistema_cambio", "idioma_configurado", "unidades_configuradas",

@@ -46,7 +46,12 @@ CLAVES = tuple(_FILAS)
 
 # Motivos de camara_segura con texto propio (aviso_detalle.no_abrir_motivos.*)
 MOTIVOS_NO_ABRIR = ("temp_alta", "sobrepresion", "vacio", "sin_presion_camara", "sin_temp_camara",
-                    "sin_datos_vigentes", "falta_config")
+                    "sin_datos_vigentes", "falta_config",
+                    # A13-M4 (tanda 28b): NO ABRIR durante el secado tras fallo
+                    "secando_vapor_residual")
+# A13 (tanda 28): motivo pendiente del estado seguro mientras seca el vapor
+# residual tras un fallo (ProtocoloEstadoSeguro)
+MOTIVO_SECANDO = "secando_vapor_residual"
 
 
 def sufijos_i18n() -> list:
@@ -55,6 +60,7 @@ def sufijos_i18n() -> list:
     salida = [f"{c}.{campo}" for c in CLAVES for campo in ("titulo", "accion")]
     salida += [f"no_abrir_motivos.{m}.{campo}" for m in MOTIVOS_NO_ABRIR
                for campo in ("descripcion", "accion")]
+    salida += [f"estado_seguro_espera.{m}" for m in MOTIVOS_NO_ABRIR]       # A10
     return salida + ["no_abrir_motivos.generico.accion",
                      "no_abrir_motivos.temp_alta.descripcion_sin_programa"]
 
@@ -152,6 +158,41 @@ def _motivo_no_abrir(ctx: dict, idioma: str) -> tuple[str, str]:
     return _t(descripcion, idioma, **params), _t(base + ".accion", idioma, **params)
 
 
+def texto_espera(contexto: dict | None, idioma: str) -> str:
+    """A10 (tanda 28): qué le falta al estado seguro en curso para terminar,
+    en `idioma`: «En pausa: modo prueba activo» si el modo prueba lo pausa;
+    si no, «Pendiente: <motivo con valor y límite>» (p. ej. «Temperatura
+    92,0 °C, límite 80,0 °C»); "" si no hay nada que decir. Los límites son los
+    que el backend publica en ese /status (config vivo). Nunca lanza."""
+    try:
+        ctx = contexto if isinstance(contexto, dict) else {}
+        if ctx.get("pausaPrueba") is True:
+            return _t("sistema.estado_seguro_pausa_modo_prueba", idioma)
+        pend = ctx.get("pendiente") if isinstance(ctx.get("pendiente"), dict) else {}
+        codigo = pend.get("codigo") if isinstance(pend.get("codigo"), str) else ""
+        if not codigo:
+            return ""
+        if codigo == MOTIVO_SECANDO:
+            # A13 (tanda 28): secado tras fallo en curso (vacío y ruptura)
+            return _t("sistema.estado_seguro_secando", idioma)
+        if codigo in MOTIVOS_NO_ABRIR:
+            valores = pend.get("valores") if isinstance(pend.get("valores"), dict) else {}
+            lim = pend.get("limites") if isinstance(pend.get("limites"), dict) else {}
+            atm, rango = _numero(lim.get("presion_atmosferica")), _numero(lim.get("rango_presion_atm"))
+            motivo = _t(f"aviso_detalle.estado_seguro_espera.{codigo}", idioma,
+                        valor=(_temp(valores.get("temp")) if codigo == "temp_alta"
+                               else _pres(valores.get("pres"))),
+                        limite=_temp(lim.get("temp_max_apertura")),
+                        minimo=SIN_DATO if atm is None or rango is None else _pres(atm - rango),
+                        maximo=SIN_DATO if atm is None or rango is None else _pres(atm + rango),
+                        claves=str(valores.get("claves") or ""))
+        else:
+            motivo = str(pend.get("texto") or "")     # motivo desconocido: tal cual
+        return _t("sistema.estado_seguro_espera", idioma, motivo=motivo) if motivo else ""
+    except Exception:
+        return ""
+
+
 def _textos_arranque(ctx: dict, idioma: str) -> tuple[str, str]:
     clave = "arranque.sin_progreso" if ctx.get("sinProgreso") else "arranque.fallo_bloqueante"
     return (_t("arranque.fallo_titulo", idioma) + ": " + _t(clave, idioma),
@@ -188,6 +229,11 @@ def _armar(clave: str, contexto: dict) -> dict:
             if clave == "estado_seguro_en_curso" and isinstance(causa, str) and causa not in ("", "paro_liberado"):
                 extra = _t("sistema.estado_seguro_causa_" + causa, idioma)
                 desc = f"{desc}. {extra}" if extra else desc
+            if clave == "estado_seguro_en_curso":
+                # A10: pausa por modo prueba o motivo pendiente con valor y límite
+                espera = texto_espera(contexto, idioma)
+                if espera:
+                    desc = f"{desc} {espera}." if desc.endswith(".") else f"{desc}. {espera}."
         titulos[idioma], descripciones[idioma], acciones[idioma] = titulo, desc, accion
     apariciones = contexto.get("apariciones") if isinstance(contexto.get("apariciones"), dict) else {}
     base = i18n.IDIOMA_BASE
