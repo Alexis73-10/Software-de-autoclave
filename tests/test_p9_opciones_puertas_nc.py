@@ -214,7 +214,11 @@ def test_parametros_grupo_es_propiedad_que_cambia_al_guardar():
     avisos = []
     c.parametrosGrupoChanged.connect(lambda: avisos.append(1))
     c.abrirGrupo("camara_segura")
-    assert [p["clave"] for p in c.parametrosGrupo] == ["temp_max_apertura", "rango_presion_atm"]
+    # AJ28B-10: A13 (tanda 28) añadió secado_tras_fallo_s y secado_tras_fallo_vacio_s al
+    # grupo; lo que importa aquí es que las dos claves de puertas sigan y en su orden.
+    claves = [p["clave"] for p in c.parametrosGrupo]
+    assert claves[:2] == ["temp_max_apertura", "rango_presion_atm"]
+    assert {"secado_tras_fallo_s", "secado_tras_fallo_vacio_s"} <= set(claves)
     n = len(avisos)
     assert c.guardar("temp_max_apertura", 75)
     assert len(avisos) > n

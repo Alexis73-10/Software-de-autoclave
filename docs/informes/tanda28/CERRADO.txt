@@ -1,0 +1,6 @@
+Tanda 28 CERRADA (A9, A10, A11, A12, A13, A14) — 2026-11-06
+Commit del merge final: 7e454049 (Merge tanda28b) sobre bc62931f (Merge tanda28d) y 23630c04 (Merge tanda28c), rama dev (worktree codigo_autoclave_merge).
+Suite completa (pytest tests -n 6, PYTHONUTF8=1): 11382 passed, 11 skipped, 7 xfailed, 2 failed en 896 s (docs/informes/tanda28/suite_final.txt).
+Fallos: test_t20_s3_setup_modbus::test_ejecuta_consulta_de_adaptadores_solo_lectura (ajeno, consulta los adaptadores de red de la máquina; falla igual sin estos cambios) y test_p9_opciones_puertas_nc::test_parametros_grupo_es_propiedad_que_cambia_al_guardar (AJ28B-10, corregido después de la suite; 33 passed en ese archivo).
+A7 de la rama tanda28 NO se unió por decisión de Cristian: dev conserva el A7 de la tanda 27.
+Pendientes de Cristian: ver AJUSTES.md y los informes A_informe_b/c/d; N1/N2 de la revisión de A13, H2/H3 de A12, histéresis del corte de chaqueta, severidad de H1, nivel y textos de CIC-21, AJ27-A4-01. Pendiente de banco: bloque T28 de la hoja de banco.

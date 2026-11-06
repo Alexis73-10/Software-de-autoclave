@@ -235,3 +235,32 @@ Decidió en todos: el director con el revisor de seguridad (aprobado con condici
 ## 2026-11-05 — Tanda 27, depuración (ciclo de corrección 1 de 3)
 - Falló: revisor (opus) rechazó el diff de depuración: test_t16_s5 llamaba a /cycle/history/{id}/readings, ruta retirada.
 - Decidió: director (dentro del alcance). Cambio: quitar "readings" de la prueba; precisar 3 comentarios (ciclo.py, prevacio.py, respaldo.py). Commit de correcciones tras la revisión.
+
+## 2026-11-06 — Tanda 28c, revisión de seguridad A14-M3 / A12
+- **Paso del plan:** A14-M2 (corte de chaqueta por consigna en ESTERILIZACION).
+- **Qué falló:** el revisor (H1, MEDIA) halló que `_tick_dos_estados` solo evalúa `_corte_consigna_chaqueta()` al pasar a ON; durante `t_on` largo (p. ej. 29,7 s) `vapor_chaqueta` podía seguir ON sin corte por consigna ni por pérdida de lectura.
+- **Quién decidió:** director (corrección dentro del alcance aprobado).
+- **Qué se cambia:** reevaluar el corte en cada tick con el PWM abierto, en modo chaqueta; prueba con `t_on` largo. Archivo: `src/autoclave/state_machine/cycle_phases/esterilizacion.py` y pruebas `tests/test_t28_a14_*`.
+- **Pendiente de Cristian:** H2/AJ28C-05 (escape lento subatmosférico en prevacío, confirmar antirretorno en el P&ID) y H3 (defecto 101,3 kPa de presión atmosférica).
+
+## 2026-11-06 — Tanda 28: A7 no se une (decidió Cristian)
+- **Paso del plan:** A7 (rama `tanda28`, c27b1ebb y 4bbea3c5).
+- **Qué se pidió/falló:** `dev` ya traía su propio A7 (158290df, tanda 27, `test_t27_a7_incoherencia_parametros.py`) y `tanda28` una segunda implementación independiente. Las reglas de validación son idénticas; difieren la API del detalle, los textos, el rango efectivo con valor incoherente y el manejo de la calibración atmosférica, y sus pruebas se contradicen (8 archivos en conflicto).
+- **Quién decidió:** Cristian.
+- **Qué se hizo:** `tanda28` NO se une; A7 queda como está en `dev`. Se comprobó que `dev` no tiene el defecto H1 de `tanda28`: `rutas/mantenimiento.py` devuelve `incoherente` y existe `calibracion_atm.motivo_incoherente`. La rama `tanda28` se conserva sin borrar.
+
+## 2026-11-06 — Tanda 28: A9 marca persistente (decidió Cristian)
+- **Paso del plan:** A9 (tanda28b). **Qué falló:** el revisor rechazó A9 (A9-R1, alta): un apagado o reinicio durante el protocolo de estado seguro dejaba el siguiente encendido sin protocolo.
+- **Quién decidió:** Cristian (marca persistente). **Qué se cambió:** `core/runtime/marca_estado_seguro.py` (`data/estado_seguro_en_curso.json`, falla cerrada), `control_loop.py` (paso 5a), `context.py` (`hubo_ciclo_interrumpido`), pruebas ESS-07 sobre el camino real y `test_t28b_a9r_marca_estado_seguro.py` (commit 08a4e9cf).
+
+## 2026-11-06 — Tanda 28: A13 M3, M4 y M5 (decidió Cristian)
+- **Paso del plan:** A13 (tanda28b). **Qué falló:** el revisor rechazó A13: M3 (no se verificaba el vacío), M4 (NO ABRIR durante el secado), M5 (programa incierto tras ciclo interrumpido). M1, M2, B1, B2 y B4 los corrigió el director dentro del alcance.
+- **Quién decidió:** Cristian (verificar el vacío, cumplir NO ABRIR, secar solo con programa del propio ciclo). **Qué se cambió:** commits 8c12a72d, 05cdc3a6, 929ccbcb, 352a3a00; `protocolo_fallo.py`, `camara_segura.py`, `context.py`, `control_loop.py`, `marca_estado_seguro.py`, parámetro `secado_tras_fallo_vacio_s`.
+
+## 2026-11-06 — Unión de ramas: CIC-20 duplicada, renumerada a CIC-21
+- **Paso del plan:** unión de `tanda28b` a `dev`. **Qué falló:** A12 (`dev`) y A13-M3 (`tanda28b`) definieron cada una una alarma CIC-20 distinta.
+- **Quién decidió:** director. **Qué se cambió:** CIC-20 queda para A12 (bloqueante, descompresión del prevacío); la de A13 (aviso, secado sin vacío) pasa a CIC-21 en `catalogo.py`, `protocolo_fallo.py`, i18n es/en, pruebas y documentos. REQ de la tanda 28b renumerados: REQ-64 (A9) y REQ-65 (A13), tras REQ-60..63.
+
+## 2026-11-06 — AJ28B-10: test_p9 relajado a las claves que le importan
+- **Qué falló:** `test_p9_opciones_puertas_nc::test_parametros_grupo_es_propiedad_que_cambia_al_guardar` fijaba la lista exacta de claves de Cámara segura; A13 añadió `secado_tras_fallo_s` y `secado_tras_fallo_vacio_s`.
+- **Quién decidió:** director. **Qué se cambió:** el test exige las dos claves de puertas en primer lugar y la presencia de las dos nuevas (no se relajó ninguna comprobación de seguridad).
