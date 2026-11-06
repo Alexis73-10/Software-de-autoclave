@@ -62,6 +62,8 @@ _EJEMPLOS = {
     "SEN-11": {"sensor": "Referencia", "fase": "Esterilización"},
     # FC-08 (tanda 21): Referencia sin lectura con carga líquida
     "CIC-19": {"sensor": "Referencia", "fase": "Esterilización"},
+    # A13-M3 (tanda 28b): secado tras fallo sin vacío
+    "CIC-20": {"minimo": 96.3, "segundos": 10},
     "SIS-04": {"motivo": "Mantenimiento vencido por fecha"},
     "SIS-05": {},
     # J12 (tanda 12, C-04.4): migración correctiva de un programa

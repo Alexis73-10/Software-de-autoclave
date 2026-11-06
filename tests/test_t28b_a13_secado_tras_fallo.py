@@ -201,11 +201,15 @@ def test_estado_seguro_no_se_alcanza_antes_de_terminar_la_ruptura(monkeypatch):
     """Aunque la cámara parezca segura (presión en banda, temperatura baja)
     durante el secado y la ruptura, el estado seguro no termina."""
     e = _Equipo(monkeypatch, segundos=5)
+    e.config["secado_tras_fallo_vacio_s"] = 2        # A13-M3: vacío sostenido 2 s
     e.disparar()
     e.tick()
+    e.pres(ATM - RANGO - 1.0)                        # vacío apenas bajo la banda
     ticks = 0
     while e.protocolo.secando:                       # secado, apagado y ruptura
         assert e.es.activo and e.es.motivo_pendiente["codigo"] == "secando_vapor_residual"
+        if e.protocolo._secado_fase == "ruptura":
+            e.pres(ATM)                              # la ruptura vuelve a la banda
         e.tick()
         ticks += 1
         assert ticks < 100

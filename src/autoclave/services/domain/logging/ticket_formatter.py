@@ -100,9 +100,10 @@ CLAVE_OBSERVACION_REFERENCIA = "ticket_ciclo.observacion_referencia"
 CLAVE_CANCELADO_POR = "ticket_ciclo.cancelado_por"
 # A13 (tanda 28): secado corto tras el fallo. Aviso: {"clave":
 # CLAVE_SECADO_TRAS_FALLO, "estado" (pendiente | hecho | sin_ruptura | omitido
-# | cortado), "segundos", "motivo"}; ver ProtocoloFallo.
+# | cortado | sin_vacio), "segundos", "motivo"}; ver ProtocoloFallo. A13-M3
+# (tanda 28b): "sin_vacio" = el vacío no se logró ni se sostuvo (nunca "hecho").
 CLAVE_SECADO_TRAS_FALLO = "ticket_ciclo.secado_tras_fallo"
-_ESTADOS_SECADO = ("pendiente", "hecho", "sin_ruptura", "omitido", "cortado")
+_ESTADOS_SECADO = ("pendiente", "hecho", "sin_ruptura", "omitido", "cortado", "sin_vacio")
 
 
 def aviso_secado_tras_fallo(resultado) -> dict | None:

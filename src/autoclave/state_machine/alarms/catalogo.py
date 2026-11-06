@@ -94,6 +94,9 @@ CIC_18 = "CIC-18"
 # FC-08 (tanda 21): Referencia sin lectura con carga líquida; FALLO bloqueante
 # como CIC-12/13 (en carga sólida sigue SEN-11, aviso no bloqueante)
 CIC_19 = "CIC-19"
+# A13-M3 (tanda 28b): el secado tras fallo no logró vacío; aviso no
+# bloqueante, despeje manual (DECISIÓN SIN CONFIRMAR: nivel y textos)
+CIC_20 = "CIC-20"
 # M1 (tanda 3): aviso no bloqueante de mantenimiento vencido (id descriptivo
 # como OPERANDO_SIN_BD; nunca impide un ciclo)
 MANTENIMIENTO_VENCIDO = SIS_04
@@ -398,6 +401,12 @@ DEFINICIONES: tuple[DefinicionAlarma, ...] = (
        "Sin lectura de {sensor} en la fase {fase}. En carga líquida la temperatura de la "
        "carga no se puede verificar. El ciclo se abortó.",
        "La carga NO está estéril. Revise la conexión de la sonda y repita el ciclo."),
+    # A13-M3 (tanda 28b): secado tras fallo sin vacío verificado
+    _d(CIC_20, _AV, False, _M, "Secado tras fallo sin vacío",
+       "El secado tras el fallo no logró vacío: la presión de cámara no se mantuvo bajo "
+       "{minimo:.1f} kPa durante {segundos} s. La cámara puede conservar vapor residual.",
+       "Abra la puerta con precaución: puede salir vapor caliente. Revise la bomba de vacío, "
+       "su agua de sello y la válvula de vacío."),
     # F2 (tanda 16, D-CHQ / VCH-CHQ): no hay FALLO por esta vía (§4.6)
     _d(CIC_18, _AV, False, _A, "Presión de chaqueta en el límite de control",
        "La chaqueta llegó a {pres:.1f} kPa (límite {maximo:.1f} kPa) en la fase {fase}: la "

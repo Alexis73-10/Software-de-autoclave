@@ -77,6 +77,13 @@ _HISTERESIS_ALIVIO_KPA = 5.0
 CLAVE_SECADO_S = "secado_tras_fallo_s"
 SECADO_DEFECTO_S = 60
 SECADO_RANGO_S = (0, 300)
+# A13-M3 (tanda 28b, decisión de Cristian del 6-nov): el secado solo cuenta
+# como hecho si la presión de cámara bajó de atm − rango_presion_atm y se
+# sostuvo así este tiempo continuo (monotonic) dentro del vacío. Si no:
+# "sin_vacio" (nunca "hecho"). DECISIÓN SIN CONFIRMAR: defecto 10 s, 1–60 s.
+CLAVE_VACIO_S = "secado_tras_fallo_vacio_s"
+VACIO_DEFECTO_S = 10
+VACIO_RANGO_S = (1, 60)
 # DECISIÓN SIN CONFIRMAR: tiempo límite de la ruptura del vacío con aire
 # atmosférico; al vencer se sigue con el protocolo normal y aviso
 _RUPTURA_LIMITE_S = 120.0
@@ -90,8 +97,9 @@ _SEC_EN_CURSO = (_SEC_SECADO, _SEC_APAGANDO, _SEC_RUPTURA)
 # Resultado publicado (estado.secado_tras_fallo y ticket): estado y motivo
 SECADO_PENDIENTE, SECADO_HECHO, SECADO_SIN_RUPTURA = "pendiente", "hecho", "sin_ruptura"
 SECADO_OMITIDO, SECADO_CORTADO = "omitido", "cortado"
+SECADO_SIN_VACIO = "sin_vacio"        # A13-M3: el vacío no se logró (ni se sostuvo)
 ESTADOS_SECADO = (SECADO_PENDIENTE, SECADO_HECHO, SECADO_SIN_RUPTURA, SECADO_OMITIDO,
-                  SECADO_CORTADO)
+                  SECADO_CORTADO, SECADO_SIN_VACIO)
 MOTIVOS_SECADO = (
     "desactivado", "no_aplica", "carga_liquida", "sin_bomba", "sin_secado_programa",
     "fallo_vacio", "paro", "datos_no_vigentes", "sin_presion", "sin_principal",
@@ -195,6 +203,9 @@ class ProtocoloFallo:
         self._secado_t_apagado = None
         self._ruptura_t_limite = None
         self._secado_resultado = None
+        # A13-M3 (tanda 28b): verificación del vacío durante el SECADO
+        self._vacio_desde = None
+        self._vacio_logrado = False
         try:
             self.estado.secado_tras_fallo = None
         except Exception:
@@ -944,6 +955,59 @@ class ProtocoloFallo:
             return float(SECADO_DEFECTO_S)
         return float(v)
 
+    def _segundos_vacio(self) -> float:
+        """A13-M3: secado_tras_fallo_vacio_s vigente (leído en cada uso).
+        Fuera de rango o ilegible: el defecto."""
+        try:
+            v = self.config.get(CLAVE_VACIO_S)
+        except Exception:
+            v = None
+        if (isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v)
+                or not VACIO_RANGO_S[0] <= v <= VACIO_RANGO_S[1]):
+            if v is not None:
+                logger.error("Protocolo fallo: %s=%r inválido; se usa %d s",
+                             CLAVE_VACIO_S, v, VACIO_DEFECTO_S)
+            return float(VACIO_DEFECTO_S)
+        return float(v)
+
+    def _seguir_vacio(self, pres, atm, rango, ahora: float) -> None:
+        """A13-M3: durante el SECADO, cuenta el tiempo continuo con la presión
+        de cámara bajo atm − rango (lectura válida de este tick, trama AI
+        vigente). Falla cerrada: sin lectura, fuera del vacío o ante un error,
+        el conteo vuelve a cero; una vez sostenido N s queda logrado."""
+        if self._vacio_logrado:
+            return
+        try:
+            en_vacio = (self._ai_vigente_tick and lectura_valida(pres)
+                        and math.isfinite(float(pres)) and float(pres) < float(atm) - float(rango))
+        except Exception:
+            en_vacio = False
+        if not en_vacio:
+            self._vacio_desde = None
+            return
+        if self._vacio_desde is None:
+            self._vacio_desde = ahora
+        if ahora - self._vacio_desde >= self._segundos_vacio():
+            self._vacio_logrado = True
+            logger.info("Protocolo fallo: secado tras fallo — vacío verificado (%.1f kPa < %.1f kPa "
+                        "durante %.0f s)", float(pres), float(atm) - float(rango),
+                        ahora - self._vacio_desde)
+
+    def _avisar_sin_vacio(self, atm, rango) -> None:
+        """A13-M3: aviso del secado sin vacío (log y alarma no bloqueante
+        CIC-20, con su detalle). Nunca lanza."""
+        logger.error("Protocolo fallo: el secado tras fallo NO logró vacío (presión bajo "
+                     "atm − rango durante %.0f s); la cámara puede conservar vapor residual",
+                     self._segundos_vacio())
+        if self.alarm_manager is None:
+            return
+        try:
+            from autoclave.state_machine.alarms.catalogo import CIC_20
+            self.alarm_manager.activar(CIC_20, segundos=int(self._segundos_vacio()),
+                                       minimo=float(atm) - float(rango))
+        except Exception:
+            logger.exception("Protocolo fallo: no se pudo activar el aviso de secado sin vacío")
+
     def _vacio_instalado(self) -> bool:
         try:
             from autoclave.installation.profile import vacio_instalado
@@ -1069,8 +1133,14 @@ class ProtocoloFallo:
         self._secado_fase = _SEC_SECADO
         self._secado_t0 = ahora
         self._secado_t_fin = ahora + self._segundos_secado()
+        self._vacio_desde = None
+        self._vacio_logrado = False
         logger.warning("Protocolo fallo: secado tras fallo (%.0f s) — bomba y vacío, "
                        "vapor y escapes cerrados", self._secado_t_fin - ahora)
+        if self._segundos_vacio() > self._secado_t_fin - ahora:
+            logger.warning("Protocolo fallo: %s (%.0f s) mayor que %s: el vacío no se podrá "
+                           "verificar (resultado sin_vacio)", CLAVE_VACIO_S,
+                           self._segundos_vacio(), CLAVE_SECADO_S)
         self._salidas_secado()
         return True
 
@@ -1119,6 +1189,8 @@ class ProtocoloFallo:
             return False
         ahora = time.monotonic()
         if self._secado_fase == _SEC_SECADO:
+            # A13-M3: el vacío se verifica solo mientras la bomba trabaja
+            self._seguir_vacio(pres, atm, rango, ahora)
             if ahora < self._secado_t_fin:
                 self._salidas_secado()
                 return True
@@ -1136,14 +1208,19 @@ class ProtocoloFallo:
                 logger.info("Protocolo fallo: secado tras fallo terminado — ruptura del vacío "
                             "con aire atmosférico")
             return True
-        # RUPTURA: aire atmosférico hasta la banda atmosférica, con tope
+        # RUPTURA: aire atmosférico hasta la banda atmosférica, con tope. A13-M3:
+        # corre siempre, también si el vacío no se logró (sin_vacio)
         self._apagar_vacio()
         segundos = self._secado_t_fin - self._secado_t0
         if pres >= atm - rango:
             # en la banda (o por encima: el aire se cierra siempre con presión)
             self.set_do.aire_admosferico_camara_off()
             self._secado_fase = None
-            self._fijar_secado(SECADO_HECHO, None, segundos)
+            if self._vacio_logrado:
+                self._fijar_secado(SECADO_HECHO, None, segundos)
+            else:
+                self._fijar_secado(SECADO_SIN_VACIO, None, segundos)
+                self._avisar_sin_vacio(atm, rango)
             return False
         if ahora >= self._ruptura_t_limite:
             self.set_do.aire_admosferico_camara_off()

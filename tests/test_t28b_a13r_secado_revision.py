@@ -213,6 +213,8 @@ def test_b4_secado_empezado_en_ciclo_sigue_en_el_estado_seguro(monkeypatch):
     ciclo = _ciclo_real(e)
     ciclo.run()                                          # en CICLO, esperando confirmación
     assert e.protocolo.secando
+    e.pres(20.0)                                         # A13-M3: la bomba hace vacío
+    e.config["secado_tras_fallo_vacio_s"] = 5            # sostenido 5 s de los 8 que quedan
     t_fin = e.protocolo._secado_t_fin
     e.reloj[0] += 2.0
     ciclo.run()
@@ -223,6 +225,8 @@ def test_b4_secado_empezado_en_ciclo_sigue_en_el_estado_seguro(monkeypatch):
     assert all(e.salidas.on(s) for s in VACIO)
     assert e.es.motivo_pendiente["codigo"] == "secando_vapor_residual"
     for _ in range(200):
+        if e.protocolo._secado_fase == "ruptura":
+            e.pres(ATM)                                  # el aire rompe el vacío
         e.tick()
         if not e.protocolo.secando:
             break
