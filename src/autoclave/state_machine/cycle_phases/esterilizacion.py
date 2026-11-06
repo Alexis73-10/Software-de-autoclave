@@ -857,6 +857,13 @@ class EsterilizacionFase(BaseFase):
                 self._vapor_on()
             else:
                 self._control_vapor_pwm(pres, factor_pct, intervalo, p_control_max, now)
+                # H1 (revisión A14-M2): _tick_dos_estados solo llama a on_fn en
+                # la transición a ON; durante el tramo ON el corte D-CHQ y el de
+                # consigna se reevalúan en cada tick (como CALENTAMIENTO), así
+                # que vapor_chaqueta queda OFF en el mismo tick en que aparece
+                # el corte (también sin lectura o sin consigna: falla cerrada)
+                if self._pwm_abierto:
+                    self._vapor_on()
         elif self._en_recuperacion:
             # C-08.3: el techo de control también rige en RECUPERACION, con
             # histéresis (DECISIÓN SIN CONFIRMAR de la sesión principal): OFF

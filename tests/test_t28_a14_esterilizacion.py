@@ -234,6 +234,91 @@ def test_m2_ester_modo_camara_no_depende_de_la_chaqueta(monkeypatch):
     set_do.vapor_chaqueta_off.assert_not_called()
 
 
+# ── M2 / H1: el corte se reevalúa en cada tick del tramo ON del PWM ────────
+# intervalo 30 s y factor 1 % → t_on ≈ 29,7 s: antes de H1 el corte solo se
+# evaluaba en la transición a ON y vapor_chaqueta seguía ON todo el tramo.
+
+def _pwm_chaqueta_t_on_largo(monkeypatch, pres_chaqueta=250.0):
+    f, estado, set_do, reloj = ap.fase(monkeypatch, t_est=T_EST, presion_add=15.0,
+                                       brecha_seg=0.3, tiempo_min=30, temp=134.7, pres=P_SP,
+                                       intervalo=30, factor=1.0)
+    estado.modo_vapor = "chaqueta"
+    estado.inhibir_vapor_chaqueta = False
+    estado.sensores_pres["pres_chaqueta"] = pres_chaqueta
+    assert f.update() == FaseResult.EN_CURSO
+    assert f._en_recuperacion is False
+    assert f._pwm_abierto is True                         # inicio del tramo ON
+    set_do.vapor_chaqueta_on.assert_called()
+    set_do.reset_mock()
+    return f, estado, set_do, reloj
+
+
+def test_h1_corte_por_consigna_durante_el_tramo_on(monkeypatch):
+    f, estado, set_do, reloj = _pwm_chaqueta_t_on_largo(monkeypatch)
+    reloj.avanzar(1.0)                                    # dentro de t_on
+    estado.sensores_pres["pres_chaqueta"] = P_SP + 8.0 + 0.5
+    f.update()
+    assert f._pwm_abierto is True                         # el PWM no cambia de tramo
+    set_do.vapor_chaqueta_off.assert_called()
+    set_do.vapor_chaqueta_on.assert_not_called()
+    set_do.vapor_camara_on.assert_called()
+    # sigue cortada en los ticks siguientes del mismo tramo
+    set_do.reset_mock()
+    reloj.avanzar(1.0)
+    f.update()
+    set_do.vapor_chaqueta_on.assert_not_called()
+
+
+@pytest.mark.parametrize("lectura", [None, float("nan")])
+def test_h1_perdida_de_lectura_de_chaqueta_durante_el_tramo_on(monkeypatch, lectura):
+    f, estado, set_do, reloj = _pwm_chaqueta_t_on_largo(monkeypatch)
+    reloj.avanzar(1.0)
+    estado.sensores_pres["pres_chaqueta"] = lectura
+    f.update()
+    set_do.vapor_chaqueta_off.assert_called()
+    set_do.vapor_chaqueta_on.assert_not_called()
+
+
+def test_h1_inhibicion_d_chq_durante_el_tramo_on(monkeypatch):
+    f, estado, set_do, reloj = _pwm_chaqueta_t_on_largo(monkeypatch)
+    reloj.avanzar(1.0)
+    estado.inhibir_vapor_chaqueta = True
+    f.update()
+    set_do.vapor_chaqueta_off.assert_called()
+    set_do.vapor_chaqueta_on.assert_not_called()
+
+
+def test_h1_tramo_off_no_enciende_la_chaqueta(monkeypatch):
+    f, estado, set_do, reloj = _pwm_chaqueta_t_on_largo(monkeypatch)
+    reloj.avanzar(29.8)                                   # pasa a OFF
+    f.update()
+    assert f._pwm_abierto is False
+    set_do.vapor_chaqueta_off.assert_called()
+    set_do.reset_mock()
+    reloj.avanzar(0.1)                                    # sigue en t_off (0,3 s)
+    f.update()
+    set_do.vapor_chaqueta_on.assert_not_called()
+
+
+def test_h1_modo_camara_sin_cambio_en_el_tramo_on(monkeypatch):
+    """Modo cámara: dentro de t_on no se reenvía nada y la chaqueta no se toca."""
+    f, estado, set_do, reloj = ap.fase(monkeypatch, t_est=T_EST, presion_add=15.0,
+                                       brecha_seg=0.3, tiempo_min=30, temp=134.7, pres=P_SP,
+                                       intervalo=30, factor=1.0)
+    estado.sensores_pres["pres_chaqueta"] = None
+    f.update()
+    assert f._en_recuperacion is False and f._pwm_abierto is True
+    set_do.vapor_camara_on.assert_called()
+    set_do.reset_mock()
+    reloj.avanzar(1.0)
+    f.update()
+    assert f._pwm_abierto is True
+    set_do.vapor_camara_on.assert_not_called()
+    set_do.vapor_camara_off.assert_not_called()
+    set_do.vapor_chaqueta_on.assert_not_called()
+    set_do.vapor_chaqueta_off.assert_not_called()
+
+
 @pytest.fixture
 def reloj_cal(monkeypatch):
     ahora = [1000.0]
