@@ -1,12 +1,9 @@
-BLOQUEADO: la compilación de la 1.0.0-alpha.18 no se hizo; compilar_entrega.py exige suite en verde y queda 1 roja preexistente de codificación de consola que depende de PYTHONUTF8 (necesita decisión de Cristian).
 Fecha: 2026-11-06
-Commit del merge a dev: f9eaa9d8 (hotfix-es-merge d589a5eb + hotfix-estado-seguro d520f7ab sobre dev fa18324a); push de dev hecho.
-Suite (pytest tests -n auto, PYTHONUTF8=1, PYTHONPATH=<worktree>\src): 11209 pasan, 11 omitidas, 3 xfail, 1 roja:
-  tests/test_t20_s3_setup_modbus.py::test_ejecuta_consulta_de_adaptadores_solo_lectura (preexistente desde la tanda 28b; falla con PYTHONUTF8=1, pasa sin ella).
-  Sin PYTHONUTF8=1 pasa esa y falla tests/test_t26_ald_detalle_alarmas.py::test_qml_tocar_no_abrir_abre_detalle_con_valor_y_limite (AJ28B-05). Una u otra siempre queda roja.
-Revisión de seguridad: sin ALTA ni MEDIA; 4 BAJA (B1..B4) en R_informe / sin corregir.
-Para compilar (decisión de Cristian), desde dev limpio en C:\Users\tecni\Documents\codigo_autoclave_merge:
-  $env:PYTHONPATH="C:\Users\tecni\Documents\codigo_autoclave_merge\src"; python tools\entrega\compilar_entrega.py --sin-suite
-  (la suite ya se corrió completa arriba; también se puede arreglar la codificación de las dos pruebas y repetir sin --sin-suite)
-Nota: el python global importa autoclave del árbol principal (instalación editable); por eso el PYTHONPATH.
+Commit del merge a dev: f9eaa9d8 (hotfix-es-merge d589a5eb + hotfix-estado-seguro d520f7ab sobre dev fa18324a); dev publicado.
+Suite (pytest tests -n auto): 11209 pasan, 11 omitidas, 3 xfail, 1 roja de codificación de consola preexistente
+  (test_t20_s3_setup_modbus::test_ejecuta_consulta_de_adaptadores_solo_lectura con PYTHONUTF8=1; sin esa variable falla test_t26_ald_detalle_alarmas::test_qml_tocar_no_abrir_abre_detalle_con_valor_y_limite, AJ28B-05).
+Revisión de seguridad: sin ALTA ni MEDIA; 4 BAJA (B1..B4) sin corregir.
+Versión compilada: 1.0.0-alpha.18 (commit 2579ab3b, etiqueta v1.0.0-alpha.18), con --sin-suite por decisión de Cristian (la suite se había corrido completa antes).
+Instalador: C:\Users\tecni\Documents\codigo_autoclave_merge\entrega\v1.0.0-alpha.18_2026-11-06
+Compilar con PYTHONPATH=<worktree>\src (el python global importa autoclave del árbol principal).
 Dudas para Cristian: (1) CONFIRMAR corta el secado tras fallo en curso en vez de esperarlo; (2) estado final «cortado» no figura en la lista literal de D6.
