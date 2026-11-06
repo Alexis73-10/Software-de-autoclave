@@ -279,3 +279,23 @@ def test_error_al_armar_el_programa_de_la_marca_no_la_impide(monkeypatch, tmp_pa
     loop.recuperar_ciclo_interrumpido(roto, interrumpido=True, programa_del_ciclo=True)
     loop._sincronizar_marca_estado_seguro()
     assert marca.presente() is True and "programa" not in marca.leer()
+
+
+def test_construir_control_con_origen_ilegible_es_incierto(monkeypatch):
+    """Si no se puede saber el origen del programa, el arranque sigue con el
+    programa de siempre y de origen incierto (falla cerrada)."""
+    import threading
+    from autoclave.backend import context as ctx_mod
+    loop = MagicMock()
+    for nombre in ("build_enlace", "SetOutput", "create_door", "ServicioPuertas",
+                   "RealtimePrinter", "CycleLogger", "EscritorBD", "HistorialAlarmas"):
+        monkeypatch.setattr(ctx_mod, nombre, MagicMock())
+    monkeypatch.setattr(ctx_mod, "build_doors_cfg", lambda perfil: [])
+    monkeypatch.setattr(ctx_mod, "ControlLoop", MagicMock(return_value=loop))
+    yo = MagicMock()
+    yo.arranque_liberado = threading.Event()
+    yo._programa_para_arranque_con_origen.side_effect = RuntimeError("x")
+    ctx_mod.BackendContext.construir_control(yo)
+    kwargs = loop.recuperar_ciclo_interrumpido.call_args.kwargs
+    assert kwargs["programa_del_ciclo"] is False
+    assert loop.recuperar_ciclo_interrumpido.call_args.args[0] is yo._programa_para_arranque.return_value

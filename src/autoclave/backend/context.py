@@ -821,7 +821,13 @@ class BackendContext:
         # un encendido normal PREPARACION iguala la presión.
         # A13-M5 (tanda 28b): con el origen del programa (el secado tras fallo
         # solo corre con la instantánea del propio ciclo)
-        programa, del_ciclo = self._programa_para_arranque_con_origen()
+        try:
+            programa, del_ciclo = self._programa_para_arranque_con_origen()
+        except Exception:
+            # falla cerrada: el programa de siempre, de origen incierto
+            logger.exception("Arranque: no se pudo saber el origen del programa del ciclo "
+                             "interrumpido; se toma como incierto (A13-M5)")
+            programa, del_ciclo = self._programa_para_arranque(), False
         self.control_loop.recuperar_ciclo_interrumpido(
             programa, interrumpido=self.hubo_ciclo_interrumpido(), programa_del_ciclo=del_ciclo)
         self.control_loop.start()
