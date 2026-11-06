@@ -2,6 +2,29 @@
 
 Rama `tanda28c`. Diagnóstico y comparación de A14 en `docs/informes/tanda28/A14_diagnostico.md`.
 
+## A14 — resumen y medidas M1 y M2
+
+Diagnóstico, planta simulada y gráficas antes/después en `docs/informes/tanda28/A14_diagnostico.md`. Causas (a), (b) y (c) del prompt confirmadas (con IF97 el margen de (b) es 3,26 kPa y no 3,6, AJ28C-01). Riesgo HAZ-EST-07, REQ-60..62 y fila de banco T28-A14-01 registrados.
+
+### A14-M1 — banda PWM anclada a `P_sp` (commit `e538773c`)
+
+- `EsterilizacionFase.consigna_pwm(t_est, brecha)` = `Psat(T_est + brecha_segura_temperatura + 0,3)` (el 0,3 es `_HIST_RECUP_TEMP_K`); se calcula una vez al entrar a la fase (`self.p_sp`, log «P_sp=… (banda …)») y la banda es `[P_sp - 2, P_sp + 1]`, en los dos modos. Fuera de IAPWS-IF97 cae a `Psat(T_est)`.
+- Sin cambio: techo `P_control_max`, histéresis de 2 kPa del modo cámara, aislamiento VCH-AIS, RECUPERACION y sus transiciones, C-08, `factor_esterilizacion`, `intervalo_segmentos_ester`.
+- Advertencia no bloqueante `aviso_banda_pwm_techo` (`catalogo_parametros._evaluar_banda_pwm`, texto es/en) si `P_sp + 1 > P_control_max - 5`: al guardar y en el log al cargar. Con la brecha 1,0 salta; con 0,3 (M3) no.
+- Pruebas: `tests/test_t28_a14_esterilizacion.py` (nuevo); ajustadas a la banda nueva `test_esterilizacion_fase.py` y `test_t16_s1_esterilizacion.py`.
+
+### A14-M2 — corte de `vapor_chaqueta` sobre la consigna (commit `6f07cf1c`)
+
+- Componente puro `state_machine/cycle_phases/corte_chaqueta_consigna.py`; solo modo chaqueta, en CALENTAMIENTO (con ESTABLE_PREESTERILIZACION) y ESTERILIZACION: `vapor_chaqueta` OFF si `pres_chaqueta > consigna + margen_chaqueta_est`. Consigna: `P_sp` en ESTERILIZACION; `Psat(T_obj) + presion_add_calentamiento` en CALENTAMIENTO. Sin lectura de `pres_chaqueta` o sin consigna o margen utilizable: OFF (falla cerrada). Sin histéresis. Es un AND con la decisión de la fase y con D-CHQ; nunca enciende. El log anota el inicio y el fin del corte.
+- Parámetro `esterilizacion.margen_chaqueta_est` (kPa, clase «diferencia», defecto 8, rango 2–30; `DECISIÓN SIN CONFIRMAR` hasta el banco): catálogo, migración que agrega el defecto si falta (`cycle_manager`), los 10 programas, i18n es/en; un valor fuera de rango en la fase se recorta.
+- Las pruebas de modo chaqueta de la tanda 16 reciben ahora una lectura de `pres_chaqueta` bajo el umbral (antes no la tenían o era 330 kPa).
+
+### Resultado simulado con M1 + M2 + M3 (134 °C, modo chaqueta)
+
+De FALLO CIC-16 (6 aislamientos, 1,21 K, P máx 319,4 kPa, 42 % en banda) a COMPLETADO sin aislamientos, 0,59 K, P máx 311,6 kPa y 100 % en banda; modo cámara 0,87 K (antes 1,30 K). Planta provisional; se confirma en el banco (T28-A14-01).
+
+Hallazgo AJ28C-01 (BAJA): el margen de la salida de RECUPERACION al techo con la brecha 1,0 es 3,26 kPa con IF97 (el prompt decía ≈3,6).
+
 ## A14-M3 — `brecha_segura_temperatura` = 0,3 °C (decisión de Cristian)
 
 - Programas: 0,3 en los 10 JSON (`factory/` y `user/`); defecto del catálogo `BRECHA_SEGURA_TEMPERATURA_DEFECTO` = 0,3.
@@ -42,4 +65,4 @@ Hallazgos:
 - **AJ28C-07 (BAJA)**: auditar los parámetros agregados (y reescribir el JSON de usuario con `.bak`) sin SIS-06: el prompt pide «auditoría como las migraciones anteriores», pero las claves nuevas anteriores (T12, T16, A14-M2) no se auditaban; se auditan estas porque cambian el comportamiento. `DECISIÓN SIN CONFIRMAR`.
 - **AJ28C-08 (BAJA, entorno)**: `tests/test_t26_ald_detalle_alarmas.py::test_qml_tocar_no_abrir_abre_detalle_con_valor_y_limite` falla en esta máquina sin `PYTHONUTF8=1` (salida del subproceso QML en cp1252); con UTF-8 pasa. No lo toca este cambio.
 
-Pendiente (fuera de este encargo): revisor de seguridad sobre A14-M3 y A12, riesgo HAZ-PRV-01, trazabilidad, `CLAUDE.md` y fila de banco (repetir el ciclo con los pulsos que se atascaban).
+Documentación de A14 hecha (riesgo HAZ-EST-07, REQ-60..62, `CLAUDE.md`, fila de banco T28-A14-01). Pendiente (fuera de A14): revisor de seguridad sobre A14-M3 y A12, riesgo HAZ-PRV-01, trazabilidad y fila de banco de A12 (repetir el ciclo con los pulsos que se atascaban).

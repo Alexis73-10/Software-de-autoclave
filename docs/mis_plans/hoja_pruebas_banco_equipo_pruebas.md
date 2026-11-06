@@ -197,6 +197,7 @@
 | T26-05 | Sin que la interfaz avise: equipo retenido, todo apagado y ARR_SIN_INTERFAZ a los 60 s | En seco (sin vapor) | ARQ-D4 (tanda 26); HAZ-ARQ-02 |
 | T26-06 | Tarjeta de NO ABRIR con la cámara caliente: valor y límite | En seco (sin vapor) | ALD (tanda 26); HAZ-ALD-01 |
 | T27-A7-01 | Parámetros del equipo: mensaje de incoherencia propio de cada regla y rango efectivo | En seco (sin vapor) | A7 (tanda 27, AJ27-A7) |
+| T28-A14-01 | Ciclo de 134 °C en modo chaqueta: sin aislamientos, sobreimpulso y mínima en exposición | Con vapor | A14 (tanda 28); HAZ-EST-07 |
 
 ## Bloque A. Arranque, instalación y módulo E/S (en seco)
 
@@ -3038,6 +3039,24 @@
 - **Resultado esperado:** Paso 2: dentro de la ventana, «La presión de suministro de vapor (385 kPa) debe quedar por debajo de los alivios de cámara (385 kPa) y de chaqueta (385 kPa).», en varias líneas si hace falta y sin cortar con «…»; nunca el texto de empaque. Paso 3: los mismos valores en psi. Paso 4: el texto del corte con su margen de 10 kPa. Paso 5: el texto del vacío de empaque. Ningún valor se guarda.
 - **Criterio de aprobado/fallo:** Aprobado si cada rechazo muestra el texto de su regla con los valores correctos y el rango efectivo coincide con lo que se acepta. Es Fallo si aparece el texto de empaque al cambiar un límite de presión o si se guarda un valor incoherente.
 - **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+## Bloque T28. Ajustes de la tanda 28
+
+### T28-A14-01 — Ciclo de 134 °C en modo chaqueta: sobreimpulso y aislamientos (A14-M1/M2/M3)
+
+- **Modo:** Con vapor  ·  **Origen:** A14 (tanda 28); HAZ-EST-07
+- **Objetivo:** Repetir el ciclo de 134 °C del 5-nov (falló con CIC-16 a 135,8 °C / 319,7 kPa) con la banda PWM fija (`P_sp`), el corte de `vapor_chaqueta` sobre `P_sp + margen_chaqueta_est` y `brecha_segura_temperatura` 0,3, y confirmar en el equipo los defectos sin confirmar (`margen_chaqueta_est` 8 kPa, margen de 0,3 K de `P_sp`, brecha 0,3).
+- **Precondiciones:** Equipo en modo chaqueta (clase con chaqueta completa) con esta entrega; programa de fábrica de 134 °C con `brecha_segura_temperatura` 0,3, `presion_add_esterilizacion` 15 y `margen_chaqueta_est` 8 (comprobarlo en Parámetros del ciclo; un programa de usuario con 1,0 debe haber pasado a 0,3 al cargar). Sonda de referencia calibrada, registro de T/P de cámara y de chaqueta activo, carga de prueba. Guardar el log del backend (líneas «P_sp=… (banda …)» y «cortada por consigna (A14-M2)»).
+- **Pasos:**
+  1. Iniciar el ciclo de 134 °C con el tiempo de exposición de fábrica.
+  2. Durante ESTERILIZACION anotar T y P de cámara, P de chaqueta y el estado de `vapor_chaqueta` cada 30 s.
+  3. Contar los aislamientos de cámara (avisos en el log, CIC-15/CIC-16) hasta el final.
+  4. Al terminar, exportar la gráfica y el ticket; leer la temperatura máxima, la mínima en exposición y la presión máxima.
+- **Resultado esperado:** Ciclo COMPLETADO sin CIC-16 ni aislamientos; la cámara se sostiene cerca de `P_sp` (≈309,6 kPa, banda 307,6 a 310,6 kPa) y la presión máxima queda claramente bajo el techo de 319,2 kPa; sobreimpulso menor que el del 5-nov; temperatura mínima en exposición claramente por encima de 133,9 °C; en el log, `vapor_chaqueta` cortada cuando `pres_chaqueta` supera `P_sp + 8` (≈317,6 kPa) y reabre al bajar.
+- **Criterio de aprobado/fallo:** Aprobado si no hay aislamientos ni CIC-16 y la temperatura mínima en exposición queda por encima de 133,9 °C con margen. Es Fallo si hay CIC-15/16, si la temperatura baja a 133,9 °C o menos, o si la presión cae por el corte de chaqueta hasta repetir RECUPERACION. Cualquier ajuste de `margen_chaqueta_est` o de la brecha lo decide Cristian.
+- **Valor observado:** T máx ______ °C · T mín exposición ______ °C · P máx cámara ______ kPa · P máx chaqueta ______ kPa · aislamientos ______ · cortes de chaqueta ______
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
 
