@@ -69,6 +69,35 @@ _SONDA_DRENAJE = "temp_drenaje"
 # SAF-11 (re-revisión S2a): el alivio por sobrepresión cierra bajo tope - 5 kPa
 _HISTERESIS_ALIVIO_KPA = 5.0
 
+# A13 (tanda 28, Cristian 5-nov): secado corto tras un fallo con carga sólida.
+# Al llegar a la banda atmosférica, antes de que el estado seguro cuente sus 3
+# lecturas: SECADO (bomba + vacío, todo vapor y escapes cerrados) durante
+# secado_tras_fallo_s (parámetro del equipo, 0 lo desactiva) y RUPTURA (aire
+# atmosférico hasta la banda, con tiempo límite). Ver _tick_secado.
+CLAVE_SECADO_S = "secado_tras_fallo_s"
+SECADO_DEFECTO_S = 60
+SECADO_RANGO_S = (0, 300)
+# DECISIÓN SIN CONFIRMAR: tiempo límite de la ruptura del vacío con aire
+# atmosférico; al vencer se sigue con el protocolo normal y aviso
+_RUPTURA_LIMITE_S = 120.0
+# Mismo escalonado de apagado que PRE_VACIO (bomba + agua, luego vacío + agua)
+from autoclave.state_machine.cycle_phases.prevacio import _STAGGER_APAGADO_VACIO  # noqa: E402
+# Códigos de fallo del propio sistema de vacío (prevacío y secado del ciclo)
+_FALLOS_DE_VACIO = ("CIC-02", "CIC-06")
+# Fases del secado tras fallo en curso
+_SEC_SECADO, _SEC_APAGANDO, _SEC_RUPTURA = "secado", "apagando", "ruptura"
+_SEC_EN_CURSO = (_SEC_SECADO, _SEC_APAGANDO, _SEC_RUPTURA)
+# Resultado publicado (estado.secado_tras_fallo y ticket): estado y motivo
+SECADO_PENDIENTE, SECADO_HECHO, SECADO_SIN_RUPTURA = "pendiente", "hecho", "sin_ruptura"
+SECADO_OMITIDO, SECADO_CORTADO = "omitido", "cortado"
+ESTADOS_SECADO = (SECADO_PENDIENTE, SECADO_HECHO, SECADO_SIN_RUPTURA, SECADO_OMITIDO,
+                  SECADO_CORTADO)
+MOTIVOS_SECADO = (
+    "desactivado", "no_aplica", "carga_liquida", "sin_bomba", "sin_secado_programa",
+    "fallo_vacio", "paro", "datos_no_vigentes", "sin_presion", "sin_principal",
+    "puerta_abierta", "modo_prueba", "sellado",
+)
+
 
 class ProtocoloFallo:
 
@@ -84,6 +113,11 @@ class ProtocoloFallo:
         # protocolo del ciclo en CicloState); sin ninguno, la presión
         # publicada se toma como vigente y cada update() cuenta.
         self.lectura_ai = None
+        # A13 (tanda 28): perfil de instalación (bomba y vacío instalados,
+        # puertas) y gestor de alarmas (agua de la bomba). Los fija quien crea
+        # el protocolo; sin perfil no hay secado tras fallo (falla cerrada).
+        self.profile = None
+        self.alarm_manager = None
         self.reset()
 
     def reset(self):
@@ -148,6 +182,17 @@ class ProtocoloFallo:
         self._decision_pendiente = None
         # R3-A1: reanudar() ya corrió (el timeout de escalada se arma ahí)
         self._reanudado = False
+        # A13 (tanda 28): secado corto tras el fallo (ver _tick_secado)
+        self._secado_fase = None
+        self._secado_t0 = None
+        self._secado_t_fin = None
+        self._secado_t_apagado = None
+        self._ruptura_t_limite = None
+        self._secado_resultado = None
+        try:
+            self.estado.secado_tras_fallo = None
+        except Exception:
+            pass
 
     @property
     def sellado(self) -> bool:
@@ -555,7 +600,8 @@ class ProtocoloFallo:
     # ------------------------------------------------------------------
 
     def ejecutar(self, abrir_valvulas: bool = True, solo_lenta: bool = False,
-                 en_enfriamiento_contrapresion: bool = False):
+                 en_enfriamiento_contrapresion: bool = False,
+                 secado_tras_fallo: bool = True):
         """`abrir_valvulas` False (paro de emergencia, fin de ciclo §15.1):
         solo apaga todo y registra el modo; las válvulas las abre update()
         cuando el protocolo de estado seguro lo permita.
@@ -568,9 +614,19 @@ class ProtocoloFallo:
         `en_enfriamiento_contrapresion` (D8-2.10): la fase DESCOMPRESION estaba
         enfriando con contrapresión (modos 4/5). Con `solo_lenta` y carga
         líquida, la cámara queda sellada (ALL_OFF, sin abrir nada) en vez de
-        ventear por la lenta."""
+        ventear por la lenta.
+
+        `secado_tras_fallo` (A13, tanda 28): False solo para el COMPLETADO
+        reconocido con la cámara no segura (no es un fallo). FALLO, CANCELADO y
+        el arranque tras un ciclo interrumpido lo dejan en True (DECISIÓN SIN
+        CONFIRMAR para los dos últimos: el vapor residual es el mismo)."""
         if self._ejecutado:
             return
+        # A13: lo que se sabe ya al disparar decide si el secado se omite
+        self._fijar_secado(SECADO_PENDIENTE)
+        motivo_omision = self._motivo_omision_secado_inicial(secado_tras_fallo)
+        if motivo_omision is not None:
+            self._fijar_secado(SECADO_OMITIDO, motivo_omision)
         if solo_lenta:
             self._solo_lenta = True
             self._sin_escalar = True
@@ -839,6 +895,247 @@ class ProtocoloFallo:
         self._t_aire_comprimido = None
 
     # ------------------------------------------------------------------
+    # A13 (tanda 28): secado corto tras el fallo (carga sólida)
+    # ------------------------------------------------------------------
+
+    @property
+    def secando(self) -> bool:
+        """True mientras corre el secado tras fallo (vacío, apagado
+        escalonado o ruptura con aire). El estado seguro no cuenta lecturas
+        seguras mientras tanto."""
+        return self._secado_fase in _SEC_EN_CURSO
+
+    @property
+    def secado_resultado(self) -> dict | None:
+        """{"estado", "segundos", "motivo"} del secado tras fallo, o None si
+        el protocolo no se disparó."""
+        return dict(self._secado_resultado) if self._secado_resultado else None
+
+    def _fijar_secado(self, estado: str, motivo: str | None = None,
+                      segundos: float | None = None) -> None:
+        self._secado_resultado = {"estado": estado, "motivo": motivo,
+                                  "segundos": None if segundos is None else int(round(segundos))}
+        try:
+            self.estado.secado_tras_fallo = dict(self._secado_resultado)
+        except Exception:
+            pass
+        if estado != SECADO_PENDIENTE:
+            logger.warning("Protocolo fallo: secado tras fallo %s (motivo %s, %s s)",
+                           estado, motivo, self._secado_resultado["segundos"])
+
+    def _segundos_secado(self) -> float:
+        """secado_tras_fallo_s vigente (parámetro del equipo, leído en cada
+        uso). Fuera de rango o ilegible: el defecto."""
+        try:
+            v = self.config.get(CLAVE_SECADO_S)
+        except Exception:
+            v = None
+        if (isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v)
+                or not SECADO_RANGO_S[0] <= v <= SECADO_RANGO_S[1]):
+            if v is not None:
+                logger.error("Protocolo fallo: %s=%r inválido; se usa %d s",
+                             CLAVE_SECADO_S, v, SECADO_DEFECTO_S)
+            return float(SECADO_DEFECTO_S)
+        return float(v)
+
+    def _vacio_instalado(self) -> bool:
+        try:
+            from autoclave.installation.profile import vacio_instalado
+            return vacio_instalado(self.profile)
+        except Exception:
+            logger.exception("Protocolo fallo: no se pudo leer si hay bomba de vacío")
+            return False
+
+    def _programa_con_secado(self) -> bool:
+        """El programa tiene secado: sección `secado` con modo distinto de 0 y
+        tiempo_secado mayor que 0 (con 0 la fase SECADO se salta)."""
+        try:
+            modo = self.cycle.get_param("secado", "modo", default=0)
+            tiempo = self.cycle.get_param("secado", "tiempo_secado", default=0)
+            return (isinstance(modo, (int, float)) and not isinstance(modo, bool) and modo != 0
+                    and isinstance(tiempo, (int, float)) and not isinstance(tiempo, bool)
+                    and tiempo > 0)
+        except Exception:
+            return False
+
+    def _carga_solida(self) -> bool:
+        """`globals.tipo_carga == "solido"` exacto (ilegible = líquida, SAF-03)."""
+        try:
+            return self.cycle.get_param("globals", "tipo_carga", default=None) == "solido"
+        except Exception:
+            return False
+
+    def _fallo_de_vacio(self) -> bool:
+        """El propio sistema de vacío falló: el ciclo falló en prevacío o en
+        secado (CIC-02/CIC-06), falta el agua de la bomba (SUM-03 o su DI
+        declarada) o no hay suministro eléctrico. Ante un error, True."""
+        try:
+            if str(getattr(self.estado, "codigo_fallo", "") or "") in _FALLOS_DE_VACIO:
+                return True
+            if self.estado.get_flag("FALLO_SUMINISTRO_ELECTRICO"):
+                return True
+            from autoclave.installation.profile import entrada_requerida
+            if (entrada_requerida(self.profile, "agua_bomba")
+                    and not self.estado.sensores_di.get("agua_bomba")):
+                return True
+            if self.alarm_manager is not None:
+                for inst in self.alarm_manager.activas():
+                    if getattr(inst, "codigo", None) == "SUM-03":
+                        return True
+            return False
+        except Exception:
+            logger.exception("Protocolo fallo: no se pudo evaluar el sistema de vacío")
+            return True
+
+    def _puertas_cerradas(self) -> bool:
+        """Toda puerta instalada confirmada cerrada (DI == 1 o True). Ante un
+        error o sin dato, False."""
+        try:
+            from autoclave.installation.profile import numero_puertas
+            di = self.estado.sensores_di
+            for num in range(1, numero_puertas(self.profile) + 1):
+                valor = di.get(f"puerta_{num}_cerrada")
+                if not (valor is True or (type(valor) is int and valor == 1)):
+                    return False
+            return True
+        except Exception:
+            return False
+
+    def _motivo_omision_secado_inicial(self, permitido: bool) -> str | None:
+        """Lo que se sabe al disparar (A13 §2): None si el secado puede correr
+        al llegar a la banda atmosférica."""
+        if not permitido:
+            return "no_aplica"
+        if self._segundos_secado() <= 0:
+            return "desactivado"
+        if not self._carga_solida():
+            return "carga_liquida"
+        if not self._vacio_instalado():
+            return "sin_bomba"
+        if not self._programa_con_secado():
+            return "sin_secado_programa"
+        if self._fallo_de_vacio():
+            return "fallo_vacio"
+        return None
+
+    def _motivo_corte_secado(self) -> str | None:
+        """Condiciones que deben cumplirse en cada tick del secado (y al
+        empezar): None si puede seguir."""
+        if self.estado.get_flag("PARO_EMERGENCIA"):
+            return "paro"
+        if not self._ai_vigente_tick:
+            return "datos_no_vigentes"
+        if not lectura_valida(self._pres_camara()):
+            return "sin_presion"
+        if self._principal_perdido():
+            return "sin_principal"
+        if not self._puertas_cerradas():
+            return "puerta_abierta"
+        if self._sellado or self._alivio_abierto:
+            return "sellado"
+        # el fallo del sistema de vacío solo corta mientras se hace vacío (la
+        # ruptura con aire no usa la bomba)
+        if self._secado_fase in (None, _SEC_SECADO) and self._fallo_de_vacio():
+            return "fallo_vacio"
+        return None
+
+    def _iniciar_secado(self) -> bool:
+        """Primera llegada a la banda atmosférica con el secado pendiente.
+        True si empezó (este update() ya actuó); si no, queda omitido con su
+        motivo y el protocolo sigue como hoy."""
+        motivo = self._motivo_omision_secado_inicial(True) or self._motivo_corte_secado()
+        if motivo is not None:
+            self._fijar_secado(SECADO_OMITIDO, motivo)
+            return False
+        ahora = time.monotonic()
+        self._secado_fase = _SEC_SECADO
+        self._secado_t0 = ahora
+        self._secado_t_fin = ahora + self._segundos_secado()
+        logger.warning("Protocolo fallo: secado tras fallo (%.0f s) — bomba y vacío, "
+                       "vapor y escapes cerrados", self._secado_t_fin - ahora)
+        self._salidas_secado()
+        return True
+
+    def _salidas_secado(self) -> None:
+        """SECADO: todo vapor y escapes cerrados, bomba y vacío encendidos
+        (el agua de la bomba y del intercambiador la ponen bomba_vacio_on y
+        vacio_camara_on, como en la fase SECADO)."""
+        self.set_do.vapor_camara_off()
+        self.set_do.vapor_chaqueta_off()
+        self.set_do.descompresion_rapida_off()
+        self.set_do.descompresion_lenta_off()
+        self.set_do.descompresion_chaqueta_off()
+        self.set_do.aire_comprimido_camara_off()
+        self.set_do.aire_admosferico_camara_off()
+        self.set_do.agua_chaqueta_off()
+        self.set_do.bomba_vacio_on()
+        self.set_do.vacio_camara_on()
+
+    def _apagar_vacio(self) -> None:
+        self.set_do.bomba_vacio_off()
+        self.set_do.vacio_camara_off()
+
+    def cortar_secado(self, motivo: str) -> None:
+        """Corta el secado tras fallo en curso (paro, modo prueba, datos no
+        vigentes, puerta, sensor...): bomba y vacío apagados ya y no se
+        reanuda solo; el protocolo sigue como hoy. Sin secado en curso, nada."""
+        if self._secado_fase not in _SEC_EN_CURSO:
+            return
+        segundos = (time.monotonic() - self._secado_t0) if self._secado_t0 is not None else None
+        self._apagar_vacio()
+        self.set_do.aire_admosferico_camara_off()
+        self._secado_fase = None
+        self._fijar_secado(SECADO_CORTADO, motivo, segundos)
+
+    def _tick_secado(self, pres, atm: float, rango: float) -> bool:
+        """Un tick del secado tras fallo. True si sigue en curso (este
+        update() termina aquí); False si terminó o se cortó en este tick."""
+        motivo = self._motivo_corte_secado()
+        if motivo is not None:
+            self.cortar_secado(motivo)
+            return False
+        ahora = time.monotonic()
+        if self._secado_fase == _SEC_SECADO:
+            if ahora < self._secado_t_fin:
+                self._salidas_secado()
+                return True
+            # fin del vacío: primero la bomba (con su agua), luego el vacío
+            self.set_do.bomba_vacio_off()
+            self._secado_t_apagado = ahora
+            self._secado_fase = _SEC_APAGANDO
+            return True
+        if self._secado_fase == _SEC_APAGANDO:
+            self.set_do.bomba_vacio_off()
+            if ahora - self._secado_t_apagado >= _STAGGER_APAGADO_VACIO:
+                self.set_do.vacio_camara_off()
+                self._secado_fase = _SEC_RUPTURA
+                self._ruptura_t_limite = ahora + _RUPTURA_LIMITE_S
+                logger.info("Protocolo fallo: secado tras fallo terminado — ruptura del vacío "
+                            "con aire atmosférico")
+            return True
+        # RUPTURA: aire atmosférico hasta la banda atmosférica, con tope
+        self._apagar_vacio()
+        segundos = self._secado_t_fin - self._secado_t0
+        if pres >= atm - rango:
+            # en la banda (o por encima: el aire se cierra siempre con presión)
+            self.set_do.aire_admosferico_camara_off()
+            self._secado_fase = None
+            self._fijar_secado(SECADO_HECHO, None, segundos)
+            return False
+        if ahora >= self._ruptura_t_limite:
+            self.set_do.aire_admosferico_camara_off()
+            self._secado_fase = None
+            logger.error("Protocolo fallo: la ruptura del vacío no llegó a la banda atmosférica "
+                         "en %.0f s; sigue el protocolo normal", _RUPTURA_LIMITE_S)
+            self._fijar_secado(SECADO_SIN_RUPTURA, None, segundos)
+            return False
+        if self._referencia_atm_configurada():
+            self.set_do.aire_admosferico_camara_on()
+        else:
+            self.set_do.aire_admosferico_camara_off()
+        return True
+
+    # ------------------------------------------------------------------
     # MANTENIMIENTO — llamar en cada tick mientras se espera confirmación
     # y, después, desde el protocolo de estado seguro (fin de ciclo §15)
     # ------------------------------------------------------------------
@@ -928,6 +1225,12 @@ class ProtocoloFallo:
 
         enfriando = self._modo_efectivo() in (4, 5) and self._sub_etapa == "enfriamiento"
 
+        # A13 (tanda 28): con el secado tras fallo en curso, él manda (ni la
+        # gestión de presión ni el buzzer) hasta que termine o se corte; si se
+        # corta en este tick, sigue el protocolo normal en el mismo tick.
+        if self._secado_fase in _SEC_EN_CURSO and self._tick_secado(pres, atm, rango):
+            return
+
         if not lectura_valida(pres):
             self._lecturas_vacio = 0
             self._seq_vacio = None
@@ -979,6 +1282,12 @@ class ProtocoloFallo:
             # aire atmosférico cerrado (evita cerrar en falso si la cámara
             # todavía tiene algo de presión residual, no vacío)
             self.set_do.aire_admosferico_camara_off()
+            # A13 (tanda 28): primera llegada a la banda atmosférica con el
+            # secado pendiente: se decide aquí si corre (antes de que el estado
+            # seguro cuente sus lecturas)
+            if (self._secado_resultado or {}).get("estado") == SECADO_PENDIENTE \
+                    and self._iniciar_secado():
+                return
             self._aplicar_paso_modo(pres)
 
         # ── Buzzer cuando se alcanzan condiciones seguras ─────────────
@@ -1085,6 +1394,9 @@ class ProtocoloFallo:
 
     def finalizar(self) -> None:
         """Cierra toda válvula que el protocolo pudo abrir (PF-10)."""
+        if self._secado_fase in _SEC_EN_CURSO:
+            # A13: cierre forzado (p. ej. terminar() al entrar a un ciclo)
+            self.cortar_secado("no_aplica")
         self.set_do.descompresion_rapida_off()
         self.set_do.descompresion_lenta_off()
         self.set_do.descompresion_chaqueta_off()

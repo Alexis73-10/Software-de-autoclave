@@ -87,6 +87,8 @@ class ProtocoloEstadoSeguro:
         self._motivo_pendiente = None
         self._temp_max_pendiente = None
         self._codigo_pendiente_en_log = None
+        # A13 (tanda 28): último estado del secado tras fallo ya registrado
+        self._secado_visto = None
 
     @property
     def activo(self) -> bool:
@@ -238,6 +240,7 @@ class ProtocoloEstadoSeguro:
         self._fijar_pendiente(None)
         self.requiere_confirmacion = requiere_confirmacion
         self.origen = origen
+        self._secado_visto = None
         self._evento("estado_seguro_iniciado", requiere_confirmacion=requiere_confirmacion,
                      origen=origen)
 
@@ -251,6 +254,8 @@ class ProtocoloEstadoSeguro:
         self._pausado = True
         self._ticks_seguros = 0
         self._fijar_pendiente(None)          # A10: en pausa no hay evaluación
+        # A13 (tanda 28): la pausa corta el secado tras fallo (no se reanuda)
+        self._cortar_secado("modo_prueba" if motivo == "modo_prueba" else "datos_no_vigentes")
         if motivo == "modo_prueba":
             self._pausa_por_prueba = True
         self._evento("estado_seguro_pausado", motivo=motivo)
@@ -384,6 +389,37 @@ class ProtocoloEstadoSeguro:
                 logger.exception("Estado seguro: no se pudo resolver la alarma de bloqueo")
         self._alarma_bloqueo = None
 
+    def _cortar_secado(self, motivo: str) -> None:
+        """A13: corta el secado tras fallo del protocolo, si lo hay."""
+        cortar = getattr(self._protocolo, "cortar_secado", None)
+        if not callable(cortar):
+            return
+        try:
+            cortar(motivo)
+        except Exception:
+            logger.exception("Estado seguro: no se pudo cortar el secado tras fallo")
+        self._seguir_secado()
+
+    def _seguir_secado(self) -> None:
+        """A13: registra (log y bitácora) cada cambio del secado tras fallo:
+        inicio y resultado (hecho, sin ruptura, omitido o cortado)."""
+        try:
+            protocolo = self._protocolo
+            secando = getattr(protocolo, "secando", False) is True
+            resultado = getattr(protocolo, "secado_resultado", None)
+            estado = "secando" if secando else (resultado or {}).get("estado")
+        except Exception:
+            return
+        if not isinstance(estado, str) or estado == self._secado_visto:
+            return
+        self._secado_visto = estado
+        if estado == "secando":
+            self._evento("estado_seguro_secado_iniciado")
+        elif estado != "pendiente":
+            self._evento("estado_seguro_secado_terminado", resultado=estado,
+                         motivo=(resultado or {}).get("motivo"),
+                         segundos=(resultado or {}).get("segundos"))
+
     def _ai_vigente(self) -> bool:
         """S9 (revisión ★ TMG-02): trama AI vigente según lectura_ai; sin
         lectura_ai, True (comportamiento anterior); ante un error, False."""
@@ -411,6 +447,7 @@ class ProtocoloEstadoSeguro:
             self._ticks_seguros = 0
             self._pausado = True
             self._fijar_pendiente(None)      # A10: el paro tiene su propia fila
+            self._cortar_secado("paro")      # A13: todo OFF y no se reanuda solo
             return
         if self._paro_visto:
             self._paro_visto = False
@@ -419,6 +456,8 @@ class ProtocoloEstadoSeguro:
         if self.requiere_confirmacion or not datos_vigentes:
             self._ticks_seguros = 0
             self._pausado = True
+            # A13: sin datos vigentes el secado tras fallo se corta
+            self._cortar_secado("paro" if self.requiere_confirmacion else "datos_no_vigentes")
             # A10: sin datos vigentes, ese es el motivo; con la confirmación
             # pendiente, la fila propia lo dice
             self._fijar_pendiente(None if self.requiere_confirmacion else Motivo(
@@ -458,6 +497,13 @@ class ProtocoloEstadoSeguro:
             except Exception:
                 logger.exception("Estado seguro: no se pudo mantener el drenaje")
         self._actualizar_alarma_bloqueo()
+        self._seguir_secado()
+        if getattr(self._protocolo, "secando", False) is True:
+            # A13 (tanda 28): secando vapor residual (vacío y ruptura): no se
+            # cuentan lecturas seguras hasta que termine
+            self._ticks_seguros = 0
+            self._fijar_pendiente(Motivo("secando_vapor_residual", "Secando vapor residual"))
+            return
 
         programas = None
         if self.programas_seguridad is not None:

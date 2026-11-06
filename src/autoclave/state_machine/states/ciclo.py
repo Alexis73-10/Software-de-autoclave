@@ -194,6 +194,9 @@ class CicloState:
         ]
 
         self._protocolo          = ProtocoloFallo(estado, set_do, cycle, config)
+        # A13 (tanda 28): secado tras fallo (bomba instalada, puertas, agua)
+        self._protocolo.profile = profile
+        self._protocolo.alarm_manager = alarm_manager
         self._fase_idx           = 0
         self._resultado_pendiente: str | None = None   # resultado almacenado hasta confirmación
 
@@ -1057,6 +1060,9 @@ class CicloState:
                     if self.estado.get_flag(bandera):
                         self.estado.set_flag(bandera, False)
                 self.set_do.apagar_por_paro()
+                # A13 (tanda 28): un paro corta el secado tras fallo y no se
+                # reanuda solo
+                self._protocolo.cortar_secado("paro")
                 return CicloResultado.ESPERANDO_CONFIRMACION
             # FC-08 (tanda 21): sin NO CONFORME ya no se exige reconocimiento
             if self.estado.get_flag("CICLO_CONFIRMADO"):

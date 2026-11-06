@@ -3078,6 +3078,24 @@
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
 
+### T28-A13-01 — Secado corto tras un ciclo fallido con carga sólida
+
+- **Modo:** Con vapor (ciclo sólido que se hace fallar o se cancela) y en seco para los casos de omisión  ·  **Origen:** A13 (tanda 28, HAZ-SFF-01)
+- **Objetivo:** Tras un FALLO o una cancelación de un programa sólido con secado, al llegar la cámara a la presión atmosférica el equipo hace vacío durante `secado_tras_fallo_s`, rompe el vacío con aire y solo entonces da la cámara por segura; con carga líquida, sin bomba o con el parámetro en 0 no lo hace y el ticket lo dice.
+- **Precondiciones:** Equipo con bomba de vacío y agua de sello. `secado_tras_fallo_s` = 60 (Opciones › Parámetros del equipo › Cámara segura). Programa sólido con secado (p. ej. Instrumental 134). Cronómetro.
+- **Pasos:**
+  1. Iniciar el programa sólido y cancelarlo en calentamiento (o provocar un fallo). Confirmar.
+  2. Observar la fila de estado seguro hasta que la cámara llegue a la presión atmosférica: debe aparecer «Secando vapor residual», con la bomba y el vacío encendidos y el vapor y los escapes cerrados (Entradas/Salidas en otra pantalla, sin modo prueba).
+  3. Cronometrar el vacío (≈60 s) y la ruptura con aire hasta la presión atmosférica. Intentar abrir la puerta durante el secado y la ruptura.
+  4. Repetir y, a mitad del secado, pulsar el paro de emergencia; liberarlo.
+  5. Repetir con un programa de líquidos, y con el parámetro en 0.
+  6. Revisar el ticket, el historial y el PDF de cada ciclo.
+- **Resultado esperado:** Paso 2–3: vacío ≈60 s, luego aire hasta la banda; la puerta no abre y el estado seguro no termina hasta después de la ruptura. Paso 4: bomba y vacío se apagan con el paro y no vuelven a encenderse solos; el protocolo sigue como antes. Paso 5: sin vacío. Paso 6: ticket al cierre con «Secado tras fallo: pendiente al cerrar el ciclo»; historial, reimpresión y PDF con «Secado tras fallo: 60 s», «cortado a los N s (paro de emergencia)», «omitido (carga líquida)» u «omitido (desactivado en Parámetros del equipo)».
+- **Criterio de aprobado/fallo:** Fallo si hay vacío con carga líquida, con una puerta abierta o tras un paro; si el vapor o un escape se abren durante el secado; si la puerta abre o el estado seguro termina antes de la ruptura; o si el historial no dice el resultado.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
 ## Registros que se deben conservar (expediente IEC 62304)
 
 - Esta hoja firmada (cada prueba con valor observado, resultado y firma).

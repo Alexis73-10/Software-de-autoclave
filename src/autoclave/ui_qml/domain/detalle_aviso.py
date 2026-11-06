@@ -47,6 +47,9 @@ CLAVES = tuple(_FILAS)
 # Motivos de camara_segura con texto propio (aviso_detalle.no_abrir_motivos.*)
 MOTIVOS_NO_ABRIR = ("temp_alta", "sobrepresion", "vacio", "sin_presion_camara", "sin_temp_camara",
                     "sin_datos_vigentes", "falta_config")
+# A13 (tanda 28): motivo pendiente del estado seguro mientras seca el vapor
+# residual tras un fallo (ProtocoloEstadoSeguro)
+MOTIVO_SECANDO = "secando_vapor_residual"
 
 
 def sufijos_i18n() -> list:
@@ -167,6 +170,9 @@ def texto_espera(contexto: dict | None, idioma: str) -> str:
         codigo = pend.get("codigo") if isinstance(pend.get("codigo"), str) else ""
         if not codigo:
             return ""
+        if codigo == MOTIVO_SECANDO:
+            # A13 (tanda 28): secado tras fallo en curso (vacío y ruptura)
+            return _t("sistema.estado_seguro_secando", idioma)
         if codigo in MOTIVOS_NO_ABRIR:
             valores = pend.get("valores") if isinstance(pend.get("valores"), dict) else {}
             lim = pend.get("limites") if isinstance(pend.get("limites"), dict) else {}

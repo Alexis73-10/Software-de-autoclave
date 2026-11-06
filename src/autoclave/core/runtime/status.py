@@ -166,6 +166,10 @@ class EstadoAutoclave:
         self.operador_inicio: str = ""
         # Avisos del ciclo que van al pie del ticket (SAF-04 de T3)
         self.avisos_ciclo: list = []
+        # A13 (tanda 28): resultado del secado tras fallo del protocolo de
+        # fallo ({"estado", "motivo", "segundos"}) o None; lo publica
+        # ProtocoloFallo y lo lleva el CycleLogger al ticket y a la base
+        self.secado_tras_fallo = None
         # T2-a (tanda 7): segundos del ciclo sin datos del módulo E/S (tolerancia
         # por DI vencida); pausan la exposición y van al pie del ticket
         self.sin_datos_modulo_es_s: float = 0.0

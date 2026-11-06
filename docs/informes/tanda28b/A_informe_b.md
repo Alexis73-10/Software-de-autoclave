@@ -131,3 +131,105 @@ Prueba de reproducción: `tests/test_t28b_a10_estado_seguro_rango.py`, con pieza
 - 5.2/5.4: requisito y diseño actualizados en CLAUDE.md, el registro de riesgos y la trazabilidad.
 - 5.5.5/5.6.6/8.2.3: se repitieron las pruebas de unidad e integración del arranque y del estado seguro. Falta el banco (T28-A9-01) y la revisión de seguridad.
 - SOUP: sin cambios.
+
+## A13. Secado corto tras un ciclo fallido
+
+**Pedido (Cristian, 5-nov):** tras un fallo, la cámara llega a la presión atmosférica con vapor de agua a alta temperatura, y abrir la puerta así puede quemar al operador. Con carga sólida, el equipo hace un minuto de vacío para retirar ese vapor y rompe el vacío con aire antes de dar la cámara por segura.
+
+> **Para el revisor: cambio de proceso clase C. Toca actuadores (bomba de vacío, vacío de cámara, aire atmosférico), el protocolo de fallo y el fin del estado seguro.** La revisión de seguridad obligatoria está pendiente. El implementador no puede lanzar el revisor: la debe pedir el director antes de unir.
+
+### Diseño
+
+El secado vive en `ProtocoloFallo` (`state_machine/cycle_phases/protocolo_fallo.py`) porque el mismo objeto corre en `CicloState`, mientras espera la confirmación, y después en `ProtocoloEstadoSeguro`.
+
+1. **Decisión al disparar** (`ejecutar`). El resultado queda en `pendiente`, salvo que ya se sepa que no corre. En ese caso queda en `omitido` con su motivo:
+   - parámetro en 0 → `desactivado`;
+   - `tipo_carga` distinto de `"solido"` exacto → `carga_liquida`;
+   - sin bomba ni vacío instalados → `sin_bomba`. Lo decide `profile.vacio_instalado`: capacidad `has_vacuum` de la clase y `bomba_vacio`/`vacio_camara` en el io_enabled filtrado por el perfil. Sin perfil real, False;
+   - programa sin secado (modo 0 o `tiempo_secado` 0) → `sin_secado_programa`;
+   - fallo del sistema de vacío → `fallo_vacio`. Cuenta como tal: código de fallo CIC-02 (prevacío) o CIC-06 (secado), SUM-03 activa, DI `agua_bomba` declarada y en 0, o falta de suministro eléctrico;
+   - `ejecutar(secado_tras_fallo=False)` → `no_aplica`. Solo se usa en el COMPLETADO reconocido con la cámara no segura (`state_machine.py`).
+2. **Inicio** (`_iniciar_secado`), la primera vez que la cámara llega a la banda atmosférica (rama «rango normal» de `update()`). Se vuelven a evaluar las condiciones de arriba y se exige además:
+   - sin paro;
+   - trama AI vigente;
+   - presión y Principal con lectura;
+   - todas las puertas instaladas confirmadas cerradas (DI == 1 o True);
+   - ni sellado ni alivio D8-2.10.
+   Si alguna falla, el secado queda `omitido` con su motivo y el protocolo sigue como hoy.
+3. **SECADO** (`_tick_secado`):
+   - salidas: `vapor_camara`, `vapor_chaqueta`, las tres descompresiones, el aire comprimido, el aire atmosférico y `agua_chaqueta` en OFF; `bomba_vacio` y `vacio_camara` en ON. El agua de la bomba y la del intercambiador las ponen `bomba_vacio_on`/`vacio_camara_on`, como en la fase SECADO;
+   - duración: `secado_tras_fallo_s`;
+   - en cada tick se revisan las condiciones del punto 2 y, solo durante el vacío, el fallo del sistema de vacío. Si alguna falla, `cortar_secado` apaga la bomba y el vacío en ese mismo tick, el resultado queda `cortado` con los segundos y el motivo, y el protocolo sigue normal desde ese tick. El secado no se reanuda.
+4. **Apagado escalonado:** primero la bomba (con su agua) y, `_STAGGER_APAGADO_VACIO` (0,15 s, el de PRE_VACIO) después, el vacío.
+5. **RUPTURA:** aire atmosférico hasta `pres >= atm − rango`. Solo con la referencia atmosférica configurada (`_referencia_atm_configurada`), y se cierra con presión. Tiene un tope de 120 s (`_RUPTURA_LIMITE_S`, **DECISIÓN SIN CONFIRMAR**). Al vencer, el resultado queda `sin_ruptura`, se avisa en el log y la bitácora, y sigue el protocolo normal.
+6. **Estado seguro** (`state_machine/estado_seguro.py`):
+   - mientras `protocolo.secando is True`, no cuenta lecturas seguras y publica el motivo pendiente `secando_vapor_residual`;
+   - el paro (también el `requiere_confirmacion`), los datos no vigentes y `pausar("modo_prueba")` llaman a `cortar_secado`;
+   - el modo prueba conserva la pausa de siempre;
+   - registra `estado_seguro_secado_iniciado` y `estado_seguro_secado_terminado` (con resultado, motivo y segundos) por `al_evento`, como los demás `estado_seguro_*`.
+7. **CicloState** (`states/ciclo.py`): le da al protocolo `profile` y `alarm_manager`. Con el resultado pendiente y el paro activo, corta el secado (`cortar_secado("paro")`). La apertura y el inicio ya están bloqueados en CICLO.
+8. **Ciclo interrumpido** (A9, `control_loop.py`): el protocolo del arranque recibe `profile` y `alarm_manager`. Rige la misma regla (**DECISIÓN SIN CONFIRMAR**, como dice el prompt). El programa desconocido o sin tipo de carga se toma como líquido, y así no corre.
+9. **Parámetro** `secado_tras_fallo_s` en `config/global_params.json`:
+   - grupo `camara_segura`, int, `seg`, defecto 60, rango 0–300;
+   - validación, auditoría (`param_sistema_cambio`) y pantalla de Parámetros del equipo usan el mecanismo común;
+   - i18n `parametros_equipo(_desc).secado_tras_fallo_s` y la descripción del grupo Cámara segura;
+   - el protocolo lo lee en cada uso. Un valor fuera de rango o ilegible da el defecto, con error en el log.
+10. **Ticket, PDF e historial:**
+    - `estado.secado_tras_fallo` guarda `{estado, motivo, segundos}`;
+    - `CycleLogger._on_fin` agrega el aviso `ticket_ciclo.secado_tras_fallo` a todo ciclo no COMPLETADO. Al cierre (fin de la fase) casi siempre dice «pendiente al cerrar el ciclo»;
+    - al conocerse el resultado, `CycleLogger._seguir_secado_tras_fallo` reescribe esa línea en `avisos_ticket` del ciclo cerrado (`DbManager.actualizar_avisos_ticket`, en el ejecutor de la base). Con eso, el historial, la reimpresión y el PDF (que dibuja el ticket) dicen «Secado tras fallo: 60 s», «omitido (carga líquida)», «cortado a los N s (paro de emergencia)» o «N s (la ruptura del vacío no llegó a la presión atmosférica)»;
+    - el ticket impreso al cierre no cambia.
+11. **Interfaz:** `detalle_aviso.texto_espera` da «Secando vapor residual» / «Drying residual steam» (`sistema.estado_seguro_secando`) para ese motivo, en la nota de la fila de estado seguro y en su detalle ALD. No hubo cambios en QML ni en el puente: se aprovecha `motivo_pendiente` de A10.
+
+### Pruebas
+
+- Nuevas: `tests/test_t28b_a13_secado_tras_fallo.py` (35), con `ProtocoloFallo` y `ProtocoloEstadoSeguro` reales y salidas en un doble:
+  - FALLO y CANCELADO sólidos con el equipo completo: 60 s de vacío con bomba y vacío en ON y vapor, escapes y aire en OFF; apagado escalonado; ruptura con aire; el estado seguro solo termina después, con 3 lecturas;
+  - el estado seguro no se da por alcanzado antes de terminar la ruptura, aunque la cámara parezca segura;
+  - ruptura que no llega a la banda: `sin_ruptura` y sigue el protocolo;
+  - no corre con: carga líquida, tipo de carga ilegible, sin bomba en el perfil, programa sin secado, fallo de vacío CIC-02/CIC-06, sin agua de la bomba (alarma y DI), parámetro en 0, COMPLETADO, puerta no confirmada o Principal sin lectura al llegar;
+  - lo cortan, sin reanudarse: un paro (también visto por el propio protocolo), una puerta que se abre, la falta de agua de la bomba, el modo prueba, los datos no vigentes y la presión sin lectura;
+  - parámetro cambiado en vuelo y parámetro inválido;
+  - `vacio_instalado`;
+  - líneas del ticket es/en;
+  - reescritura de `avisos_ticket` al conocerse el resultado (CycleLogger y DbManager reales sobre una base temporal);
+  - texto y detalle ALD «Secando vapor residual».
+- Ajustadas, sin relajar:
+  - `test_t2_p1_completado_estado_seguro.py`: el COMPLETADO ahora llama `ejecutar(..., secado_tras_fallo=False)`;
+  - `test_o2a_parametros_equipo.py`: el parámetro nuevo y el grupo Cámara segura con 3 claves;
+  - `test_i18n.py`: familias `ticket_ciclo.secado_estado.` y `ticket_ciclo.secado_motivo.`.
+- Las pruebas existentes del protocolo y del estado seguro no tienen perfil con bomba, así que quedan con el secado omitido (`sin_bomba`) y el comportamiento de antes.
+- Resultado de la tanda relacionada: 1693 passed, 5 skipped, 4 xfailed, 1 failed. La que falla es `test_t26_ald_detalle_alarmas.py::test_qml_tocar_no_abrir_abre_detalle_con_valor_y_limite`, preexistente y ajena (AJ28B-05: falla igual sin estos cambios). La tanda incluye arquitectura, rutas/OpenAPI (T15), ciclo, CycleLogger, ensayos con simulador (E1, Q1, T8-S2a, T11), estado seguro (S9, T5, T2, ESS, T17), protocolo de fallo, PREPARACION, prevacío, secado, ticket, PDF, i18n, O2a, tema oscuro, A9, A10 y A13.
+
+### Hallazgos
+
+- **AJ28B-06 (ALTA, corregido por el pedido):** tras un fallo con carga sólida, el estado seguro se daba por alcanzado con la cámara a la presión atmosférica pero llena de vapor caliente: riesgo de quemadura al abrir. Ahora se seca antes de contar las lecturas seguras.
+- **AJ28B-07 (MEDIA, informativo):** `camara_segura` (NO ABRIR en `/status`) no conoce el secado. Durante el vacío la presión ya da «no segura». En el primer tick del secado y en el último de la ruptura la cámara puede verse segura, pero la puerta está bloqueada por el estado seguro activo (`ser_puertas._estado_seguro_activo`), el inicio también, y la fila «NO ABRIR» ya se oculta con el estado seguro en curso (A10). No se cambió el criterio de cámara segura. Que lo decida el revisor.
+- **AJ28B-08 (BAJA):** los eventos `estado_seguro_secado_*` se registran como los demás `estado_seguro_*`, sin categoría propia (el filtro central los registra con aviso). Si Cristian quiere filtrarlos, hay que agregarlos a `bitacora.EVENTOS`/`_CATEGORIA`.
+- **AJ28B-09 (BAJA):** en `CicloState`, mientras espera la confirmación, el protocolo no sabe si las DI están vigentes: solo ve la trama AI. Con una DI vencida en CICLO, el ciclo ya cae por FALLO_CONEXION, pero el secado podría ver una puerta «cerrada» congelada durante la tolerancia. En `ProtocoloEstadoSeguro` no pasa (solo actualiza con datos vigentes).
+- **`DECISIÓN SIN CONFIRMAR`:**
+  1. CANCELADO y el arranque tras un ciclo interrumpido siguen la misma regla (lo marca el prompt).
+  2. Tope de la ruptura: 120 s.
+  3. «Programa con secado» = sección `secado` con modo ≠ 0 **y** `tiempo_secado` > 0.
+  4. Fallo del sistema de vacío = CIC-02 (cualquier fallo de prevacío) o CIC-06, SUM-03, DI `agua_bomba` declarada en 0 o falta de suministro eléctrico.
+  5. La decisión se toma una sola vez, al llegar por primera vez a la banda. Si una condición falla en ese momento, el secado queda omitido y no se reintenta.
+  6. El modo prueba corta el secado (no lo pausa) y no se reanuda.
+  7. Ticket en vivo con «pendiente al cerrar el ciclo». El resultado final va solo a la base (historial, reimpresión, PDF), no al respaldo JSONL.
+  8. Sin perfil de instalación no hay secado (falla cerrada).
+  9. Redacción de los textos es/en.
+
+### Riesgo, trazabilidad, CLAUDE.md y banco
+
+- `docs/riesgos/registro_riesgos.md`: sección nueva al final, HAZ-SFF-01 (MEDIA). Cubre el vapor residual al abrir y el riesgo nuevo de hacer vacío con la cámara caliente, mitigado solo con carga sólida.
+- `docs/riesgos/matriz_trazabilidad.md`: fila `REQ-T28B-A13`, con número provisional.
+- `CLAUDE.md`: viñeta nueva al final de la sección de la tanda 26, después de la de A9.
+- Banco: T28-A13-01.
+
+### Evaluación normativa (puerta de entrada, NTC-IEC 62304:2019 / IEC 62304:2006)
+
+- Clase C: cambio de proceso que mueve actuadores (bomba de vacío, vacío, aire atmosférico) después de un fallo.
+- Solicitud de cambio (8.2.1): punto A13 del prompt de la tanda 28, decisión de Cristian del 5-nov.
+- 7.4.1/7.4.2: agrega una medida de control (contra la quemadura por vapor residual) y una causa nueva de situación peligrosa (vacío con la cámara caliente). La nueva causa queda acotada por las condiciones de omisión y de corte, con falla cerrada en cada una. No interfiere con las medidas existentes: el criterio de cámara segura y los 3 ticks no cambian, y el estado seguro solo espera más.
+- 5.2/5.3/5.4: requisito, parámetro y diseño en CLAUDE.md y el registro de riesgos.
+- 5.5.5/5.6.6/8.2.3: unidad e integración del protocolo, del estado seguro, del ticket y de la base. Falta la revisión de seguridad, la suite completa (paso del director) y el banco (T28-A13-01).
+- SOUP: sin cambios.

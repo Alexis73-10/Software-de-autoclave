@@ -32,6 +32,7 @@ from autoclave.core.runtime.sensores_ciclo import (asignacion_de, canonica, f0_d
                                                    sensor_principal)
 from autoclave.services.domain.logging.ticket_formatter import (
     CLAVE_CANCELADO_POR,
+    aviso_secado_tras_fallo,
     format_footer,
     format_header,
     format_row,
@@ -222,6 +223,10 @@ class CycleLogger:
         self._bd_avisada = False
         self._reg: _RegistroBD | None = None
         self._reg_cerrado: _RegistroBD | None = None   # ciclo ya cerrado, aún en CICLO
+        # A13 (tanda 28): ciclo cerrado con el secado tras fallo aún pendiente:
+        # (registro, avisos_ticket guardado). Al conocerse el resultado se
+        # reescribe su línea en la base (historial, reimpresión y PDF)
+        self._secado_pendiente = None
         # FC-13 (tanda 21): hora de pared del cierre del ciclo en pantalla
         self.hora_fin_pantalla: str | None = None
         self.uuid_ciclo: str | None = None
@@ -266,6 +271,8 @@ class CycleLogger:
         Detecta transiciones CICLO/no-CICLO y registra lecturas.
         """
         current = self.estado.get_machine_state()
+        if self._secado_pendiente is not None:
+            self._seguir_secado_tras_fallo()
 
         if current == GlobalState.CICLO:
             if self._cierre_ya_procesado:
@@ -518,6 +525,7 @@ class CycleLogger:
         self._proxima_muestra_s  = None
         self._reg_cerrado        = None
         self.hora_fin_pantalla   = None
+        self._secado_pendiente   = None     # A13: el del ciclo anterior ya no se sigue
 
         if self.printer is not None:
             meta = {
@@ -592,8 +600,16 @@ class CycleLogger:
             cancelado_por = getattr(self.estado, "cancelado_por", None)
             if resultado == "CANCELADO" and isinstance(cancelado_por, str) and cancelado_por:
                 avisos.append({"clave": CLAVE_CANCELADO_POR, "usuario": cancelado_por})
+            # A13 (tanda 28): secado tras fallo del ciclo no completado (al
+            # cierre casi siempre "pendiente": se completa al conocerse)
+            secado = (aviso_secado_tras_fallo(getattr(self.estado, "secado_tras_fallo", None))
+                      if str(resultado or "") != "COMPLETADO" else None)
+            if secado is not None:
+                avisos.append(secado)
             avisos_ticket = ({"sin_datos_s": sin_datos_s, "avisos": list(avisos)}
                              if sin_datos_s is not None or avisos else None)
+            if secado is not None and secado.get("estado") == "pendiente" and self._reg is not None:
+                self._secado_pendiente = (self._reg, dict(avisos_ticket))
             # TMG-03 de T8: primero el respaldo, después la base
             if self.respaldo is not None and self.uuid_ciclo:
                 uuid_ciclo = self.uuid_ciclo
@@ -673,6 +689,33 @@ class CycleLogger:
             # sin ráfagas de recuperación si un tick llega tarde
             siguiente = (self._proxima_muestra_s or t) + _PERIODO_GRAFICA_S
             self._proxima_muestra_s = siguiente if siguiente > t else t + _PERIODO_GRAFICA_S
+
+    def _seguir_secado_tras_fallo(self) -> None:
+        """A13 (tanda 28): con el resultado del secado tras fallo ya conocido,
+        reemplaza su línea en `avisos_ticket` del ciclo cerrado (historial,
+        reimpresión y PDF). Fuera del tick (ejecutor de la base); un error
+        solo queda en el log. El ticket impreso al cierre no cambia."""
+        reg, avisos_ticket = self._secado_pendiente
+        nuevo = aviso_secado_tras_fallo(getattr(self.estado, "secado_tras_fallo", None))
+        if nuevo is None or nuevo.get("estado") == "pendiente":
+            return
+        self._secado_pendiente = None
+        avisos = [nuevo if (isinstance(a, dict) and a.get("clave") == nuevo["clave"]) else a
+                  for a in avisos_ticket.get("avisos") or []]
+        datos = {"sin_datos_s": avisos_ticket.get("sin_datos_s"), "avisos": avisos}
+
+        def tarea():
+            if reg.fallido or reg.id is None:
+                return
+            try:
+                self.db.actualizar_avisos_ticket(reg.id, datos)
+            except Exception as exc:
+                logger.warning("CycleLogger: no se pudo registrar el secado tras fallo del "
+                               "ciclo id=%s: %s", reg.id, exc)
+        try:
+            self._ejecutar_bd(tarea)
+        except Exception:
+            logger.exception("CycleLogger: no se pudo encolar el secado tras fallo")
 
     def _bd(self, que: str, operacion, crea: bool = False, presentacion: bool = False):
         """Escritura del ciclo en la base, fuera del tick (TMG-01 de T8).

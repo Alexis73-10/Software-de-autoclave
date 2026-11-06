@@ -495,6 +495,10 @@ class ControlLoop:
         # solo con la lenta (con vacío, aire atmosférico; sin presión no abre
         # nada y queda detenido con CIC-10, D9-1.4)
         protocolo = ProtocoloFallo(self.estado, self.set_do, programa, self.config_manager)
+        # A13 (tanda 28, DECISIÓN SIN CONFIRMAR): tras un ciclo interrumpido
+        # rige la misma regla del secado tras fallo (vapor residual)
+        protocolo.profile = self.profile
+        protocolo.alarm_manager = self.alarm_manager
         protocolo.ejecutar(abrir_valvulas=False, solo_lenta=True)
         protocolo.motivo_solo_lenta = "arranque tras un ciclo interrumpido con la cámara no segura"
         # Tanda 28 (A9): origen "ciclo_interrumpido" (antes "arranque")

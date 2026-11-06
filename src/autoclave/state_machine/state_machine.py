@@ -187,7 +187,8 @@ class StateMachine:
                     # válvulas; el estado seguro las abre al volver los datos
                     abrir = (datos_vigentes is True
                              and not self.estado.get_flag("PARO_EMERGENCIA"))
-                    self.ciclo._protocolo.ejecutar(abrir_valvulas=abrir)
+                    # A13 (tanda 28): un COMPLETADO no es un fallo: sin secado
+                    self.ciclo._protocolo.ejecutar(abrir_valvulas=abrir, secado_tras_fallo=False)
                     self.estado_seguro.iniciar(self.ciclo._protocolo, origen="completado")
 
             elif resultado == "FALLO":

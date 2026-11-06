@@ -81,6 +81,29 @@ def modo_vapor(profile, io_enabled=None) -> str:
     return MODO_CAMARA
 
 
+def vacio_instalado(profile, io_enabled=None) -> bool:
+    """A13 (tanda 28): el equipo tiene bomba de vacío (capacidad has_vacuum
+    de su clase) y su io_enabled, filtrado por el perfil, declara las salidas
+    bomba_vacio y vacio_camara. False sin perfil real, con una clase
+    desconocida, sin io_enabled legible o ante cualquier error (falla
+    cerrada: sin certeza no se hace vacío). `io_enabled` como en modo_vapor."""
+    try:
+        if not isinstance(profile, InstallationProfile):
+            return False
+        from autoclave.installation.equipment import get_capabilities
+        if get_capabilities(profile.equipment_class).has_vacuum is not True:
+            return False
+        if io_enabled is None:
+            from autoclave.core.runtime.io_names import leer_io_enabled
+            io_enabled = leer_io_enabled(profile=profile)
+        salidas = io_enabled.get("DO") or []
+        return "bomba_vacio" in salidas and "vacio_camara" in salidas
+    except Exception:
+        import logging
+        logging.getLogger(__name__).exception("vacio_instalado: no evaluable; sin vacío")
+        return False
+
+
 def numero_puertas(profile) -> int:
     """Puertas declaradas en el perfil (E1-2). Sin perfil válido, 2 (como antes)."""
     n = getattr(profile, "door_count", None)
