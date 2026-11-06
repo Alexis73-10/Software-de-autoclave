@@ -4,13 +4,13 @@ Prompt: `docs/mis_plans/prompt_claude_code_hotfix_es_merge.md`. Worktree `C:\Use
 
 | Paso | Estado | Commit |
 |---|---|---|
-| 1. Rama, merge y resolución de los 18 conflictos (D1–D6) | Pendiente | |
-| 2. Pruebas de A9/A10/A13 ajustadas o retiradas; prueba D6 | Pendiente | |
-| 3. Búsqueda de restos (`git grep`) | Pendiente | |
-| 4. Suite completa | Pendiente | |
+| 1. Rama, merge y resolución de los 18 conflictos (D1–D6) | Hecho | d589a5eb |
+| 2. Pruebas de A9/A10/A13 ajustadas o retiradas; prueba D6 | Hecho | d589a5eb |
+| 3. Búsqueda de restos (`git grep`) | Hecho (informe §4) | d589a5eb |
+| 4. Suite completa | Hecho: 11209 pasan, 1 roja ajena (T20-S3); ver informe §5 | d589a5eb |
 | 5. Revisor de seguridad | Pendiente (lo hace el director) | |
 | 6. Merge a `dev` | Pendiente (director) | |
 | 7. Compilación | Pendiente (director) | |
 | 8. CERRADO.txt | Pendiente (director) | |
 
-Último commit: —
+Último commit: d589a5eb (merge) y el de este estado.
