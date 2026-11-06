@@ -198,6 +198,7 @@
 | T26-06 | Tarjeta de NO ABRIR con la cámara caliente: valor y límite | En seco (sin vapor) | ALD (tanda 26); HAZ-ALD-01 |
 | T27-A7-01 | Parámetros del equipo: mensaje de incoherencia propio de cada regla y rango efectivo | En seco (sin vapor) | A7 (tanda 27, AJ27-A7) |
 | T28-A14-01 | Ciclo de 134 °C en modo chaqueta: sin aislamientos, sobreimpulso y mínima en exposición | Con vapor | A14 (tanda 28); HAZ-EST-07 |
+| T28-A12-01 | Prevacío con bomba de anillo líquido: arranque del vacío a +10 kPa y CIC-20 | Con vapor | A12 (tanda 28); HAZ-PRV-01 |
 
 ## Bloque A. Arranque, instalación y módulo E/S (en seco)
 
@@ -3057,6 +3058,23 @@
 - **Resultado esperado:** Ciclo COMPLETADO sin CIC-16 ni aislamientos; la cámara se sostiene cerca de `P_sp` (≈309,6 kPa, banda 307,6 a 310,6 kPa) y la presión máxima queda claramente bajo el techo de 319,2 kPa; sobreimpulso menor que el del 5-nov; temperatura mínima en exposición claramente por encima de 133,9 °C; en el log, `vapor_chaqueta` cortada cuando `pres_chaqueta` supera `P_sp + 8` (≈317,6 kPa) y reabre al bajar.
 - **Criterio de aprobado/fallo:** Aprobado si no hay aislamientos ni CIC-16 y la temperatura mínima en exposición queda por encima de 133,9 °C con margen. Es Fallo si hay CIC-15/16, si la temperatura baja a 133,9 °C o menos, o si la presión cae por el corte de chaqueta hasta repetir RECUPERACION. Cualquier ajuste de `margen_chaqueta_est` o de la brecha lo decide Cristian.
 - **Valor observado:** T máx ______ °C · T mín exposición ______ °C · P máx cámara ______ kPa · P máx chaqueta ______ kPa · aislamientos ______ · cortes de chaqueta ______
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### T28-A12-01 — Prevacío: arranque del vacío a +10 kPa con la bomba de anillo líquido y tiempo límite (A12)
+
+- **Modo:** Con vapor  ·  **Origen:** A12 (tanda 28); HAZ-PRV-01, AJ28C-05, AJ28C-06
+- **Objetivo:** Repetir el programa de fábrica de 134 °C cuyos pulsos de prevacío se atascaban entre escape y vacío, confirmar que el pulso ya no se detiene, y verificar que la bomba de anillo líquido tolera arrancar con la cámara (y el vapor residual) hasta `presion_inicio_vacio` (10 kPa) sobre la atmosférica.
+- **Precondiciones:** Esta entrega con `prevacio.presion_inicio_vacio` 10 y `prevacio.timeout_descompresion` 5 (comprobarlo en Parámetros del ciclo › Prevacío; un programa existente debe haberlos recibido al cargar). Registro de P y T de cámara y de la bomba (temperatura y ruido de cavitación, nivel y temperatura del agua del anillo), log del backend. Tener a mano la presión atmosférica local.
+- **Pasos:**
+  1. Iniciar el programa y, en cada pulso, anotar la presión a la que termina DECOMPRESION y empieza la bomba.
+  2. Observar la bomba en el arranque de cada pulso (cavitación, golpeteo, vapor o agua caliente en el sello, temperatura del agua del anillo).
+  3. Confirmar que ningún pulso queda detenido sin vapor ni bomba y que no aparece CIC-20.
+  4. Aparte, con un valor de `timeout_descompresion` de 1 min y el escape bloqueado o simulado, provocar el vencimiento y comprobar CIC-20 (escape OFF, bomba apagada, protocolo de fallo, despeje manual).
+  5. Comprobar con el P&ID si la línea de `descompresion_lenta` tiene antirretorno y anotar la presión mínima de la cámara en VAPOR_ALTO/HOLD_ALTO (AJ28C-05).
+- **Resultado esperado:** Todos los pulsos avanzan a VACIO_BAJO con la cámara a no más de 10 kPa sobre la atmosférica; la bomba arranca sin cavitación ni sobrecalentamiento del agua del anillo; CIC-20 solo aparece en la provocación del paso 4.
+- **Criterio de aprobado/fallo:** Aprobado si no hay pulsos detenidos, la bomba no muestra daño ni cavitación y CIC-20 se comporta como se describe. Es Fallo si la bomba cavita o se sobrecalienta (Cristian decide bajar el defecto de `presion_inicio_vacio`; el tope es 15), si un pulso se detiene o si el CIC-20 no corta el escape y la bomba. Si la cámara baja de la atmosférica con el escape abierto y no hay antirretorno, anotar como hallazgo para la decisión de AJ28C-05.
+- **Valor observado:** Presión de arranque de la bomba por pulso ______ kPa · Pulsos atascados ______ · Estado de la bomba ______ · CIC-20 en la provocación ______ · Antirretorno en el P&ID (sí/no) ______ · P mínima de cámara en VAPOR_ALTO ______ kPa
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
 
