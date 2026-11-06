@@ -6,7 +6,7 @@ from autoclave.state_machine.alarms.catalogo import (
 from autoclave.state_machine.states.control_banda import evaluar_banda, ConfirmadorApagado
 from autoclave.core.managers import limites_equipo
 from autoclave.core.runtime.lectura import lectura_valida
-from autoclave.core.runtime import presion_sin_lectura
+from autoclave.core.runtime import presion_sin_lectura, vigencia_ai
 from autoclave.core.runtime.sensores_ciclo import (
     SENSORES as SENSORES_CICLO, programas_para_sen03, vigilar_en_uso_fuera_de_ciclo,
 )
@@ -344,6 +344,12 @@ class preparacion_state:
             presion_camara = self.estado.sensores_pres.get("pres_camara")
             # Sin dato (antes de la primera trama): sin órdenes (E0-3)
             if not lectura_valida(presion_camara):
+                return False, None
+            # Hotfix ES (revisión, MEDIA): con la trama AI vencida la presión
+            # puede estar congelada: se trata como sin dato (también en FALLA,
+            # que usa este lazo vía nivelar_presion_camara)
+            ai_vigente, _ = vigencia_ai.leer(self.estado)
+            if not ai_vigente:
                 return False, None
             presion_atmosferica = self.config.get("presion_admosferica")
             rango_presion_atmosferica = self.config.get("rango_presion_atm")

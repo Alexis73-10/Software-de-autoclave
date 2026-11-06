@@ -4,9 +4,13 @@
    abre ni se cierra (ServicioPuertas) y SetOutput no enciende nada salvo el
    buzzer, así que AdvancedDoor.update() ya no re-afirma cerrar_on /
    bloquear_on entre dos ALL_OFF. El modo prueba conserva su control manual.
+2. MEDIA: FALLA y PREPARACION tratan la presión con la trama AI vencida
+   (posiblemente congelada) como sin dato: no abren aire ni venteo.
 """
 
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 from tests.helpers.arranque_doble import evento_liberado
 from autoclave.core.managers.cycle_manager import Cycle
@@ -232,3 +236,52 @@ def test_servicio_puertas_consulta_que_falla_rechaza_y_confirmado_abre():
     servicio, estado = _servicio(lambda: False)
     assert servicio.request_open("Puerta 1") == (True, "")
     assert estado.puertas["Puerta 1"] == DoorState.ABRIENDO
+
+
+# ── 2. MEDIA: FALLA y PREPARACION con la trama AI vencida ──────────────────
+
+def _sm_presion(estado_maquina, pres, ai_vigente):
+    estado = EstadoAutoclave()
+    estado.set_flag("PARO_EMERGENCIA", False)
+    estado.set_flag("PARO_REAL", False)
+    estado.sensores_pres["pres_camara"] = pres
+    # proveedor común del ControlLoop (core/runtime/vigencia_ai.py)
+    estado.lectura_ai = lambda: (ai_vigente, 7)
+    programa = _programa("liquido")
+    set_do = MagicMock()
+    sm = StateMachine(io=MagicMock(), estado=estado, set_do=set_do, cycle=programa,
+                      config=_Config(_VALORES), programas_seguridad=lambda: [programa])
+    estado.set_machine_state(estado_maquina)
+    return sm, estado, set_do
+
+
+def _abre_algo_de_camara(set_do):
+    return (set_do.aire_admosferico_camara_on.called
+            or set_do.descompresion_lenta_on.called
+            or set_do.descompresion_rapida_on.called)
+
+
+
+@pytest.mark.parametrize("estado_maquina", [GlobalState.FALLA, GlobalState.PREPARACION])
+@pytest.mark.parametrize("pres", [40.0, 250.0], ids=["vacio", "sobrepresion"])
+def test_presion_con_trama_ai_vencida_no_acciona_la_camara(estado_maquina, pres):
+    sm, estado, set_do = _sm_presion(estado_maquina, pres, ai_vigente=False)
+    sm.update()
+    assert not _abre_algo_de_camara(set_do), set_do.method_calls
+
+
+@pytest.mark.parametrize("estado_maquina", [GlobalState.FALLA, GlobalState.PREPARACION])
+def test_presion_con_trama_ai_vigente_nivela_como_antes(estado_maquina):
+    sm, estado, set_do = _sm_presion(estado_maquina, 40.0, ai_vigente=True)
+    sm.update()
+    set_do.aire_admosferico_camara_on.assert_called()
+
+
+def test_proveedor_de_vigencia_que_falla_cuenta_como_vencida():
+    sm, estado, set_do = _sm_presion(GlobalState.FALLA, 40.0, ai_vigente=True)
+
+    def roto():
+        raise RuntimeError("x")
+    estado.lectura_ai = roto
+    sm.update()
+    assert not _abre_algo_de_camara(set_do)
