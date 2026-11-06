@@ -178,6 +178,17 @@ def test_ninguna_salida_antes_de_la_liberacion(programas, monkeypatch, interrump
 
 # ── 4. el contexto decide si hubo ciclo interrumpido ───────────────────────
 
+@pytest.fixture(autouse=True)
+def _marca_aislada(tmp_path, monkeypatch):
+    """A9-R1 (tanda 28b): la marca persistente del estado seguro en curso de
+    estas pruebas vive en tmp (nunca la de data/ del repositorio)."""
+    from autoclave.backend.context import BackendContext
+    from autoclave.core.runtime.marca_estado_seguro import MarcaEstadoSeguro
+    marca = MarcaEstadoSeguro(tmp_path / "estado_seguro_en_curso.json")
+    monkeypatch.setattr(BackendContext, "marca_estado_seguro", property(lambda self: marca))
+    return marca
+
+
 def _contexto():
     from autoclave.backend.context import BackendContext
     return BackendContext()

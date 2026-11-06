@@ -11,8 +11,9 @@
 #
 #  0. S9 (tanda 9, D9-1.1/1.2): al arrancar con la cámara no segura corre
 #     solo, sin confirmación; la confirmación se exige SOLO tras un paro real
-#     visto en este encendido (paso 1). `causa` distingue paro liberado /
-#     arranque / fin de ciclo para la UI.
+#     visto en este encendido (paso 1). Desde la tanda 28 (A9) solo tras un
+#     ciclo interrumpido (origen "ciclo_interrumpido"). `causa` distingue paro
+#     liberado / ciclo interrumpido / fin de ciclo para la UI.
 #  1. Paro activo: no hace nada (los estados mandan ALL_OFF continuo); si
 #     es un paro real (PARO_REAL, U4) se marca que hará falta una
 #     confirmación nueva. Sin datos del módulo E/S solo se pausa.
@@ -57,8 +58,9 @@ class ProtocoloEstadoSeguro:
         self._paro_visto = False
         self._pausado = False
         self.requiere_confirmacion = False
-        # S9 (tanda 9, D9-1.2): por qué corre el protocolo ("arranque",
-        # "fallo", "cancelado" o "completado"); la UI lo distingue del paro
+        # S9 (tanda 9, D9-1.2): por qué corre el protocolo
+        # ("ciclo_interrumpido" —antes "arranque", tanda 28 A9—, "fallo",
+        # "cancelado" o "completado"); la UI lo distingue del paro
         self.origen = None
         self.alarm_manager = alarm_manager
         # Callable que mantiene el enfriamiento del drenaje mientras el
@@ -214,7 +216,7 @@ class ProtocoloEstadoSeguro:
     def causa(self) -> str | None:
         """S9 (D9-1.2): "paro_liberado" mientras espera la confirmación (solo
         tras un paro real visto en este encendido); si no, el origen del
-        protocolo ("arranque", "fallo", "cancelado", "completado"). None si
+        protocolo ("ciclo_interrumpido", "fallo", "cancelado", "completado"). None si
         no está activo. La UI elige el texto con esto: nunca dice "paro
         liberado" si no hubo paro."""
         if not self.activo:
@@ -226,7 +228,8 @@ class ProtocoloEstadoSeguro:
     def iniciar(self, protocolo, requiere_confirmacion: bool = False,
                 origen: str = "fallo") -> None:
         """Toma el ProtocoloFallo ya ejecutado del ciclo terminado (o el del
-        arranque con la cámara no segura, origen "arranque")."""
+        arranque tras un ciclo interrumpido con la cámara no segura, origen
+        "ciclo_interrumpido"; tanda 28, A9)."""
         if protocolo is None or not getattr(protocolo, "ejecutado", False):
             return
         self._protocolo = protocolo

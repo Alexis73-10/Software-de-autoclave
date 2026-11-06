@@ -33,6 +33,8 @@ from autoclave.backend.arranque.secuencia import ErrorArranque
 from autoclave.backend.arranque.sin_bd import BdNoDisponible
 from autoclave.utils.paths import app_root, calibration_path
 from autoclave.core.runtime.contador_ciclos import ContadorCiclos
+from autoclave.core.runtime.marca_estado_seguro import NOMBRE_ARCHIVO as MARCA_ES_ARCHIVO
+from autoclave.core.runtime.marca_estado_seguro import MarcaEstadoSeguro
 from autoclave.core.runtime.sensores_ciclo import interpretar_asignacion
 from autoclave.core.managers.cycle_manager import Cycle
 
@@ -677,7 +679,8 @@ class BackendContext:
         self.calibration_audit = BdNoDisponible()
         self.sin_base_de_datos = True
         self.contador_ciclos.sincronizar(None)
-        self._marca_interrumpido = self.contador_ciclos.en_curso()
+        self._marca_interrumpido = (self.contador_ciclos.en_curso()
+                                    or getattr(self, "_marca_interrumpido", None))
         self.alarm_manager.activar(OPERANDO_SIN_BD)
         return secuencia.ARR_SIN_BD
 
@@ -772,6 +775,7 @@ class BackendContext:
             realtime_printer=self.realtime_printer,
             profile=self.profile,
             arranque_liberado=self.arranque_liberado,   # tanda 26, ARQ-D2
+            marca_estado_seguro=self.marca_estado_seguro,   # tanda 28, A9-R1
         )
         if al_cancelar_prueba is not None:
             self.control_loop.al_cancelar_modo_prueba(al_cancelar_prueba)
@@ -868,6 +872,14 @@ class BackendContext:
         if getattr(self, "_contador_ciclos", None) is None:
             self._contador_ciclos = ContadorCiclos(app_root() / "data" / "ciclo_contador.json")
         return self._contador_ciclos
+
+    @property
+    def marca_estado_seguro(self) -> MarcaEstadoSeguro:
+        """Tanda 28 (A9-R1): marca persistente del protocolo de fin de ciclo
+        en curso (la escribe y la borra el ControlLoop)."""
+        if getattr(self, "_marca_estado_seguro", None) is None:
+            self._marca_estado_seguro = MarcaEstadoSeguro(app_root() / "data" / MARCA_ES_ARCHIVO)
+        return self._marca_estado_seguro
 
     @property
     def mantenimiento(self):
@@ -1059,7 +1071,15 @@ class BackendContext:
             r = reimportar(self.respaldo_ciclos, self.db, MOTIVO_INTERRUMPIDO)
         except Exception:
             logger.exception("No se pudieron reimportar los respaldos de ciclos")
+            # A9-R3 (tanda 28): sin saber qué había en el respaldo, falla segura
+            self._respaldo_interrumpido = True
             return
+        # A9-R3 (tanda 28): un respaldo importado sin cierre quedó INTERRUMPIDO
+        # (no lo vuelve a ver cerrar_ciclos_interrumpidos: ya tiene fecha de
+        # fin). Uno que no se pudo reimportar tampoco se sabe: falla segura
+        # (DECISIÓN SIN CONFIRMAR). Se acumula entre los intentos de la etapa 6.
+        if r.get("interrumpidos") or r.get("errores"):
+            self._respaldo_interrumpido = True
         for clave, evento in (("importados", "ciclo_reimportado"),
                               ("completados", "ciclo_completado_desde_respaldo")):
             for uuid_ciclo in r.get(clave, []):
@@ -1081,14 +1101,18 @@ class BackendContext:
             self.contador_ciclos.sincronizar(self.db.max_numero_ciclo())
         except Exception:
             logger.exception("No se pudo sincronizar el contador de ciclos")
-        # TMG-03 de T6: marca persistente, independiente de la base
-        self._marca_interrumpido = self.contador_ciclos.en_curso()
+        # TMG-03 de T6: marca persistente, independiente de la base. A9-R3
+        # (tanda 28): un segundo intento de la etapa 6 no olvida lo del primero
+        self._marca_interrumpido = (self.contador_ciclos.en_curso()
+                                    or getattr(self, "_marca_interrumpido", None))
         self._reimportar_respaldos()
         try:
             cerrados = self.db.cerrar_ciclos_interrumpidos(MOTIVO_INTERRUMPIDO)
         except Exception:
             logger.exception("No se pudieron cerrar los ciclos interrumpidos")
+            self._cierre_interrumpidos_fallido = True     # A9: falla segura
             return
+        self._cierre_interrumpidos_fallido = False
         for fila in cerrados:
             logger.error("Ciclo #%s (id %s) interrumpido: cerrado al arrancar",
                          fila.get("numero_ciclo"), fila.get("id"))
@@ -1099,15 +1123,27 @@ class BackendContext:
                                                      "programa": fila.get("tipo_ciclo")})
             except Exception:
                 logger.exception("No se pudo auditar el ciclo interrumpido")
-        self._ciclo_interrumpido = cerrados[-1] if cerrados else None
+        # A9-R3 (tanda 28): el segundo intento de la etapa 6 ya no ve los
+        # ciclos que cerró el primero; se conserva el que cerró antes
+        self._ciclo_interrumpido = (cerrados[-1] if cerrados
+                                    else getattr(self, "_ciclo_interrumpido", None))
 
     def hubo_ciclo_interrumpido(self) -> bool:
-        """Tanda 28 (A9): True si el arranque cerró un ciclo sin fecha de fin
-        o la marca persistente del contador dice que había un ciclo en curso.
-        Falla segura (DECISIÓN SIN CONFIRMAR en lo no listado por el prompt):
-        sin base de datos (OPERANDO_SIN_BD), si el cierre de ciclos falló o si
-        nunca se consultó, se trata como interrumpido."""
+        """Tanda 28 (A9): True si el arranque cerró un ciclo sin fecha de fin,
+        la marca persistente del contador dice que había un ciclo en curso,
+        un respaldo se importó sin cierre (A9-R3) o la marca persistente del
+        protocolo de fin de ciclo existe (A9-R1: el equipo se apagó o el
+        backend se reinició con el protocolo de fallo o de estado seguro sin
+        terminar; ilegible = presente). Falla segura (DECISIÓN SIN CONFIRMAR en
+        lo no listado por el prompt): sin base de datos (OPERANDO_SIN_BD), si
+        el cierre de ciclos o la reimportación fallaron o si nunca se
+        consultó, se trata como interrumpido."""
         try:
+            if self.marca_estado_seguro.presente() is not False:
+                logger.warning("Arranque: el protocolo de fin de ciclo no había terminado "
+                               "(marca de estado seguro en curso); se trata como ciclo "
+                               "interrumpido (A9-R1)")
+                return True
             if getattr(self, "sin_base_de_datos", False) is not False:
                 logger.warning("Arranque: sin base de datos; se trata como ciclo interrumpido "
                                "(A9, falla segura)")
@@ -1115,6 +1151,14 @@ class BackendContext:
             if not hasattr(self, "_ciclo_interrumpido"):
                 logger.warning("Arranque: no se pudo saber si hubo un ciclo interrumpido; "
                                "se trata como interrumpido (A9, falla segura)")
+                return True
+            if getattr(self, "_cierre_interrumpidos_fallido", False) is not False:
+                logger.warning("Arranque: el cierre de los ciclos interrumpidos falló; se trata "
+                               "como interrumpido (A9, falla segura)")
+                return True
+            if getattr(self, "_respaldo_interrumpido", False) is not False:
+                logger.warning("Arranque: respaldo de ciclo sin cierre o no reimportado; se "
+                               "trata como interrumpido (A9-R3)")
                 return True
             return bool(self._ciclo_interrumpido or getattr(self, "_marca_interrumpido", None))
         except Exception:

@@ -92,7 +92,8 @@ class ControlLoop:
     def __init__(self, units, door_service, doors, estado, link, set_do,
                  alarm_manager, cycle_manager, config_manager,
                  cycle_logger=None, interval=0.5, cap=None, realtime_printer=None,
-                 profile=None, arranque_liberado: threading.Event | None = None):
+                 profile=None, arranque_liberado: threading.Event | None = None,
+                 marca_estado_seguro=None):
         self.units          = units
         self.door_service   = door_service
         self.doors          = doors
@@ -155,6 +156,13 @@ class ControlLoop:
         # = encendido normal: sin protocolo, PREPARACION iguala la presión
         self._recuperacion_con_protocolo = True
         self._arranque_normal_avisado = False
+        # Tanda 28 (A9-R1, Cristian 6-nov): marca persistente del protocolo de
+        # fin de ciclo en curso (core/runtime/marca_estado_seguro.py). None =
+        # sin persistencia (pruebas, uso aislado). _marca_es_sincronizada: el
+        # último valor escrito con éxito (None = todavía no se sincronizó).
+        self.marca_estado_seguro = marca_estado_seguro
+        self._marca_es_sincronizada: bool | None = None
+        self._marca_es_error_avisado = False
 
         # Protocolo de estado seguro (fin de ciclo §15): una sola instancia que
         # sobrevive a set_active_cycle. `al_evento_seguridad(evento, detalle)`
@@ -508,6 +516,63 @@ class ControlLoop:
         self._evento_seguridad("arranque_camara_no_segura",
                                {"programa": getattr(programa, "id", None), "motivo": motivo,
                                 "estado_seguro": True})
+
+    def protocolo_fin_ciclo_en_curso(self) -> bool:
+        """Tanda 28 (A9-R1): True mientras el protocolo de fin de ciclo no
+        terminó de verdad: (a) el protocolo de estado seguro está activo
+        (también en pausa por paro o modo prueba, con la confirmación
+        pendiente o en PREPARACION con solo la lenta); (b) en CICLO, el
+        ProtocoloFallo del ciclo ya se ejecutó (FALLO o CANCELADO esperando la
+        confirmación: el ciclo ya está cerrado en la base); (c) arranque tras
+        un ciclo interrumpido que todavía no decidió (cámara segura con 3
+        lecturas o protocolo iniciado). Se vuelve False solo con la cámara
+        segura confirmada (estado_seguro_alcanzado o arranque con la cámara
+        segura) o al empezar un ciclo nuevo (que pone su propia marca en el
+        contador). Falla cerrada: ante un error, True."""
+        try:
+            if self.estado_seguro.activo is True:
+                return True
+            if self.estado.get_machine_state() == GlobalState.CICLO:
+                protocolo = getattr(getattr(self.state_machine, "ciclo", None), "_protocolo", None)
+                if getattr(protocolo, "ejecutado", False) is True:
+                    return True
+            return (self._recuperacion_pendiente is not None
+                    and self._recuperacion_con_protocolo is not False)
+        except Exception:
+            logger.exception("ControlLoop: no se pudo saber si el protocolo de fin de ciclo "
+                             "sigue en curso; se mantiene la marca (falla cerrada)")
+            return True
+
+    def _sincronizar_marca_estado_seguro(self) -> None:
+        """Tanda 28 (A9-R1): escribe o borra la marca persistente cuando
+        cambia protocolo_fin_ciclo_en_curso(). Solo en los cambios (escritura
+        con fsync); si falla, se reintenta en el tick siguiente (aviso en el
+        log una vez por episodio). Con el apagado aceptado el tick no llega
+        aquí: la marca queda como estaba."""
+        if self.marca_estado_seguro is None:
+            return
+        deseada = self.protocolo_fin_ciclo_en_curso()
+        if deseada == self._marca_es_sincronizada:
+            return
+        try:
+            if deseada:
+                origen = getattr(self.estado_seguro, "origen", None) if self.estado_seguro.activo else None
+                self.marca_estado_seguro.marcar({
+                    "desde": datetime.now().isoformat(timespec="seconds"),
+                    "origen": origen if isinstance(origen, str) else "fin_de_ciclo"})
+            else:
+                self.marca_estado_seguro.borrar()
+        except Exception:
+            if not self._marca_es_error_avisado:
+                self._marca_es_error_avisado = True
+                logger.exception("ControlLoop: no se pudo %s la marca de estado seguro en curso; "
+                                 "se reintenta", "escribir" if deseada else "borrar")
+            return
+        self._marca_es_error_avisado = False
+        if self._marca_es_sincronizada is not None or deseada:
+            logger.info("ControlLoop: marca de estado seguro en curso %s",
+                        "escrita" if deseada else "borrada")
+        self._marca_es_sincronizada = deseada
 
     def _evento_seguridad(self, evento: str, detalle: dict) -> None:
         if self.al_evento_seguridad is not None:
@@ -1272,6 +1337,9 @@ class ControlLoop:
             self._seguir_programa_ultimo_ciclo(
                 vigentes=connected and not self.desconectado and self._di_vigente()
                 and self._ai_vigente())
+            # 5a. Tanda 28 (A9-R1): marca persistente del protocolo de fin de
+            # ciclo, también en modo prueba (el protocolo sigue activo, en pausa)
+            self._sincronizar_marca_estado_seguro()
             # S9 (D9-1.6): coherencia puerta-presión, fuera de ciclo y sin
             # modo prueba (las puertas no se actualizan en pausa: el conteo
             # vuelve a cero, revisión ★ TMG-03). TMG-06: un error aquí no
