@@ -136,6 +136,8 @@ Item {
 
     // área de trazado: x de datos 0..ejeX.maximo en 93..1035; cuadrícula 68..1059
     readonly property real xDato0: m(93)
+    // diámetro del punto del cursor; la reserva de la card parte de su radio
+    readonly property real diametroPuntoCursor: m(18)
     readonly property real xDato1: m(1035)
     readonly property real yArriba: m(279)
     readonly property real yAbajo: yb(709)
@@ -520,7 +522,7 @@ Item {
                 visible: punto.valor !== null && punto.valor !== undefined
                 x: cursor.xCursor - width / 2
                 y: (punto.visible ? raiz.yDe(punto.valor, punto.modelData.eje) : 0) - height / 2
-                width: raiz.m(18); height: width; radius: width / 2
+                width: raiz.diametroPuntoCursor; height: width; radius: width / 2
                 color: raiz.colorSerie(punto.index)
                 border.color: Colores.graficaCursorFondo; border.width: raiz.m(2)
             }
@@ -552,7 +554,7 @@ Item {
                 [raiz.m(68), raiz.yArriba, raiz.m(1059), raiz.yAbajo],
                 cursor.xCursor, width, height,
                 raiz._curvasCerca(cursor.xCursor - width - raiz.m(40), cursor.xCursor + width + raiz.m(40)),
-                raiz.m(9 + 8))
+                raiz.diametroPuntoCursor / 2 + raiz.m(8))
             x: pos.x; y: pos.y
             radius: raiz.m(14)
             color: Colores.graficaCursorFondo

@@ -1,7 +1,7 @@
 """Tanda 28 (A11): posición de la card del cursor de la gráfica (función pura)."""
 import pytest
 
-from autoclave.ui_qml.domain.posicion_card import _largo_cruce, _limpiar, posicionar_card
+from autoclave.ui_qml.domain.posicion_card import _MARGEN, _largo_cruce, _limpiar, posicionar_card
 
 AREA = (68.0, 279.0, 1059.0, 709.0)
 W, H = 220.0, 145.0
@@ -110,3 +110,30 @@ def test_curva_pegada_a_la_card_cuenta_por_el_margen():
     cv = [_curva(279.0 + H + 1.0)]
     r = _pos(500.0, cv)
     assert r["libre"] and not (r["franja"] == "superior")
+
+
+def _existe_hueco_libre(cx, curvas):
+    """Fuerza bruta: ¿hay alguna posición sin cruces a un costado del cursor?"""
+    cv = _limpiar(curvas)
+    for x in (cx + RES, cx - RES - W):
+        if x < AREA[0] or x + W > AREA[2]:
+            continue
+        y = AREA[1]
+        while y + H <= AREA[3]:
+            if _largo_cruce(cv, x - _MARGEN, x + W + _MARGEN, y - _MARGEN, y + H + _MARGEN) == 0.0:
+                return True
+            y += 5.0
+    return False
+
+
+def test_hueco_libre_en_el_medio_se_prefiere_a_la_franja_menos_cruzada():
+    # curvas arriba y abajo con un hueco libre solo en la franja media: «menor
+    # cruce» sin mirar el hueco elegiría un extremo con cruce no nulo
+    cv = [_curva(300.0), _curva(300.0 + 20.0), _curva(690.0), _curva(690.0 - 20.0)]
+    assert _existe_hueco_libre(560.0, cv)
+    r = _pos(560.0, cv)
+    _comun(r, 560.0, cv)
+    assert r["libre"] is True
+    assert r["franja"] == "media"
+    assert 300.0 + 20.0 < r["y"] and r["y"] + H < 690.0 - 20.0
+
