@@ -212,6 +212,21 @@ class ProtocoloFallo:
             pass
 
     @property
+    def _secado_fase(self):
+        return self.__secado_fase
+
+    @_secado_fase.setter
+    def _secado_fase(self, valor) -> None:
+        """A13-M4 (tanda 28b): toda transición del secado publica en el estado
+        si está en curso (camara_segura da NO ABRIR con secando_vapor_residual
+        desde el mismo tick en que empieza y hasta el tick en que termina)."""
+        self.__secado_fase = valor
+        try:
+            self.estado.secando_tras_fallo = valor in _SEC_EN_CURSO
+        except Exception:
+            pass
+
+    @property
     def sellado(self) -> bool:
         """D8-2.10: True mientras la cámara espera sellada (sin venteo y con
         todas las salidas del protocolo cerradas) a que las sondas válidas
@@ -1513,6 +1528,10 @@ class ProtocoloFallo:
         if self._secado_fase in _SEC_EN_CURSO:
             # A13: cierre forzado (p. ej. terminar() al entrar a un ciclo)
             self.cortar_secado("no_aplica")
+        elif (self._secado_resultado or {}).get("estado") == SECADO_PENDIENTE:
+            # A13-M4 (tanda 28b): un secado que no llegó a empezar no queda
+            # "pendiente" publicado (camara_segura lo lee como NO ABRIR)
+            self._fijar_secado(SECADO_OMITIDO, "no_aplica")
         self.set_do.descompresion_rapida_off()
         self.set_do.descompresion_lenta_off()
         self.set_do.descompresion_chaqueta_off()

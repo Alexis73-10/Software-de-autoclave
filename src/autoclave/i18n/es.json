@@ -1762,6 +1762,7 @@
     "vacio": "Cámara en vacío ({pres})",
     "temp_alta": "Temperatura demasiado alta ({temp})",
     "no_permitida": "Orden de puerta no permitida",
+    "secando_vapor_residual": "Secando vapor residual de la cámara",
     "error_comunicacion": "Error de comunicación"
   },
   "roles": {
@@ -2495,7 +2496,8 @@
       "sin_presion_camara": "Presión de cámara sin lectura",
       "sin_temp_camara": "Temperatura de cámara sin lectura",
       "sin_datos_vigentes": "Datos del módulo E/S no vigentes",
-      "falta_config": "Falta configuración: {claves}"
+      "falta_config": "Falta configuración: {claves}",
+      "secando_vapor_residual": "Secando vapor residual"
     },
     "no_abrir_motivos": {
       "temp_alta": {
@@ -2526,6 +2528,10 @@
       "falta_config": {
         "descripcion": "Falta configuración: {claves}.",
         "accion": "Llame a servicio técnico para completar la configuración."
+      },
+      "secando_vapor_residual": {
+        "descripcion": "El equipo está retirando el vapor residual de la cámara con vacío y luego romperá el vacío con aire (secado tras fallo).",
+        "accion": "Espere a que termine el secado. No abra la puerta: puede salir vapor caliente."
       },
       "generico": {
         "accion": "Llame a servicio técnico si el aviso no desaparece."

@@ -9,6 +9,13 @@
 # Falla cerrada: sin lectura válida o sin configuración, NO es segura. La usan
 # /status ("NO ABRIR"), la condición de inicio de ciclo (D-04), el interlock de
 # apertura de puertas y "Apagar equipo" (§16).
+#
+# A13-M4 (tanda 28b, decisión de Cristian del 6-nov; resuelve AJ28B-07): con
+# el secado tras fallo en curso (vacío, apagado o ruptura;
+# estado.secando_tras_fallo) la cámara NO es segura, motivo
+# "secando_vapor_residual", antes que cualquier lectura. Con el secado todavía
+# pendiente (estado.secado_tras_fallo["estado"] == "pendiente": el protocolo
+# lo arrancará al llegar a la banda) tampoco, si nada más lo impide.
 
 import math
 
@@ -37,6 +44,32 @@ def lectura_presion(estado) -> float | None:
         return _numero(estado.sensores_pres.get("pres_camara"))
     except Exception:
         return None
+
+
+MOTIVO_SECANDO = "secando_vapor_residual"
+
+
+def _motivo_secando() -> Motivo:
+    return Motivo("secando_vapor_residual", "Secando vapor residual")
+
+
+def secado_en_curso(estado) -> bool:
+    """A13-M4: el protocolo de fallo está secando (vacío, apagado o ruptura).
+    Solo True estricto cuenta (un doble sin el atributo no seca)."""
+    try:
+        return getattr(estado, "secando_tras_fallo", False) is True
+    except Exception:
+        return False
+
+
+def secado_pendiente(estado) -> bool:
+    """A13-M4: el secado tras fallo está decidido pero aún no empezó (o está
+    en curso: el resultado sigue "pendiente" hasta que termina)."""
+    try:
+        r = getattr(estado, "secado_tras_fallo", None)
+        return isinstance(r, dict) and r.get("estado") == "pendiente"
+    except Exception:
+        return False
 
 
 def evaluar_presion(estado, config, datos_vigentes=True) -> tuple[bool, str]:
@@ -72,9 +105,15 @@ def evaluar(estado, config, programas, profile=None, datos_vigentes=True,
     `datos_vigentes` False (enlace caído o DI vencida) = NO segura: las
     lecturas guardadas son viejas (SAF-01 de T4). `temp_max_ciclo`: tras un
     ciclo, su `finalizacion.temp_max_apertura`; rige el menor con el global
-    (SAF-04 de T4), igual que la apertura automática."""
+    (SAF-04 de T4), igual que la apertura automática.
+
+    A13-M4 (tanda 28b): secado tras fallo en curso = NO segura con el motivo
+    "secando_vapor_residual" (antes que las lecturas); pendiente = NO segura
+    si nada más lo impide."""
     if not datos_vigentes:
         return False, Motivo("sin_datos_vigentes", "Sin conexión con el módulo E/S: datos no vigentes")
+    if secado_en_curso(estado):
+        return False, _motivo_secando()
     faltan = [c for c in (CLAVE_ATM, CLAVE_RANGO, CLAVE_TEMP_MAX)
               if _numero(config.get(c)) is None]
     if faltan:
@@ -99,6 +138,8 @@ def evaluar(estado, config, programas, profile=None, datos_vigentes=True,
         return False, Motivo("vacio", f"Cámara en vacío ({pres:.0f} kPa)", pres=pres)
     if temp > temp_max:
         return False, Motivo("temp_alta", f"Temperatura demasiado alta ({temp:.0f} °C)", temp=temp)
+    if secado_pendiente(estado):
+        return False, _motivo_secando()
     return True, ""
 
 
@@ -134,6 +175,9 @@ def motivos(estado, config, programas, profile=None, datos_vigentes=True,
     sin configuración, solo ese motivo (lo demás no se puede juzgar)."""
     if not datos_vigentes:
         return [Motivo("sin_datos_vigentes", "Sin conexión con el módulo E/S: datos no vigentes")]
+    if secado_en_curso(estado):
+        # A13-M4: mismo orden que evaluar(); las lecturas del vacío no se listan
+        return [_motivo_secando()]
     faltan = [c for c in (CLAVE_ATM, CLAVE_RANGO, CLAVE_TEMP_MAX)
               if _numero(config.get(c)) is None]
     if faltan:
@@ -159,6 +203,8 @@ def motivos(estado, config, programas, profile=None, datos_vigentes=True,
         salida.append(Motivo("vacio", f"Cámara en vacío ({pres:.0f} kPa)", pres=pres))
     if temp is not None and temp > temp_max:
         salida.append(Motivo("temp_alta", f"Temperatura demasiado alta ({temp:.0f} °C)", temp=temp))
+    if not salida and secado_pendiente(estado):
+        salida.append(_motivo_secando())
     return salida
 
 

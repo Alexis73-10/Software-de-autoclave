@@ -170,6 +170,10 @@ class EstadoAutoclave:
         # fallo ({"estado", "motivo", "segundos"}) o None; lo publica
         # ProtocoloFallo y lo lleva el CycleLogger al ticket y a la base
         self.secado_tras_fallo = None
+        # A13-M4 (tanda 28b): True mientras el secado tras fallo está en curso
+        # (vacío, apagado escalonado o ruptura); lo publica ProtocoloFallo y lo
+        # lee camara_segura (NO ABRIR, motivo secando_vapor_residual)
+        self.secando_tras_fallo = False
         # T2-a (tanda 7): segundos del ciclo sin datos del módulo E/S (tolerancia
         # por DI vencida); pausan la exposición y van al pie del ticket
         self.sin_datos_modulo_es_s: float = 0.0

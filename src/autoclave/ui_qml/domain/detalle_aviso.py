@@ -46,7 +46,9 @@ CLAVES = tuple(_FILAS)
 
 # Motivos de camara_segura con texto propio (aviso_detalle.no_abrir_motivos.*)
 MOTIVOS_NO_ABRIR = ("temp_alta", "sobrepresion", "vacio", "sin_presion_camara", "sin_temp_camara",
-                    "sin_datos_vigentes", "falta_config")
+                    "sin_datos_vigentes", "falta_config",
+                    # A13-M4 (tanda 28b): NO ABRIR durante el secado tras fallo
+                    "secando_vapor_residual")
 # A13 (tanda 28): motivo pendiente del estado seguro mientras seca el vapor
 # residual tras un fallo (ProtocoloEstadoSeguro)
 MOTIVO_SECANDO = "secando_vapor_residual"

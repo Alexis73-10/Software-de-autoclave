@@ -1762,6 +1762,7 @@
     "vacio": "Chamber under vacuum ({pres})",
     "temp_alta": "Temperature too high ({temp})",
     "no_permitida": "Door command not allowed",
+    "secando_vapor_residual": "Drying residual steam from the chamber",
     "error_comunicacion": "Communication error"
   },
   "roles": {
@@ -2495,7 +2496,8 @@
       "sin_presion_camara": "Chamber pressure without a reading",
       "sin_temp_camara": "Chamber temperature without a reading",
       "sin_datos_vigentes": "I/O module data not current",
-      "falta_config": "Missing configuration: {claves}"
+      "falta_config": "Missing configuration: {claves}",
+      "secando_vapor_residual": "Drying residual steam"
     },
     "no_abrir_motivos": {
       "temp_alta": {
@@ -2526,6 +2528,10 @@
       "falta_config": {
         "descripcion": "Missing configuration: {claves}.",
         "accion": "Call technical service to complete the configuration."
+      },
+      "secando_vapor_residual": {
+        "descripcion": "The unit is removing the residual steam from the chamber with vacuum and will then break the vacuum with air (drying after failure).",
+        "accion": "Wait for the drying to finish. Do not open the door: hot steam may come out."
       },
       "generico": {
         "accion": "Call technical service if the notice does not go away."
