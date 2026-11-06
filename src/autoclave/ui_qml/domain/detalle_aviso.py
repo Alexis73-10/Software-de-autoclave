@@ -3,7 +3,7 @@
 # Tanda 26 (ALD, planeacion en prompt_claude_code_tanda26.md §2): modelo de la
 # ventana de detalle (VentanaDetalleAlarma) para las FILAS SINTÉTICAS: avisos
 # que el operador ve como alarma pero que no son una alarma del catálogo
-# (SeccionEstadoSeguro: NO ABRIR con su motivo, paro, estado seguro, módulo E/S
+# (SeccionEstadoSeguro: NO ABRIR con su motivo, paro y su confirmación, módulo E/S
 # sin conexión o sin datos, sin conexión con el equipo, modo prueba; y el fallo
 # de arranque de Main.qml). Módulo puro (sin Qt): arma, con textos i18n es/en,
 # una fila con la misma forma que `AlarmListModel.detalle` (id, level,
@@ -37,7 +37,6 @@ _FILAS = {
     "paro": ("PARO_EMERGENCIA", "EMERGENCIA", "alta", "sistema.paro_no_abrir"),
     "estado_seguro_pendiente": ("ESTADO_SEGURO_PENDIENTE", "EMERGENCIA", "alta",
                                 "sistema.estado_seguro_pendiente"),
-    "estado_seguro_en_curso": ("ESTADO_SEGURO", "EMERGENCIA", "media", "sistema.estado_seguro_en_curso"),
     "no_abrir": ("NO_ABRIR", "FALLA", "media", ""),
     "modo_prueba": ("MODO_PRUEBA", "ALERTA", "baja", "sistema.modo_prueba"),
     "arranque": ("ARRANQUE", "EMERGENCIA", "alta", ""),
@@ -95,8 +94,6 @@ def claves_activas(seguridad: dict, conectado: bool = True) -> set:
         activas.add("paro")
     elif s.get("es_confirmar"):
         activas.add("estado_seguro_pendiente")
-    elif s.get("es_activo"):
-        activas.add("estado_seguro_en_curso")
     if s.get("no_abrir") and not s.get("paro"):
         activas.add("no_abrir")
     if s.get("modo_prueba"):
@@ -184,10 +181,6 @@ def _armar(clave: str, contexto: dict) -> dict:
             desc, accion = _textos_arranque(arr if isinstance(arr, dict) else {}, idioma)
         else:
             desc = _t(clave_desc, idioma)
-            causa = contexto.get("causa")
-            if clave == "estado_seguro_en_curso" and isinstance(causa, str) and causa not in ("", "paro_liberado"):
-                extra = _t("sistema.estado_seguro_causa_" + causa, idioma)
-                desc = f"{desc}. {extra}" if extra else desc
         titulos[idioma], descripciones[idioma], acciones[idioma] = titulo, desc, accion
     apariciones = contexto.get("apariciones") if isinstance(contexto.get("apariciones"), dict) else {}
     base = i18n.IDIOMA_BASE

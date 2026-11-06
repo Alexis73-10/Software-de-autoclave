@@ -857,20 +857,13 @@
     "sin_lectura": "—",
     "no_abrir": "NO ABRIR",
     "paro_no_abrir": "PARO DE EMERGENCIA — NO ABRIR",
-    "estado_seguro_causa_arranque": "Arranque con la cámara no segura: el equipo la lleva solo a estado seguro, sin confirmación (no hubo paro de emergencia).",
-    "estado_seguro_causa_fallo": "Fallo de ciclo: el equipo lleva la cámara a estado seguro.",
-    "estado_seguro_causa_cancelado": "Ciclo cancelado: el equipo lleva la cámara a estado seguro.",
-    "estado_seguro_causa_completado": "Ciclo terminado con la cámara no segura: el equipo la lleva a estado seguro.",
     "paro_liberado": "Paro liberado. Verifique que no haya fuga antes de continuar.",
     "confirmar_estado_seguro": "Confirmar y llevar a estado seguro",
-    "estado_seguro_en_curso": "Llevando la cámara a estado seguro",
     "estado_seguro_pendiente": "Paro de emergencia liberado — estado seguro pendiente",
     "paro_suelte": "Desenclave el pulsador de paro de emergencia para continuar. Hasta entonces no hay acciones disponibles.",
     "confirmar_sin_sesion": "Disponible para cualquier operador, sin iniciar sesión",
     "estado_seguro_en_curso_boton": "En curso…",
-    "estado_seguro_detenido_accion": "Revise la sonda Principal o asigne otra sonda como Principal en OPCIONES › Parámetros del ciclo › Sensores.",
     "asignar_sonda_principal": "Asignar sonda Principal",
-    "no_abrir_hasta_segura": "NO ABRIR hasta que la cámara esté segura",
     "seguridad_desconocida": "Sin conexión con el equipo: no se puede verificar el paro ni la cámara. NO ABRIR.",
     "modulo_es_desconectada": "Módulo E/S desconectado: no se puede verificar el paro ni la cámara. NO ABRIR.",
     "modulo_es_sin_datos": "El módulo E/S no envía datos válidos: no se puede verificar el paro ni la cámara. NO ABRIR.",
@@ -1759,9 +1752,9 @@
     "no_abierta": "La puerta no está abierta ({estado})",
     "sin_datos_vigentes": "Sin conexión con el módulo E/S: datos no vigentes",
     "sin_temp_camara": "Sin lectura válida de temperatura de cámara",
-    "sobrepresion": "Sobrepresión en cámara ({pres})",
-    "vacio": "Cámara en vacío ({pres})",
-    "temp_alta": "Temperatura demasiado alta ({temp})",
+    "sobrepresion": "Sobrepresión en cámara: {pres}, máximo {pres_max}",
+    "vacio": "Cámara en vacío: {pres}, mínimo {pres_min}",
+    "temp_alta": "Temperatura {temp}, máximo {temp_max}",
     "no_permitida": "Orden de puerta no permitida",
     "error_comunicacion": "Error de comunicación"
   },
@@ -2468,10 +2461,6 @@
     "estado_seguro_pendiente": {
       "titulo": "Estado seguro pendiente",
       "accion": "Verifique que no haya fuga y confirme con el botón Confirmar y llevar a estado seguro; está disponible para cualquier operador, sin iniciar sesión."
-    },
-    "estado_seguro_en_curso": {
-      "titulo": "Llevando la cámara a estado seguro",
-      "accion": "Espere: el equipo lleva la cámara a estado seguro. No abra la puerta hasta que la cámara esté segura."
     },
     "no_abrir": {
       "titulo": "NO ABRIR",

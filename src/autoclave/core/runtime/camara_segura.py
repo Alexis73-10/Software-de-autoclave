@@ -31,6 +31,25 @@ def _numero(valor) -> float | None:
     return v if math.isfinite(v) else None
 
 
+# Hotfix ES (6-nov): los motivos de cámara no segura llevan el valor medido
+# y su límite ("Temperatura 92 °C, máximo 80 °C"); la UI los muestra en NO
+# ABRIR y en el bloqueo de inicio (motivos.py presenta temp_max/pres_max/
+# pres_min en las unidades vigentes).
+def _sobrepresion(pres: float, maximo: float) -> Motivo:
+    return Motivo("sobrepresion", f"Sobrepresión en cámara: {pres:.0f} kPa, máximo {maximo:.0f} kPa",
+                  pres=pres, pres_max=maximo)
+
+
+def _vacio(pres: float, minimo: float) -> Motivo:
+    return Motivo("vacio", f"Cámara en vacío: {pres:.0f} kPa, mínimo {minimo:.0f} kPa",
+                  pres=pres, pres_min=minimo)
+
+
+def _temp_alta(temp: float, maximo: float) -> Motivo:
+    return Motivo("temp_alta", f"Temperatura {temp:.0f} °C, máximo {maximo:.0f} °C",
+                  temp=temp, temp_max=maximo)
+
+
 def lectura_presion(estado) -> float | None:
     """Presión de cámara (kPa abs) como número finito, o None."""
     try:
@@ -57,9 +76,9 @@ def evaluar_presion(estado, config, datos_vigentes=True) -> tuple[bool, str]:
     if pres is None:
         return False, Motivo("sin_presion_camara", "Sin lectura válida de presión de cámara")
     if pres > atm + rango:
-        return False, Motivo("sobrepresion", f"Sobrepresión en cámara ({pres:.0f} kPa)", pres=pres)
+        return False, _sobrepresion(pres, atm + rango)
     if pres < atm - rango:
-        return False, Motivo("vacio", f"Cámara en vacío ({pres:.0f} kPa)", pres=pres)
+        return False, _vacio(pres, atm - rango)
     return True, ""
 
 
@@ -94,11 +113,11 @@ def evaluar(estado, config, programas, profile=None, datos_vigentes=True,
     if temp is None:
         return False, Motivo("sin_temp_camara", "Sin lectura válida de temperatura de cámara")
     if pres > atm + rango:
-        return False, Motivo("sobrepresion", f"Sobrepresión en cámara ({pres:.0f} kPa)", pres=pres)
+        return False, _sobrepresion(pres, atm + rango)
     if pres < atm - rango:
-        return False, Motivo("vacio", f"Cámara en vacío ({pres:.0f} kPa)", pres=pres)
+        return False, _vacio(pres, atm - rango)
     if temp > temp_max:
-        return False, Motivo("temp_alta", f"Temperatura demasiado alta ({temp:.0f} °C)", temp=temp)
+        return False, _temp_alta(temp, temp_max)
     return True, ""
 
 
@@ -136,11 +155,11 @@ def motivos(estado, config, programas, profile=None, datos_vigentes=True,
     if temp is None:
         salida.append(Motivo("sin_temp_camara", "Sin lectura válida de temperatura de cámara"))
     if pres is not None and pres > atm + rango:
-        salida.append(Motivo("sobrepresion", f"Sobrepresión en cámara ({pres:.0f} kPa)", pres=pres))
+        salida.append(_sobrepresion(pres, atm + rango))
     if pres is not None and pres < atm - rango:
-        salida.append(Motivo("vacio", f"Cámara en vacío ({pres:.0f} kPa)", pres=pres))
+        salida.append(_vacio(pres, atm - rango))
     if temp is not None and temp > temp_max:
-        salida.append(Motivo("temp_alta", f"Temperatura demasiado alta ({temp:.0f} °C)", temp=temp))
+        salida.append(_temp_alta(temp, temp_max))
     return salida
 
 
