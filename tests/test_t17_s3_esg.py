@@ -1,9 +1,7 @@
 """Tanda 17 (s3) — ESG-01 y ESG-02 (decisiones de Cristian, 26-oct).
 
-ESG-01: si el estado seguro no puede avanzar porque la presión de cámara no
-tiene lectura, no se activa CIC-10 (y se resuelve si estaba activa); el motivo
-va al log una vez por episodio; el protocolo sigue detenido y "NO ABRIR" se
-mantiene. CIC-10 sigue para los demás motivos.
+ESG-01: retirado con el protocolo de estado seguro (hotfix ES, 6-nov); quedan
+las pruebas de ProtocoloFallo.bloqueado_motivo_sin_presion (dentro del ciclo).
 
 ESG-02 (reemplaza SAF-01 de S9): en modo prueba, con lectura vigente de
 presión de cámara, se retiran los bloqueos propios del estado seguro; sin
@@ -25,117 +23,17 @@ from autoclave.core.runtime import camara_segura
 from autoclave.core.runtime import salidas_prueba_seguridad as sps
 from autoclave.core.runtime.status import EstadoAutoclave
 from autoclave.state_machine.alarms.alarm_manager import AlarmManager
-from autoclave.state_machine.alarms.catalogo import CIC_10, nombre_legible
-from autoclave.state_machine.alarms.instancia import EstadoInstancia
 from autoclave.state_machine.machine.enum_global import GlobalState
 from tests.helpers.backend_doble import cabecera, cargar_servidor, modulo_backend
-from tests.test_s9_estado_seguro_arranque import _CFG, _arrancar, _loop, _programa, _tick_es
+from tests.test_s9_estado_seguro_arranque import _CFG, _arrancar, _loop, _programa  # noqa: F401
 
 
 def _canal(clave):
     return EstadoAutoclave.map_do[clave] + 1
 
 
-def _cic10_activa(alarmas):
-    return [i for i in alarmas.activas()
-            if i.codigo == CIC_10 and i.estado is EstadoInstancia.ACTIVA]
-
-
 # ══ ESG-01 ════════════════════════════════════════════════════════════════
 
-@pytest.mark.req("ESG-01")
-def test_sin_presion_no_activa_cic10_y_sigue_detenido(caplog):
-    alarmas = AlarmManager()
-    loop = _loop(alarmas)
-    _arrancar(loop, pres=None, temp=30.0)
-    es = loop.estado_seguro
-    with caplog.at_level(logging.WARNING, logger="autoclave.state_machine.estado_seguro"):
-        _tick_es(loop, 6)
-    assert not _cic10_activa(alarmas)
-    assert es.activo and es.detenido_sin_presion is True
-    # el motivo, una sola vez por episodio en el log de desarrollo
-    avisos = [r for r in caplog.records if "ESG-01" in r.getMessage()]
-    assert len(avisos) == 1
-    # NO ABRIR: sin presión la cámara no es segura (falla cerrada)
-    segura, motivo = camara_segura.evaluar(loop.estado, _CFG, [None])
-    assert segura is False and motivo.codigo == "sin_presion_camara"
-    # sin presión no se abre ninguna válvula
-    assert not {c[0] for c in loop.set_do.method_calls if c[0].endswith("_on")}
-
-
-@pytest.mark.req("ESG-01")
-@pytest.mark.req("ESS-03")
-def test_principal_sin_lectura_tampoco_activa_cic10_con_o_sin_presion():
-    """ESS-03 (28-oct) reemplaza la expectativa de la corrección R3
-    V17-s3-02 para el Principal: el Principal sin lectura es un sensor del
-    inventario y tampoco da CIC-10 (solo su alarma); el protocolo sigue
-    detenido igual. Se conserva para el sellado y los líquidos calientes
-    (test_presion_perdida_mas_otro_motivo_activa_cic10_con_el_otro)."""
-    alarmas = AlarmManager()
-    loop = _loop(alarmas)
-    # la alarma del Principal a la vista (SAF-07 de la revisión ESS)
-    alarmas.activar("SEN-03", origen=nombre_legible("temp_camara"), sensor=nombre_legible("temp_camara"), valor="—")
-    _arrancar(loop, pres=250.0, temp=None)
-    _tick_es(loop, 3)
-    es = loop.estado_seguro
-    assert not _cic10_activa(alarmas)
-    assert es.activo and "Principal" in (es.bloqueado_motivo or "")
-    assert es.bloqueo_no_sensor is False
-    # sin la alarma del Principal a la vista, CIC-10 vuelve (SAF-07)
-    alarmas.resolver("SEN-03", origen=nombre_legible("temp_camara"))
-    _tick_es(loop)
-    assert _cic10_activa(alarmas)
-    alarmas.activar("SEN-03", origen=nombre_legible("temp_camara"), sensor=nombre_legible("temp_camara"), valor="—")
-    _tick_es(loop)
-    assert not _cic10_activa(alarmas)
-    # se pierde la presión: sigue sin CIC-10
-    loop.estado.sensores_pres["pres_camara"] = None
-    _tick_es(loop, 3)
-    assert not _cic10_activa(alarmas)
-    assert es.detenido_sin_presion is True
-    assert "Principal" in (es.bloqueado_motivo_sin_presion or "")
-    # vuelve la presión: igual
-    loop.estado.sensores_pres["pres_camara"] = 250.0
-    _tick_es(loop, 3)
-    assert not _cic10_activa(alarmas)
-    assert es.activo and es.detenido_sin_presion is False
-
-
-def _es_con_protocolo_falso(alarmas, **motivos):
-    """ProtocoloEstadoSeguro con un protocolo de fallo doble (motivos fijos)."""
-    from types import SimpleNamespace
-    from autoclave.state_machine.estado_seguro import ProtocoloEstadoSeguro
-    es = ProtocoloEstadoSeguro(EstadoAutoclave(), _CFG, alarm_manager=alarmas)
-    es._protocolo = SimpleNamespace(**motivos)
-    return es
-
-
-@pytest.mark.req("ESG-01")
-@pytest.mark.parametrize("otro", [
-    "Sensor Principal sin lectura con carga líquida: cámara sellada hasta que las sondas "
-    "confirmen la temperatura o venza la espera",
-    "Tiempo límite de descompresión con carga líquida caliente: no se usa el escape rápido"])
-def test_presion_perdida_mas_otro_motivo_activa_cic10_con_el_otro(otro):
-    """Corrección R3 V17-s3-02: con la presión perdida, CIC-10 sigue por los
-    demás motivos simultáneos (cámara sellada, líquidos calientes)."""
-    alarmas = AlarmManager()
-    es = _es_con_protocolo_falso(alarmas, presion_perdida=True,
-                                 bloqueado_motivo="Sensor de presión de cámara sin lectura",
-                                 bloqueado_motivo_sin_presion=otro)
-    es._actualizar_alarma_bloqueo()
-    [cic10] = _cic10_activa(alarmas)
-    assert otro.split(":")[0] in cic10.descripcion
-    assert "presión de cámara" not in cic10.descripcion
-
-
-@pytest.mark.req("ESG-01")
-def test_solo_presion_perdida_sin_cic10():
-    alarmas = AlarmManager()
-    es = _es_con_protocolo_falso(alarmas, presion_perdida=True,
-                                 bloqueado_motivo="Sensor de presión de cámara sin lectura",
-                                 bloqueado_motivo_sin_presion=None)
-    es._actualizar_alarma_bloqueo()
-    assert not _cic10_activa(alarmas)
 
 
 @pytest.mark.req("ESG-01")
@@ -156,35 +54,6 @@ def test_motivo_sin_presion_del_protocolo_real():
     assert prot.bloqueado_motivo_sin_presion.startswith("Tiempo límite de descompresión")
     prot._aviso_no_escala = False
     assert prot.bloqueado_motivo_sin_presion is None
-
-
-@pytest.mark.req("ESG-01")
-def test_al_volver_la_presion_el_protocolo_sigue_igual():
-    alarmas = AlarmManager()
-    loop = _loop(alarmas)
-    _arrancar(loop, pres=None, temp=120.0)
-    _tick_es(loop, 3)
-    assert loop.estado_seguro.detenido_sin_presion
-    loop.estado.sensores_pres["pres_camara"] = 250.0
-    _tick_es(loop, 3)
-    assert not loop.estado_seguro.detenido_sin_presion
-    assert "descompresion_lenta_on" in {c[0] for c in loop.set_do.method_calls}
-    assert not _cic10_activa(alarmas)
-
-
-@pytest.mark.req("ESG-01")
-def test_status_publica_detenido_sin_presion():
-    ctx = MagicMock()
-    srv, _ = cargar_servidor(ctx)
-    es = ctx.control_loop.estado_seguro
-    es.activo = True
-    es.detenido_sin_presion = True
-    es.bloqueado_motivo = "Sensor de presión de cámara sin lectura"
-    es.causa = "arranque"
-    d = modulo_backend("rutas.sistema")._estado_seguro_status()
-    assert d["detenido_sin_presion"] is True
-    es.activo = False
-    assert modulo_backend("rutas.sistema")._estado_seguro_status()["detenido_sin_presion"] is False
 
 
 # ══ ESG-02: regla pura ════════════════════════════════════════════════════
@@ -264,34 +133,13 @@ def _loop_vivo(alarmas=None, pres=101.3, temp=30.0, puertas=(1, 1)):
 
 
 @pytest.mark.req("ESG-02")
-def test_loop_estado_seguro_con_presion_vigente_solo_quedan_las_protecciones():
+def test_loop_arranque_no_seguro_con_presion_vigente_solo_quedan_las_protecciones():
     loop = _loop_vivo()
     _arrancar(loop, pres=250.0)
     loop._estado_publicado_mono = time.monotonic()
-    assert loop.estado_seguro.activo
+    assert not loop.estado_seguro.activo          # hotfix ES: sin protocolo
     b = loop.salidas_prueba_bloqueadas()
     assert b == {k: sps.CAMARA_PRESURIZADA for k in sps.SALIDAS_PUERTA}
-
-
-@pytest.mark.req("ESG-02")
-def test_loop_estado_seguro_sin_presion_mantiene_todo():
-    loop = _loop_vivo()
-    _arrancar(loop, pres=None)
-    loop._estado_publicado_mono = time.monotonic()
-    assert loop.estado_seguro.activo
-    b = loop.salidas_prueba_bloqueadas()
-    assert set(b) == set(sps.SALIDAS_PUERTA) | set(sps.SALIDAS_VAPOR)
-    assert {b[k] for k in sps.SALIDAS_VAPOR} == {sps.ESTADO_SEGURO}
-
-
-@pytest.mark.req("ESG-02")
-def test_loop_estado_seguro_con_presion_congelada_mantiene_todo():
-    loop = _loop_vivo()
-    _arrancar(loop, pres=250.0)
-    loop._estado_publicado_mono = time.monotonic()
-    loop.link.edad_ultima_ai.return_value = 10.0          # trama AI vencida
-    b = loop.salidas_prueba_bloqueadas()
-    assert set(b) >= set(sps.SALIDAS_VAPOR) | set(sps.SALIDAS_PUERTA)
 
 
 @pytest.mark.req("ESG-02")
@@ -461,26 +309,17 @@ def test_patch_vapor_rechazado_con_una_puerta_abierta_o_sin_lectura(prueba_real,
 
 
 @pytest.mark.req("ESG-02")
-def test_patch_con_estado_seguro_y_presion_vigente_permite_rapida_y_vapor(prueba_real):
+def test_patch_arranque_no_seguro_y_presion_vigente_permite_rapida_y_vapor(prueba_real):
     client, ctx, loop = prueba_real
     _arrancar(loop, pres=250.0)
     loop._estado_publicado_mono = time.monotonic()
-    assert loop.estado_seguro.activo
+    assert not loop.estado_seguro.activo          # hotfix ES: sin protocolo
     for nombre in ("descompresion_rapida", "descompresion_chaqueta", "vapor_camara",
                    "aire_comprimido_camara"):
         assert client.patch(f"/io/test/output/{nombre}",
                             json={"value": True}).status_code == 200, nombre
     r = client.patch("/io/test/output/abrir_puerta_1", json={"value": True})
     assert r.status_code == 409 and r.json()["codigo"] == sps.CAMARA_PRESURIZADA
-
-
-@pytest.mark.req("ESG-02")
-def test_patch_con_estado_seguro_sin_presion_mantiene_el_bloqueo(prueba_real):
-    client, ctx, loop = prueba_real
-    _arrancar(loop, pres=None)
-    loop._estado_publicado_mono = time.monotonic()
-    r = client.patch("/io/test/output/descompresion_rapida", json={"value": True})
-    assert r.status_code == 409 and r.json()["codigo"] == sps.ESTADO_SEGURO
 
 
 @pytest.mark.req("ESG-02")

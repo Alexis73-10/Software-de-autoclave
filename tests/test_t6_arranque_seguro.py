@@ -156,23 +156,6 @@ def _programa_liquido():
     return prog
 
 
-def test_ciclo_interrumpido_con_camara_caliente_arranca_en_estado_seguro():
-    loop = _loop()
-    loop.estado.set_machine_state(GlobalState.PREPARACION)
-    loop.estado.sensores_pres["pres_camara"] = 250.0
-    loop.estado.sensores_temp["temp_camara"] = 115.0
-    prog = _programa_liquido()
-    loop.recuperar_ciclo_interrumpido(prog)
-    assert prog in loop.programas_para_seguridad()
-    loop._procesar_recuperacion()
-    assert loop.estado_seguro.activo
-    # S9 (tanda 9, D9-1.1/1.2, revierte E4/D-08): corre solo, sin
-    # confirmación (no hubo paro en este encendido), solo por la lenta
-    assert loop.estado_seguro.requiere_confirmacion is False
-    assert loop.estado_seguro.causa == "arranque"
-    loop.set_do.descompresion_rapida_on.assert_not_called()
-
-
 def test_ciclo_interrumpido_con_camara_segura_no_hace_nada():
     loop = _loop()
     loop.estado.set_machine_state(GlobalState.PREPARACION)
@@ -181,16 +164,6 @@ def test_ciclo_interrumpido_con_camara_segura_no_hace_nada():
     loop.recuperar_ciclo_interrumpido(_programa_liquido())
     loop._procesar_recuperacion()
     assert not loop.estado_seguro.activo
-
-
-def test_preparacion_cede_la_camara_al_estado_seguro():
-    from tests.test_adenda_estados import _make
-    from autoclave.state_machine.states.preparacion import preparacion_state
-    obj, am, set_do = _make(preparacion_state, None, pres_camara=250.0)
-    obj.estado_seguro_activo = lambda: True
-    assert obj.run() is False
-    set_do.descompresion_rapida_on.assert_not_called()
-    set_do.vapor_chaqueta_off.assert_called()
 
 
 # ── Correcciones de la auditoría de temporización de T6 ────────────────────
@@ -257,17 +230,6 @@ def test_sin_datos_vigentes_no_se_olvida_el_ultimo_ciclo():
 
 # ── Correcciones de la revisión de seguridad de T6 ─────────────────────────
 
-def test_recuperacion_espera_tres_ticks_seguros():
-    # SAF-02
-    loop = _loop()
-    loop.estado.set_machine_state(GlobalState.PREPARACION)
-    loop.estado.sensores_pres["pres_camara"] = 101.3
-    loop.estado.sensores_temp["temp_camara"] = 40.0
-    loop.recuperar_ciclo_interrumpido(_programa_liquido())
-    loop._procesar_recuperacion(); loop._procesar_recuperacion()
-    assert loop._recuperacion_pendiente is not None
-    loop._procesar_recuperacion()
-    assert loop._recuperacion_pendiente is None and not loop.estado_seguro.activo
 
 
 def test_modo_prueba_permitido_con_recuperacion_pendiente():

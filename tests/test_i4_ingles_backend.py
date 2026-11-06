@@ -109,11 +109,11 @@ def test_camara_segura_dispara_cada_motivo_con_codigo(estado, vigentes, config, 
 
 def test_motivo_en_unidades_vigentes():
     _, m = camara_segura.evaluar(_Estado(temp=95.0), CONFIG, None)
-    assert motivos.texto(m, "en", "F") == "Temperature too high (203.0 °F)"
+    assert motivos.texto(m, "en", "F") == "Temperature 203.0 °F, maximum 176.0 °F"
     _, m = camara_segura.evaluar(_Estado(pres=200.0), CONFIG, None)
-    assert motivos.texto(m, "en", "C", "psi", 75.0) == "Chamber overpressure (18.1 psig)"
+    assert motivos.texto(m, "en", "C", "psi", 75.0) == "Chamber overpressure: 18.1 psig, maximum 0.7 psig"
     # sin P_atm en psi: nunca un número inventado
-    assert motivos.texto(m, "en", "C", "psi", None) == "Chamber overpressure (—)"
+    assert motivos.texto(m, "en", "C", "psi", None) == "Chamber overpressure: —, maximum —"
 
 
 def test_servicio_puertas_dispara_motivos_con_codigo():

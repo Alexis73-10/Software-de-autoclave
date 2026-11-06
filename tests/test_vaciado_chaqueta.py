@@ -361,27 +361,6 @@ def test_supervisor_en_falla_cancela(reloj):
     assert set_do.salidas["vapor_chaqueta"] is False
 
 
-def test_estado_seguro_en_curso_cancela(reloj):
-    p, estado, set_do, _ = _preparado(puertas=(0, 1))
-    _abrir(p)
-    p.estado_seguro_activo = lambda: True
-    p.run()
-    assert estado.vaciado_chaqueta.estado == vc.HECHO
-    assert set_do.salidas["descompresion_chaqueta"] is False
-    assert set_do.salidas["vapor_chaqueta"] is False
-
-
-def test_estado_seguro_con_puerta_abierta_cancela_el_pendiente(reloj):
-    p, estado, set_do, _ = _preparado(puertas=(1, 1))
-    p.estado_seguro_activo = lambda: True
-    p.run()
-    assert estado.vaciado_chaqueta.estado == vc.PENDIENTE
-    estado.sensores_di["puerta_2_cerrada"] = 0
-    p.run()
-    assert estado.vaciado_chaqueta.estado == vc.HECHO
-    assert set_do.salidas["descompresion_chaqueta"] is False
-
-
 def test_inactivo_no_cambia_la_logica_normal(reloj):
     p, estado, set_do, _ = _preparado(puertas=(0, 1), estado_vaciado=vc.INACTIVO)
     p.run()
@@ -471,7 +450,6 @@ def _maquina(set_do):
 def test_punta_a_punta_completado_preparado_puerta_abierta(reloj):
     set_do = _SetDo()
     sm, estado, _ = _maquina(set_do)
-    sm._camara_segura_tras_ciclo = lambda vigentes: True
     sm.update()
     assert estado.get_machine_state() == GlobalState.PREPARADO
     assert estado.vaciado_chaqueta.estado == vc.PENDIENTE
@@ -485,24 +463,6 @@ def test_punta_a_punta_completado_preparado_puerta_abierta(reloj):
     assert set_do.salidas["vapor_chaqueta"] is True
     assert set_do.salidas["descompresion_chaqueta"] is True
     reloj[0] += 30
-    sm.update()
-    assert estado.vaciado_chaqueta.estado == vc.HECHO
-    assert set_do.salidas["descompresion_chaqueta"] is False
-    assert set_do.salidas["vapor_chaqueta"] is False
-
-
-def test_completado_con_camara_no_segura_y_puerta_abierta_cancela(reloj):
-    set_do = _SetDo()
-    sm, estado, es = _maquina(set_do)
-    sm._camara_segura_tras_ciclo = lambda vigentes: False
-    sm.update()
-    assert estado.get_machine_state() == GlobalState.PREPARADO
-    es.iniciar.assert_called_once()
-    assert estado.vaciado_chaqueta.estado == vc.PENDIENTE
-    es.activo = True
-    sm.update()
-    assert estado.vaciado_chaqueta.estado == vc.PENDIENTE
-    estado.sensores_di["puerta_1_cerrada"] = 0
     sm.update()
     assert estado.vaciado_chaqueta.estado == vc.HECHO
     assert set_do.salidas["descompresion_chaqueta"] is False

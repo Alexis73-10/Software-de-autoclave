@@ -138,14 +138,16 @@ def _casos():
               'property bool modoPrueba: false; property string estadoSeguroCausa: ""; '
               'property string estadoSeguroBloqueadoMotivo: %s; property string estadoSeguroBloqueadoClave: ""; '
               'property bool estadoSeguroBloqueoPorSonda: %s }')
-    comandos = 'QtObject { property bool ocupado: false; property string mensaje: "" }'
-    for nombre, args, claves in (
-            ("confirmar", ("true", "false", '""', "false"), ["sistema.confirmar_estado_seguro"]),
-            ("en_curso", ("false", "true", '"x"', "true"),
-             ["sistema.estado_seguro_en_curso_boton", "sistema.asignar_sonda_principal"])):
+    comandos = 'QtObject { property bool ocupado: %s; property string mensaje: "" }'
+    # hotfix ES (6-nov): sin "estado seguro en curso"; «En curso…» solo mientras
+    # se envía la confirmación del paro
+    for nombre, args, ocupado, claves in (
+            ("confirmar", ("true", "false", '""', "false"), "false", ["sistema.confirmar_estado_seguro"]),
+            ("enviando", ("true", "false", '""', "false"), "true",
+             ["sistema.estado_seguro_en_curso_boton"])):
         casos.append({"id": f"SeccionEstadoSeguro {nombre}", "claves": claves,
                       "qml": f"SeccionEstadoSeguro {{ width: Escala.px(920); grupo: \"emergencia\"\n"
-                             f"puente: {puente % args}\ncomandos: {comandos}\n}}",
+                             f"puente: {puente % args}\ncomandos: {comandos % ocupado}\n}}",
                       "ancho": ANCHO, "alto": 700})
     return casos
 

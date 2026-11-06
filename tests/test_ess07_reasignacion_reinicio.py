@@ -11,9 +11,10 @@ un ControlLoop recién construido que arranca con la cámara no segura (S9,
 origen "arranque").
 
 Escenarios del §6.2: reinicio con el protocolo activo y presión vigente,
-con presión sin lectura y en FALLA con carga líquida. Las pruebas marcadas
-xfail(strict=True) demuestran el comportamiento del protocolo de arranque
-que origina el HALLAZGO H1.
+con presión sin lectura y en FALLA con carga líquida. Hotfix ES (6-nov):
+el protocolo de arranque se retiró; sus pruebas (y las xfail del HALLAZGO
+H1) se quitaron y queda una que comprueba que el proceso nuevo no abre nada
+y mantiene "NO ABRIR".
 
 Tanda 24 (RSB-01..03, decisión de Cristian del 29-oct, riesgo aceptado
 HAZ-IO-05): la API ya NO rechaza la reasignación por sensores sin lectura,
@@ -99,11 +100,6 @@ def _reiniciar(programa, pres, temp, ref=None):
     return loop
 
 
-def _ticks(loop, n=10):
-    for _ in range(n):
-        loop.estado_seguro.update(datos_vigentes=True)
-
-
 def _abiertas(set_do):
     return {c[0] for c in set_do.method_calls if c[0].endswith("_on")}
 
@@ -125,75 +121,18 @@ def _protocolo_previo(programa, pres, temp, ref):
     return ProtocoloFallo(estado, set_do, programa, _Config(_CFG)), estado, set_do
 
 
-# ── 1. Reinicio con el protocolo activo y presión vigente ──────────────────
+# ── 1-3. Reinicio con la cámara no segura ───────────────────────────────────
+# Hotfix ES (6-nov): el protocolo de estado seguro de arranque se retiró (y
+# con él el hallazgo H1). El proceso nuevo ya no abre ninguna válvula desde
+# la recuperación: PREPARACION nivela la cámara y "NO ABRIR" se mantiene.
 
-@pytest.mark.parametrize("tipo,modo", [("solido", 1), ("solido", 4), ("liquido", 4)])
-def test_reinicio_presion_vigente_arranca_estado_seguro_solo_lenta(tipo, modo):
-    loop = _reiniciar(_programa(tipo, modo), pres=250.0, temp=125.0, ref=125.0)
-    es = loop.estado_seguro
-    assert es.activo and es.causa == "arranque" and es.requiere_confirmacion is False
-    assert es._protocolo.solo_lenta is True           # (a) enclavamiento conservado
-    _ticks(loop)
-    abiertas = _abiertas(loop.set_do)
-    assert "descompresion_lenta_on" in abiertas
-    assert not abiertas & _VALVULAS_PELIGROSAS
-    assert _no_abrir(loop)
-
-
-def test_reinicio_conserva_solo_lenta_aunque_el_sensor_vuelva_a_leer():
-    """(a) Antes: solo_lenta enclavado por la presión de cámara perdida. La
-    reasignación devuelve la lectura: el arranque sigue en solo la lenta."""
-    previo, estado, _ = _protocolo_previo(_programa("solido", 1), 250.0, 125.0, 125.0)
-    previo.ejecutar()
-    estado.sensores_pres["pres_camara"] = None
-    for _ in range(_DEBOUNCE_LECTURAS):
-        previo.update()
-    assert previo.solo_lenta is True
-    loop = _reiniciar(_programa("solido", 1), pres=250.0, temp=125.0, ref=125.0)
-    assert loop.estado_seguro._protocolo.solo_lenta is True
-    _ticks(loop, 20)
-    assert "descompresion_rapida_on" not in _abiertas(loop.set_do)
-
-
-# ── 2. Reinicio con la presión sin lectura ──────────────────────────────────
-
-def test_reinicio_sin_presion_no_abre_nada_y_mantiene_no_abrir():
-    loop = _reiniciar(_programa("solido", 1), pres=None, temp=125.0, ref=125.0)
-    es = loop.estado_seguro
-    assert es.activo and es.causa == "arranque"
-    _ticks(loop, 5)
-    assert not _abiertas(loop.set_do)
-    assert es._protocolo.presion_perdida is True
-    assert "presión de cámara" in (es._protocolo.bloqueado_motivo or "")
-    assert _no_abrir(loop)
-
-
-def test_documenta_reinicio_sin_presion_corta_el_venteo_que_ya_corria():
-    """Hallazgo Medio (HAZ-S9-02, DECISIÓN SIN CONFIRMAR): antes del reinicio
-    la lenta seguía abierta con la presión perdida (D8-1.2); el ALL_OFF del
-    reinicio la cierra y el arranque sin presión no la vuelve a abrir."""
-    previo, estado, set_do = _protocolo_previo(_programa("solido", 2), 250.0, 125.0, 125.0)
-    previo.ejecutar()
-    previo.update()
-    assert "descompresion_lenta_on" in _abiertas(set_do)
-    loop = _reiniciar(_programa("solido", 2), pres=None, temp=125.0, ref=125.0)
-    _ticks(loop, 10)
-    assert "descompresion_lenta_on" not in _abiertas(loop.set_do)
-
-
-# ── 3. Reinicio en FALLA con carga líquida ──────────────────────────────────
-
-@pytest.mark.parametrize("modo", [1, 3, 4, 5])
-def test_reinicio_liquido_caliente_nunca_la_rapida_aunque_venza_el_plazo(modo, monkeypatch):
-    t = [1000.0]
-    monkeypatch.setattr(modulo_protocolo.time, "monotonic", lambda: t[0])
-    loop = _reiniciar(_programa("liquido", modo, timeout_min=1), pres=250.0, temp=118.0, ref=118.0)
-    _ticks(loop, 3)
-    t[0] += 3600.0                                      # plazo del modo vencido
-    _ticks(loop, 10)
-    abiertas = _abiertas(loop.set_do)
-    assert not abiertas & {"descompresion_rapida_on", "descompresion_chaqueta_on"}
-    assert _no_abrir(loop)
+@pytest.mark.parametrize("pres", [250.0, None])
+@pytest.mark.parametrize("tipo,modo", [("solido", 1), ("liquido", 4)])
+def test_reinicio_con_camara_no_segura_sin_protocolo_y_no_abrir(tipo, modo, pres):
+    loop = _reiniciar(_programa(tipo, modo), pres=pres, temp=125.0, ref=120.0)
+    assert loop.estado_seguro.activo is False
+    assert _abiertas(loop.set_do) == set()
+    assert _no_abrir(loop) is True
 
 
 def _contexto_arranque(fila):
@@ -228,31 +167,6 @@ def test_referencia_previo_liquido_sin_principal_queda_sellado(modo):
     for _ in range(_DEBOUNCE_LECTURAS + 5):
         previo.update()
     assert previo.sellado is True
-
-
-@pytest.mark.xfail(strict=True, reason=(
-    "HALLAZGO ESS07-H1 (Alto; riesgo aceptado HAZ-IO-05, tanda 24, sin 409 en la API): tras el reinicio el protocolo de arranque "
-    "(control_loop.py:448-449, solo_lenta sin en_enfriamiento_contrapresion) "
-    "no sella la cámara (D8-2.10) y ventea por la lenta una carga líquida "
-    "caliente con la Referencia sobre temp_max_apertura"))
-@pytest.mark.parametrize("modo", [4, 5])
-def test_hallazgo_reinicio_liquido_sellado_no_debe_ventear(modo):
-    loop = _reiniciar(_programa("liquido", modo), pres=220.0, temp=None, ref=110.0)
-    assert loop.estado_seguro.activo
-    _ticks(loop, 10)
-    assert "descompresion_lenta_on" not in _abiertas(loop.set_do)
-
-
-@pytest.mark.xfail(strict=True, reason=(
-    "HALLAZGO ESS07-H1 (Alto, extensión; riesgo aceptado HAZ-IO-05, tanda 24): un líquido modo 4/5 que enfriaba "
-    "con contrapresión pierde la contrapresión al reiniciar y se ventea por la "
-    "lenta con la carga caliente (HAZ-S9-01 lo aceptó solo para el corte de "
-    "energía; acb33873 lo vuelve un camino a pedido)"))
-@pytest.mark.parametrize("modo", [4, 5])
-def test_hallazgo_reinicio_liquido_en_contrapresion_no_debe_ventear_caliente(modo):
-    loop = _reiniciar(_programa("liquido", modo), pres=220.0, temp=118.0, ref=118.0)
-    _ticks(loop, 10)
-    assert "descompresion_lenta_on" not in _abiertas(loop.set_do)
 
 
 # ── 4. Ventana del reinicio: puertas ───────────────────────────────────────

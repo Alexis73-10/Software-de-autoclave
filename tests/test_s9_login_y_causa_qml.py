@@ -103,7 +103,6 @@ _SCRIPT = textwrap.dedent(r"""
     # D9-1.2: estado seguro del arranque (sin confirmación)
     campos["estado_seguro"] = {"activo": True, "requiere_confirmacion": False, "causa": "arranque"}
     refrescar()
-    r["causa_arranque"] = textos("avisoCausaEstadoSeguro")
     r["paro_liberado_sin_paro"] = len(notas("avisoParoLiberado"))
     r["confirmar_visible_sin_paro"] = puente.estadoSeguroRequiereConfirmacion
 
@@ -135,7 +134,6 @@ _SCRIPT = textwrap.dedent(r"""
     r["login_sigue_con_confirmacion"] = pantalla()
     volver()
     r["paro_liberado_con_confirmacion"] = len(notas("avisoParoLiberado"))
-    r["causa_con_confirmacion"] = textos("avisoCausaEstadoSeguro")
     r["avisos"] = avisos
     print("RESULTADO=" + json.dumps(r, ensure_ascii=False))
 """)
@@ -151,8 +149,8 @@ def r():
     return json.loads(linea[0][len("RESULTADO="):])
 
 
-def test_causa_del_arranque_sin_paro_liberado(r):
-    assert r["causa_arranque"] and r["causa_arranque"][0].startswith("Arranque con la cámara no segura")
+def test_sin_paro_no_dice_paro_liberado(r):
+    # Hotfix ES (6-nov): ya no hay causa de estado seguro que mostrar
     assert r["paro_liberado_sin_paro"] == 0
     assert r["confirmar_visible_sin_paro"] is False
 
@@ -169,7 +167,6 @@ def test_sin_vuelta_forzada_del_login(r):
 
 def test_confirmacion_tras_paro_real_muestra_paro_liberado(r):
     assert r["paro_liberado_con_confirmacion"] >= 1
-    assert r["causa_con_confirmacion"] == []
 
 
 def test_sin_avisos_nuevos_del_motor_qml(r):

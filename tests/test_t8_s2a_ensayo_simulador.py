@@ -25,7 +25,6 @@ import pytest
 
 from autoclave.state_machine.alarms.catalogo import CIC_11
 from autoclave.state_machine.cycle_phases.protocolo_fallo import _DEBOUNCE_LECTURAS
-from autoclave.state_machine.estado_seguro import ProtocoloEstadoSeguro
 from autoclave.state_machine.states import ciclo as modulo_ciclo
 from autoclave.state_machine.states.ciclo import CicloResultado
 from tests import test_e1_ensayo_simulador as e1
@@ -72,15 +71,9 @@ def _evento_d826(a):
     principal = modulo_ciclo.sensor_principal(a["ciclo"].cycle)
     _quitar_sondas(a, [principal])
     _ticks(a, _DEBOUNCE_LECTURAS * DT + 60)
-    es = ProtocoloEstadoSeguro(a["estado"], a["config"],
-                               programas_seguridad=lambda: [a["ciclo"].cycle])
-    es.iniciar(a["ciclo"]._protocolo)
-    for _ in range(5):
-        es.update()
+    # Hotfix ES (6-nov): sin protocolo de estado seguro tras el reconocimiento
     return {"fase_final": a["estado"].fase_ciclo,
             "solo_lenta": a["ciclo"]._protocolo.solo_lenta,
-            "sale_de_falla_sin_tecnico": es.permite_salir_de_falla,
-            "camara_segura": not es.activo,
             "rapida_abierta": bool(a["modulo_es"].on("descompresion_rapida"))}
 
 
@@ -230,7 +223,6 @@ def test_ensayo_s2a(programas, monkeypatch, tmp_path, numero, evento):  # noqa: 
     RESULTADOS[(numero, evento)] = r
     if evento == "d826":
         assert r["fase_final"] == "CANCELADO" and r["solo_lenta"] is True, r
-        assert r["sale_de_falla_sin_tecnico"] is True and r["camara_segura"] is False, r
         assert r["rapida_abierta"] is False, r
     elif evento == "d827":
         assert r["fase_final"] == "COMPLETADO", r

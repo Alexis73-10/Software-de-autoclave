@@ -12,7 +12,6 @@ from pathlib import Path
 import pytest
 
 from autoclave.state_machine.cycle_phases.protocolo_fallo import _DEBOUNCE_LECTURAS
-from autoclave.state_machine.estado_seguro import ProtocoloEstadoSeguro
 from autoclave.state_machine.states import ciclo as modulo_ciclo
 from autoclave.state_machine.states.ciclo import CicloResultado
 from tests import test_e1_ensayo_simulador as e1
@@ -91,17 +90,13 @@ def _evento_r1p4_cancelacion_y_principal_perdido(a):
         chaqueta |= bool(a["modulo_es"].on("descompresion_chaqueta"))
         aire |= bool(a["modulo_es"].on("aire_comprimido_camara"))
         e1._avanzar(a)
-    # tras el reconocimiento sigue el estado seguro con el mismo criterio
-    es = ProtocoloEstadoSeguro(a["estado"], a["config"],
-                               programas_seguridad=lambda: [a["ciclo"].cycle])
-    es.iniciar(a["ciclo"]._protocolo)
-    es.update()
+    # Hotfix ES (6-nov): tras el reconocimiento ya no sigue un protocolo de
+    # estado seguro (se retiró); PREPARADO nivela la cámara
     return {"fase_final": a["estado"].fase_ciclo, "solo_lenta_antes": solo_lenta_antes,
             "solo_lenta_despues": a["ciclo"]._protocolo.solo_lenta,
             "rapida_tras_perdida": rapida, "chaqueta_tras_perdida": chaqueta,
             "contrapresion_tras_perdida": aire,
             "lenta_al_final": bool(a["modulo_es"].on("descompresion_lenta")),
-            "estado_seguro_sale_sin_tecnico": es.permite_salir_de_falla,
             "P": round(a["planta"].p, 1)}
 
 
@@ -201,7 +196,6 @@ def test_ensayo_q1(programas, monkeypatch, tmp_path, numero, evento):  # noqa: F
         assert r["solo_lenta_antes"] is False and r["solo_lenta_despues"] is True, r
         assert not (r["rapida_tras_perdida"] or r["chaqueta_tras_perdida"]
                     or r["contrapresion_tras_perdida"]), r
-        assert r["estado_seguro_sale_sin_tecnico"] is True, r
     elif evento == "r1p5_abort_en_tolerancia_di":
         assert r["tolerancia_activa"] is True and r["protocolo_durante_tolerancia"] is False, r
         assert r["fase_final"] == "CANCELADO" and r["cancelado_pendiente"] is False, r

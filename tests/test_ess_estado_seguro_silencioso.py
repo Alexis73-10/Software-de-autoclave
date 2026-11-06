@@ -1,6 +1,10 @@
 """ESS (28-oct, planeacion_estado_seguro_silencioso.md): estado seguro
 silencioso por sensor sin lectura.
 
+Hotfix ES (6-nov): el protocolo de estado seguro se retiró; quedan las
+pruebas de camara_segura_motivo_es_sensor (NO ABRIR oculto solo por un
+sensor sin lectura, con su alarma a la vista) y de los nombres de alarma.
+
 ESS-02: /status publica estado_seguro.silencioso_por_sensor y
 camara_segura_motivo_es_sensor (falla cerrada); bloqueado_motivo ya no lleva
 el texto de presión sin lectura. ESS-03: sin CIC-10 si el único motivo es un
@@ -24,7 +28,7 @@ from autoclave.state_machine.alarms.alarm_manager import AlarmManager
 from autoclave.state_machine.alarms.catalogo import CIC_10, SEN_03, SEN_06
 from autoclave.state_machine.alarms.instancia import EstadoInstancia
 from tests.helpers.backend_doble import cargar_servidor, modulo_backend
-from tests.test_s9_estado_seguro_arranque import (_CFG, _Config, _arrancar, _loop, _programa,
+from tests.test_s9_estado_seguro_arranque import (_CFG, _Config, _arrancar, _loop, _programa,  # noqa: F401
                                                   _tick_es)
 
 _SELLADO = ("Sensor Principal sin lectura con carga líquida: cámara sellada hasta que las "
@@ -105,7 +109,8 @@ def test_solo_por_sensor_falla_cerrada():
 # ══ Casos de §5 ═══════════════════════════════════════════════════════════
 
 @pytest.mark.req("ESS-02")
-def test_arranque_sin_presion_silencioso_y_sin_cic10():
+def test_arranque_sin_presion_motivo_de_sensor_y_sin_cic10():
+    # Hotfix ES (6-nov): sin protocolo; NO ABRIR sigue y su motivo es el sensor
     alarmas = AlarmManager()
     loop = _loop(alarmas)
     _arrancar(loop, pres=None, temp=30.0)
@@ -113,13 +118,9 @@ def test_arranque_sin_presion_silencioso_y_sin_cic10():
     alarmas.activar(SEN_06, origen="pres_camara")
     camara, es = _status(loop, alarmas)
     assert not _cic10(alarmas)
-    # la seguridad no cambia: NO ABRIR y protocolo activo
-    assert camara["no_abrir"] is True and loop.estado_seguro.activo
+    assert camara["no_abrir"] is True and not loop.estado_seguro.activo
     assert camara["camara_segura_motivo_es_sensor"] is True
-    assert es["silencioso_por_sensor"] is True
-    # bloqueado_motivo sin el texto de presión (coherente con CIC-10)
-    assert es["bloqueado_motivo"] is None
-    assert es["detenido_sin_presion"] is True
+    assert es["activo"] is False and es["silencioso_por_sensor"] is False
 
 
 @pytest.mark.req("ESS-02")
@@ -135,7 +136,7 @@ def test_sin_la_alarma_del_sensor_no_hay_silencio():
 
 
 @pytest.mark.req("ESS-03")
-def test_principal_perdido_sin_cic10_y_silencioso():
+def test_principal_perdido_sin_cic10_y_motivo_de_sensor():
     alarmas = AlarmManager()
     loop = _loop(alarmas)
     _sen03(alarmas)
@@ -143,10 +144,8 @@ def test_principal_perdido_sin_cic10_y_silencioso():
     _tick_es(loop, 4)
     camara, es = _status(loop, alarmas)
     assert not _cic10(alarmas)
-    assert loop.estado_seguro.activo and camara["no_abrir"] is True
-    assert es["silencioso_por_sensor"] is True
-    # la vía de recuperación sigue: el motivo del Principal se publica
-    assert "Principal" in (es["bloqueado_motivo"] or "")
+    assert not loop.estado_seguro.activo and camara["no_abrir"] is True
+    assert camara["camara_segura_motivo_es_sensor"] is True
 
 
 @pytest.mark.req("ESS-02")
@@ -170,13 +169,13 @@ def test_paro_con_sensor_perdido_se_ve_el_paro():
     alarmas.activar(SEN_06, origen="pres_camara")
     loop.estado.set_flag("PARO_EMERGENCIA", True)
     loop.estado.set_flag("PARO_REAL", True)
-    loop.estado_seguro.update(datos_vigentes=True)
+    loop.estado_seguro.update()
     _, es = _status(loop, alarmas)
     assert es["silencioso_por_sensor"] is False
     # paro liberado: confirmación pendiente, tampoco silencioso
     loop.estado.set_flag("PARO_EMERGENCIA", False)
     loop.estado.set_flag("PARO_REAL", False)
-    loop.estado_seguro.update(datos_vigentes=True)
+    loop.estado_seguro.update()
     _, es = _status(loop, alarmas)
     assert es["requiere_confirmacion"] is True and es["silencioso_por_sensor"] is False
 
@@ -191,54 +190,6 @@ def test_datos_no_vigentes_no_silencia():
     camara, es = _status(loop, alarmas, vigentes=False)
     assert camara["camara_segura_motivo_es_sensor"] is False
     assert es["silencioso_por_sensor"] is False
-
-
-@pytest.mark.req("ESS-03")
-def test_presion_perdida_y_camara_sellada_cic10_visible():
-    from autoclave.state_machine.estado_seguro import ProtocoloEstadoSeguro
-    alarmas = AlarmManager()
-    es = ProtocoloEstadoSeguro(EstadoAutoclave(), _CFG, alarm_manager=alarmas)
-    es._protocolo = SimpleNamespace(presion_perdida=True,
-                                    bloqueado_motivo="Sensor de presión de cámara sin lectura",
-                                    bloqueado_motivo_sin_presion=_SELLADO,
-                                    bloqueado_motivo_no_sensor=_SELLADO)
-    es._actualizar_alarma_bloqueo()
-    [cic10] = _cic10(alarmas)
-    assert "sellada" in cic10.descripcion
-    assert es.bloqueo_no_sensor is True     # → silencioso_por_sensor False
-
-
-@pytest.mark.req("ESS-03")
-def test_protocolo_real_motivo_no_sensor():
-    from autoclave.state_machine.cycle_phases.protocolo_fallo import ProtocoloFallo
-    estado = EstadoAutoclave()
-    estado.sensores_pres["pres_camara"] = 250.0
-    estado.sensores_temp["temp_camara"] = 120.0
-    set_do = MagicMock()
-    set_do.reset_all_outputs.return_value = True
-    prot = ProtocoloFallo(estado, set_do, _programa(modo=2), _CFG)
-    prot.ejecutar(solo_lenta=True)
-    estado.sensores_temp["temp_camara"] = None
-    prot._presion_perdida = True
-    assert prot.bloqueado_motivo.startswith("Sensor de presión de cámara")
-    assert prot.bloqueado_motivo_sin_presion.startswith("Sensor Principal sin lectura")
-    assert prot.bloqueado_motivo_no_sensor is None
-    prot._sellado = True
-    assert prot.bloqueado_motivo_no_sensor == _SELLADO
-    prot._sellado = False
-    prot._solo_lenta = False
-    prot._aviso_no_escala = True
-    assert prot.bloqueado_motivo_no_sensor.startswith("Tiempo límite")
-
-
-@pytest.mark.req("ESS-02")
-def test_estado_seguro_sin_consulta_falla_cerrada():
-    from autoclave.state_machine.estado_seguro import ProtocoloEstadoSeguro
-    es = ProtocoloEstadoSeguro(EstadoAutoclave(), _CFG)
-    es._protocolo = SimpleNamespace(bloqueado_motivo=None)
-    assert es.bloqueo_no_sensor is True
-    es._protocolo = MagicMock()
-    assert es.bloqueo_no_sensor is True
 
 
 @pytest.mark.req("ESS-02")
@@ -352,21 +303,17 @@ _SCRIPT = r"""
 panel = raiz.findChild(QObject, "panelPrueba")
 seccion = raiz.findChild(QObject, "seccion")
 def vis(nombre):
-    return bool(seccion.findChild(QObject, nombre).property("visible"))
-FILAS = ["filaEstadoSeguroEnCurso", "avisoCausaEstadoSeguro", "botonConfirmarEstadoSeguro",
-         "notaNoAbrirEnCurso", "avisoEstadoSeguroDetenido", "filaNoAbrir"]
+    obj = seccion.findChild(QObject, nombre)
+    return obj is not None and bool(obj.property("visible"))
 QMetaObject.invokeMethod(raiz, "agregar", Q_ARG("QVariant", "SEN-06"))
 app.processEvents()
-# foto de referencia: solo SEN-06, campana en 1
-r["silencio_filas_ocultas"] = not any(vis(f) for f in FILAS)
-r["silencio_campana_1"] = panel.property("conteoTotal") == 1
-r["silencio_seccion_0"] = seccion.property("conteoTotal") == 0
-# sin el dato del puente (falla cerrada): se muestra el estado seguro
-puente.setProperty("estadoSeguroSilencioso", False)
-r["sin_silencio_en_curso"] = vis("filaEstadoSeguroEnCurso") and vis("botonConfirmarEstadoSeguro")
-r["sin_silencio_campana_2"] = panel.property("conteoTotal") == 2
-puente.setProperty("estadoSeguroSilencioso", True)
-# paro: se ve aunque el backend diga silencioso
+# hotfix ES (6-nov): ya no hay filas de "estado seguro en curso"
+r["sin_filas_del_protocolo"] = all(
+    seccion.findChild(QObject, f) is None
+    for f in ("filaEstadoSeguroEnCurso", "avisoCausaEstadoSeguro", "notaNoAbrirEnCurso",
+              "avisoEstadoSeguroDetenido"))
+r["solo_la_alarma_del_sensor"] = panel.property("conteoTotal") == 1
+# paro: se ve
 puente.setProperty("paroActivo", True)
 r["paro_visible"] = vis("filaParo") and seccion.property("conteoTotal") == 1
 puente.setProperty("paroActivo", False)
@@ -376,13 +323,13 @@ r["confirmar_visible"] = vis("filaEstadoSeguroPendiente") and vis("botonConfirma
 puente.setProperty("estadoSeguroRequiereConfirmacion", False)
 # módulo E/S sin datos: se ve
 puente.setProperty("estadoModuloEs", "sin_tramas_validas")
-r["sin_datos_visible"] = vis("filaModuloEsSinDatos") and vis("filaEstadoSeguroEnCurso")
+r["sin_datos_visible"] = vis("filaModuloEsSinDatos")
 puente.setProperty("estadoModuloEs", "ok")
 # sin conexión: se ve
 puente.setProperty("connected", False)
 r["sin_conexion_visible"] = vis("filaSeguridadDesconocida")
 puente.setProperty("connected", True)
-# fuera del estado seguro: NO ABRIR oculto solo si el motivo es un sensor
+# NO ABRIR oculto solo si el motivo es un sensor
 puente.setProperty("estadoSeguroActivo", False)
 r["no_abrir_oculto_por_sensor"] = not vis("filaNoAbrir")
 puente.setProperty("noAbrirPorSensor", False)
@@ -402,7 +349,7 @@ print(json.dumps(r))
 
 
 @pytest.mark.req("ESS-04")
-def test_seccion_silenciosa_y_campana_en_1():
+def test_seccion_sin_protocolo_y_campana_en_1():
     pytest.importorskip("PySide6")
     from tests.test_t7_avisos_qml import _CABECERA, _correr
     s = _correr(_CABECERA + _SCRIPT, _QML)
@@ -453,20 +400,6 @@ def test_saf05_presion_perdida_con_la_camara_presurizada_no_silencia():
 
 
 @pytest.mark.req("ESS-02")
-def test_saf05_enfriando_en_modo_4_no_silencia():
-    from autoclave.state_machine.estado_seguro import ProtocoloEstadoSeguro
-    prot = MagicMock()
-    prot.bloqueado_motivo_no_sensor = None
-    prot._modo_efectivo.return_value = 4
-    prot._sub_etapa = "enfriamiento"
-    es = ProtocoloEstadoSeguro(EstadoAutoclave(), _CFG)
-    es._protocolo = prot
-    assert es.bloqueo_no_sensor is True
-    prot._sub_etapa = None
-    assert es.bloqueo_no_sensor is False
-
-
-@pytest.mark.req("ESS-02")
 def test_saf06_alarma_de_otra_sonda_no_silencia():
     alarmas = AlarmManager()
     loop = _loop(alarmas)
@@ -475,23 +408,6 @@ def test_saf06_alarma_de_otra_sonda_no_silencia():
     _tick_es(loop, 4)
     camara, _ = _status(loop, alarmas)
     assert camara["camara_segura_motivo_es_sensor"] is False
-    # CIC-10 se conserva: no hay alarma del Principal a la vista (SAF-07)
-    [cic10] = _cic10(alarmas)
-    assert "Principal" in cic10.descripcion
+    # hotfix ES: sin protocolo no hay CIC-10; NO ABRIR se muestra (no es sensor)
+    assert not _cic10(alarmas) and camara["no_abrir"] is True
 
-
-@pytest.mark.req("ESS-03")
-def test_saf07_sin_alarma_del_principal_cic10_se_conserva():
-    alarmas = AlarmManager()
-    loop = _loop(alarmas)
-    _arrancar(loop, pres=101.3, temp=None)
-    _tick_es(loop, 4)
-    [cic10] = _cic10(alarmas)
-    assert "Principal" in cic10.descripcion
-
-
-@pytest.mark.req("ESS-02")
-def test_saf08_inactivo_falla_cerrada():
-    from autoclave.state_machine.estado_seguro import ProtocoloEstadoSeguro
-    es = ProtocoloEstadoSeguro(EstadoAutoclave(), _CFG)
-    assert es.bloqueo_no_sensor is True
