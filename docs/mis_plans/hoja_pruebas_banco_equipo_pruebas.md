@@ -3094,6 +3094,22 @@
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
 
+### T28-A11-01 — Card del cursor de la gráfica: posición, sin tapar curvas ni cursor, costo de CPU
+
+- **Modo:** En seco o ciclo de prueba con historial largo  ·  **Origen:** A11 (tanda 28, AJ28D-02/03/04)
+- **Objetivo:** Con más de 3000 lecturas, la card del cursor va a un costado de la línea, en un hueco sin curvas, sin tapar curvas ni el cursor, sin saltar de forma molesta, y la decimación y las llamadas a Python en cada cambio de índice no cargan la CPU.
+- **Precondiciones:** Un ciclo (en curso o del Historial) con más de 3000 lecturas y varias series visibles. Monitor de CPU abierto (Administrador de tareas).
+- **Pasos:**
+  1. Abrir la gráfica y mover el cursor despacio de extremo a extremo.
+  2. Repetir con curvas altas, bajas y cruzadas, y cerca de los bordes izquierdo y derecho.
+  3. Arrastrar el cursor con rapidez durante 30 s y anotar la CPU del proceso de la interfaz.
+- **Resultado esperado:** La card queda entera a un costado de la línea y del punto del cursor, dentro del área, en un hueco sin curvas cuando existe (si no, donde menos las cruza); no parpadea ni cambia de lado sin motivo (AJ28D-03); la CPU no se dispara ni la interfaz se traba al arrastrar (AJ28D-02/04).
+- **Criterio de aprobado/fallo:** Aprobado si no tapa curvas ni cursor, los saltos no molestan y el arrastre es fluido. Fallo si tapa el cursor, se sale del área, salta de lado repetidamente o la interfaz se traba.
+- **Observación:** La regla de ubicación de la tarjeta (hueco libre, menor cruce, reserva alrededor del cursor) es `DECISIÓN SIN CONFIRMAR` con Cristian.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
 ## Registros que se deben conservar (expediente IEC 62304)
 
 - Esta hoja firmada (cada prueba con valor observado, resultado y firma).
