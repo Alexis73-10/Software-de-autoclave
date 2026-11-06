@@ -9,6 +9,50 @@ Una entrada por **entrega** (compilación con Setup que se instala en el equipo)
 
 <!-- entradas: las agrega compilar_entrega.py debajo de esta línea, la más nueva primero -->
 
+## 1.0.0-alpha.18 — 2026-11-06
+
+- Etiqueta: `v1.0.0-alpha.18` (commit `chore(ver): 1.0.0-alpha.18`, sobre `0c9cc71`)
+- AppVerNum: `1.0.0.1018`
+- SHA-256 del Setup y del zip: en el mensaje de la etiqueta y en `entrega/v1.0.0-alpha.18_2026-11-06/SHA256SUMS.txt` (solo existen después de compilar)
+- Commits desde `v1.0.0-alpha.17`:
+  - 0c9cc71f docs(hotfix ES merge): CERRADO con BLOQUEADO (compilación pendiente por roja de codificación)
+  - e9e0b4ed docs(hotfix ES merge): estado de los pasos 1 a 4
+  - d520f7ab docs(hotfix ES): CERRADO con BLOQUEADO por conflictos de merge con la tanda 28
+  - 7c6d8d5a docs(hotfix ES): suite completa tras las correcciones de la revisión
+  - a5c29e6b docs(hotfix ES): revisión de seguridad en HAZ-ES-RET-01, informe y estado
+  - 91b52ae1 fix(hotfix ES, revisión BAJA): «Confirmar paro» en lugar de «Confirmar y llevar a estado seguro»
+  - f12f74ce fix(hotfix ES, revisión MEDIA): COMPLETADO → PREPARADO cierra las válvulas de reposo
+  - 2849c6e8 fix(hotfix ES, revisión MEDIA): FALLA y PREPARACION sin actuar con la presión congelada
+  - cf7fba48 fix(hotfix ES, revisión ALTA): sin puertas ni salidas tras soltar el paro hasta confirmar
+  - f3c72119 docs(hotfix ES): riesgo HAZ-ES-RET-01, CLAUDE.md, informe y estado
+  - c0e23c89 test(hotfix ES): retira y ajusta las pruebas del protocolo de estado seguro
+  - fa18324a Cierre tanda 28: AJUSTES, CERRADO.txt, suite final y AJ28B-10
+  - 409b459c fix(hotfix ES): NO ABRIR con valor y límite; UI sin la sección del protocolo
+  - 9e0f29cc fix(hotfix ES): retira el protocolo automático de estado seguro
+  - 0075a790 docs(A13 M3–M5): riesgos, trazabilidad, banco, informe, estado y CLAUDE.md
+  - 352a3a00 A13-M5/M3: falla cerrada si no se sabe el origen del programa y texto del parámetro
+  - 929ccbcb A13-M5: secado tras fallo en el ciclo interrumpido solo con el programa del propio ciclo
+  - 05cdc3a6 A13-M4: NO ABRIR durante el secado tras fallo (secando_vapor_residual)
+  - 8c12a72d A13-M3: el secado tras fallo verifica el vacío (resultado sin_vacio)
+  - 8ad21f1d A13 revisión: estado.md (ca15e010)
+  - ca15e010 A13 revisión: el secado tras fallo no deja la bomba encendida ante un error ni arranca sin poder romper el vacío
+  - 08a4e9cf A9 revisión: marca persistente del protocolo de fin de ciclo para clasificar el arranque
+  - 49db304b A11: fila de banco T28-A11-01, reserva del cursor derivada del punto y prueba de hueco reforzada
+  - de6d9d10 A13: estado.md (A13 hecho, 4db38ed8)
+  - 4db38ed8 A13: secado corto tras un ciclo fallido con carga sólida antes de dar la cámara por segura
+  - 4995d77e A9: estado.md (A9 hecho, 2a5d7000)
+  - 2a5d7000 A9: arranque con la cámara no segura sin protocolo en el encendido normal
+  - b3660278 docs(A14-M2/H1): riesgo, trazabilidad, informe y banco del defecto H1
+  - 4f6ca413 test(A14-M2/H1): pruebas pedidas por la revisión y comentario sin histéresis
+  - 5a94e685 fix(A14-M2/H1): ESTERILIZACION reevalúa el corte de vapor_chaqueta en cada tick del tramo ON del PWM
+  - d97121b7 docs(A12): riesgo HAZ-PRV-01 y AJ28C-05, REQ-63, banco T28-A12-01, CLAUDE.md
+  - 54e6abeb docs(A14): riesgo HAZ-EST-07, trazabilidad REQ-60..62, CLAUDE.md, banco T28-A14-01 e informe M1/M2
+  - 6e6953a1 A10: estado.md (A10 hecho, cf1beecd)
+  - cf1beecd A10: el estado seguro dice qué le falta para terminar (pausa por modo prueba o motivo con valor y límite)
+  - 19612a29 A11: correcciones tras la revisión (rendimiento, margen, área inválida)
+  - f2da1312 A11: la card del cursor de la gráfica va a un costado y fuera de las curvas
+
+
 ## 1.0.0-alpha.17 — 2026-11-05
 
 - Etiqueta: `v1.0.0-alpha.17` (commit `chore(ver): 1.0.0-alpha.17`, sobre `23630c0`)
