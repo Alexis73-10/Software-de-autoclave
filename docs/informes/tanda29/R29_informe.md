@@ -24,3 +24,12 @@ Rama `tanda29` desde `dev` (9775fc68). Entrega NO compilada.
 
 ## Pruebas
 Nuevas: `test_t29_descompresion_fin_modo_solido.py`, `test_t29_preparacion_aire_avisos_apertura.py` (39), `test_t29_01_...`, `test_t29_06_...`, `test_t29_07_...`. Ajustadas (asumían el comportamiento anterior): `test_v8a_tipo_carga_modos`, `test_t10_endurecimiento`, `test_ciclo_drenaje`, `test_preparacion_presion_camara`, `test_q1_r1p2_preparado_un_lazo_por_tick`, `test_t26b_respuestas_cristian`, `test_ciclo_apertura_automatica`. Resultado de la suite completa: ver `CERRADO.txt`.
+
+## Revisión de seguridad (T29-02, 03, 04, 05, 08)
+Sin ALTA. Corregido en la tanda:
+- **M1 (MEDIA):** la migración T29-05 trataba un programa sin `globals.tipo_carga` como sólido y pasaba su modo 4 a 1 (riesgo de ebullición si la carga era líquida). Ahora migra solo con la clave presente y exactamente `"solido"`; prueba `test_migracion_no_toca_programa_sin_tipo_carga`.
+
+Pendientes (BAJA, `DECISIÓN SIN CONFIRMAR`, sin corregir):
+- **B1:** con `presion_fin_descompresion` hasta 20 kPa, SECADO modo 2 abre `aire_admosferico_camara` desde su primer tick con la cámara hasta 20 kPa sobre la atmosférica (posible salida de vapor por la toma si no hay antirretorno) y los modos 1 y 2 de SECADO parten de más presión con `timeout_pulso` de 10 s (posible `sec_sin_vacio` falso). Confirmar en banco el antirretorno del P&ID y el `timeout_pulso`. Se suma a HAZ-DSC-01.
+- **B2:** si `set_active_cycle` reconstruye la máquina con el aire abierto por la regla de T29-08 y en ese tick se pierde la lectura y las DI, el aire queda abierto sin orden (en PREPARADO no entra vapor). Opcional: cerrar siempre el aire sin lectura ni DI vigentes.
+- **B3:** no hay regla de coherencia que limite `finalizacion.temp_max_apertura` en programas de líquidos (hasta 120 °C por el techo). Decide Cristian. Se suma a HAZ-T29-04-01.
