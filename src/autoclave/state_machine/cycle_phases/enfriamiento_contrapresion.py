@@ -46,7 +46,11 @@ LIQ-02 (vigilancia de contrapresión):
   despeja solo al recuperar); 60 s seguidos → `ENFR_CONTRAPRESION_BAJA`
   (DECISIÓN SIN CONFIRMAR hasta el banco). Volver sobre el mínimo reinicia
   el conteo. Con `solo_aviso=True` (protocolo de fallo) nunca hay fallo de
-  contrapresión.
+  contrapresión; en su lugar (segunda revisión, M-B) la lenta del modo 5 se
+  cierra mientras el aviso esté activo y reabre al despejarse.
+- M-A (segunda revisión): el objetivo de reposición nunca supera
+  `presion_max_reposicion`, ni siquiera si `presion_camara_enfriamiento` es
+  mayor (programa que la regla del catálogo rechaza).
 """
 
 from __future__ import annotations
@@ -145,11 +149,14 @@ class EnfriamientoContrapresion:
         self._modo_5 = bool(modo_5)
         self._solo_aviso = bool(solo_aviso)
         self._ahora = ahora
-        # M1: tope de la reposición de aire (nunca bajo el objetivo)
+        # M1: tope de la reposición de aire. M-A (segunda revisión): el tope
+        # rige también sobre el propio objetivo: con presion_camara_enfriamiento
+        # mayor que el tope (alivio − 10), el aire nunca repone sobre el tope
+        # (la regla del catálogo ya rechaza ese programa al guardar y al cargar)
         tope_rep = _presion(presion_max_reposicion)
         if tope_rep is None:
             tope_rep = self._presion_obj + MARGEN_REPOSICION_SIN_LIMITE_KPA
-        self._presion_max_reposicion = max(self._presion_obj, tope_rep)
+        self._presion_max_reposicion = tope_rep
 
         self._t_inicio: float | None = None
         self._t_aire: float | None = None
@@ -249,10 +256,14 @@ class EnfriamientoContrapresion:
         # Tras un tope (solo_aviso) la contrapresión se mantiene, pero ni la
         # lenta (carga posiblemente caliente) ni el agua de chaqueta
         en_tope = self._tope is not None
+        # M-B (segunda revisión): en el protocolo de fallo (sin CIC-24) la
+        # lenta se cierra mientras dure el aviso de contrapresión (10 s bajo
+        # P_min o sin dato) y reabre al despejarse; el aire sigue reponiendo
+        lenta_cerrada_por_aviso = self._solo_aviso and aviso
         return ResultadoTick(
             aire_comprimido_on=aire_on,
             aire_comprimido_pulso=pulso,
-            descompresion_lenta_on=self._modo_5 and not en_tope,
+            descompresion_lenta_on=self._modo_5 and not en_tope and not lenta_cerrada_por_aviso,
             descompresion_chaqueta_on=True,
             agua_chaqueta_on=self._cond_a and self._cond_b and not en_tope,
             aviso_contrapresion=aviso,
@@ -267,13 +278,13 @@ class EnfriamientoContrapresion:
 
     # -------------------------------------------------------------------
     def _objetivo_reposicion(self, temp_principal) -> float:
-        """M1: max(objetivo, P_min + histéresis), acotado por
-        `presion_max_reposicion`; sin P_min calculable, el objetivo."""
+        """M1: max(objetivo, P_min + histéresis); sin P_min calculable, el
+        objetivo. M-A: el resultado siempre se acota a
+        `presion_max_reposicion` (con tope >= objetivo es lo mismo que antes)."""
         p_min = self._presion_minima(temp_principal)
-        if p_min is None:
-            return self._presion_obj
-        return max(self._presion_obj,
-                   min(p_min + HISTERESIS_REPOSICION_AIRE_KPA, self._presion_max_reposicion))
+        objetivo = (self._presion_obj if p_min is None
+                    else max(self._presion_obj, p_min + HISTERESIS_REPOSICION_AIRE_KPA))
+        return min(objetivo, self._presion_max_reposicion)
 
     @staticmethod
     def _presion_minima(temp_principal) -> float | None:

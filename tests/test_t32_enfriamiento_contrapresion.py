@@ -214,9 +214,12 @@ def test_m1_reposicion_acotada():
     assert _tick(c2, pc=P_OBJ + 29.0, t=t).aire_comprimido_on
     r2.avanzar(1)
     assert not _tick(c2, pc=P_OBJ + 30.0, t=t).aire_comprimido_on
-    # un límite bajo el objetivo no baja el objetivo
-    c3, _ = _comp(presion_max_reposicion=150.0)
-    assert _tick(c3, pc=P_OBJ - 1, t=t).aire_comprimido_on
+    # M-A (segunda revisión): un límite bajo el objetivo SÍ acota la
+    # reposición (nunca se repone sobre alivio − 10)
+    c3, r3 = _comp(presion_max_reposicion=150.0)
+    assert _tick(c3, pc=149.0, t=t).aire_comprimido_on
+    r3.avanzar(1)
+    assert not _tick(c3, pc=150.0, t=t).aire_comprimido_on
 
 
 def test_sin_lectura_camara_no_cumple_a_ni_aire():
@@ -352,3 +355,84 @@ def test_constantes():
     assert ec.TIEMPO_FALLO_CONTRAPRESION_S == 60
     assert ec.PERIODO_AIRE_COMPRIMIDO_S == 3.0
     assert ec.HISTERESIS_REPOSICION_AIRE_KPA == 2.0
+
+
+# ---------------- Segunda revisión de seguridad (M-A, M-B) ----------------
+
+@pytest.mark.parametrize("t", [None, 80.0, 134.0])
+def test_ma_objetivo_sobre_el_tope_nunca_repone_sobre_el_tope(t):
+    """presion_camara_enfriamiento 395 (programa que el catálogo rechaza) con
+    el tope del equipo 375 (alivio 385 − 10): el aire corta en 375."""
+    c, r = _comp(presion_max_reposicion=375.0, presion_camara_enfriamiento=395.0)
+    assert _tick(c, pc=374.0, t=t).aire_comprimido_on
+    r.avanzar(1)
+    for pc in (375.0, 380.0, 390.0):
+        assert not _tick(c, pc=pc, t=t).aire_comprimido_on
+        r.avanzar(1)
+
+
+def test_ma_tope_mayor_que_objetivo_sin_cambio():
+    """Con el tope sobre el objetivo, el objetivo de reposición es el de M1."""
+    c, r = _comp(presion_max_reposicion=375.0)
+    assert _tick(c, pc=P_OBJ - 1, t=80.0).aire_comprimido_on
+    r.avanzar(1)
+    assert not _tick(c, pc=P_OBJ, t=80.0).aire_comprimido_on
+
+
+def _bajo_minimo(c, r, segundos):
+    res = None
+    for _ in range(int(segundos)):
+        res = _tick(c, pc=P_MIN - 5, pj=ATM)
+        r.avanzar(1)
+    return res
+
+
+def test_mb_solo_aviso_modo_5_cierra_la_lenta_con_el_aviso_y_reabre():
+    c, r = _comp(modo_5=True, solo_aviso=True)
+    _armar(c, r)
+    res = _tick(c, pc=P_MIN - 5, pj=ATM)
+    assert res.descompresion_lenta_on and not res.aviso_contrapresion
+    r.avanzar(9.9)
+    assert _tick(c, pc=P_MIN - 5, pj=ATM).descompresion_lenta_on
+    r.avanzar(0.1)
+    res = _tick(c, pc=P_MIN - 5, pj=ATM)
+    assert res.aviso_contrapresion and not res.descompresion_lenta_on
+    assert res.aire_comprimido_on                      # el aire sigue reponiendo
+    res = _bajo_minimo(c, r, 120)
+    assert res.fallo is None and not res.descompresion_lenta_on
+    # recupera P_min: el aviso se despeja y la lenta reabre
+    res = _tick(c, pc=P_MIN + 1, pj=ATM)
+    assert not res.aviso_contrapresion and res.descompresion_lenta_on
+
+
+def test_mb_solo_aviso_sin_dato_tambien_cierra_la_lenta():
+    c, r = _comp(modo_5=True, solo_aviso=True)
+    _armar(c, r)
+    _tick(c, pc=None, pj=ATM)
+    r.avanzar(10)
+    res = _tick(c, pc=None, pj=ATM)
+    assert res.aviso_contrapresion and not res.descompresion_lenta_on
+
+
+def test_mb_fase_sin_cambio_lenta_abierta_hasta_el_fallo():
+    """Sin solo_aviso (la fase) la lenta sigue abierta con el aviso; a los
+    60 s, CIC-24 (FALLO con todo apagado)."""
+    c, r = _comp(modo_5=True, solo_aviso=False)
+    _armar(c, r)
+    _tick(c, pc=P_MIN - 5, pj=ATM)
+    r.avanzar(10)
+    res = _tick(c, pc=P_MIN - 5, pj=ATM)
+    assert res.aviso_contrapresion and res.descompresion_lenta_on
+    r.avanzar(50)
+    res = _tick(c, pc=P_MIN - 5, pj=ATM)
+    assert res.fallo == ENFR_CONTRAPRESION_BAJA and not res.descompresion_lenta_on
+
+
+def test_mb_modo_4_sin_lenta_con_o_sin_aviso():
+    c, r = _comp(modo_5=False, solo_aviso=True)
+    _armar(c, r)
+    for _ in range(15):
+        res = _tick(c, pc=P_MIN - 5, pj=ATM)
+        assert not res.descompresion_lenta_on
+        r.avanzar(1)
+    assert res.aviso_contrapresion

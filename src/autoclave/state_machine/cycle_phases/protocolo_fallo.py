@@ -1011,7 +1011,8 @@ class ProtocoloFallo:
         registra en el log y en el ticket (una vez) y la contrapresión se
         mantiene (ver _tick_enfriamiento), sin escalar. Si el tope es (a)
         (el aire no llega) y la cámara ya no tiene contrapresión que mantener
-        (presión en o bajo atm + rango_presion_atm), la cámara se sella
+        (presión en o bajo atm + rango_presion_atm, con la referencia
+        configurada; sin referencia o sin lectura también), la cámara se sella
         (D8-2.10: todo cerrado, alivio por sobrepresión, venteo solo por la
         lenta cuando las sondas confirmen o venza la espera sin sonda).
         Devuelve True si selló."""
@@ -1021,11 +1022,16 @@ class ProtocoloFallo:
         clave = CLAVE_TICKET_TOPE.get(codigo_enfr)
         if clave is not None:
             anotar_ticket(self.estado, clave)
-        atm   = self.config.get("presion_admosferica") or 101.3
-        rango = self.config.get("rango_presion_atm")   or 20.0
-        if codigo_enfr == ENFR_TIMEOUT_PRESURIZACION and pres <= atm + rango:
+        # B-3 (segunda revisión): referencia configurada (presión atmosférica
+        # y su brecha, números finitos > 0), sin defectos 101,3/20; sin ella,
+        # o sin lectura de presión, se sella (lado seguro)
+        atm = presion_atm_configurada(self.config)
+        sin_contrapresion = True
+        if atm is not None and lectura_valida(pres):
+            sin_contrapresion = pres <= atm + float(self.config.get("rango_presion_atm"))
+        if codigo_enfr == ENFR_TIMEOUT_PRESURIZACION and sin_contrapresion:
             logger.error("Protocolo fallo: %s en el enfriamiento con contrapresión (sin segundo "
-                         "fallo) y sin contrapresión que mantener (%.1f kPa) — cámara SELLADA "
+                         "fallo) y sin contrapresión que mantener (%s kPa) — cámara SELLADA "
                          "(D8-2.10), sin ventear con la carga caliente", codigo_enfr, pres)
             self.motivo_solo_lenta = "tope del enfriamiento con contrapresión sin presión"
             self._fin_enfriamiento()

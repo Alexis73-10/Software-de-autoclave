@@ -326,6 +326,7 @@
     "aviso_modo_liquido": "Liquid load: the depressurization mode changed to {modo} ({nombre}).",
     "aviso_modo_solido": "Solid load: the depressurization mode returned to {modo} ({nombre}).",
     "err_limite_presion_camara": "Cannot save: the chamber pressure ceiling would reach the chamber relief ({alivio_camara} kPa). The additional pressure must be lower than {valor} kPa.",
+    "err_limite_contrapresion_enfriamiento": "Cannot save: the chamber pressure during cooling must be at most {valor} kPa (chamber relief {alivio_camara} kPa minus 10 kPa), so that the compressed air does not lift the relief valve.",
     "err_limite_consigna_chaqueta": "Cannot save: the calculated jacket setpoint is {valor} kPa and, with the ±10 kPa band, it reaches the jacket relief ({alivio_chaqueta} kPa).",
     "err_limite_presion_chaqueta": "Cannot save: jacket pressure plus jacket pressure range reaches the jacket relief ({alivio_chaqueta} kPa). The jacket pressure must be lower than {valor} kPa.",
     "aviso_techo_sobre_suministro": "Saved with a warning: the chamber pressure ceiling is above the supply (350 kPa). The chamber will not reach it and the chamber steam valve will stay open in that stage.",

@@ -375,3 +375,85 @@ def test_pantalla_modo_5_muestra_los_parametros_nuevos():
     rutas = [".".join(r) for r, _ in _hojas_seccion(c, "descompresion")]
     assert {f"modo_4.{k}" for k in LIQ01} <= set(rutas)
     assert not [r for r in rutas if "descompresion_lenta_rapida" in r or "presion_cambio" in r]
+
+
+# ── M-A (segunda revisión): contrapresión de enfriamiento bajo el alivio ────
+
+class _ConfigEquipo:
+    def __init__(self, **valores):
+        self._v = {"presion_fondo_escala": 400, "presion_suministro_vapor": 350,
+                   "presion_alivio_camara": 385, "presion_alivio_chaqueta": 385}
+        self._v.update(valores)
+
+    def get(self, clave, defecto=None):
+        return self._v.get(clave, defecto)
+
+
+def _con_enfriamiento(valor, modo="modo_4", nombre="factory/liquidos.json"):
+    p = _datos(nombre)["parameters"]
+    p["descompresion"][modo]["presion_camara_enfriamiento"]["value"] = valor
+    return p
+
+
+def test_ma_margen_igual_al_de_limites_equipo():
+    from autoclave.core.managers import limites_equipo
+    assert cp.MARGEN_CONTRAPRESION_BAJO_ALIVIO == limites_equipo.MARGEN_CORTE_BAJO_ALIVIO
+
+
+@pytest.mark.parametrize("modo", ["modo_4", "modo_5"])
+@pytest.mark.parametrize("valor", [376, 380, 400])
+def test_ma_rechaza_sobre_alivio_menos_10(modo, valor):
+    p = _con_enfriamiento(valor, modo)
+    errores = cp.errores_programa(p)                       # al cargar
+    assert any("presion_camara_enfriamiento" in e and "alivio" in e for e in errores)
+    lim = cp.errores_limites_fisicos(p)
+    assert lim and cp.codigo_coherencia(lim) == cp.CODIGO_LIMITE_CONTRAPRESION
+    assert cp.valor_limite(p) == 375.0
+
+
+@pytest.mark.parametrize("valor", [300, 375])
+def test_ma_acepta_hasta_alivio_menos_10(valor):
+    for modo in ("modo_4", "modo_5"):
+        assert cp.errores_programa(_con_enfriamiento(valor, modo)) == []
+
+
+def test_ma_tambien_en_programa_solido_y_codigo_propio():
+    p = _con_enfriamiento(390, "modo_5", "factory/instrumental_134.json")
+    errores = cp.errores_coherencia(p)
+    assert cp.codigo_coherencia(errores) == cp.CODIGO_LIMITE_CONTRAPRESION
+
+
+def test_ma_usa_el_alivio_del_equipo():
+    cp.fijar_config_equipo(_ConfigEquipo(presion_alivio_camara=360))
+    assert cp.errores_programa(_con_enfriamiento(350)) == []
+    p = _con_enfriamiento(351)
+    assert cp.valor_limite(p) == 350.0
+    assert cp.codigo_coherencia(cp.errores_limites_fisicos(p)) == cp.CODIGO_LIMITE_CONTRAPRESION
+
+
+def test_ma_set_param_rechaza_y_no_muta():
+    c = Cycle("liquidos", "L", _datos()["parameters"], 4)
+    with pytest.raises(cp.ErrorCoherencia) as e:
+        c.set_param("descompresion", ["modo_4", "presion_camara_enfriamiento"], 380)
+    assert e.value.codigo == "LIMITE_CONTRAPRESION_ENFRIAMIENTO"
+    assert e.value.valor == 375.0
+    assert c.get_param("descompresion", "modo_4", "presion_camara_enfriamiento") == 300
+    c.set_param("descompresion", ["modo_4", "presion_camara_enfriamiento"], 375)
+
+
+def test_ma_no_se_migra_el_valor():
+    p = _con_enfriamiento(390, "modo_5")
+    migrar_parametros(p, [], [], recuperacion=True, agregadas=[])
+    assert p["descompresion"]["modo_5"]["presion_camara_enfriamiento"]["value"] == 390
+    assert cp.errores_programa(p)
+
+
+@pytest.mark.parametrize("idioma", ["es", "en"])
+def test_ma_texto_y_codigo_en_la_pantalla(idioma):
+    from autoclave import i18n
+    from autoclave.ui_qml import sesion_backend
+    from autoclave.ui_qml.controllers import parametros_ciclo_controller as pcc
+    clave = "opciones.err_limite_contrapresion_enfriamiento"
+    assert i18n.existe(clave, idioma)
+    assert pcc.mensaje_de("LIMITE_CONTRAPRESION_ENFRIAMIENTO") == clave
+    assert sesion_backend._CLAVES["LIMITE_CONTRAPRESION_ENFRIAMIENTO"] == clave

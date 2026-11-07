@@ -115,6 +115,12 @@ ORIGEN_MIGRACION_T28_M3 = "migración tanda 28 (M3)"
 CODIGO_LIMITE_CAMARA = "LIMITE_PRESION_CAMARA"
 CODIGO_LIMITE_CHAQUETA = "LIMITE_PRESION_CHAQUETA"
 CODIGO_LIMITE_CONSIGNA = "LIMITE_CONSIGNA_CHAQUETA"
+# Tanda 32, segunda revisión (M-A): contrapresión de enfriamiento (modos 4/5)
+# sobre el alivio de cámara menos MARGEN_CORTE_BAJO_ALIVIO
+CODIGO_LIMITE_CONTRAPRESION = "LIMITE_CONTRAPRESION_ENFRIAMIENTO"
+# refleja limites_equipo.MARGEN_CORTE_BAJO_ALIVIO (limites_equipo importa este
+# módulo; una prueba verifica que coinciden)
+MARGEN_CONTRAPRESION_BAJO_ALIVIO = 10.0
 # Claves de las advertencias no bloqueantes (texto opciones.<clave> en i18n)
 ADVERTENCIA_TECHO_CAMARA = "aviso_techo_sobre_suministro"
 ADVERTENCIA_CHAQUETA_ABIERTA = "aviso_chaqueta_abierta"
@@ -286,7 +292,8 @@ class ErrorCoherencia(ValueError):
     LIMITE_PRESION_CAMARA (C-04.3), LIMITE_CONSIGNA_CHAQUETA (C-05.5) y
     LIMITE_PRESION_CHAQUETA (C-05.9) para los límites físicos de la tanda 12;
     COHERENCIA_RECUPERACION para P1 (tanda 16, D-14.1);
-    COHERENCIA_DESCOMPRESION para LIQ-03 (tanda 32). `valor`: el máximo
+    COHERENCIA_DESCOMPRESION para LIQ-03 (tanda 32);
+    LIMITE_CONTRAPRESION_ENFRIAMIENTO para M-A (tanda 32). `valor`: el máximo
     admisible (o la consigna calculada) del primer límite físico incumplido
     o, en P1, el presion_add_esterilizacion mínimo; None si no hay."""
 
@@ -303,6 +310,7 @@ _PREFIJO_CHAQUETA = "Límite de presión de chaqueta: "
 _PREFIJO_CONSIGNA = "Límite de consigna de chaqueta: "
 _PREFIJO_RECUPERACION = "Coherencia de recuperación: "
 _PREFIJO_DESCOMPRESION = "Coherencia de descompresión: "
+_PREFIJO_CONTRAPRESION = "Límite de contrapresión de enfriamiento: "
 
 
 def codigo_coherencia(errores: list[str]) -> str:
@@ -318,6 +326,8 @@ def codigo_coherencia(errores: list[str]) -> str:
         return CODIGO_LIMITE_CONSIGNA
     if any(e.startswith(_PREFIJO_CHAQUETA) for e in errores):
         return CODIGO_LIMITE_CHAQUETA
+    if any(e.startswith(_PREFIJO_CONTRAPRESION) for e in errores):
+        return CODIGO_LIMITE_CONTRAPRESION
     if any(e.startswith(_PREFIJO_RECUPERACION) for e in errores):
         return CODIGO_COHERENCIA_RECUPERACION
     if any(e.startswith(_PREFIJO_DESCOMPRESION) for e in errores):
@@ -480,6 +490,8 @@ def _evaluar_limites(parameters: dict) -> tuple[list, list]:
     - C-05.5: consigna de chaqueta + 10 >= alivio de chaqueta → rechazo (da la
       consigna); > suministro → advertencia (vapor_chaqueta abierta en el ciclo).
     - C-05.9: presion_chaqueta + rango_presion_chaqueta: misma regla.
+    - M-A (tanda 32): presion_camara_enfriamiento (modo_4/modo_5) > alivio
+      de cámara − 10 → rechazo (da el máximo admisible).
     - P1 (tanda 16, D-14.1): salida de RECUPERACION alcanzable bajo el techo
       (ver _evaluar_recuperacion); va al final (su código es el último).
     DEU-01 (tanda 16): alivios y suministro son los del equipo (_limites()).
@@ -536,6 +548,19 @@ def _evaluar_limites(parameters: dict) -> tuple[list, list]:
                 f"({suministro:.0f} kPa): en preparación la válvula de vapor de "
                 f"chaqueta quedará abierta",
                 {("globals", "presion_chaqueta"), ("globals", "rango_presion_chaqueta")}))
+    # M-A (tanda 32, segunda revisión): la reposición de aire del enfriamiento
+    # nunca debe llegar al alivio de cámara. Se miran las secciones modo_4 y
+    # modo_5 aunque el modo activo sea otro (falla cerrada; DECISIÓN SIN
+    # CONFIRMAR). Sin migración: un programa instalado así se rechaza al cargar.
+    maximo_enfr = alivio_cam - MARGEN_CONTRAPRESION_BAJO_ALIVIO
+    for seccion in _MODOS_ENFRIAMIENTO:
+        p_enfr = _valor(parameters, "descompresion", seccion, "presion_camara_enfriamiento")
+        if _num(p_enfr) and p_enfr > maximo_enfr:
+            rechazos.append((
+                f"{_PREFIJO_CONTRAPRESION}descompresion.{seccion}.presion_camara_enfriamiento "
+                f"= {p_enfr:g} kPa supera el alivio de cámara ({alivio_cam:.0f} kPa) menos "
+                f"{MARGEN_CONTRAPRESION_BAJO_ALIVIO:.0f} kPa; debe ser como máximo "
+                f"{maximo_enfr:g} kPa", round(maximo_enfr, 1)))
     advertencias.extend(_evaluar_banda_pwm(parameters))
     rechazos.extend(_evaluar_recuperacion(parameters))
     return rechazos, advertencias

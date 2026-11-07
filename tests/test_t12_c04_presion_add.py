@@ -145,7 +145,11 @@ def _cycle_alto(tipo):
     p["globals"]["delta_temp_chaqueta"]["value"] = 0.0
     p["globals"]["margen_flujo_chaqueta"]["value"] = 0.0
     if tipo == "liquido":
-        p["descompresion"]["modo_4"]["presion_camara_enfriamiento"]["value"] = 395
+        # Tanda 32, segunda revisión (M-A): a 139,5 °C la contrapresión mínima
+        # de líquidos (Psat + 30 ≈ 386 kPa) supera el alivio de cámara − 10
+        # (375); antes se ponía 395 en modo 4. Con el modo 0 (válido para
+        # líquidos) no rige la contrapresión y solo el techo de cámara decide.
+        p["descompresion"]["modo"]["value"] = 0
     c = Cycle("p", "P", p, 9)
     assert cp.errores_programa(c.parameters) == []
     assert c.get_param("globals", "tipo_carga") == tipo

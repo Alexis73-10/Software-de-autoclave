@@ -29,8 +29,10 @@ RAIZ = Path(__file__).resolve().parents[1]
 def _params(tipo, modo):
     return {"globals": {"tipo_carga": {"value": tipo}},
             "descompresion": {"modo": {"value": modo},
-                              "modo_4": {"presion_camara_enfriamiento": {"value": 400}},
-                              "modo_5": {"presion_camara_enfriamiento": {"value": 400}}},
+                              # tanda 32, segunda revisión (M-A): antes 400; el
+                              # máximo es el alivio de cámara − 10 (375)
+                              "modo_4": {"presion_camara_enfriamiento": {"value": 300}},
+                              "modo_5": {"presion_camara_enfriamiento": {"value": 300}}},
             "esterilizacion": {"temperatura_esterilizacion": {"value": 121.0}}}
 
 

@@ -78,6 +78,7 @@ _MENSAJES = {
     # Tanda 16: P1 (D-14.1) y PRG-01 (D-PRG-1)
     "COHERENCIA_RECUPERACION": "opciones.err_coherencia_recuperacion",
     "COHERENCIA_DESCOMPRESION": "opciones.err_coherencia_descompresion",   # LIQ-03 (tanda 32)
+    "LIMITE_CONTRAPRESION_ENFRIAMIENTO": "opciones.err_limite_contrapresion_enfriamiento",  # M-A
     "ROL_SONDA_NO_ACTIVA": "opciones.err_rol_sonda_no_activa",
     # O1 (tanda 5): gestión de programas
     "programa_activo": "opciones.err_programa_activo",

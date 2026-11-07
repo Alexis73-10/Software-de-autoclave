@@ -329,3 +329,98 @@ def test_liq03_activa_en_el_protocolo(reloj):
     llamadas = _llamadas(set_do)
     assert llamadas.index("descompresion_lenta_off") < llamadas.index("descompresion_rapida_on")
     assert prot._sub_etapa == "descompresion"
+
+
+# ── Segunda revisión de seguridad (M-B, B-3) ───────────────────────────────
+
+def test_mb_modo_5_aire_que_falla_cierra_la_lenta_y_reabre_al_recuperar(reloj):
+    """Modo 5 con (a) y (b) cumplidas: si el aire no sostiene la presión, a
+    los 10 s bajo P_min la lenta se cierra (no ventea la carga caliente) y el
+    aire sigue ordenado; al recuperar P_min la lenta reabre. Sin CIC-24."""
+    am = AlarmManager()
+    prot, estado, set_do = _protocolo(modo=5, pres=200.0, pchq=ATM, alarmas=am)
+    prot.ejecutar()
+    assert prot._enfr.cond_a and prot._enfr.cond_b
+    estado.sensores_pres["pres_camara"] = 120.0          # < Psat(100) + 30
+    set_do.reset_mock()
+    reloj.t += 1
+    prot.update()
+    assert "descompresion_lenta_on" in _llamadas(set_do)
+    set_do.reset_mock()
+    for _ in range(4):
+        reloj.t += 3
+        prot.update()
+    llamadas = _llamadas(set_do)
+    assert CIC_25 in _activas(am)
+    assert "descompresion_lenta_off" in llamadas
+    # tras el aviso la lenta no vuelve a abrir mientras siga bajo el mínimo
+    set_do.reset_mock()
+    for _ in range(30):
+        reloj.t += 3
+        prot.update()
+    llamadas = _llamadas(set_do)
+    assert "descompresion_lenta_on" not in llamadas
+    assert "aire_comprimido_camara_on" in llamadas
+    assert not ({CIC_22, CIC_23, CIC_24} & _activas(am))
+    assert prot._sub_etapa == "enfriamiento"
+    # recupera P_min: aviso despejado y lenta abierta otra vez
+    estado.sensores_pres["pres_camara"] = 200.0
+    set_do.reset_mock()
+    reloj.t += 1
+    prot.update()
+    assert CIC_25 not in _activas(am)
+    assert "descompresion_lenta_on" in _llamadas(set_do)
+
+
+def test_mb_modo_4_sin_cambio_no_toca_la_lenta(reloj):
+    am = AlarmManager()
+    prot, estado, set_do = _protocolo(modo=4, pres=200.0, pchq=ATM, alarmas=am)
+    prot.ejecutar()
+    estado.sensores_pres["pres_camara"] = 120.0
+    set_do.reset_mock()
+    for _ in range(10):
+        reloj.t += 3
+        prot.update()
+    llamadas = _llamadas(set_do)
+    assert CIC_25 in _activas(am)
+    assert "descompresion_lenta_on" not in llamadas
+    assert "descompresion_lenta_off" not in llamadas
+
+
+def test_b3_tope_presurizacion_sin_referencia_atm_sella(reloj):
+    """B-3: sin referencia atmosférica configurada no se usa 101,3/20: el
+    tope (a) sella (lado seguro), aunque la presión supere 101,3 + 20."""
+    prot, estado, set_do = _protocolo(modo=4, pres=150.0, pchq=ATM)
+    prot.ejecutar()
+    prot.config.get.side_effect = lambda k, d=None: {"temp_max_apertura": 80.0}.get(k, d)
+    from autoclave.state_machine.cycle_phases.enfriamiento_contrapresion import (
+        ENFR_TIMEOUT_PRESURIZACION)
+    assert prot._registrar_tope(ENFR_TIMEOUT_PRESURIZACION, 150.0) is True
+    assert prot.sellado and prot.solo_lenta
+
+
+def test_b3_tope_presurizacion_sin_lectura_de_presion_sella(reloj):
+    prot, estado, set_do = _protocolo(modo=4, pres=150.0, pchq=ATM)
+    prot.ejecutar()
+    from autoclave.state_machine.cycle_phases.enfriamiento_contrapresion import (
+        ENFR_TIMEOUT_PRESURIZACION)
+    assert prot._registrar_tope(ENFR_TIMEOUT_PRESURIZACION, None) is True
+    assert prot.sellado
+
+
+def test_b3_tope_presurizacion_con_referencia_de_altura(reloj):
+    """Referencia configurada 75 kPa (+10): 90 kPa mantiene contrapresión
+    (no sella); 84 kPa sella."""
+    prot, estado, set_do = _protocolo(modo=4, pres=150.0, pchq=ATM)
+    prot.ejecutar()
+    prot.config.get.side_effect = lambda k, d=None: {
+        "presion_admosferica": 75.0, "rango_presion_atm": 10.0,
+        "temp_max_apertura": 80.0}.get(k, d)
+    from autoclave.state_machine.cycle_phases.enfriamiento_contrapresion import (
+        ENFR_TIMEOUT_PRESURIZACION)
+    assert prot._registrar_tope(ENFR_TIMEOUT_PRESURIZACION, 90.0) is False
+    assert not prot.sellado
+    prot2, _, _ = _protocolo(modo=4, pres=150.0, pchq=ATM)
+    prot2.ejecutar()
+    prot2.config.get.side_effect = prot.config.get.side_effect
+    assert prot2._registrar_tope(ENFR_TIMEOUT_PRESURIZACION, 84.0) is True

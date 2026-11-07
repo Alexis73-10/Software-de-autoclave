@@ -13,8 +13,8 @@ Rama `tanda32` desde `dev`. Entrega NO compilada. Plan: `docs/mis_plans/prompt_c
 ## Pruebas
 Nuevas: `tests/test_t32_enfriamiento_contrapresion.py`, `tests/test_t32_catalogo_migraciones.py`, `tests/test_t32_integracion_descompresion.py`, `tests/test_t32_integracion_protocolo.py`. El texto de progreso T30-02 sigue correcto (sin cambios).
 
-Suite completa: (se completa al cerrar)
-Revisor: (se completa al cerrar)
+Suite completa (código final): 11681 pasan, 11 omitidas, 3 xfail, 1 fallo (`suite_t32_final.txt`, 10 min 21 s): `test_t26_arq_revision::test_latido_se_renueva_en_cada_tick_retenido...`, de temporización, ajeno a la tanda; intermitente bajo carga (el archivo completo pasa solo, 15 tests). Corrida previa sobre fcf586f5: 11654 pasan, 0 fallos. Corregido además `test_t20_s3_setup_modbus` (codificación de PowerShell, preexistente).
+Revisor: dos pasadas (Opus). Primera: ALTO tope del protocolo y MEDIOS corregidos. Segunda: sin CRÍTICOS ni ALTOS; MEDIO M-A y M-B corregidos; B-1/B-2 pendientes (decisiones 20 a 24).
 
 ## Riesgos
 HAZ-T32-01 (ebullición por pérdida de contrapresión), HAZ-T32-02 (golpe de ariete / choque térmico en la chaqueta) y HAZ-T32-03 (aguja del modo 5 mal ajustada, residual de puesta en marcha) en `docs/riesgos/registro_riesgos.md`. Trazabilidad REQ-82..REQ-85. Banco: bloque T32 (T32-01..06). Renumerados en la revisión de seguridad (antes HAZ-LIQ-01..03, que chocaban con HAZ-LIQ-01 de la T11 y HAZ-LIQ-02 de D-19, que no cambian).
@@ -32,6 +32,15 @@ HAZ-T32-01 (ebullición por pérdida de contrapresión), HAZ-T32-02 (golpe de ar
 | B2, B3, B5 | Sin cambio de código; decisiones 16 a 18. |
 
 Pruebas nuevas o ajustadas: `test_t32_enfriamiento_contrapresion.py` (tope en `solo_aviso`, M1), `test_t32_integracion_protocolo.py` (tope con contrapresión en modos 4 y 5, carga bajo temperatura de enfriamiento pero sobre `temp_max_apertura`, sellado sin Principal, sellado por tope (a) sin contrapresión, CIC-25 al sellar, (b) sin atmosférica), `test_t32_integracion_descompresion.py` ((b) sin atmosférica, LIQ-03 con AI vencida y p = 0, M1 con el Principal 1 °C sobre T_est).
+
+## Correcciones de la segunda revisión de seguridad
+| Hallazgo | Corrección |
+|---|---|
+| M-A, contrapresión de enfriamiento sobre el alivio | Regla nueva en `catalogo_parametros._evaluar_limites` (mismo mecanismo que C-04.3/C-05.9, alivio del equipo con `_limites()`): `descompresion.modo_4/modo_5.presion_camara_enfriamiento > alivio de cámara − MARGEN_CONTRAPRESION_BAJO_ALIVIO` (10 kPa, igual a `limites_equipo.MARGEN_CORTE_BAJO_ALIVIO`, verificado por prueba) se rechaza al guardar y al cargar, código `LIMITE_CONTRAPRESION_ENFRIAMIENTO` (`valor` = máximo admisible), texto `opciones.err_limite_contrapresion_enfriamiento` es/en, mapeado en `sesion_backend` y `parametros_ciclo_controller`. 300 de fábrica y 375 siguen válidos (alivio 385). Sin migración: un programa instalado con más de 375 queda rechazado al cargar como con los otros límites. En el componente, el objetivo de reposición siempre se acota a `presion_max_reposicion` (antes `max(objetivo, tope)` dejaba pasar el objetivo); con tope >= objetivo el resultado es idéntico al de M1. |
+| M-B, lenta abierta bajo P_min en el protocolo (modo 5) | Con `solo_aviso=True`, mientras `aviso_contrapresion` esté activo (10 s bajo P_min o sin dato), `descompresion_lenta_on` = False; reabre cuando el aviso se despeja (presión sobre P_min). El aire sigue reponiendo. La fase (`solo_aviso=False`) no cambia (lenta abierta hasta CIC-24 a los 60 s). Modo 4 sin cambio. |
+| B-3, `_registrar_tope` con 101,3/20 por defecto | Usa `descompresion.presion_atm_configurada(config)` y `rango_presion_atm` configurado; sin referencia configurada, o sin lectura válida de presión, el tope (a) sella (lado seguro). |
+
+Pruebas nuevas: `test_t32_catalogo_migraciones.py` (M-A: rechazo 376/380/400 en modos 4 y 5, aceptación 300/375, programa sólido, alivio del equipo distinto, `set_param` sin mutar, sin migración, textos y mapeos es/en), `test_t32_enfriamiento_contrapresion.py` (M-A: objetivo sobre el tope nunca repone sobre el tope; M-B: lenta cerrada a los 10 s y reabierta al recuperar, sin dato, fase sin cambio, modo 4 sin lenta), `test_t32_integracion_protocolo.py` (M-B modo 5 con aire que falla y modo 4 sin cambio; B-3 sin referencia, sin lectura y con referencia de altura). Ajustadas: `test_t32_enfriamiento_contrapresion.py::test_m1_reposicion_acotada` (un tope bajo el objetivo ahora sí acota), `test_t12_c04_presion_add.py::_cycle_alto` (el programa líquido a 139,5 °C usaba 395 kPa en modo 4, imposible con M-A porque Psat + 30 ≈ 386 > 375; pasa a modo 0) y `test_v8a_tipo_carga_modos.py::_params` (400 → 300).
 
 ## DECISIÓN SIN CONFIRMAR (lista completa)
 1. `timeout_presurizacion_enfriamiento` y CIC-23.
@@ -54,6 +63,11 @@ Pruebas nuevas o ajustadas: `test_t32_enfriamiento_contrapresion.py` (tope en `s
 17. (B3) `ProtocoloFallo.reanudar()` crea un componente nuevo: (a), (b), topes y conteo de LIQ-02 desde cero (el tope ya registrado en el protocolo se conserva).
 18. (B5) El aire comprimido se reafirma (ON) cada 3 s mientras corresponde, sin ciclo ON/OFF propio.
 19. (M1) `HISTERESIS_REPOSICION_AIRE_KPA` = 2 kPa y el tope de reposición alivio de cámara − 10 kPa (sin dato, objetivo + 30) hasta el banco.
+20. (M-A) La regla del alivio mira las secciones modo_4 y modo_5 aunque el modo activo sea otro (falla cerrada). Consecuencia física: con carga líquida en modo 4/5 ya no cabe una temperatura de esterilización con Psat + 30 > alivio − 10 (≈ 138 °C con alivio 385). Si el parámetro supera el tope en ejecución (programa que no pasó la regla), la condición (a) no se alcanza y en la fase termina en CIC-23.
+21. (M-B) En el protocolo, durante el aviso de contrapresión la lenta queda cerrada y la carga enfría solo por la chaqueta (más lento); un aviso intermitente abre y cierra la lenta al ritmo del aviso.
+22. (B-1, pendiente, no implementado) El motivo visible de un tope sin sellar no llega a `bloqueado_motivo`.
+23. (B-2, pendiente, no implementado) El texto del sellado por tope dice «Principal sin lectura» aunque la causa sea el tope; y el caso Principal válido sin Referencias no tiene texto propio.
+24. (Preexistente, fuera de alcance) Con la trama AI vencida y el Principal congelado bajo `temperatura_enfriamiento`, `_enfriada_confirmada` puede pasar a la rápida (`protocolo_fallo.py` ~590-594 y ~844-866).
 
 ## No se compiló
 Para compilar: `python tools/entrega/compilar_entrega.py` desde `dev` limpio.

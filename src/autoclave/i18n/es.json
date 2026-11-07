@@ -326,6 +326,7 @@
     "aviso_modo_liquido": "Carga líquida: el modo de descompresión cambió a {modo} ({nombre}).",
     "aviso_modo_solido": "Carga sólida: el modo de descompresión volvió a {modo} ({nombre}).",
     "err_limite_presion_camara": "No se puede guardar: el techo de presión de cámara llegaría al alivio de cámara ({alivio_camara} kPa). La presión adicional debe ser menor que {valor} kPa.",
+    "err_limite_contrapresion_enfriamiento": "No se puede guardar: la «Presión de cámara durante el enfriamiento» debe ser como máximo {valor} kPa (alivio de cámara {alivio_camara} kPa menos 10 kPa), para que el aire comprimido no levante la válvula de alivio.",
     "err_limite_consigna_chaqueta": "No se puede guardar: la consigna calculada de chaqueta es {valor} kPa y, con la banda de ±10 kPa, llega al alivio de chaqueta ({alivio_chaqueta} kPa).",
     "err_limite_presion_chaqueta": "No se puede guardar: «Presión de chaqueta» + «Rango de presión de chaqueta» llega al alivio de chaqueta ({alivio_chaqueta} kPa). La presión de chaqueta debe ser menor que {valor} kPa.",
     "aviso_techo_sobre_suministro": "Guardado con advertencia: el techo de presión de cámara supera el suministro (350 kPa). La cámara no lo alcanzará y la válvula de vapor de cámara quedará abierta en ese tramo.",
