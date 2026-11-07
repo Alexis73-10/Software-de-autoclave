@@ -257,8 +257,16 @@ _CLAVES_INICIO_CICLO = {
     "operador_invalido": "operador_ciclo.err_invalido",
     "operador_no_verificable": "operador_ciclo.err_no_verificable",
 }
+# Tanda 31 (ENT-03): 409 de POST /cycle/acknowledge sin la cámara entregada.
+# El motivo vigente (valor y límite, como NO ABRIR) viene en el cuerpo
+# (`detail`, `motivo_textos`, `entrega`). Los 403 `reautenticacion_*` de la
+# confirmación forzada (ENT-04) y `rol_sin_permiso` ya son globales.
+_CLAVES_CONFIRMAR_CICLO = {
+    "camara_no_entregada": "sesion.camara_no_entregada",
+}
 _CLAVES_POR_RUTA = (("/io/test", _CLAVES_IO_TEST),
                     ("/cycle/start", _CLAVES_INICIO_CICLO),
+                    ("/cycle/acknowledge", _CLAVES_CONFIRMAR_CICLO),
                     ("/maintenance/atm-calibration", _CLAVES_CALIBRACION_ATM),
                     ("/backup/restore", _CLAVES_RESTAURAR),
                     ("/theme", _CLAVES_TEMA))

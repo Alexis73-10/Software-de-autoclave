@@ -15,10 +15,11 @@ from fastapi import APIRouter
 
 from autoclave.backend.dependencias import (DISTINTO_DE_CICLO, RechazoApi, _Rechazo, _auditar,
     _log_desarrollo, _nombre_estado, _rechazar, _rechazar_si_config_invalida, _token_de,
-    context, guard_estado, tokens)
-from autoclave.backend.rutas._comun import (_ai_habilitadas, _carga_liquida,
+    context, guard_estado, reautenticar, requiere_rol, tokens)
+from autoclave.backend.rutas._comun import (_ai_habilitadas, _campos_motivo, _carga_liquida,
     _ciclo_de_pantalla, _i18n_t, _motivo_paro, _nombres_ciclo, _salidas_sin_confirmar_pendiente,
     _terminacion_y_alarmas)
+from autoclave.auth.roles import ROL_INGENIERO
 
 # Mismo nombre de logger que antes de partir server.py (ORG-12): los
 # registros conservan su origen "autoclave.backend.server".
@@ -192,6 +193,8 @@ def get_current_cycle_progress():
     # cómo terminó y las alarmas del ciclo. P4 (NO CONFORME) se retiró (FC-08).
     if progreso.get("resultado") is not None:
         progreso.update(_terminacion_y_alarmas(ciclo_id, fase_ciclo, progreso))
+        # ENT-12 (tanda 31): entrega de la cámara, solo con resultado
+        progreso["entrega"] = _entrega_publicada(_entrega_actual())
     return {
         "activo": True,
         "ciclo_db_id": ciclo_id,
@@ -577,14 +580,90 @@ def reset_outputs():
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# ── Tanda 31 (ENT-03/04/05/12): entrega de la cámara ───────────────────────
+
+_MOTIVO_SIN_ENTREGA = "La cámara aún no está en condiciones seguras"
+_MOTIVO_ESPERA = "Esperando condiciones de apertura: {s} s"
+
+
+def _entrega_actual() -> dict:
+    """estado.entrega_camara, normalizado y fallando cerrado: sin dato o con
+    un valor que no se entiende, no entregada (ENT-03)."""
+    e = getattr(context.estado, "entrega_camara", None)
+    if not isinstance(e, dict):
+        return {"entregada": False, "motivos": [], "espera_restante_s": None, "forzable": True}
+    espera = e.get("espera_restante_s")
+    if isinstance(espera, bool) or not isinstance(espera, int):
+        espera = None
+    motivos = e.get("motivos")
+    return {"entregada": e.get("entregada") is True,
+            "motivos": list(motivos) if isinstance(motivos, (list, tuple)) else [],
+            "espera_restante_s": espera,
+            "forzable": e.get("forzable") is True}
+
+
+def _entrega_publicada(e: dict) -> dict:
+    """ENT-12: {entregada, motivos (texto), espera_restante_s, forzable} y, para
+    presentarlos en el idioma y las unidades vigentes, `motivos_detalle`
+    (código, valores y textos es/en de cada motivo, como NO ABRIR)."""
+    return {"entregada": e["entregada"],
+            "motivos": [str(m) for m in e["motivos"]],
+            "motivos_detalle": [_campos_motivo(m) for m in e["motivos"]],
+            "espera_restante_s": e["espera_restante_s"],
+            "forzable": e["forzable"]}
+
+
+def _motivo_vigente(e: dict) -> str:
+    """Texto del motivo por el que la cámara no está entregada (para el 409, la
+    bitácora y el pie del ticket)."""
+    if e["motivos"]:
+        return "; ".join(str(m) for m in e["motivos"])
+    if e["espera_restante_s"] is not None:
+        return _MOTIVO_ESPERA.format(s=e["espera_restante_s"])
+    return _MOTIVO_SIN_ENTREGA
+
+
+def _ack_confirma_paro() -> bool:
+    """P-6 / ENT-05: paro soltado con el resultado pendiente (CicloState)."""
+    try:
+        return getattr(context.control_loop.state_machine.ciclo,
+                       "ack_confirma_estado_seguro", False) is True
+    except Exception:
+        return False
+
+
+class _AckBody(BaseModel):
+    # ENT-04: confirmación forzada (solo ingeniero, con su contraseña)
+    forzar: bool = False
+    clave: str | None = None
+
+
 @router.post("/cycle/acknowledge")
-def acknowledge_cycle():
+def acknowledge_cycle(request: Request, body: _AckBody | None = Body(None),
+                      authorization: str | None = Header(None)):
     """
     El operador confirmó que vio el resultado del ciclo.
     Activa CICLO_CONFIRMADO para que CicloState libere la transición.
     Solo tiene efecto mientras el estado sea CICLO (esperando confirmación).
+
+    Tanda 31: solo con la cámara entregada (ENT-01/02); si no, 409
+    `camara_no_entregada` con el motivo vigente (ENT-03, falla cerrada: sin
+    dato, no entregada). Excepciones: el paro soltado con el resultado
+    pendiente (ENT-05, `estado.confirmado_tras_paro`) y la confirmación
+    forzada `{forzar: true, clave}` de un ingeniero reautenticado (ENT-04:
+    401/403 de la sesión, 403 `reautenticacion_*`; bitácora
+    `ciclo_confirmado_sin_entrega` y `estado.confirmacion_forzada`). Sin
+    cuerpo, como antes salvo la compuerta.
     """
     entidad = "/cycle/acknowledge"
+    forzar = body is not None and body.forzar is True
+    sesion = None
+    if forzar:
+        # fuera del lock: la verificación de la contraseña es lenta
+        sesion = requiere_rol(ROL_INGENIERO)(request, authorization)
+        reautenticar(body.clave or "", sesion, entidad, origen="confirmacion_forzada")
+    rechazo = None
+    forzada = None
     with guard_estado(frozenset(), entidad) as actual:
         if actual != GlobalState.CICLO:
             raise _Rechazo(409, "estado_no_permitido", "No hay un ciclo esperando confirmación",
@@ -600,16 +679,42 @@ def acknowledge_cycle():
             raise _Rechazo(409, "sin_resultado", "No hay un ciclo esperando confirmación")
         # FC-08 (tanda 21): se retiró el 409 no_conforme_sin_reconocer (P4)
 
-        context.estado.set_flag("CICLO_CONFIRMADO", True)
+        # ENT-03/04/05 (tanda 31): compuerta de la entrega de la cámara
+        entrega = _entrega_actual()
+        tras_paro = False
+        if not entrega["entregada"]:
+            if _ack_confirma_paro():
+                tras_paro = True
+            elif sesion is not None:
+                forzada = {"usuario": sesion.usuario, "motivo": _motivo_vigente(entrega)}
+            else:
+                rechazo = entrega
+        if rechazo is None:
+            context.estado.set_flag("CICLO_CONFIRMADO", True)
+            if tras_paro:
+                context.estado.confirmado_tras_paro = True
+            if forzada is not None:
+                context.estado.confirmacion_forzada = dict(forzada)
 
         # El operador ya vio el resultado en la pantalla del ciclo: si terminó
         # en cualquier FALLO (FALLO_*, EMERGENCIA, SENSOR_AUSENTE, ...), se
         # pre-arma RESET_FALLA para no exigir un segundo reconocimiento
         # (§5.9; antes solo FALLO_* y EMERGENCIA, y SENSOR_AUSENTE dejaba la
         # máquina en FALLA sin salida desde QML, OPC-22).
-        reconoce_falla = progreso_ciclo.resultado(fase) == "fallo"
+        reconoce_falla = rechazo is None and progreso_ciclo.resultado(fase) == "fallo"
         if reconoce_falla:
             context.estado.set_flag("RESET_FALLA", True)
+    if rechazo is not None:
+        # fuera del lock: los textos leen la configuración de unidades
+        primero = rechazo["motivos"][0] if rechazo["motivos"] else None
+        _rechazar(409, "camara_no_entregada", _motivo_vigente(rechazo), entidad,
+                  extra={**_campos_motivo(primero),
+                         "entrega": _entrega_publicada(rechazo)})
+    if forzada is not None:
+        _auditar("ciclo_confirmado_sin_entrega", sesion, entidad=entidad,
+                 valor_nuevo=forzada["motivo"],
+                 detalle={"fase": fase, "motivo": forzada["motivo"],
+                          "ciclo": _ciclo_de_pantalla()})
     if reconoce_falla:
         _auditar("falla_reconocida", entidad=entidad, detalle={"fase": fase})
     return {"ok": True, "action": "CICLO_CONFIRMADO"}

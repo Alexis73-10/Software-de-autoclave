@@ -38,6 +38,7 @@ Window {
     QtObject {
         id: progresoFalso
         property string resultado: ""
+        property bool entregada: true   // ENT-09: CONFIRMAR exige la cámara entregada
         property bool activo: false
     }
     Binding { target: Escala; property: "factor"; value: Math.min(ventana.width / 1200, ventana.height / 1920) }

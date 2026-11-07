@@ -428,6 +428,14 @@
     "cancelar_error": "No se pudo cancelar el ciclo. Verifique la conexión con el módulo E/S e intente de nuevo.",
     "confirmar": "CONFIRMAR",
     "confirmar_error": "No se pudo confirmar el fin del ciclo. Verifique la conexión con el módulo E/S e intente de nuevo.",
+    "entrega_motivo": "Esperando cámara segura: {motivo}",
+    "entrega_sin_motivo": "Esperando cámara segura",
+    "entrega_espera": "Esperando condiciones de apertura: {tiempo}",
+    "confirmar_forzado": "Confirmar sin condiciones seguras",
+    "modal_forzar_titulo": "Confirmar sin condiciones seguras",
+    "modal_forzar_cuerpo": "La cámara aún no está en condiciones seguras de apertura. Confirmar ahora entrega la cámara sin verificarla: queda registrado en la bitácora y en el ticket. Se pedirá su contraseña de Ingeniero.",
+    "modal_forzar_accion": "Continuar",
+    "forzar_clave_titulo": "Contraseña de Ingeniero",
     "aviso_titulo": "AVISO",
     "temp_ester": "Temperatura de esterilización",
     "tiempo_est": "Tiempo de esterilización",
@@ -889,6 +897,7 @@
     "error_generico": "No se pudo completar la operación",
     "arranque_retenido": "El equipo aún está iniciando; espere a que termine el arranque e intente de nuevo",
     "arranque_no_iniciado": "El arranque del equipo todavía no ha comenzado; espere a que termine e intente de nuevo",
+    "camara_no_entregada": "La cámara aún no está en condiciones seguras; espere a que lo esté para confirmar",
     "rol_sin_permiso": "Su rol no tiene permiso para esta acción",
     "titulo_cambio_clave": "CAMBIAR CONTRASEÑA",
     "aviso_cambio_obligatorio": "Debe cambiar su contraseña antes de continuar",
@@ -1765,6 +1774,7 @@
     "temp_alta": "Temperatura {temp}, máximo {temp_max}",
     "no_permitida": "Orden de puerta no permitida",
     "secando_vapor_residual": "Secando vapor residual de la cámara",
+    "camara_sellada": "Cámara sellada: esperando que la carga se enfríe",
     "error_comunicacion": "Error de comunicación"
   },
   "roles": {
@@ -1952,7 +1962,8 @@
       "usuario_renombrado": "renombró la cuenta {anterior} → {nuevo}",
       "cuenta_sistema_rechazada": "intentó modificar la cuenta del sistema {entidad} (rechazado)",
       "usuario_eliminado": "eliminó al usuario {entidad}",
-      "usuario_rol_cambiado": "cambió el rol de {entidad}: {anterior} → {nuevo}"
+      "usuario_rol_cambiado": "cambió el rol de {entidad}: {anterior} → {nuevo}",
+      "ciclo_confirmado_sin_entrega": "confirmó el ciclo sin condiciones seguras de la cámara: {nuevo}"
     },
     "tipo": {
       "estado_seguro_secado_iniciado": "Secado tras fallo iniciado",
@@ -2017,7 +2028,8 @@
       "usuario_renombrado": "Cuenta renombrada",
       "cuenta_sistema_rechazada": "Cuenta del sistema protegida",
       "usuario_eliminado": "Usuario eliminado",
-      "usuario_rol_cambiado": "Rol de usuario cambiado"
+      "usuario_rol_cambiado": "Rol de usuario cambiado",
+      "ciclo_confirmado_sin_entrega": "Ciclo confirmado sin cámara segura"
     }
   },
   "correo_c2": {
@@ -2283,6 +2295,10 @@
     "observacion": "Observación",
     "observacion_referencia": "{sensor} sin lectura desde {hora} ({fase})",
     "cancelado_por": "Cancelado por",
+    "error_ciclo": "Error de ciclo",
+    "confirmado_forzado": "Confirmado sin condiciones seguras por {usuario}: {motivo}",
+    "confirmado_tras_paro": "Confirmado tras paro de emergencia, cámara sin verificar",
+    "entrega_no_registrada": "Entrega de la cámara no registrada (corte de energía)",
     "secado_tras_fallo": "Secado tras fallo",
     "secado_estado": {"pendiente": "pendiente al cerrar el ciclo", "hecho": "{segundos} s", "sin_ruptura": "{segundos} s (la ruptura del vacío no llegó a la presión atmosférica)", "omitido": "omitido ({motivo})", "cortado": "cortado a los {segundos} s ({motivo})", "sin_vacio": "{segundos} s sin lograr vacío (la cámara puede conservar vapor residual)"},
     "secado_motivo": {"desactivado": "desactivado en Parámetros del equipo", "no_aplica": "no aplica", "carga_liquida": "carga líquida", "sin_bomba": "equipo sin bomba de vacío", "sin_secado_programa": "programa sin secado", "fallo_vacio": "falla del sistema de vacío", "paro": "paro de emergencia", "datos_no_vigentes": "sin datos vigentes del módulo E/S", "sin_presion": "presión de cámara sin lectura", "sin_principal": "sensor Principal sin lectura", "puerta_abierta": "puerta no confirmada cerrada", "modo_prueba": "modo prueba", "sellado": "cámara sellada o alivio por sobrepresión", "error": "error interno del control", "sin_referencia_atm": "presión atmosférica de referencia sin configurar", "salidas_sin_confirmar": "apagado de salidas sin confirmar", "programa_incierto": "programa del ciclo interrumpido incierto"}

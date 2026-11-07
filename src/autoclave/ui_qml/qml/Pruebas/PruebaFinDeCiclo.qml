@@ -123,6 +123,7 @@ Window {
             infoEquipo: infoEjemplo
             conteoNotificaciones: 2
             resultado: ventana.resultado
+            entregada: true
             fin: ventana.fin
             fases: ventana.fases
             transcurridoS: 1820

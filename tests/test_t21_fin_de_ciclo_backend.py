@@ -380,6 +380,8 @@ def test_ticket_lleva_quien_cancelo(tmp_path):
     estado.cancelado_por = "luis"
     estado.fase_ciclo = "CANCELADO"
     cl.update()
+    estado.entrega_camara = {"entregada": True}     # ENT-06 (tanda 31): pie en la entrega
+    cl.update()
     impreso = "\n".join(c.args[0] for c in printer.enqueue.call_args_list)
     assert "Cancelado por: luis" in impreso
     avisos = db.cerrar_ciclo.call_args.kwargs["avisos_ticket"]["avisos"]

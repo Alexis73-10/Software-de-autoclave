@@ -210,6 +210,9 @@ class StateMachine:
         elif current_state == GlobalState.CICLO:
             logger.debug("Estado actual: CICLO")
 
+            # Tanda 31 (ENT-01/02): la entrega de la cámara solo cuenta con
+            # datos vigentes (DI al día; la AI la mira CicloState)
+            self.ciclo.datos_vigentes = datos_vigentes is True
             resultado = self.ciclo.run()
 
             # Hotfix ES (6-nov): ningún fin de ciclo inicia un protocolo de

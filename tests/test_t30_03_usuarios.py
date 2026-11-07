@@ -50,14 +50,14 @@ def test_migracion_v13_sobre_bd_v12(tmp_path, monkeypatch):
         db.close()
     db = DbManager(db_path=ruta)
     try:
-        assert db.get_version_esquema() == dbm.ESQUEMA_VERSION == 13
+        assert db.get_version_esquema() == dbm.ESQUEMA_VERSION == 14   # v14: ENT-07
         assert _fila(db, "pepe")["eliminado"] == 0 and _fila(db, "Admin")["eliminado"] == 0
         assert [u["usuario"] for u in db.listar_usuarios()].count("pepe") == 1
     finally:
         db.close()
     # idempotente: reabrir no cambia nada
     db = DbManager(db_path=ruta)
-    assert db.get_version_esquema() == 13
+    assert db.get_version_esquema() == 14
     db.close()
 
 

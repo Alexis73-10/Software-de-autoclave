@@ -114,6 +114,10 @@ def test_completado_se_cierra_al_instante_en_el_registro():
     cl.update()                        # inicio
     cl.estado.fase_ciclo = "COMPLETADO"
     cl.update()                        # sigue en CICLO esperando confirmación
+    # ENT-07 (tanda 31): el resultado se guarda al instante; el cierre, en la entrega
+    assert cl.db.resultados == ["COMPLETADO"] and not cl.db.cerrados
+    cl.estado.entrega_camara = {"entregada": True}
+    cl.update()
     assert cl.db.cerrados and cl.db.cerrados[-1][1] == "COMPLETADO"
 
 
@@ -197,6 +201,9 @@ def test_marca_de_ciclo_en_curso_se_limpia_al_cerrar(tmp_path):
     cl.update()
     assert cl.contador.en_curso() is not None
     cl.estado.fase_ciclo = "COMPLETADO"
+    cl.update()
+    assert cl.contador.en_curso() is not None     # ENT-07: hasta la entrega
+    cl.estado.entrega_camara = {"entregada": True}
     cl.update()
     assert cl.contador.en_curso() is None
 

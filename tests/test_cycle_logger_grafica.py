@@ -130,17 +130,24 @@ def test_descompresion_y_secado_tienen_tramos_propios(entorno):
 
 
 def test_transcurrido_es_monotonico_y_se_congela_al_completar(entorno):
+    # ENT-10 (tanda 31): tras el COMPLETADO el reloj y la gráfica siguen hasta
+    # la entrega de la cámara; ahí se congela
     db, estado, reloj, logger = entorno
     _iniciar(estado, logger, "SECADO")
     _avanzar(reloj, logger, 5.0)
     assert logger.transcurrido_s() == 5.0
-    estado.fase_ciclo = "COMPLETADO"   # espera confirmación: sigue en CICLO
+    estado.fase_ciclo = "COMPLETADO"   # espera la entrega: sigue en CICLO
     logger.update()
     _avanzar(reloj, logger, 30.0)
-    assert logger.transcurrido_s() == 5.0
+    assert logger.transcurrido_s() == 35.0
     cid = logger.ciclo_id_pantalla
     assert db.get_fases_ciclo(cid)[-1]["fin_s"] == 5.0
-    assert len(db.get_lecturas_grafica(cid)) == 6   # sin muestras tras completar
+    estado.entrega_camara = {"entregada": True}
+    logger.update()
+    _avanzar(reloj, logger, 10.0)
+    assert logger.transcurrido_s() == 35.0
+    # la serie siguió durante la espera y se detuvo con la entrega
+    assert len(db.get_lecturas_grafica(cid)) == 36
 
 
 def test_cancelado_mantiene_ciclo_de_pantalla_hasta_salir_de_ciclo(entorno):
@@ -151,11 +158,21 @@ def test_cancelado_mantiene_ciclo_de_pantalla_hasta_salir_de_ciclo(entorno):
     estado.fase_ciclo = "CANCELADO"
     logger.update()
     _avanzar(reloj, logger, 10.0)
+    # ENT-06/07 (tanda 31): resultado registrado, el ciclo sigue abierto
+    # hasta la entrega de la cámara
+    assert logger.ciclo_id == cid
+    assert db.get_ciclo(cid)["fecha_fin"] is None
+    assert db.get_ciclo(cid)["resultado"] == "CANCELADO"
+    assert logger.transcurrido_s() == 13.0
+    assert db.get_fases_ciclo(cid)[-1]["fin_s"] == 3.0
+    estado.entrega_camara = {"entregada": True}
+    logger.update()
+    _avanzar(reloj, logger, 5.0)
     # el ticket ya se cerró, pero la pantalla sigue viendo el ciclo
     assert logger.ciclo_id is None
     assert logger.ciclo_id_pantalla == cid
-    assert logger.transcurrido_s() == 3.0
-    assert db.get_fases_ciclo(cid)[-1]["fin_s"] == 3.0
+    assert logger.transcurrido_s() == 13.0
+    assert db.get_ciclo(cid)["fecha_fin"] is not None
     estado.maquina = GlobalState.PREPARACION
     logger.update()
     assert logger.ciclo_id_pantalla is None

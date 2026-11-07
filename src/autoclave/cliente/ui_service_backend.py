@@ -27,6 +27,8 @@ def instalar_servicio(servicio) -> None:
 # T30-01: rechazo del último POST /cycle/start, por hilo (cada envío corre en
 # su propio hilo de trabajo; las dos ventanas no se pisan)
 _rechazo_inicio = threading.local()
+# Tanda 31 (ENT-03/04): último rechazo de POST /cycle/acknowledge, por hilo
+_rechazo_ack = threading.local()
 
 # D8-2.15 (tanda 8): rechazo de DESPEJAR (POST /alarms/{clave}/acknowledge)
 # por código HTTP → clave del catálogo i18n. 409: el enlace con el módulo E/S no
@@ -300,14 +302,41 @@ class UIServiceBackend:
             logger.warning("abort_cycle error: %s", e)
             return False
 
-    def acknowledge_cycle(self) -> bool:
-        """Envía POST /cycle/acknowledge. Retorna True si tuvo éxito."""
+    def acknowledge_cycle(self, forzar: bool = False, clave: str | None = None) -> bool:
+        """Envía POST /cycle/acknowledge. Retorna True si tuvo éxito.
+
+        Tanda 31 (ENT-03/04): `forzar=True` con `clave` pide la confirmación
+        forzada (solo ingeniero con sesión en esta ventana; la contraseña no se
+        registra). El rechazo HTTP (estado, cuerpo JSON: p. ej. 409
+        `camara_no_entregada` con `detail`, `motivo_textos` y `entrega`) queda
+        en `ultimo_rechazo_ack()`, por hilo."""
+        _rechazo_ack.valor = None
         try:
-            self.backend.post(path="/cycle/acknowledge")
+            from autoclave.cliente.session_manager import SessionManager
+            token = SessionManager.token()
+            extra = {"headers": {"Authorization": f"Bearer {token}"}} if token else {}
+            if forzar:
+                self.backend.post(path="/cycle/acknowledge",
+                                  body={"forzar": True, "clave": clave or ""}, **extra)
+            else:
+                self.backend.post(path="/cycle/acknowledge", **extra)
             return True
         except Exception as e:
-            logger.warning("acknowledge_cycle error: %s", e)
+            respuesta = getattr(e, "response", None)
+            if respuesta is not None:
+                try:
+                    datos = respuesta.json()
+                except Exception:
+                    datos = {}
+                _rechazo_ack.valor = (respuesta.status_code, datos if isinstance(datos, dict) else {})
+            # sin el texto de la excepción: nunca la contraseña
+            logger.warning("acknowledge_cycle error: %s", type(e).__name__)
             return False
+
+    def ultimo_rechazo_ack(self):
+        """Tanda 31: (estado HTTP, cuerpo) del último acknowledge_cycle
+        rechazado en este hilo; None si fue aceptado o no hubo respuesta HTTP."""
+        return getattr(_rechazo_ack, "valor", None)
 
     def get_campo(self, clave, defecto=None):
         """Campo de primer nivel de /status (caché), o `defecto`."""

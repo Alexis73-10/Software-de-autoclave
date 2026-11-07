@@ -32,11 +32,15 @@ from autoclave.core.runtime.sensores_ciclo import (asignacion_de, canonica, f0_d
                                                    sensor_principal)
 from autoclave.services.domain.logging.ticket_formatter import (
     CLAVE_CANCELADO_POR,
+    CLAVE_CONFIRMADO_FORZADO,
+    CLAVE_CONFIRMADO_TRAS_PARO,
+    CLAVE_SECADO_TRAS_FALLO,
     aviso_secado_tras_fallo,
     f0_objetivo_de_programa,
     format_footer,
     format_header,
     format_row,
+    lineas_resultado,
     motivo_ticket,
     presentacion_actual,
 )
@@ -93,6 +97,19 @@ _INTERVALO_DEFAULT: dict[str, int] = {
     "H": 180,
     "S": 60,    # 1 min
 }
+
+# ENT-06 (tanda 31): filas «E» de la espera de la entrega de la cámara, con
+# el mismo parámetro de intervalo general del ticket
+_INTERVALO_ESPERA_PARAM = "intervalo_impresion"
+_INTERVALO_ESPERA_DEFAULT = 180
+
+
+def _entrega_registrada(estado) -> bool:
+    """ENT-01/02 (tanda 31): True solo si CicloState publicó la cámara como
+    entregada (`estado.entrega_camara["entregada"] is True`). Sin dato o con
+    otro valor, no entregada (falla cerrada)."""
+    entrega = getattr(estado, "entrega_camara", None)
+    return isinstance(entrega, dict) and entrega.get("entregada") is True
 
 
 class _RegistroBD:
@@ -254,6 +271,10 @@ class CycleLogger:
         # mismo cierre ni arrancar un ciclo nuevo mientras se espera esa
         # confirmación (ver update()).
         self._cierre_ya_procesado = False
+        # ENT-06/07 (tanda 31): resultado ya registrado (fila «E», base y
+        # respaldo) y el ciclo sigue abierto hasta la entrega de la cámara o
+        # la confirmación. None = sin resultado todavía
+        self._resultado: dict | None = None
 
         # Pantalla de ciclo en curso (reloj monotónico, aparte del ticket)
         self._reloj_mono        = reloj_mono
@@ -284,21 +305,35 @@ class CycleLogger:
                 return
             fase_nombre = self.estado.fase_ciclo or ""
             self._seguir_pantalla()
-            if fase_nombre not in _FASES_EN_CURSO:
-                # Fin del ciclo (COMPLETADO, fallo, cancelación, emergencia):
-                # no esperar a que el estado global salga de CICLO (puede
-                # tardar hasta que el operador confirme) — cerrar e imprimir
-                # ahora mismo. El COMPLETADO también (PF-17, E4): un corte de
-                # energía antes de confirmar no lo deja sin cierre.
-                self._cierre_ya_procesado = True
-                self._on_fin(fase_nombre)
+            if self._resultado is not None:
+                # ENT-06 (tanda 31): espera de la entrega de la cámara
+                if _entrega_registrada(self.estado):
+                    self._cierre_ya_procesado = True
+                    self._on_cierre()
+                else:
+                    self._tick_espera()
+            elif fase_nombre not in _FASES_EN_CURSO:
+                # Resultado del ciclo (COMPLETADO, fallo, cancelación,
+                # emergencia): fila «E», base y respaldo ahora mismo (PF-17,
+                # E4: un corte antes de la entrega no lo deja sin resultado).
+                # ENT-06/07 (tanda 31): el pie y la fecha de fin, en la entrega
+                self._on_resultado(fase_nombre)
+                if _entrega_registrada(self.estado):
+                    self._cierre_ya_procesado = True
+                    self._on_cierre(fila_final=False)
             else:
                 self._tick()
         else:
             if self._activo:
-                resultado = self.estado.fase_ciclo or "DESCONOCIDO"
-                self._on_fin(resultado)
+                # Salida de CICLO sin entrega registrada (confirmación forzada,
+                # tras paro, o cualquier otra vía): se cierra igual
+                if self._resultado is None:
+                    self._on_resultado(self.estado.fase_ciclo or "DESCONOCIDO")
+                    self._on_cierre(fila_final=False)
+                else:
+                    self._on_cierre()
             self._cierre_ya_procesado = False
+            self._resultado = None
             self._reg_cerrado = None
             self.hora_fin_pantalla = None
             self._t0_mono = None
@@ -528,6 +563,7 @@ class CycleLogger:
         self._reg_cerrado        = None
         self.hora_fin_pantalla   = None
         self._secado_pendiente   = None     # A13: el del ciclo anterior ya no se sigue
+        self._resultado          = None
 
         if self.printer is not None:
             meta = {
@@ -572,73 +608,164 @@ class CycleLogger:
             return None
         return float(valor)
 
-    def _on_fin(self, resultado: str):
+    def _avisos_ciclo(self, resultado: str) -> tuple[list, float | None]:
+        """(avisos del pie, segundos sin datos del módulo E/S) vigentes.
+        D8-2.14: van también a la base y al respaldo (reimpresión idéntica)."""
+        sin_datos_s = self._sin_datos_modulo_es_s()
+        # X9 (D9-13.4): texto o {"clave": ..., parámetros}
+        avisos = [a for a in (getattr(self.estado, "avisos_ciclo", None) or [])
+                  if isinstance(a, str)
+                  or (isinstance(a, dict) and isinstance(a.get("clave"), str))]
+        # FC-12 (tanda 21): el usuario identificado que canceló, en el
+        # ticket, la base y el respaldo (reimpresión idéntica)
+        cancelado_por = getattr(self.estado, "cancelado_por", None)
+        if resultado == "CANCELADO" and isinstance(cancelado_por, str) and cancelado_por:
+            avisos.append({"clave": CLAVE_CANCELADO_POR, "usuario": cancelado_por})
+        # A13 (tanda 28): secado tras fallo del ciclo no completado
+        secado = (aviso_secado_tras_fallo(getattr(self.estado, "secado_tras_fallo", None))
+                  if str(resultado or "") != "COMPLETADO" else None)
+        if secado is not None:
+            avisos.append(secado)
+        return avisos, sin_datos_s
+
+    def _avisos_confirmacion(self) -> list:
+        """ENT-04/05 (tanda 31): línea del pie cuando el ciclo se confirmó sin
+        la entrega de la cámara (forzada por un ingeniero o tras un paro)."""
+        forzada = getattr(self.estado, "confirmacion_forzada", None)
+        if isinstance(forzada, dict) and forzada.get("usuario"):
+            motivo = forzada.get("motivo")
+            if isinstance(motivo, (list, tuple)):
+                motivo = "; ".join(str(m) for m in motivo if m)
+            return [{"clave": CLAVE_CONFIRMADO_FORZADO, "usuario": str(forzada["usuario"]),
+                     "motivo": str(motivo) if motivo else None}]
+        if getattr(self.estado, "confirmado_tras_paro", False) is True:
+            return [{"clave": CLAVE_CONFIRMADO_TRAS_PARO}]
+        return []
+
+    def _on_resultado(self, resultado: str):
+        """ENT-06/07 (tanda 31): instante del resultado (fallo, cancelación o
+        COMPLETADO). Fila «E» y, si no es COMPLETADO, «Error de ciclo» y
+        «F0 total» en el ticket; resultado, motivo, código, valores y F0 (el de
+        este momento) a la base y al respaldo con `fecha_resultado`. Sin pie ni
+        fecha de fin: el ciclo sigue abierto hasta la entrega (`_on_cierre`).
+        El reloj de la pantalla sigue corriendo (ENT-10)."""
         # T8: también sin registro en la base (respaldo y ticket siguen)
+        if not self._activo:
+            return
+        if self._t0_mono is not None:
+            t_res = self._reloj_mono() - self._t0_mono
+            self._bd("cerrar la fase", lambda i: self.db.cerrar_fase_abierta(i, t_res),
+                     presentacion=True)
+        fecha_resultado = datetime.now().isoformat()
+        # FC-13 (tanda 21): sello de pared del resultado, para la pantalla
+        self.hora_fin_pantalla = datetime.now().isoformat(timespec="seconds")
+        # Lectura con código E en el instante del resultado
+        self._registrar_lectura("E", para_imprimir=True)
+        motivo = getattr(self.estado, "motivo_fallo", "") or None
+        codigo = getattr(self.estado, "codigo_fallo", "") or None
+        valores = getattr(self.estado, "valores_fallo", None)
+        valores = dict(valores) if isinstance(valores, dict) and codigo else {}
+        f0_total = None
+        try:
+            cycle = self._programa()
+            # F0 solo en laboratorio (SAF-06 de T3), como las fases
+            if (cycle and cycle.get_param("globals", "F0")
+                    and f0_disponible(self.profile)):
+                f0_total = self.estado.f0_acumulado
+        except Exception as exc:
+            logger.warning("CycleLogger: no se pudo leer F0 del ciclo: %s", exc)
+        avisos, sin_datos_s = self._avisos_ciclo(resultado)
+        avisos_ticket = ({"sin_datos_s": sin_datos_s, "avisos": list(avisos)}
+                         if sin_datos_s is not None or avisos else None)
+        self._resultado = {"resultado": resultado, "motivo": motivo, "codigo": codigo,
+                           "valores": valores, "f0_total": f0_total}
+        # TMG-03 de T8: primero el respaldo, después la base
+        if self.respaldo is not None and self.uuid_ciclo:
+            uuid_ciclo = self.uuid_ciclo
+            registro = {"fecha_resultado": fecha_resultado, "resultado": resultado,
+                        "motivo": motivo, "codigo": codigo, "f0_final": f0_total,
+                        "valores": valores}
+            if avisos_ticket is not None:
+                registro["avisos_ticket"] = avisos_ticket
+            self._respaldar(lambda: self.respaldo.resultado(uuid_ciclo, registro))
+        # I4: los parámetros solo si los hay (dobles de prueba antiguos)
+        extra = {"valores_fallo": valores} if valores else {}
+        if avisos_ticket is not None:
+            extra["avisos_ticket"] = avisos_ticket
+        self._bd("registrar el resultado", lambda i: self.db.registrar_resultado(
+            i, resultado, motivo, codigo, f0_final=f0_total,
+            fecha_resultado=fecha_resultado, **extra))
+
+        if self.printer is not None:
+            p = getattr(self, "_presentacion", None)
+            lineas = lineas_resultado(resultado, motivo_ticket(codigo, motivo, p), f0_total, p)
+            if lineas:
+                self.printer.enqueue("\n".join(lineas))
+        logger.info("CycleLogger: ciclo id=%s con resultado %s; espera la entrega de la cámara",
+                    self._ciclo_id, resultado)
+
+    def _tick_espera(self):
+        """ENT-06 (tanda 31): durante la espera de la entrega, fila «E» cada
+        `intervalo_impresion` (Principal y presión) al ticket, la base y el
+        respaldo; también tras un COMPLETADO."""
+        try:
+            intervalo = float(self.config.get(_INTERVALO_ESPERA_PARAM)
+                              or _INTERVALO_ESPERA_DEFAULT)
+        except Exception:
+            intervalo = _INTERVALO_ESPERA_DEFAULT
+        if intervalo <= 0:
+            intervalo = _INTERVALO_ESPERA_DEFAULT
+        if self._ultimo_log is None or (self._reloj_mono() - self._ultimo_log) >= intervalo:
+            self._registrar_lectura("E", para_imprimir=True)
+
+    def _on_cierre(self, fila_final: bool = True):
+        """ENT-06/07/10 (tanda 31): entrega de la cámara (o confirmación
+        forzada, tras paro o salida de CICLO). Fila final «E» (salvo que el
+        resultado se haya registrado en este mismo tick), pie completo con la
+        hora de la entrega, fecha de fin en la base y cierre del respaldo; el
+        reloj de la pantalla se detiene aquí."""
         if self._activo:
+            res = self._resultado or {"resultado": self.estado.fase_ciclo or "DESCONOCIDO",
+                                      "motivo": None, "codigo": None, "valores": {},
+                                      "f0_total": None}
+            resultado, motivo, codigo = res["resultado"], res["motivo"], res["codigo"]
+            valores, f0_total = res["valores"], res["f0_total"]
             if self._t_fin_s is None and self._t0_mono is not None:
                 self._t_fin_s = self._reloj_mono() - self._t0_mono
                 t_fin = self._t_fin_s
                 self._bd("cerrar la fase", lambda i: self.db.cerrar_fase_abierta(i, t_fin),
                          presentacion=True)
             self._reg_cerrado = self._reg
-            # FC-13 (tanda 21): sello de pared del cierre, para la pantalla
-            self.hora_fin_pantalla = datetime.now().isoformat(timespec="seconds")
-            # Última lectura con código E
-            self._registrar_lectura("E", para_imprimir=True)
-            motivo = getattr(self.estado, "motivo_fallo", "") or None
-            codigo = getattr(self.estado, "codigo_fallo", "") or None
-            valores = getattr(self.estado, "valores_fallo", None)
-            valores = dict(valores) if isinstance(valores, dict) and codigo else {}
-            f0_total = None
-            try:
-                cycle = self._programa()
-                # F0 solo en laboratorio (SAF-06 de T3), como las fases
-                if (cycle and cycle.get_param("globals", "F0")
-                        and f0_disponible(self.profile)):
-                    f0_total = self.estado.f0_acumulado
-            except Exception as exc:
-                logger.warning("CycleLogger: no se pudo leer F0 del ciclo: %s", exc)
-            # D8-2.14: las líneas de aviso del pie, también en la base y el
-            # respaldo, para que la reimpresión sea idéntica al ticket en vivo
-            sin_datos_s = self._sin_datos_modulo_es_s()
-            # X9 (D9-13.4): texto o {"clave": ..., parámetros}
-            avisos = [a for a in (getattr(self.estado, "avisos_ciclo", None) or [])
-                      if isinstance(a, str)
-                      or (isinstance(a, dict) and isinstance(a.get("clave"), str))]
-            # FC-12 (tanda 21): el usuario identificado que canceló, en el
-            # ticket, la base y el respaldo (reimpresión idéntica)
-            cancelado_por = getattr(self.estado, "cancelado_por", None)
-            if resultado == "CANCELADO" and isinstance(cancelado_por, str) and cancelado_por:
-                avisos.append({"clave": CLAVE_CANCELADO_POR, "usuario": cancelado_por})
-            # A13 (tanda 28): secado tras fallo del ciclo no completado (al
-            # cierre casi siempre "pendiente": se completa al conocerse)
-            secado = (aviso_secado_tras_fallo(getattr(self.estado, "secado_tras_fallo", None))
-                      if str(resultado or "") != "COMPLETADO" else None)
-            if secado is not None:
-                avisos.append(secado)
+            if fila_final:
+                self._registrar_lectura("E", para_imprimir=True)
+            # avisos vigentes ahora (secado tras fallo ya en su estado final)
+            avisos, sin_datos_s = self._avisos_ciclo(resultado)
+            avisos += self._avisos_confirmacion()
             avisos_ticket = ({"sin_datos_s": sin_datos_s, "avisos": list(avisos)}
                              if sin_datos_s is not None or avisos else None)
+            secado = next((a for a in avisos if isinstance(a, dict)
+                           and a.get("clave") == CLAVE_SECADO_TRAS_FALLO), None)
             if secado is not None and secado.get("estado") == "pendiente" and self._reg is not None:
                 self._secado_pendiente = (self._reg, dict(avisos_ticket))
+            fecha_fin = datetime.now().isoformat()
             # TMG-03 de T8: primero el respaldo, después la base
             if self.respaldo is not None and self.uuid_ciclo:
                 uuid_ciclo = self.uuid_ciclo
-                cierre = {"fecha_fin": datetime.now().isoformat(), "resultado": resultado,
+                cierre = {"fecha_fin": fecha_fin, "resultado": resultado,
                           "motivo": motivo, "codigo": codigo, "f0_final": f0_total,
                           "valores": valores}
                 if avisos_ticket is not None:
                     cierre["avisos_ticket"] = avisos_ticket
                 self._respaldar(lambda: self.respaldo.cierre(uuid_ciclo, cierre))
-            # I4: los parámetros solo si los hay (dobles de prueba antiguos)
             extra = {"valores_fallo": valores} if valores else {}
             if avisos_ticket is not None:
                 extra["avisos_ticket"] = avisos_ticket
             self._bd("cerrar el ciclo", lambda i: self.db.cerrar_ciclo(
-                i, resultado, motivo, codigo, f0_final=f0_total, **extra))
+                i, resultado, motivo, codigo, f0_final=f0_total, fecha_fin=fecha_fin, **extra))
 
             if self.printer is not None:
                 self.printer.enqueue(format_footer(
-                    resultado, datetime.now().isoformat(),
+                    resultado, fecha_fin,
                     temp_final=self._ultima_temp,
                     motivo=motivo_ticket(codigo, motivo, getattr(self, "_presentacion", None)),
                     f0_total=f0_total,
@@ -660,10 +787,18 @@ class CycleLogger:
         if self.contador is not None:
             # S3d: la marca se limpia DESPUÉS del cierre del respaldo (mismo hilo
             # FIFO) y solo si sigue siendo la de este ciclo: un corte entre la
-            # limpieza y el cierre dejaría un ciclo terminado sin cierre ni marca
+            # limpieza y el cierre dejaría un ciclo terminado sin cierre ni marca.
+            # ENT-07 (tanda 31): hasta la entrega la marca sigue (un corte en la
+            # espera cuenta como ciclo interrumpido)
             numero_cerrado = self._numero_en_curso
             self._numero_en_curso = None
             self._respaldar(lambda: self._limpiar_marca(numero_cerrado))
+
+    def _on_fin(self, resultado: str):
+        """Compatibilidad: resultado y cierre en el mismo instante."""
+        if self._resultado is None:
+            self._on_resultado(resultado)
+        self._on_cierre(fila_final=False)
 
     # ------------------------------------------------------------------
     # Pantalla de ciclo en curso: tramos de fase y serie de la gráfica
@@ -683,11 +818,13 @@ class CycleLogger:
             if en_curso:
                 self._bd("abrir la fase", lambda i: self.db.abrir_fase(i, fase, t),
                          presentacion=True)
-            elif self._t_fin_s is None:
-                self._t_fin_s = t    # COMPLETADO / cierre anormal: el reloj se detiene
+            # ENT-10 (tanda 31): tras el resultado el reloj sigue hasta la
+            # entrega de la cámara (_on_cierre lo detiene)
             self._fase_seguida = fase
 
-        if en_curso and (self._proxima_muestra_s is None or t >= self._proxima_muestra_s):
+        # ENT-10: la serie también se muestrea durante la espera de la entrega
+        muestrear = en_curso or (self._resultado is not None and self._t_fin_s is None)
+        if muestrear and (self._proxima_muestra_s is None or t >= self._proxima_muestra_s):
             valores = (t, fase,
                        self.estado.sensores_temp.get("temp_camara"),
                        self.estado.sensores_temp.get("temp_ref"),

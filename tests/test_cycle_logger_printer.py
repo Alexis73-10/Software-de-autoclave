@@ -23,9 +23,14 @@ class FakeDb:
         pass
 
     def cerrar_ciclo(self, ciclo_id, resultado, motivo_fallo=None, codigo_fallo=None,
-                     f0_final=None):
+                     f0_final=None, fecha_fin=None):
         self.cerrados.append((ciclo_id, resultado, motivo_fallo))
         self.codigos.append(codigo_fallo)
+
+    # ENT-07 (tanda 31): el resultado se guarda antes del cierre
+    def registrar_resultado(self, ciclo_id, resultado, motivo_fallo=None, codigo_fallo=None,
+                            f0_final=None, fecha_resultado=None):
+        self.resultados = getattr(self, "resultados", []) + [resultado]
 
     # Pantalla de ciclo en curso (gráfica y tramos de fase): no se verifican aquí
     def insertar_lectura_grafica(self, *args):
@@ -211,12 +216,13 @@ def test_fin_de_ciclo_encola_fila_final_y_pie():
     cl.update()   # header
     cl.update()   # fila por cambio de fase
     cl.estado.machine_state = GlobalState.PREPARADO
-    cl.update()   # _on_fin: fila "E" + pie
+    cl.update()   # fila "E" + «Error de ciclo» (ENT-06) + pie
 
-    assert len(printer.calls) == 4
-    assert "Estado:" in printer.calls[3]
-    assert "Hora fin:" in printer.calls[3]
-    assert "Temp. final:" in printer.calls[3]
+    assert len(printer.calls) == 5
+    assert printer.calls[3].startswith("Error de ciclo: ")
+    assert "Estado:" in printer.calls[4]
+    assert "Hora fin:" in printer.calls[4]
+    assert "Temp. final:" in printer.calls[4]
 
 
 def test_fin_de_ciclo_sin_f0_activo_no_incluye_f0_total_en_el_pie():
@@ -229,7 +235,7 @@ def test_fin_de_ciclo_sin_f0_activo_no_incluye_f0_total_en_el_pie():
     cl.estado.machine_state = GlobalState.PREPARADO
     cl.update()   # _on_fin: fila "E" + pie
 
-    assert "F0 total" not in printer.calls[3]
+    assert "F0 total" not in printer.calls[-1]
 
 
 def test_fin_de_ciclo_con_f0_activo_incluye_f0_total_en_el_pie():
@@ -245,7 +251,7 @@ def test_fin_de_ciclo_con_f0_activo_incluye_f0_total_en_el_pie():
     cl.estado.machine_state = GlobalState.PREPARADO
     cl.update()   # _on_fin: fila "E" + pie
 
-    assert "F0 total: 15.3 min" in printer.calls[3]
+    assert "F0 total: 15.3 min" in printer.calls[-1]
 
 
 def test_fin_de_ciclo_con_f0_en_equipo_no_lab_no_imprime_f0():
@@ -258,7 +264,7 @@ def test_fin_de_ciclo_con_f0_en_equipo_no_lab_no_imprime_f0():
     cl.update()
     cl.estado.machine_state = GlobalState.PREPARADO
     cl.update()
-    assert "F0 total" not in printer.calls[3]
+    assert "F0 total" not in printer.calls[-1]
 
 
 def test_fin_de_ciclo_con_fallo_guarda_codigo_y_imprime_codigo_y_titulo():
@@ -273,8 +279,8 @@ def test_fin_de_ciclo_con_fallo_guarda_codigo_y_imprime_codigo_y_titulo():
     cl.update()   # _on_fin
 
     assert cl.db.codigos == ["CIC-03"]
-    assert "Motivo: CIC-03 - Fallo en calentamiento" in printer.calls[3]
-    assert "calentamiento: x" not in printer.calls[3]
+    assert "Motivo: CIC-03 - Fallo en calentamiento" in printer.calls[-1]
+    assert "calentamiento: x" not in printer.calls[-1]
 
 
 def test_sin_printer_no_falla():

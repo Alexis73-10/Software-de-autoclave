@@ -104,6 +104,13 @@ CLAVE_CANCELADO_POR = "ticket_ciclo.cancelado_por"
 # (tanda 28b): "sin_vacio" = el vacío no se logró ni se sostuvo (nunca "hecho").
 CLAVE_SECADO_TRAS_FALLO = "ticket_ciclo.secado_tras_fallo"
 _ESTADOS_SECADO = ("pendiente", "hecho", "sin_ruptura", "omitido", "cortado", "sin_vacio")
+# ENT-04/05/07 (tanda 31): líneas del pie con la confirmación sin entrega de la
+# cámara. Avisos: {"clave": CLAVE_CONFIRMADO_FORZADO, "usuario", "motivo"},
+# {"clave": CLAVE_CONFIRMADO_TRAS_PARO} y {"clave": CLAVE_ENTREGA_NO_REGISTRADA}
+# (corte de energía durante la espera de la entrega; lo agrega el arranque).
+CLAVE_CONFIRMADO_FORZADO = "ticket_ciclo.confirmado_forzado"
+CLAVE_CONFIRMADO_TRAS_PARO = "ticket_ciclo.confirmado_tras_paro"
+CLAVE_ENTREGA_NO_REGISTRADA = "ticket_ciclo.entrega_no_registrada"
 
 
 def aviso_secado_tras_fallo(resultado) -> dict | None:
@@ -194,6 +201,11 @@ def _linea_aviso(aviso, p: Presentacion) -> str:
                 return f"{_t(p, 'cancelado_por')}: {aviso.get('usuario') or '---'}"
             if clave == CLAVE_SECADO_TRAS_FALLO:
                 return _linea_secado(aviso, p)
+            if clave in (CLAVE_CONFIRMADO_FORZADO, CLAVE_CONFIRMADO_TRAS_PARO,
+                         CLAVE_ENTREGA_NO_REGISTRADA):
+                from autoclave import i18n
+                return i18n.t(clave, p.idioma, usuario=aviso.get("usuario") or "---",
+                              motivo=aviso.get("motivo") or "---")
         except Exception:
             return str(aviso)
     return f"{_t(p, 'aviso')}: {aviso_ticket(aviso, p)}"
@@ -509,6 +521,21 @@ def format_footer(resultado: str, fecha_fin: str, temp_final=None, motivo: str |
     return "\n".join(lines)
 
 
+def lineas_resultado(resultado: str | None, motivo: str | None,
+                     f0_total: float | None = None, p: Presentacion | None = None) -> list[str]:
+    """ENT-06 (tanda 31): líneas impresas en el instante del resultado, tras
+    su fila «E»: si no es COMPLETADO, «Error de ciclo: {motivo}» (sin motivo,
+    el resultado) y «F0 total» si el ciclo tenía F0. COMPLETADO: ninguna."""
+    p = p or presentacion_actual()
+    if str(resultado or "") == "COMPLETADO":
+        return []
+    texto = texto_con_codigos_visibles(motivo) if motivo else resultado_ticket(resultado, p)
+    lineas = [f"{_t(p, 'error_ciclo')}: {texto or '---'}"]
+    if f0_total is not None:
+        lineas.append(f"{_t(p, 'f0_total')}: {f0_total:.1f} min")
+    return lineas
+
+
 def _f0_guardado(valor) -> float | None:
     """f0_final de la base: solo se guarda si el ciclo tenía F0 activo."""
     if isinstance(valor, bool) or not isinstance(valor, (int, float)):
@@ -613,6 +640,19 @@ def format_ticket(ciclo, lecturas, p: Presentacion | None = None) -> str:
     sin_datos_s, avisos = leer_avisos_ticket(_campo(ciclo, "avisos_ticket"))
     parts = [format_header(meta, p)]
     parts += [format_row(r, p) for r in lecturas]
+    # ENT-06 (tanda 31): un ciclo con fecha_resultado imprimió en vivo las
+    # líneas del resultado tras su primera fila «E» (las siguientes son de la
+    # espera de la entrega); los ciclos anteriores quedan como antes
+    if _campo(ciclo, "fecha_resultado"):
+        extra = lineas_resultado(
+            ciclo["resultado"],
+            motivo_ticket(_campo(ciclo, "codigo_fallo"), _campo(ciclo, "motivo_fallo"), p),
+            _f0_guardado(_campo(ciclo, "f0_final")), p)
+        if extra:
+            filas_e = [i for i, r in enumerate(lecturas)
+                       if (r.get("fase_codigo") or "").strip() == "E"]
+            pos = 1 + (filas_e[0] if filas_e else len(lecturas) - 1)
+            parts[pos + 1:pos + 1] = extra
     parts.append(format_footer(
         ciclo["resultado"], ciclo["fecha_fin"],
         temp_final=temp_final, motivo=motivo_ticket(

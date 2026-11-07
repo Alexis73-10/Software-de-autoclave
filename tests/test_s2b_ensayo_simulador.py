@@ -105,6 +105,8 @@ def _evento_ventana(fase_objetivo):
             e1._avanzar(a)
         a["estado"].set_flag("PARO_EMERGENCIA", False)
         _hasta_pendiente(a)
+        fase_final = a["estado"].fase_ciclo
+        e1._confirmar(a)                       # ENT-06 (tanda 31): pie al confirmar
         en_vivo = e1._ticket(a)
         db = a["db"]
         ciclo_id = db._conn.execute("SELECT max(id) FROM ciclos").fetchone()[0]
@@ -112,7 +114,6 @@ def _evento_ventana(fase_objetivo):
         reimpreso = format_ticket(dict(fila), [dict(l) for l in db.get_lecturas_para_imprimir(ciclo_id)])
         corrimiento = (None if registro.get("antes") is None or registro.get("despues") is None
                        else round(registro["despues"] - registro["antes"], 2))
-        fase_final = a["estado"].fase_ciclo
         return {"fase_final": fase_final,
                 "pausa_s": round(registro.get("segundos") or 0.0, 2),
                 "ventana_corrida_s": corrimiento,
@@ -144,6 +145,7 @@ def _desconexion(a, segundos, cancelar):
         e1._tick(a)
         e1._avanzar(a)
     fase_final = a["estado"].fase_ciclo
+    e1._confirmar(a)                           # ENT-06 (tanda 31): pie al confirmar
     ticket = e1._ticket(a)
     return {"fase_final": fase_final, "abortado_por_com02": abortado,
             "no_esteril_pantalla": progreso_ciclo.resultado(fase_final) != "exitoso",

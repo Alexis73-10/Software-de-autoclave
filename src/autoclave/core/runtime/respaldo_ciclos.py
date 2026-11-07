@@ -6,7 +6,13 @@
 #
 #   {"registro": "encabezado", ...metadatos del ciclo...}
 #   {"registro": "lectura", ...}          (las mismas lecturas del ticket)
+#   {"registro": "resultado", "fecha_resultado": ..., "resultado": ..., ...}
 #   {"registro": "cierre", "resultado": ..., "motivo": ..., ...}
+#
+# ENT-07 (tanda 31): "resultado" se escribe en el instante del resultado del
+# ciclo; "cierre", solo en la entrega de la cámara o la confirmación. Un
+# respaldo con "resultado" y sin "cierre" es un corte durante esa espera.
+# Los respaldos anteriores (sin "resultado") se leen igual.
 #
 # Cada escritura hace flush y os.fsync: un corte de energía deja como mucho la
 # última línea incompleta, que la lectura descarta. Se escribe SIEMPRE, con y
@@ -88,6 +94,9 @@ class RespaldoCiclos:
     def lectura(self, uuid_ciclo: str, datos: dict) -> bool:
         return self._anexar(uuid_ciclo, {**datos, "registro": "lectura"})
 
+    def resultado(self, uuid_ciclo: str, datos: dict) -> bool:
+        return self._anexar(uuid_ciclo, {**datos, "registro": "resultado"})
+
     def cierre(self, uuid_ciclo: str, datos: dict) -> bool:
         return self._anexar(uuid_ciclo, {**datos, "registro": "cierre"})
 
@@ -100,10 +109,11 @@ class RespaldoCiclos:
 
     @staticmethod
     def leer(ruta: Path) -> dict | None:
-        """{"encabezado", "lecturas", "cierre"} del archivo. Las líneas
+        """{"encabezado", "lecturas", "resultado", "cierre"} del archivo
+        ("resultado": ENT-07, None en los respaldos anteriores). Las líneas
         ilegibles (p. ej. la última, cortada por un corte de energía) se
         descartan. None si no hay encabezado."""
-        encabezado, lecturas, cierre = None, [], None
+        encabezado, lecturas, cierre, resultado = None, [], None, None
         try:
             # A2: un corte de energía puede dejar bytes basura al final (NTFS
             # rellena con ceros); "replace" evita perder el archivo entero y
@@ -127,11 +137,14 @@ class RespaldoCiclos:
                 encabezado = registro
             elif tipo == "lectura":
                 lecturas.append(registro)
+            elif tipo == "resultado":
+                resultado = registro
             elif tipo == "cierre":
                 cierre = registro
         if encabezado is None or not encabezado.get("uuid"):
             return None
-        return {"encabezado": encabezado, "lecturas": lecturas, "cierre": cierre}
+        return {"encabezado": encabezado, "lecturas": lecturas, "cierre": cierre,
+                "resultado": resultado}
 
     def archivar(self, ruta: Path) -> None:
         destino_dir = self.directorio / "importados"
@@ -144,10 +157,13 @@ def reimportar(respaldo: RespaldoCiclos, db, motivo_interrumpido: str,
     """Arranque con base disponible (§7.4): reimporta cada respaldo cuyo uuid
     no esté en la base; si está pero quedó incompleto (la base falló a mitad de
     ciclo), lo completa (SAF-02 de T8); luego lo archiva. Un respaldo sin
-    cierre se importa como INTERRUMPIDO. Un error deja el archivo en su sitio (se
+    cierre se importa como INTERRUMPIDO; con resultado y sin cierre (ENT-07),
+    con su resultado y el aviso de entrega no registrada. Un error deja el archivo en su sitio (se
     reintenta en el próximo arranque). `excluir`: uuids que no se tocan."""
     # A9-R3 (tanda 28): "interrumpidos" = importados SIN cierre (quedaron
-    # INTERRUMPIDO al importarlos: el arranque los cuenta como interrumpidos)
+    # INTERRUMPIDO al importarlos: el arranque los cuenta como interrumpidos).
+    # ENT-07 (tanda 31): también los de resultado sin cierre, importados o
+    # completados (corte durante la espera de la entrega; DECISIÓN SIN CONFIRMAR)
     resultado = {"importados": [], "completados": [], "ya_registrados": [], "errores": [],
                  "interrumpidos": []}
     excluir = excluir or set()
@@ -160,8 +176,14 @@ def reimportar(respaldo: RespaldoCiclos, db, motivo_interrumpido: str,
         if uuid_ciclo in excluir:
             continue
         try:
-            accion = db.importar_ciclo_respaldo(
-                datos["encabezado"], datos["lecturas"], datos["cierre"], motivo_interrumpido)
+            resultado_ciclo = datos.get("resultado")
+            if resultado_ciclo is not None:
+                accion = db.importar_ciclo_respaldo(
+                    datos["encabezado"], datos["lecturas"], datos["cierre"], motivo_interrumpido,
+                    resultado=resultado_ciclo)
+            else:
+                accion = db.importar_ciclo_respaldo(
+                    datos["encabezado"], datos["lecturas"], datos["cierre"], motivo_interrumpido)
             respaldo.archivar(ruta)
         except Exception:
             logger.exception("RespaldoCiclos: no se pudo reimportar %s", ruta.name)
@@ -169,6 +191,7 @@ def reimportar(respaldo: RespaldoCiclos, db, motivo_interrumpido: str,
             continue
         clave = {"importado": "importados", "completado": "completados"}.get(accion, "ya_registrados")
         resultado.setdefault(clave, []).append(uuid_ciclo)
-        if accion == "importado" and datos["cierre"] is None:
+        if datos["cierre"] is None and (accion == "importado" or (
+                accion == "completado" and datos.get("resultado") is not None)):
             resultado["interrumpidos"].append(uuid_ciclo)
     return resultado

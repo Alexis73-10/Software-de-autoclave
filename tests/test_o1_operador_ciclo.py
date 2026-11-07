@@ -127,7 +127,7 @@ def test_migracion_v6_agrega_la_columna_a_una_base_anterior(tmp_path):
     conn.commit()
     conn.close()
     db = DbManager(ruta)
-    assert db.get_version_esquema() == db_manager.ESQUEMA_VERSION == 13   # v13: usuarios.eliminado (T30-03)
+    assert db.get_version_esquema() == db_manager.ESQUEMA_VERSION == 14   # v14: ciclos.fecha_resultado (ENT-07)
     antiguo = db.get_ciclo(1)
     assert antiguo["numero_ciclo"] == 7 and (antiguo["operador"] or "") == ""     # sin operador, sin romperse
     db.close()

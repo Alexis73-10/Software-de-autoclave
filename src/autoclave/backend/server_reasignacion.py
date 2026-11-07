@@ -252,21 +252,12 @@ def _comprobar_estado(entidad: str, sesion, al_pasar=None) -> None:
 
 
 def _reautenticar(clave: str, sesion, entidad: str) -> None:
-    """Contraseña del usuario de la sesión. Los fallos suman al contador del
-    login (como /auth/change_password): al bloquearse, 429 y token invalidado."""
-    if not clave:
-        srv._rechazar(403, "reautenticacion_requerida", "Escriba su contraseña para confirmar",
-                      entidad, sesion)
-    if not srv.intentos_login.reservar_intento(sesion.usuario):
-        srv._bloquear_por_cambio_clave(sesion, entidad)
-    fila = _ctx().db.get_usuario_by_username(sesion.usuario)
-    if fila is None or not srv.verificar_password(clave, fila.get("hash_pw")):
-        if srv.intentos_login.bloqueado(sesion.usuario):
-            srv._auditar("login_fallido", sesion, entidad=entidad,
-                         detalle={"origen": "reasignacion_io", "bloqueado": True})
-            srv._bloquear_por_cambio_clave(sesion, entidad)
-        srv._rechazar(403, "reautenticacion_fallida", "Contraseña incorrecta", entidad, sesion)
-    srv.intentos_login.registrar_exito(sesion.usuario)
+    """Contraseña del usuario de la sesión. Tanda 31 (ENT-04): la lógica pasó a
+    dependencias.reautenticar (la comparte la confirmación forzada del ciclo);
+    mismos códigos (403 reautenticacion_requerida / reautenticacion_fallida,
+    429 al bloquearse) y mismo origen en la bitácora."""
+    from autoclave.backend.dependencias import reautenticar
+    reautenticar(clave, sesion, entidad, origen="reasignacion_io")
 
 
 def _orientar(errores: list[dict], cambios: dict) -> list[dict]:

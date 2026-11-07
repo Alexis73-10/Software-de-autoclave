@@ -14,7 +14,7 @@ import threading
 
 from PySide6.QtCore import Property, QObject, QTimer, Signal, Slot
 
-from autoclave.ui_qml.domain import fin_de_ciclo
+from autoclave.ui_qml.domain import entrega_camara, fin_de_ciclo
 from autoclave.ui_qml.domain.ciclo_en_curso import (
     NIVEL_INDETERMINADO, AcumuladorGrafica, normalizar_progreso, texto_progreso,
 )
@@ -163,6 +163,24 @@ class ProgresoCiclo(QObject):
                 return fin_de_ciclo.armar(None, [], idioma)
             return {"modo": "fallo", "horaFin": "", "causa": {}, "alarmas": [],
                     "cantidad": 1, "notaObservaciones": ""}
+
+    # ENT-09 (tanda 31): la cámara está entregada (CONFIRMAR disponible). Falla
+    # cerrada: sin resultado o sin `entrega` válida, False.
+    @Property(bool, notify=progresoChanged)
+    def entregada(self) -> bool:
+        return self._progreso["entrega"]["entregada"]
+
+    # ENT-12: el backend declara la confirmación forzada posible (la UI además
+    # exige sesión de ingeniero)
+    @Property(bool, notify=progresoChanged)
+    def forzable(self) -> bool:
+        return self._progreso["entrega"]["forzable"]
+
+    @Slot(str, result=str)
+    def textoEntrega(self, idioma: str) -> str:
+        """ENT-09: texto del indicador «Esperando cámara segura: …» / «Esperando
+        condiciones de apertura: m:ss» en `idioma`."""
+        return entrega_camara.texto_entrega(self._progreso["entrega"], idioma)
 
     @Slot(str, result=str)
     def textoProgreso(self, idioma: str) -> str:

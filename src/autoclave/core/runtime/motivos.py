@@ -59,6 +59,8 @@ CODIGOS = (
     "sobrepresion", "vacio", "temp_alta", "no_permitida", "paro_sin_confirmar",
     # A13-M4 (tanda 28b): secado tras fallo en curso o pendiente
     "secando_vapor_residual",
+    # ENT-01 (tanda 31): entrega de la cámara retenida por el sellado (D8-2.10)
+    "camara_sellada",
 )
 
 

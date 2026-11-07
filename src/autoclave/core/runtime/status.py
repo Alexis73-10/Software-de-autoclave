@@ -215,6 +215,18 @@ class EstadoAutoclave:
         # confirmar el COMPLETADO y lo conduce PREPARADO; vive aquí porque
         # set_active_cycle reconstruye la StateMachine. None = inactivo.
         self.vaciado_chaqueta = None
+        # Tanda 31 (ENT-01/02/04/05/12), contratos del fin de ciclo (los
+        # escribe CicloState; POST /cycle/acknowledge fija los dos últimos;
+        # CicloState.reset() los limpia al iniciar cada ciclo):
+        # - entrega_camara: {"entregada", "motivos" (Motivo), "espera_restante_s",
+        #   "forzable"} con el resultado pendiente; None antes del resultado;
+        # - confirmacion_forzada: {"usuario", "motivo"} si un ingeniero confirmó
+        #   sin la cámara entregada (ENT-04); None si no;
+        # - confirmado_tras_paro: confirmado con el paro soltado sin la cámara
+        #   entregada (ENT-05).
+        self.entrega_camara = None
+        self.confirmacion_forzada = None
+        self.confirmado_tras_paro: bool = False
 
     def update(self, nuevos_datos):
         self.data.update(nuevos_datos)

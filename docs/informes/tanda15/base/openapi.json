@@ -54,6 +54,28 @@
     "title": "ValidationError",
     "type": "object"
    },
+   "_AckBody": {
+    "properties": {
+     "clave": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Clave"
+     },
+     "forzar": {
+      "default": false,
+      "title": "Forzar",
+      "type": "boolean"
+     }
+    },
+    "title": "_AckBody",
+    "type": "object"
+   },
    "_ActivoBody": {
     "properties": {
      "activo": {
@@ -1662,8 +1684,43 @@
   },
   "/cycle/acknowledge": {
    "post": {
-    "description": "El operador confirmó que vio el resultado del ciclo.\nActiva CICLO_CONFIRMADO para que CicloState libere la transición.\nSolo tiene efecto mientras el estado sea CICLO (esperando confirmación).",
+    "description": "El operador confirmó que vio el resultado del ciclo.\nActiva CICLO_CONFIRMADO para que CicloState libere la transición.\nSolo tiene efecto mientras el estado sea CICLO (esperando confirmación).\n\nTanda 31: solo con la cámara entregada (ENT-01/02); si no, 409\n`camara_no_entregada` con el motivo vigente (ENT-03, falla cerrada: sin\ndato, no entregada). Excepciones: el paro soltado con el resultado\npendiente (ENT-05, `estado.confirmado_tras_paro`) y la confirmación\nforzada `{forzar: true, clave}` de un ingeniero reautenticado (ENT-04:\n401/403 de la sesión, 403 `reautenticacion_*`; bitácora\n`ciclo_confirmado_sin_entrega` y `estado.confirmacion_forzada`). Sin\ncuerpo, como antes salvo la compuerta.",
     "operationId": "acknowledge_cycle_cycle_acknowledge_post",
+    "parameters": [
+     {
+      "in": "header",
+      "name": "authorization",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "anyOf": [
+         {
+          "$ref": "#/components/schemas/_AckBody"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Body"
+       }
+      }
+     }
+    },
     "responses": {
      "200": {
       "content": {
@@ -1672,6 +1729,16 @@
        }
       },
       "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
      }
     },
     "summary": "Acknowledge Cycle"

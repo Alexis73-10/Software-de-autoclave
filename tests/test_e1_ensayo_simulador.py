@@ -122,6 +122,16 @@ def _terminar(a, limite_s=3 * 3600):
         _avanzar(a)
 
 
+def _confirmar(a) -> None:
+    """ENT-06 (tanda 31): el pie del ticket sale con la entrega de la cámara o
+    la confirmación. Si al final del ensayo no se entregó (cámara aún no
+    segura), se simula la confirmación: la máquina sale de CICLO. Último paso
+    del ensayo (después no se vuelve a correr el ciclo)."""
+    if "Estado:" not in _ticket(a):
+        a["estado"].set_machine_state(GlobalState.PREPARACION)
+        a["registro"].update()
+
+
 def _ticket(a) -> str:
     return "\n".join(c.args[0] for c in a["printer"].enqueue.call_args_list)
 
@@ -134,8 +144,9 @@ def _resumen(a, evento, extra=None):
     e, p = a["estado"], a["planta"]
     activas = sorted(i.codigo if hasattr(i, "codigo") else getattr(i, "clave", str(i))
                      for i in a["alarmas"].activas())
-    ticket = _ticket(a)
     fuera = [k for k, v in e.salidas_do.items() if v and k in SALIDAS_DE_PROCESO]
+    _confirmar(a)
+    ticket = _ticket(a)
     return {"evento": evento, "fase_final": e.fase_ciclo, "motivo": e.motivo_fallo or "—",
             "alarmas": activas or ["—"], "estado_ticket": _linea(ticket, "Estado:"),
             "operador_ticket": _linea(ticket, "Operador:"),
