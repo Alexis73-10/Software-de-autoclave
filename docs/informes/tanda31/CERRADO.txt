@@ -1,0 +1,3 @@
+Fecha: 2026-11-07
+Commit del merge a dev: 451b1136
+Suite: 11519 pasan, 2 fallos de entorno corregidos/intermitentes (ver R31_informe.md); archivos afectados 21 passed. No se compiló.
