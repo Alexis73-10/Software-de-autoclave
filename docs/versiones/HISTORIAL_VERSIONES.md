@@ -9,6 +9,15 @@ Una entrada por **entrega** (compilación con Setup que se instala en el equipo)
 
 <!-- entradas: las agrega compilar_entrega.py debajo de esta línea, la más nueva primero -->
 
+## 1.0.0-alpha.23 — 2026-11-07
+
+- Etiqueta: `v1.0.0-alpha.23` (commit `chore(ver): 1.0.0-alpha.23`, sobre `d5703d8`)
+- AppVerNum: `1.0.0.1023`
+- SHA-256 del Setup y del zip: en el mensaje de la etiqueta y en `entrega/v1.0.0-alpha.23_2026-11-07/SHA256SUMS.txt` (solo existen después de compilar)
+- Commits desde `v1.0.0-alpha.22`:
+  - d5703d84 fix: transicion del empuje de liquidos (techo AIS durante bajada, enclave sostenido)
+
+
 ## 1.0.0-alpha.22 — 2026-11-07
 
 - Etiqueta: `v1.0.0-alpha.22` (commit `chore(ver): 1.0.0-alpha.22`, sobre `2c16303`)
