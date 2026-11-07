@@ -312,3 +312,64 @@ def test_transicion_resuelve_el_aviso(reloj):
     assert CIC_25 in _activas(am)
     _enfriar(fase, estado, reloj)
     assert CIC_25 not in _activas(am)
+
+
+# ── revisión de seguridad de la tanda 32 ─────────────────────────────────
+
+def test_sin_atmosferica_configurada_no_se_cumple_b(reloj):
+    """Sin presión atmosférica de referencia configurada (ni su brecha), la
+    condición (b) no se cumple y el agua de chaqueta no abre (falla cerrada)."""
+    for faltante in ({"presion_admosferica": ATM}, {"rango_presion_atm": 20.0}, {}):
+        fase, estado, set_do = _fase(pres=200.0, pchq=ATM)
+        fase.config.get.side_effect = lambda k, *a, _d=faltante: _d.get(k)
+        for _ in range(3):
+            reloj.t += 1
+            fase.update()
+        assert "agua_chaqueta_on" not in _llamadas(set_do)
+        assert not fase._enfr.cond_b
+
+
+def test_liq03_no_cambia_a_la_rapida_con_la_trama_ai_vencida(reloj):
+    fase, estado, set_do = _fase(modo=5, pres=200.0, extra={
+        ("descompresion", "modo_5", "descompresion_lenta_rapida"): True})
+    fase.update()
+    _enfriar(fase, estado, reloj)
+    vigente = {"v": False}
+    vars(estado)["lectura_ai"] = lambda: (vigente["v"], 1)
+    estado.sensores_pres["pres_camara"] = 140.0          # bajo presion_cambio, congelada
+    set_do.reset_mock()
+    assert fase.update() == FaseResult.EN_CURSO
+    assert "descompresion_rapida_on" not in _llamadas(set_do)
+    assert fase._desc_lenta_primero is True
+    # p <= 0 tampoco cuenta como lectura
+    vigente["v"] = True
+    estado.sensores_pres["pres_camara"] = 0.0
+    set_do.reset_mock()
+    fase.update()
+    assert "descompresion_rapida_on" not in _llamadas(set_do)
+    estado.sensores_pres["pres_camara"] = 140.0
+    set_do.reset_mock()
+    fase.update()
+    assert "descompresion_rapida_on" in _llamadas(set_do)
+
+
+def test_m1_principal_sobre_t_est_con_contrapresion_minima_sin_aviso_ni_fallo(reloj):
+    """Contrapresión = Psat(T_est) + 30 y el Principal 1 °C sobre T_est: el
+    aire repone hasta P_min + 2 (no CIC-25 ni CIC-24)."""
+    from autoclave.core.runtime.steam import p_saturacion_kpa
+    t_est = 121.0
+    contra = p_saturacion_kpa(t_est) + 30.0
+    am = AlarmManager()
+    extra = {("descompresion", "modo_4", "presion_camara_enfriamiento"): contra}
+    fase, estado, set_do = _fase(pres=contra, pchq=ATM, temp=t_est + 1.0, extra=extra,
+                                 alarmas=am)
+    pc = contra
+    for _ in range(120):
+        estado.sensores_pres["pres_camara"] = pc
+        set_do.reset_mock()
+        assert fase.update() == FaseResult.EN_CURSO
+        # planta mínima: con aire sube 1 kPa por tick, sin aire baja 1
+        aire = fase._enfr is not None and "aire_comprimido_camara_off" not in _llamadas(set_do)
+        pc = pc + 1.0 if aire else pc - 1.0
+        reloj.t += 1
+    assert not ({CIC_24, CIC_25} & _activas(am))

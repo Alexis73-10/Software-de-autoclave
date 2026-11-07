@@ -59,11 +59,12 @@ from autoclave.core.runtime import camara_segura
 # Tanda 32 (LIQ-01/LIQ-02/LIQ-03): el enfriamiento con contrapresión usa el
 # mismo componente que la fase DESCOMPRESION, con solo_aviso=True
 from autoclave.state_machine.cycle_phases.enfriamiento_contrapresion import (
-    EnfriamientoContrapresion,
+    ENFR_TIMEOUT_PRESURIZACION, EnfriamientoContrapresion,
 )
 from autoclave.state_machine.cycle_phases.descompresion import (
     CLAVE_TICKET_TOPE, AvisoContrapresion, anotar_ticket, lenta_rapida_modo_5,
-    parametros_enfriamiento, resolver_aviso_contrapresion,
+    parametros_enfriamiento, presion_atm_configurada, presion_max_reposicion,
+    resolver_aviso_contrapresion,
 )
 
 logger = logging.getLogger(__name__)
@@ -371,6 +372,12 @@ class ProtocoloFallo:
         self.set_do.agua_chaqueta_off()
         self.set_do.aire_admosferico_camara_off()
         self._t_aire_comprimido = None
+        # Revisión de la tanda 32 (B4): con la cámara sellada (también en el
+        # debounce del Principal) el enfriamiento con contrapresión no corre:
+        # componente descartado y CIC-25 resuelta (si vuelve a aplicarse
+        # contrapresión, un componente nuevo la reactiva)
+        self._enfr = None
+        self._aviso.despejar(self.alarm_manager)
 
     def _iniciar_sellado(self) -> None:
         logger.error("Protocolo fallo: carga líquida sin Principal durante el enfriamiento "
@@ -833,15 +840,15 @@ class ProtocoloFallo:
         modo_efectivo = self._modo_efectivo()
 
         if modo_efectivo in (4, 5):
-            if self._enfr_tope is not None:
-                # Tanda 32 (DECISIÓN SIN CONFIRMAR): un tope de LIQ-01 en el
-                # protocolo cerró el enfriamiento sin contrapresión; como los
-                # líquidos sin contrapresión, solo la lenta y sin escalar
-                self.set_do.descompresion_rapida_off()
-                self.set_do.descompresion_lenta_on()
-                return
             if self._sub_etapa == "enfriamiento":
-                if self._enfriada_confirmada():
+                enfriada = self._enfriada_confirmada()
+                if (enfriada and self._enfr_tope is not None
+                        and not self._principal_bajo_temp_max()):
+                    # Revisión de la tanda 32 (hallazgo 1): tras un tope de
+                    # LIQ-01 no se despresuriza con el Principal sobre
+                    # temp_max_apertura (sigue la contrapresión)
+                    enfriada = False
+                if enfriada:
                     activa, cambio = (lenta_rapida_modo_5(self.cycle) if modo_efectivo == 5
                                       else (False, None))
                     if activa:
@@ -936,27 +943,41 @@ class ProtocoloFallo:
             return None
         return self.estado.sensores_pres.get("pres_chaqueta")
 
+    def _principal_bajo_temp_max(self) -> bool:
+        """Principal con lectura válida (no 0) en o bajo temp_max_apertura
+        (la del programa, T29-04). Sin lectura, False (falla cerrada)."""
+        temp = self._temp_principal()
+        return lectura_valida(temp) and temp != 0 and temp <= self._temp_max_sellado()
+
     def _tick_enfriamiento(self, pres: float) -> None:
         """Enfriamiento con contrapresión (modos 4/5). Tanda 32 (LIQ-01/02):
         las salidas las decide EnfriamientoContrapresion con solo_aviso=True
-        (el ciclo ya falló): aire comprimido hasta la presión de enfriamiento,
-        lenta en modo 5, descompresión de chaqueta abierta fija y agua de
-        chaqueta solo con (a) y (b). Ya no hay pulsos de chaqueta. Nunca hay
-        un segundo FALLO: el aviso de contrapresión es CIC-25 (no bloqueante)
-        y un tope de LIQ-01 cierra la sub-etapa (_tope_enfriamiento)."""
+        (el ciclo ya falló): aire comprimido hasta el objetivo de reposición
+        (M1), lenta en modo 5, descompresión de chaqueta abierta fija y agua
+        de chaqueta solo con (a) y (b). Ya no hay pulsos de chaqueta. Nunca
+        hay un segundo FALLO: el aviso de contrapresión es CIC-25 (no
+        bloqueante) y un tope de LIQ-01 (revisión de la tanda 32, hallazgo 1)
+        se registra (_registrar_tope) y la contrapresión SIGUE: aire según la
+        presión, agua de chaqueta y lenta cerradas; la sub-etapa termina por
+        sus caminos de siempre (carga enfriada y Principal bajo
+        temp_max_apertura, o sellado D8-2.10 si el Principal falta)."""
         modo = self._modo_efectivo()
         if self._enfr is None:
             params = parametros_enfriamiento(self.cycle, f"modo_{modo}")
-            self._enfr = EnfriamientoContrapresion(params, modo_5=(modo == 5), solo_aviso=True,
-                                                   ahora=lambda: time.monotonic())
+            self._enfr = EnfriamientoContrapresion(
+                params, modo_5=(modo == 5), solo_aviso=True, ahora=lambda: time.monotonic(),
+                presion_max_reposicion=presion_max_reposicion(self.config))
             logger.info("Protocolo fallo: enfriamiento con contrapresión (modo %d) %s",
                         modo, params)
-        atm = self.config.get("presion_admosferica") or 101.3
-        res = self._enfr.tick(pres, self._pres_chaqueta(), self._temp_principal(), atm,
-                              self._ai_vigente_tick)
-        if res.fallo is not None:
-            self._tope_enfriamiento(res.fallo)
-            return
+        # Sin presión atmosférica configurada, None: (b) no se cumple
+        res = self._enfr.tick(pres, self._pres_chaqueta(), self._temp_principal(),
+                              presion_atm_configurada(self.config), self._ai_vigente_tick)
+        if res.tope is not None and self._enfr_tope is None:
+            if self._registrar_tope(res.tope, pres):
+                return
+        # Tras un tope, ni agua de chaqueta ni lenta aunque el componente sea
+        # uno nuevo (reanudar(), sellado en debounce)
+        en_tope = self._enfr_tope is not None
         if res.aire_comprimido_on:
             # _t_aire_comprimido None = otro camino del protocolo cerró el
             # aire desde el último ON (sellado en debounce, presión sin
@@ -972,37 +993,50 @@ class ProtocoloFallo:
             self.set_do.descompresion_chaqueta_on()
         else:
             self.set_do.descompresion_chaqueta_off()
-        if modo == 5:
-            if res.descompresion_lenta_on:
+        if modo == 5 or en_tope:
+            if res.descompresion_lenta_on and not en_tope:
                 self.set_do.descompresion_lenta_on()
             else:
                 self.set_do.descompresion_lenta_off()
-        if res.agua_chaqueta_on:
+        if res.agua_chaqueta_on and not en_tope:
             self.set_do.agua_chaqueta_on()
         else:
             self.set_do.agua_chaqueta_off()
         self._aviso.actualizar(self.alarm_manager, self.estado, res.aviso_contrapresion)
 
-    def _tope_enfriamiento(self, codigo_enfr: str) -> None:
-        """Tanda 32 (DECISIÓN SIN CONFIRMAR): un tope de LIQ-01 con el ciclo ya
-        fallido no genera un segundo fallo. Se registra en el log y en el
-        ticket, se cierra la sub-etapa sin abrir el agua de chaqueta (aire,
-        agua y descompresión de chaqueta cerrados) y el protocolo sigue como
-        con líquidos sin contrapresión: solo la lenta y sin escalar."""
-        logger.error("Protocolo fallo: %s en el enfriamiento con contrapresión (sin segundo "
-                     "fallo) — se cierra la sub-etapa y se ventea solo por la lenta",
-                     codigo_enfr)
-        clave = CLAVE_TICKET_TOPE.get(codigo_enfr)
-        if clave is not None:
-            anotar_ticket(self.estado, clave)
-        self._fin_enfriamiento(cerrar_lenta=False)
-        self.set_do.descompresion_chaqueta_off()
-        self.set_do.descompresion_rapida_off()
+    def _registrar_tope(self, codigo_enfr: str, pres: float) -> bool:
+        """Tanda 32, revisión de seguridad (hallazgo 1, decisión del
+        director): un tope de LIQ-01 con el ciclo ya fallido no genera un
+        segundo fallo ni ventea con la carga posiblemente caliente. Se
+        registra en el log y en el ticket (una vez) y la contrapresión se
+        mantiene (ver _tick_enfriamiento), sin escalar. Si el tope es (a)
+        (el aire no llega) y la cámara ya no tiene contrapresión que mantener
+        (presión en o bajo atm + rango_presion_atm), la cámara se sella
+        (D8-2.10: todo cerrado, alivio por sobrepresión, venteo solo por la
+        lenta cuando las sondas confirmen o venza la espera sin sonda).
+        Devuelve True si selló."""
         self._enfr_tope = codigo_enfr
         self._sin_escalar = True
         self._escalado = False
-        self._sub_etapa = None
-        self.set_do.descompresion_lenta_on()
+        clave = CLAVE_TICKET_TOPE.get(codigo_enfr)
+        if clave is not None:
+            anotar_ticket(self.estado, clave)
+        atm   = self.config.get("presion_admosferica") or 101.3
+        rango = self.config.get("rango_presion_atm")   or 20.0
+        if codigo_enfr == ENFR_TIMEOUT_PRESURIZACION and pres <= atm + rango:
+            logger.error("Protocolo fallo: %s en el enfriamiento con contrapresión (sin segundo "
+                         "fallo) y sin contrapresión que mantener (%.1f kPa) — cámara SELLADA "
+                         "(D8-2.10), sin ventear con la carga caliente", codigo_enfr, pres)
+            self.motivo_solo_lenta = "tope del enfriamiento con contrapresión sin presión"
+            self._fin_enfriamiento()
+            # tras el sellado se ventea solo por la lenta (nunca la rápida)
+            self._solo_lenta = True
+            self._iniciar_sellado()
+            return True
+        logger.error("Protocolo fallo: %s en el enfriamiento con contrapresión (sin segundo "
+                     "fallo) — se mantiene la contrapresión sin agua de chaqueta ni lenta "
+                     "hasta que la carga se enfríe", codigo_enfr)
+        return False
 
     def _fin_enfriamiento(self, cerrar_lenta: bool = True) -> None:
         self.set_do.aire_comprimido_camara_off()

@@ -41,10 +41,11 @@ def _params(**kw):
     return p
 
 
-def _comp(modo_5=False, solo_aviso=False, **kw):
+def _comp(modo_5=False, solo_aviso=False, presion_max_reposicion=None, **kw):
     r = Reloj()
     return EnfriamientoContrapresion(_params(**kw), modo_5=modo_5,
-                                     solo_aviso=solo_aviso, ahora=r), r
+                                     solo_aviso=solo_aviso, ahora=r,
+                                     presion_max_reposicion=presion_max_reposicion), r
 
 
 def _tick(c, pc=150.0, pj=300.0, t=T, atm=ATM, vig=True):
@@ -135,11 +136,87 @@ def test_tope_presurizacion():
     assert _tick(c, pc=150.0, pj=ATM).fallo == ENFR_TIMEOUT_PRESURIZACION
 
 
-def test_topes_aplican_en_solo_aviso():
-    c, r = _comp(solo_aviso=True)
-    _tick(c, pc=150.0, pj=ATM)
+def test_topes_en_solo_aviso_no_fallan_y_mantienen_la_contrapresion():
+    """Revisión de la tanda 32 (hallazgo 1): con solo_aviso el tope queda
+    enclavado en `tope`, sin fallo; el aire sigue reponiendo, la chaqueta
+    sigue abierta y el agua y la lenta quedan cerradas."""
+    c, r = _comp(modo_5=True, solo_aviso=True)
+    assert _tick(c, pc=150.0, pj=ATM).descompresion_lenta_on
     r.avanzar(10 * 60)
-    assert _tick(c, pc=150.0, pj=ATM).fallo == ENFR_TIMEOUT_PRESURIZACION
+    res = _tick(c, pc=150.0, pj=ATM)
+    assert res.fallo is None and c.fallo is None
+    assert res.tope == ENFR_TIMEOUT_PRESURIZACION == c.tope
+    assert res.aire_comprimido_on and res.descompresion_chaqueta_on
+    assert not res.descompresion_lenta_on and not res.agua_chaqueta_on
+    # aunque después se cumplan (a) y (b), el agua no abre y el tope no cambia
+    r.avanzar(1)
+    res = _tick(c, pc=P_OBJ, pj=ATM)
+    assert res.cond_a and res.cond_b and not res.agua_chaqueta_on
+    assert not res.descompresion_lenta_on and res.tope == ENFR_TIMEOUT_PRESURIZACION
+
+
+def test_tope_chaqueta_en_solo_aviso():
+    c, r = _comp(solo_aviso=True)
+    _tick(c, pc=P_OBJ, pj=300.0)
+    r.avanzar(5 * 60)
+    res = _tick(c, pc=P_OBJ - 20, pj=300.0)
+    assert res.fallo is None and res.tope == ENFR_TIMEOUT_DESPRESURIZACION_CHAQUETA
+    assert res.aire_comprimido_on and not res.agua_chaqueta_on
+
+
+# ---------------- M1 (revisión de la tanda 32) ----------------
+
+T_EST = 121.0
+P_CONTRA = p_saturacion_kpa(T_EST) + 30.0     # contrapresión mínima a T_est
+
+
+def test_m1_principal_sobre_t_est_con_contrapresion_minima_sin_aviso_ni_fallo():
+    """Objetivo = Psat(T_est) + 30 y el Principal 1 °C sobre T_est: el aire
+    repone hasta P_min + 2 y no hay aviso ni CIC-24."""
+    c, r = _comp(presion_camara_enfriamiento=P_CONTRA, presion_max_reposicion=375.0)
+    t = T_EST + 1.0
+    p_min = p_saturacion_kpa(t) + 30.0
+    pc = P_CONTRA
+    for _ in range(120):
+        res = c.tick(pc, ATM, t, ATM, True)
+        assert res.fallo is None and not res.aviso_contrapresion
+        # planta mínima: el aire sube la presión 1 kPa por tick, sin aire baja 1
+        pc = pc + 1.0 if res.aire_comprimido_on else pc - 1.0
+        r.avanzar(1)
+    assert res.armada and p_min - 1.0 <= pc <= p_min + ec.HISTERESIS_REPOSICION_AIRE_KPA + 1.0
+
+
+def test_m1_objetivo_de_reposicion():
+    c, r = _comp(presion_max_reposicion=375.0)
+    t = 130.0
+    p_min = p_saturacion_kpa(t) + 30.0                    # ≈300 kPa > objetivo
+    assert _tick(c, pc=p_min + 1.9, t=t).aire_comprimido_on
+    r.avanzar(1)
+    assert not _tick(c, pc=p_min + 2.0, t=t).aire_comprimido_on
+    # sin P_min calculable: solo el objetivo
+    r.avanzar(1)
+    assert not _tick(c, pc=P_OBJ, t=None).aire_comprimido_on
+    r.avanzar(1)
+    assert _tick(c, pc=P_OBJ - 1, t=None).aire_comprimido_on
+    # P_min bajo el objetivo: rige el objetivo
+    r.avanzar(1)
+    assert _tick(c, pc=P_OBJ - 1, t=80.0).aire_comprimido_on
+
+
+def test_m1_reposicion_acotada():
+    c, r = _comp(presion_max_reposicion=250.0)
+    t = 134.0                                             # P_min + 2 ≈ 336 kPa
+    assert _tick(c, pc=249.0, t=t).aire_comprimido_on
+    r.avanzar(1)
+    assert not _tick(c, pc=250.0, t=t).aire_comprimido_on
+    # sin límite: objetivo + 30
+    c2, r2 = _comp()
+    assert _tick(c2, pc=P_OBJ + 29.0, t=t).aire_comprimido_on
+    r2.avanzar(1)
+    assert not _tick(c2, pc=P_OBJ + 30.0, t=t).aire_comprimido_on
+    # un límite bajo el objetivo no baja el objetivo
+    c3, _ = _comp(presion_max_reposicion=150.0)
+    assert _tick(c3, pc=P_OBJ - 1, t=t).aire_comprimido_on
 
 
 def test_sin_lectura_camara_no_cumple_a_ni_aire():
@@ -274,3 +351,4 @@ def test_constantes():
     assert ec.TIEMPO_AVISO_CONTRAPRESION_S == 10
     assert ec.TIEMPO_FALLO_CONTRAPRESION_S == 60
     assert ec.PERIODO_AIRE_COMPRIMIDO_S == 3.0
+    assert ec.HISTERESIS_REPOSICION_AIRE_KPA == 2.0

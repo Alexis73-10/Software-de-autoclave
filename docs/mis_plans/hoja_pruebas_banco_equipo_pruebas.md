@@ -215,6 +215,57 @@
 | T31-04 | Principal desconectado tras el fallo: confirmación forzada por ingeniero | En seco | ENT-04; HAZ-ENT-01, HAZ-ENT-02 |
 | T31-05 | Corte de energía durante la espera de la entrega | En seco | ENT-07; HAZ-ENT-03 |
 | T31-06 | Paro de emergencia durante la espera | En seco | ENT-05; HAZ-ENT-04 |
+| T32-01 | Presurización y despresurización con tiempos reales (verificar los 3 min por defecto) | Con vapor | LIQ-01; HAZ-T32-02 |
+| T32-02 | Ajuste de la aguja del modo 5 con la carga máxima sosteniendo el objetivo | Con vapor | LIQ-03/04; HAZ-T32-03 |
+| T32-03 | Corte del aire durante el enfriamiento: aviso a 10 s, fallo a 60 s | Con vapor | LIQ-02; HAZ-T32-01 |
+| T32-04 | Chaqueta que no despresuriza (CIC-22) | En seco | LIQ-01; HAZ-T32-02 |
+| T32-05 | Aire que no alcanza la presión (CIC-23) | En seco | LIQ-01/02; HAZ-T32-01 |
+| T32-06 | Lenta → rápida activa (cambio a `presion_cambio`) y pantalla del modo 5 | Con vapor | LIQ-03; HAZ-T32-03 |
+
+## Bloque T32. Enfriamiento de líquidos con contrapresión (tanda 32)
+
+### T32-01 — Presurización y despresurización con tiempos reales
+- **Modo:** Con vapor  ·  **Origen:** LIQ-01; HAZ-T32-02
+- **Pasos:** con un programa de líquidos modo 4 y otro modo 5, medir el tiempo de presurización de la cámara con aire y de despresurización de la chaqueta; verificar el orden aire, chaqueta abierta, agua solo con (a) y (b), y que el agua queda abierta hasta el fin. Comparar con los 3 min por defecto de `timeout_despresurizacion_chaqueta` y `timeout_presurizacion_enfriamiento`.
+- **Criterio:** Aprobado si el orden se cumple y los topes por defecto dan margen sobre los tiempos medidos (si no, anotar los valores a ajustar).
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### T32-02 — Aguja del modo 5 con la carga máxima
+- **Modo:** Con vapor  ·  **Origen:** LIQ-03/04; HAZ-T32-03
+- **Pasos:** con la carga máxima, verificar que `presion_camara_enfriamiento` (300 kPa de fábrica) se sostiene sin ebullición y ajustar la aguja del modo 5 (lenta/rápida y `presion_cambio`); verificar que la regla de coherencia rechaza `presion_cambio` mayor o igual que la presión de enfriamiento.
+- **Criterio:** Aprobado si el objetivo se sostiene con la carga máxima y los valores quedan anotados.
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### T32-03 — Corte del aire durante el enfriamiento
+- **Modo:** Con vapor  ·  **Origen:** LIQ-02; HAZ-T32-01
+- **Pasos:** tras armarse la vigilancia, cortar el suministro de aire; verificar el aviso CIC-25 a los 10 s (pantalla, campana, hasta 5 líneas de ticket) y que se despeja al restablecer el aire; repetir y mantener el corte 60 s: FALLO CIC-24 con despeje manual y protocolo de fallo de líquidos.
+- **Criterio:** Aprobado si el aviso sale a ~10 s, el fallo a ~60 s y la recuperación reinicia el conteo.
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### T32-04 — Chaqueta que no despresuriza (CIC-22)
+- **Modo:** En seco  ·  **Origen:** LIQ-01; HAZ-T32-02
+- **Pasos:** mantener la chaqueta presurizada (o con `pres_chaqueta` sin lectura); verificar que `agua_chaqueta` no abre y que al vencer `timeout_despresurizacion_chaqueta` aparece CIC-22 bloqueante.
+- **Criterio:** Aprobado si el agua nunca abre sin (b) y el tope da CIC-22.
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### T32-05 — Aire que no alcanza la presión (CIC-23)
+- **Modo:** En seco  ·  **Origen:** LIQ-01/02; HAZ-T32-01
+- **Pasos:** impedir que la cámara alcance la presión de enfriamiento; verificar que el agua no abre y que al vencer `timeout_presurizacion_enfriamiento` aparece CIC-23 bloqueante.
+- **Criterio:** Aprobado si el agua nunca abre sin (a) y el tope da CIC-23.
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### T32-06 — Lenta → rápida y pantalla del modo 5
+- **Modo:** Con vapor  ·  **Origen:** LIQ-03; HAZ-T32-03
+- **Pasos:** con `descompresion_lenta_rapida` activa, verificar que al terminar el enfriamiento la lenta y la chaqueta siguen abiertas hasta `pres_camara <= presion_cambio` y luego lenta OFF y rápida ON; con la opción inactiva, sin cambio. Verificar a la vista en Parámetros del ciclo los 5 parámetros nuevos del modo 5/4 con rótulos es/en (y que `presion_cambio` se ve siempre).
+- **Criterio:** Aprobado si el cambio ocurre a la presión indicada y la pantalla muestra los parámetros.
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
 
 ## Bloque A. Arranque, instalación y módulo E/S (en seco)
 

@@ -114,30 +114,146 @@ def test_aviso_no_bloqueante_y_nunca_segundo_fallo_de_contrapresion(reloj):
     (200.0, 300.0, "ticket_ciclo.aviso_enfriamiento_detenido_chaqueta"),
     (150.0, ATM, "ticket_ciclo.aviso_enfriamiento_detenido_presurizacion"),
 ])
-def test_tope_en_el_protocolo_sin_segundo_fallo(reloj, pres, pchq, clave):
+@pytest.mark.parametrize("modo", [4, 5])
+def test_tope_en_el_protocolo_sin_segundo_fallo_mantiene_contrapresion(reloj, pres, pchq,
+                                                                      clave, modo):
+    """Revisión de la tanda 32 (hallazgo 1): tras el tope la contrapresión se
+    mantiene (aire según la presión, chaqueta abierta), sin agua de chaqueta
+    ni lenta mientras la carga esté caliente, sin escalar y sin segundo
+    fallo."""
     am = AlarmManager()
-    prot, estado, set_do = _protocolo(pres=pres, pchq=pchq, alarmas=am)
+    prot, estado, set_do = _protocolo(modo=modo, pres=pres, pchq=pchq, alarmas=am)
     prot.ejecutar()
     reloj.t += 3 * 60 + 1
     set_do.reset_mock()
     prot.update()
     llamadas = _llamadas(set_do)
-    assert "agua_chaqueta_on" not in llamadas
-    assert "agua_chaqueta_off" in llamadas and "aire_comprimido_camara_off" in llamadas
-    assert "descompresion_chaqueta_off" in llamadas
+    assert "agua_chaqueta_on" not in llamadas and "agua_chaqueta_off" in llamadas
+    assert "descompresion_lenta_on" not in llamadas and "descompresion_lenta_off" in llamadas
     assert "descompresion_rapida_on" not in llamadas
-    assert "descompresion_lenta_on" in llamadas
+    assert "descompresion_chaqueta_on" in llamadas
+    # el aire sigue la presión (objetivo de reposición 200 kPa con T = 100 °C)
+    if pres < 200.0:
+        assert "aire_comprimido_camara_on" in llamadas
+    else:
+        assert "aire_comprimido_camara_off" in llamadas
+    estado.sensores_pres["pres_camara"] = 190.0
+    set_do.reset_mock()
+    reloj.t += 3                                     # reafirmación del aire (3 s)
+    prot.update()
+    assert "aire_comprimido_camara_on" in _llamadas(set_do)
     assert not ({CIC_22, CIC_23, CIC_24} & _activas(am))
     assert [a["clave"] for a in estado.avisos_ciclo] == [clave]
-    # sigue solo por la lenta, sin escalar ni volver al enfriamiento
+    assert prot._sub_etapa == "enfriamiento" and not prot.sellado
+    # sigue con contrapresión y sin ventear; el ticket no se repite
+    estado.sensores_pres.update({"pres_camara": 200.0, "pres_chaqueta": ATM})
+    set_do.reset_mock()
+    for _ in range(3):
+        reloj.t += 70
+        prot.update()
+    llamadas = _llamadas(set_do)
+    for salida in ("descompresion_rapida_on", "descompresion_lenta_on", "agua_chaqueta_on"):
+        assert salida not in llamadas
+    assert len(estado.avisos_ciclo) == 1
+    assert not ({CIC_22, CIC_23, CIC_24} & _activas(am))
+
+
+def test_tope_carga_caliente_bajo_temperatura_de_enfriamiento_no_ventea(reloj):
+    """Tras el tope, una carga bajo temperatura_enfriamiento pero sobre
+    temp_max_apertura no se despresuriza; bajo temp_max_apertura sale por el
+    camino de siempre (chaqueta + rápida en modo 4)."""
+    prot, estado, set_do = _protocolo(pres=200.0, pchq=300.0)
+    prot._temp_max_sellado = lambda: 70.0
+    prot.ejecutar()
+    reloj.t += 3 * 60 + 1
+    prot.update()
+    assert prot._enfr_tope is not None
+    estado.sensores_temp["temp_camara"] = 75.0          # < 80 (enfriamiento), > 70
+    set_do.reset_mock()
+    for _ in range(5):
+        reloj.t += 1
+        prot.update()
+    assert prot._sub_etapa == "enfriamiento"
+    llamadas = _llamadas(set_do)
+    assert "descompresion_rapida_on" not in llamadas and "descompresion_lenta_on" not in llamadas
+    estado.sensores_temp["temp_camara"] = 69.0
+    set_do.reset_mock()
+    reloj.t += 1
+    prot.update()
+    assert prot._sub_etapa == "descompresion"
+    assert "descompresion_rapida_on" in _llamadas(set_do)
+
+
+def test_tope_sin_lectura_del_principal_sella(reloj):
+    """Tras el tope, el Principal sin lectura lleva al sellado D8-2.10 (sin
+    ventear) por el camino de siempre."""
+    am = AlarmManager()
+    prot, estado, set_do = _protocolo(pres=200.0, pchq=300.0, alarmas=am)
+    prot.ejecutar()
+    reloj.t += 3 * 60 + 1
+    prot.update()
+    estado.sensores_temp["temp_camara"] = None
     set_do.reset_mock()
     for _ in range(3):
         reloj.t += 1
         prot.update()
+    assert prot.sellado
     llamadas = _llamadas(set_do)
-    assert "descompresion_rapida_on" not in llamadas
-    assert "agua_chaqueta_on" not in llamadas
+    assert "descompresion_lenta_on" not in llamadas and "descompresion_rapida_on" not in llamadas
     assert "aire_comprimido_camara_on" not in llamadas
+
+
+def test_tope_presurizacion_sin_contrapresion_que_mantener_sella(reloj):
+    """Tope (a) con la cámara ya en la banda atmosférica: sellado D8-2.10 en
+    vez de ventear; tras el sellado, solo la lenta (nunca la rápida)."""
+    am = AlarmManager()
+    prot, estado, set_do = _protocolo(pres=150.0, pchq=ATM, alarmas=am)
+    prot.ejecutar()
+    estado.sensores_pres["pres_camara"] = ATM + 5        # el aire no llega
+    reloj.t += 3 * 60 + 1
+    set_do.reset_mock()
+    prot.update()
+    assert prot.sellado and prot.solo_lenta
+    llamadas = _llamadas(set_do)
+    for salida in ("descompresion_lenta_on", "descompresion_rapida_on",
+                   "aire_comprimido_camara_on", "agua_chaqueta_on"):
+        assert salida not in llamadas
+    assert [a["clave"] for a in estado.avisos_ciclo] == [
+        "ticket_ciclo.aviso_enfriamiento_detenido_presurizacion"]
+    assert not ({CIC_22, CIC_23, CIC_24, CIC_25} & _activas(am))
+
+
+def test_cerrar_todo_sellado_resuelve_cic_25(reloj):
+    """Revisión de la tanda 32 (B4): CIC-25 no queda activa con la cámara
+    sellada (debounce del Principal)."""
+    am = AlarmManager()
+    prot, estado, set_do = _protocolo(pres=200.0, pchq=ATM, alarmas=am)
+    prot.ejecutar()
+    estado.sensores_pres["pres_camara"] = 120.0
+    for _ in range(3):
+        reloj.t += 6
+        prot.update()
+    assert CIC_25 in _activas(am)
+    estado.sensores_temp["temp_camara"] = None
+    reloj.t += 1
+    prot.update()                                     # debounce: _cerrar_todo_sellado
+    assert not prot.sellado
+    assert CIC_25 not in _activas(am)
+    assert prot._enfr is None
+
+
+def test_sin_atmosferica_configurada_no_abre_el_agua(reloj):
+    """Revisión de la tanda 32: sin presión atmosférica de referencia
+    configurada la condición (b) no se cumple."""
+    prot, estado, set_do = _protocolo(pres=200.0, pchq=ATM)
+    prot.config.get.side_effect = lambda k, d=None: {"temp_max_apertura": 80.0}.get(k, d)
+    prot.ejecutar()
+    set_do.reset_mock()
+    for _ in range(3):
+        reloj.t += 1
+        prot.update()
+    assert "agua_chaqueta_on" not in _llamadas(set_do)
+    assert prot._enfr is not None and not prot._enfr.cond_b
 
 
 def test_ejecutar_resuelve_el_aviso_que_dejo_la_fase(reloj):

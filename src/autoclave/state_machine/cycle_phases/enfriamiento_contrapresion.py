@@ -7,10 +7,17 @@ El reloj es inyectable (`ahora`, por defecto `time.monotonic`) para las
 pruebas; nunca se usa el reloj de pared.
 
 LIQ-01 (orden de arranque):
-- `aire_comprimido_camara` como hasta ahora: encendido mientras la presión de
-  cámara (vigente) esté bajo `presion_camara_enfriamiento`, reafirmado cada
-  3 s (`PERIODO_AIRE_COMPRIMIDO_S`); con la trama AI vencida o sin lectura,
-  apagado (S9 / R2-A1 de la tanda 9).
+- `aire_comprimido_camara`: encendido mientras la presión de cámara (vigente)
+  esté bajo el objetivo de reposición, reafirmado cada 3 s
+  (`PERIODO_AIRE_COMPRIMIDO_S`); con la trama AI vencida o sin lectura,
+  apagado (S9 / R2-A1 de la tanda 9). Revisión de la tanda 32 (M1): el
+  objetivo de reposición es max(`presion_camara_enfriamiento`, P_min +
+  `HISTERESIS_REPOSICION_AIRE_KPA`), con P_min de LIQ-02 (sin P_min
+  calculable, solo `presion_camara_enfriamiento`), acotado por
+  `presion_max_reposicion` (quien integra pasa el alivio de cámara menos
+  10 kPa; sin ese dato, `presion_camara_enfriamiento` + 30). Así el aire no
+  se detiene bajo el mínimo de contrapresión (falso CIC-24) cuando el
+  Principal está sobre la temperatura de esterilización.
 - Modo 5: `descompresion_lenta` abierta desde el primer tick.
 - `descompresion_chaqueta` abierta fija desde el primer tick.
 - Condiciones enclavadas: (a) presión de cámara >= presión de enfriamiento;
@@ -21,6 +28,14 @@ LIQ-01 (orden de arranque):
   `ENFR_TIMEOUT_DESPRESURIZACION_CHAQUETA`; (a) sin cumplir en
   `timeout_presurizacion_enfriamiento` min → `ENFR_TIMEOUT_PRESURIZACION`
   (DECISIÓN SIN CONFIRMAR). Los topes cuentan desde el primer tick.
+  Sin `solo_aviso` el tope es un FALLO (todas las salidas apagadas). Con
+  `solo_aviso=True` (protocolo de fallo; revisión de la tanda 32, hallazgo
+  1) el tope NO es un fallo: queda enclavado en `tope` y la contrapresión se
+  mantiene (aire según la regla de reposición, descompresión de chaqueta
+  abierta), con el agua de chaqueta y la lenta cerradas desde ese tick;
+  quien integra decide la salida (carga enfriada o sellado).
+- (b) exige además la presión atmosférica de referencia: `None` (no
+  configurada) = (b) no se cumple (falla cerrada).
 - El vapor de chaqueta no se maneja aquí (queda apagado por quien integra).
 
 LIQ-02 (vigilancia de contrapresión):
@@ -52,6 +67,12 @@ PERIODO_AIRE_COMPRIMIDO_S = 3.0
 TIEMPO_AVISO_CONTRAPRESION_S = 10.0
 TIEMPO_FALLO_CONTRAPRESION_S = 60.0
 
+# Revisión de la tanda 32 (M1): el aire repone como mínimo hasta P_min + esta
+# histéresis (DECISIÓN SIN CONFIRMAR hasta el banco)
+HISTERESIS_REPOSICION_AIRE_KPA = 2.0
+# Sin `presion_max_reposicion`: tope de la reposición sobre el objetivo
+MARGEN_REPOSICION_SIN_LIMITE_KPA = 30.0
+
 # Códigos propios (el integrador los conecta al catálogo de alarmas)
 ENFR_TIMEOUT_DESPRESURIZACION_CHAQUETA = "ENFR_TIMEOUT_DESPRESURIZACION_CHAQUETA"
 ENFR_TIMEOUT_PRESURIZACION = "ENFR_TIMEOUT_PRESURIZACION"
@@ -80,6 +101,7 @@ class ResultadoTick:
     armada: bool
     presion_minima: float | None      # P_min del tick (None sin dato o sin armar)
     segundos_bajo_minimo: float       # 0.0 si no está bajo el mínimo
+    tope: str | None = None           # solo_aviso: tope de LIQ-01 alcanzado (enclavado)
 
 
 def _numero(valor) -> float | None:
@@ -100,7 +122,8 @@ class EnfriamientoContrapresion:
     """Una instancia por sub-etapa de enfriamiento (no se reutiliza)."""
 
     def __init__(self, params: Mapping, modo_5: bool, solo_aviso: bool = False,
-                 ahora: Callable[[], float] = time.monotonic):
+                 ahora: Callable[[], float] = time.monotonic,
+                 presion_max_reposicion: float | None = None):
         valores = {}
         for nombre in PARAMETROS:
             v = _numero(params.get(nombre)) if params is not None else None
@@ -122,6 +145,11 @@ class EnfriamientoContrapresion:
         self._modo_5 = bool(modo_5)
         self._solo_aviso = bool(solo_aviso)
         self._ahora = ahora
+        # M1: tope de la reposición de aire (nunca bajo el objetivo)
+        tope_rep = _presion(presion_max_reposicion)
+        if tope_rep is None:
+            tope_rep = self._presion_obj + MARGEN_REPOSICION_SIN_LIMITE_KPA
+        self._presion_max_reposicion = max(self._presion_obj, tope_rep)
 
         self._t_inicio: float | None = None
         self._t_aire: float | None = None
@@ -129,6 +157,7 @@ class EnfriamientoContrapresion:
         self._cond_b = False
         self._t_bajo_desde: float | None = None
         self._fallo: str | None = None
+        self._tope: str | None = None
 
     # -- propiedades de solo lectura ------------------------------------
     @property
@@ -147,6 +176,10 @@ class EnfriamientoContrapresion:
     def fallo(self) -> str | None:
         return self._fallo
 
+    @property
+    def tope(self) -> str | None:
+        return self._tope
+
     # -------------------------------------------------------------------
     def tick(self, pres_camara, pres_chaqueta, temp_principal,
              presion_atmosferica, datos_vigentes: bool) -> ResultadoTick:
@@ -162,9 +195,9 @@ class EnfriamientoContrapresion:
         p_chq = _presion(pres_chaqueta) if vigente else None
         p_atm = _presion(presion_atmosferica)
 
-        # --- aire comprimido (comportamiento previo) ---
+        # --- aire comprimido (M1: objetivo de reposición) ---
         pulso = False
-        if p_cam is not None and p_cam < self._presion_obj:
+        if p_cam is not None and p_cam < self._objetivo_reposicion(temp_principal):
             aire_on = True
             if self._t_aire is None or now >= self._t_aire:
                 pulso = True
@@ -182,12 +215,18 @@ class EnfriamientoContrapresion:
 
         # --- topes de LIQ-01 ---
         transcurrido = now - self._t_inicio
+        codigo_tope = None
         if not self._cond_b and transcurrido >= self._tope_b_s:
-            self._fallo = ENFR_TIMEOUT_DESPRESURIZACION_CHAQUETA
-            return self._resultado_fallo()
-        if not self._cond_a and transcurrido >= self._tope_a_s:
-            self._fallo = ENFR_TIMEOUT_PRESURIZACION
-            return self._resultado_fallo()
+            codigo_tope = ENFR_TIMEOUT_DESPRESURIZACION_CHAQUETA
+        elif not self._cond_a and transcurrido >= self._tope_a_s:
+            codigo_tope = ENFR_TIMEOUT_PRESURIZACION
+        if codigo_tope is not None:
+            if not self._solo_aviso:
+                self._fallo = codigo_tope
+                return self._resultado_fallo()
+            if self._tope is None:
+                # solo_aviso (hallazgo 1): sin fallo; se enclava el primero
+                self._tope = codigo_tope
 
         # --- LIQ-02 ---
         p_min = None
@@ -207,12 +246,15 @@ class EnfriamientoContrapresion:
             else:
                 self._t_bajo_desde = None
 
+        # Tras un tope (solo_aviso) la contrapresión se mantiene, pero ni la
+        # lenta (carga posiblemente caliente) ni el agua de chaqueta
+        en_tope = self._tope is not None
         return ResultadoTick(
             aire_comprimido_on=aire_on,
             aire_comprimido_pulso=pulso,
-            descompresion_lenta_on=self._modo_5,
+            descompresion_lenta_on=self._modo_5 and not en_tope,
             descompresion_chaqueta_on=True,
-            agua_chaqueta_on=self._cond_a and self._cond_b,
+            agua_chaqueta_on=self._cond_a and self._cond_b and not en_tope,
             aviso_contrapresion=aviso,
             fallo=None,
             cond_a=self._cond_a,
@@ -220,9 +262,19 @@ class EnfriamientoContrapresion:
             armada=self._cond_a,
             presion_minima=p_min,
             segundos_bajo_minimo=bajo_s,
+            tope=self._tope,
         )
 
     # -------------------------------------------------------------------
+    def _objetivo_reposicion(self, temp_principal) -> float:
+        """M1: max(objetivo, P_min + histéresis), acotado por
+        `presion_max_reposicion`; sin P_min calculable, el objetivo."""
+        p_min = self._presion_minima(temp_principal)
+        if p_min is None:
+            return self._presion_obj
+        return max(self._presion_obj,
+                   min(p_min + HISTERESIS_REPOSICION_AIRE_KPA, self._presion_max_reposicion))
+
     @staticmethod
     def _presion_minima(temp_principal) -> float | None:
         """Psat(T) + margen; None sin lectura o fuera de rango (= bajo el

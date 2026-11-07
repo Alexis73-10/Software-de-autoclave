@@ -4,6 +4,7 @@ import logging
 from datetime import datetime
 
 from autoclave.core.managers.catalogo_parametros import MARGEN_CONTRAPRESION_LIQUIDO
+from autoclave.core.managers import limites_equipo
 from autoclave.core.runtime import motivos_fase
 from autoclave.core.runtime import vigencia_ai
 from autoclave.state_machine.alarms.catalogo import CIC_22, CIC_23, CIC_24, CIC_25
@@ -76,6 +77,39 @@ def parametros_enfriamiento(cycle, modo_key: str) -> dict:
             v = defecto
         salida[nombre] = float(v)
     return salida
+
+
+def presion_atm_configurada(config) -> float | None:
+    """Revisión de la tanda 32: presión atmosférica de referencia solo si
+    está configurada junto con su brecha (números finitos y positivos, como
+    `ProtocoloFallo._referencia_atm_configurada` para el aire atmosférico);
+    si no, None y la condición (b) del enfriamiento no se cumple (falla
+    cerrada: el defecto 101,3 leería mal la chaqueta en un sitio de altura).
+    Nunca lanza."""
+    valores = []
+    for clave in ("presion_admosferica", "rango_presion_atm"):
+        try:
+            v = config.get(clave) if config is not None else None
+        except Exception:
+            return None
+        if (isinstance(v, bool) or not isinstance(v, (int, float))
+                or not math.isfinite(v) or v <= 0):
+            return None
+        valores.append(float(v))
+    return valores[0]
+
+
+def presion_max_reposicion(config) -> float | None:
+    """Revisión de la tanda 32 (M1): tope de la reposición de aire del
+    enfriamiento = alivio de cámara del equipo menos 10 kPa (el mismo margen
+    que el corte de chaqueta, `MARGEN_CORTE_BAJO_ALIVIO`). Ante un error,
+    None (el componente usa presion_camara_enfriamiento + 30). Nunca lanza."""
+    try:
+        return (limites_equipo.limites_presion(config).alivio_camara
+                - limites_equipo.MARGEN_CORTE_BAJO_ALIVIO)
+    except Exception:
+        logger.exception("Enfriamiento con contrapresión: alivio de cámara no legible")
+        return None
 
 
 def lenta_rapida_modo_5(cycle) -> tuple[bool, float]:
@@ -375,7 +409,8 @@ class DescompresionFase(BaseFase):
             # reloj por llamada: sigue a time.monotonic (también si se parchea)
             self._enfr = enfr.EnfriamientoContrapresion(
                 self._enfr_params, modo_5=use_lenta, solo_aviso=False,
-                ahora=lambda: time.monotonic())
+                ahora=lambda: time.monotonic(),
+                presion_max_reposicion=presion_max_reposicion(self.config))
             logger.info("DescompresionFase: enfriamiento con contrapresión (%s) %s",
                         modo_key, self._enfr_params)
 
@@ -383,8 +418,10 @@ class DescompresionFase(BaseFase):
         # la presión puede estar congelada: el componente no da aire
         # comprimido ni cuenta las condiciones (datos no vigentes)
         ai_vigente, _ = vigencia_ai.leer(self.estado)
+        # Revisión de la tanda 32: sin presión atmosférica configurada, None
+        # (la condición (b) no se cumple)
         res = self._enfr.tick(self._pres_camara(), self._pres_chaqueta(), self._temp_principal(),
-                              self._pres_atm(), ai_vigente)
+                              presion_atm_configurada(self.config), ai_vigente)
 
         if res.fallo is not None:
             return self._fallo_enfriamiento(res.fallo, modo_key)
@@ -466,11 +503,13 @@ class DescompresionFase(BaseFase):
         self.set_do.descompresion_chaqueta_on()
         if getattr(self, "_desc_lenta_primero", False):
             # LIQ-03: lenta abierta y rápida cerrada hasta presion_cambio; sin
-            # lectura de presión no se cambia a la rápida
+            # lectura de presión (o con la trama AI vencida, revisión de la
+            # tanda 32) no se cambia a la rápida
             self.set_do.descompresion_lenta_on()
             self.set_do.descompresion_rapida_off()
-            p = self._pres_camara()
-            if p is not None and p <= self._presion_cambio:
+            ai_vigente, _ = vigencia_ai.leer(self.estado)
+            p = _numero(self._pres_camara()) if ai_vigente else None
+            if p is not None and 0 < p <= self._presion_cambio:
                 logger.info("DescompresionFase: %.1f kPa <= %.1f kPa, de la lenta a la rápida "
                             "(LIQ-03)", p, self._presion_cambio)
                 self.set_do.descompresion_lenta_off()
