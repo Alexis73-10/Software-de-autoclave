@@ -243,6 +243,44 @@ def _migrar_t32(parameters: dict, agregadas) -> bool:
     return cambio
 
 
+# Ajuste 7-nov: presion_add_liquido_calentamiento, mismo patrón que T29-03
+# (auditoría con `agregadas` y .bak, sin SIS-06). Va después de
+# presion_add_calentamiento si el programa lo tiene. Existe en todos los
+# programas; solo actúa con carga líquida.
+_CLAVE_ADD_LIQUIDO_CAL = (
+    "calentamiento", "presion_add_liquido_calentamiento",
+    {"value": catalogo_parametros.PRESION_ADD_LIQUIDO_CALENTAMIENTO_DEFECTO, "type": "float",
+     "unit": "kPa", "clase": "diferencia", "min": 0, "max": catalogo_parametros.PRESION_ADD_MAX},
+    "kPa")
+
+
+def _agregar_clave_liquido_cal(parameters: dict, agregadas) -> bool:
+    """Ajuste 7-nov: agrega presion_add_liquido_calentamiento con su defecto si
+    falta (solo con sección calentamiento). Solo agrega; idempotente."""
+    fase, clave, hoja, unidad = _CLAVE_ADD_LIQUIDO_CAL
+    seccion = parameters.get(fase)
+    if not isinstance(seccion, dict) or clave in seccion:
+        return False
+    ancla = "presion_add_calentamiento"
+    if ancla in seccion:
+        nuevo = {}
+        for k, v in seccion.items():
+            nuevo[k] = v
+            if k == ancla:
+                nuevo[clave] = copy.deepcopy(hoja)
+        seccion.clear()
+        seccion.update(nuevo)
+    else:
+        seccion[clave] = copy.deepcopy(hoja)
+    origen = catalogo_parametros.ORIGEN_MIGRACION_LIQ_CAL
+    logger.warning("Programa sin %s.%s: agregado con el defecto %g %s (%s)", fase, clave,
+                   hoja["value"], unidad, origen)
+    if agregadas is not None:
+        agregadas.append({"fase": fase, "parametro": clave, "anterior": None,
+                          "nuevo": hoja["value"], "unidad": unidad, "origen": origen})
+    return True
+
+
 def _migrar_modo_solido(parameters: dict, correcciones, modo_fabrica=None) -> bool:
     """T29-05 (tanda 29): un programa con carga sólida y descompresión 4 o 5
     (enfriamiento de líquidos) pasa a `modo_fabrica` (el del programa de
@@ -330,6 +368,7 @@ def migrar_parametros(parameters, correcciones: list | None = None,
     cambio = _agregar_claves_a12(parameters, agregadas) or cambio
     cambio = _agregar_clave_t29_03(parameters, agregadas) or cambio
     cambio = _migrar_t32(parameters, agregadas) or cambio
+    cambio = _agregar_clave_liquido_cal(parameters, agregadas) or cambio
     for fase, clave in _PRESION_ADD:
         hoja = parameters.get(fase, {}).get(clave) if isinstance(parameters.get(fase), dict) else None
         if not isinstance(hoja, dict):

@@ -139,6 +139,11 @@ _COHERENCIA_TP_K = 1.0
 _HISTERESIS_CIERRE_DEFECTO = 3.0
 _HISTERESIS_CIERRE_RANGO = (1.0, 10.0)
 
+# Ajuste 7-nov (pedido de Cristian): presión adicional de la rampa con carga
+# líquida (presion_add_liquido_calentamiento, kPa sobre Psat(t_obj)). Rango
+# 0–30; 0, ausente o no numérico desactiva la función.
+_ADD_LIQUIDO_RANGO = (0.0, 30.0)
+
 
 def _numero_finito(valor) -> bool:
     return (isinstance(valor, (int, float)) and not isinstance(valor, bool)
@@ -243,6 +248,9 @@ class CalentamientoFase(BaseFase):
 
         self.estado.fase_en_sostenimiento = False
 
+        # Ajuste 7-nov: enclave «t_obj alcanzada» del empuje con líquidos
+        self._t_obj_alcanzada = False
+
     # ------------------------------------------------------------------
     # Tanda 16, VCH: modo de vapor y aislamiento de cámara
     # ------------------------------------------------------------------
@@ -308,6 +316,26 @@ class CalentamientoFase(BaseFase):
         if not _numero_finito(valor) or valor < 0:
             return 0.0
         return float(valor)
+
+    def _carga_liquida(self) -> bool:
+        """Mismo criterio que CicloState._carga_liquida: todo valor distinto
+        de "solido" es líquido; ilegible = líquido."""
+        try:
+            return self.cycle.get_param("globals", "tipo_carga", default="solido") != "solido"
+        except Exception:
+            return True
+
+    def _add_liquido(self) -> float:
+        """Ajuste 7-nov: presion_add_liquido_calentamiento (kPa) recortada a
+        0–30 si la carga es líquida; 0 con carga sólida o sin valor válido."""
+        if not self._carga_liquida():
+            return 0.0
+        valor = self.cycle.get_param("calentamiento", "presion_add_liquido_calentamiento",
+                                     default=0.0)
+        if not _numero_finito(valor):
+            return 0.0
+        lo, hi = _ADD_LIQUIDO_RANGO
+        return min(max(float(valor), lo), hi)
 
     def _vigilar_aislamiento(self, pres, p_techo, now):
         """VCH-AIS (§4.4/§4.5), solo modo chaqueta. Devuelve (aislado,
@@ -433,6 +461,16 @@ class CalentamientoFase(BaseFase):
         p_obj = p_saturacion_kpa(t_obj)
         p_techo = p_obj + p_add
 
+        # Ajuste 7-nov: con líquidos y extra > 0, la rampa apunta a
+        # p_obj + extra (techo de la rampa p_techo + extra) hasta que el
+        # Principal alcanza t_obj (enclavado); después vuelve a p_obj y la
+        # presión debe bajar a saturación antes de ESTABLE_PREESTERILIZACION.
+        # VCH-AIS, A14-M2 y la banda de sostenimiento siguen con p_techo.
+        add_liq = self._add_liquido()
+        empuje = add_liq > 0.0 and not self._t_obj_alcanzada
+        p_obj_rampa = p_obj + add_liq if empuje else p_obj
+        p_techo_rampa = p_techo + add_liq if empuje else p_techo
+
         # ── 1. Inicialización ────────────────────────────────────────────
         if not self._inicializado:
             temp_inicial = self._temp_principal()
@@ -500,6 +538,19 @@ class CalentamientoFase(BaseFase):
 
         now = time.monotonic()
 
+        # Ajuste 7-nov: enclava t_obj alcanzada (una sola vez por fase)
+        if add_liq > 0.0 and not self._t_obj_alcanzada and temp >= t_obj:
+            self._t_obj_alcanzada = True
+            empuje = False
+            p_obj_rampa, p_techo_rampa = p_obj, p_techo
+            logger.info("Calentamiento: T_obj alcanzada con presión adicional de líquidos "
+                        "(%.1f kPa) — P=%.1f kPa; se espera que baje a %.1f kPa",
+                        add_liq, pres, p_obj + _TOLERANCIA_PSAT_KPA)
+        # Tras el empuje y antes del sostenimiento: sin aporte de vapor
+        # mientras la presión siga sobre la saturación + tolerancia
+        bajando_a_psat = (add_liq > 0.0 and self._t_obj_alcanzada and not self._en_sostenimiento
+                          and pres > p_obj + _TOLERANCIA_PSAT_KPA)
+
         # ── 3. Cálculo de pendiente ──────────────────────────────────────
         # tasa_t/tasa_p alimentan duty_tasa en el paso 4 (control continuo de
         # vapor_camara). No disparan FALLO — riesgo aceptado si vapor_camara no
@@ -546,7 +597,7 @@ class CalentamientoFase(BaseFase):
         duty_estable = 1.0 - factor_pct / 100.0
         cercania = min(
             _duty_por_proximidad(t_obj - temp, rango_cal_t),
-            _duty_por_proximidad(p_obj - pres, rango_cal_p),
+            _duty_por_proximidad(p_obj_rampa - pres, rango_cal_p),
         )
         # sobrepaso escala duty_estable hacia 0 a medida que temp/pres ya
         # superaron el objetivo -- sin esto, duty_proximidad se queda en
@@ -556,7 +607,7 @@ class CalentamientoFase(BaseFase):
         # anterior.
         sobrepaso = min(
             _duty_por_sobrepaso(t_obj - temp, rango_cal_t),
-            _duty_por_sobrepaso(p_obj - pres, rango_cal_p),
+            _duty_por_sobrepaso(p_obj_rampa - pres, rango_cal_p),
         )
         duty_proximidad = duty_estable * sobrepaso + (1.0 - duty_estable) * cercania
 
@@ -568,8 +619,9 @@ class CalentamientoFase(BaseFase):
         duty = min(duty_tasa, duty_proximidad, duty_calidad_vapor)
 
         # C-01.4: techo en Psat(t_obj) + presion_add (antes p_obj + p_add con
-        # p_obj ya sumado, es decir 2 x presion_add)
-        if pres >= p_techo:
+        # p_obj ya sumado, es decir 2 x presion_add); con el empuje de
+        # líquidos, + presion_add_liquido_calentamiento (ajuste 7-nov)
+        if pres >= p_techo_rampa or bajando_a_psat:
             duty = 0.0
 
         duty_anterior = self._duty_actual
@@ -583,8 +635,10 @@ class CalentamientoFase(BaseFase):
                 razones.append("proximidad")
             if duty_calidad_vapor <= 0.0:
                 razones.append("calidad_vapor")
-            if pres >= p_techo:
+            if pres >= p_techo_rampa:
                 razones.append("techo")
+            if bajando_a_psat:
+                razones.append("bajando_a_psat")
             logger.warning(
                 "Calentamiento: vapor_camara a 0 (%s) — T=%.1f°C P=%.1f kPa",
                 ",".join(razones) or "?", temp, pres,
@@ -652,8 +706,10 @@ class CalentamientoFase(BaseFase):
         # se disipe antes de entregar control a ESTERILIZACION.
         p_min_banda = p_obj - _TOLERANCIA_PSAT_KPA
         if not self._en_sostenimiento:
-            # C-01.2: entra con T >= t_obj y P >= Psat(t_obj) - 2 kPa
-            if temp >= t_obj and pres >= p_min_banda:
+            # C-01.2: entra con T >= t_obj y P >= Psat(t_obj) - 2 kPa; con el
+            # extra de líquidos (ajuste 7-nov), además P <= Psat(t_obj) + 2 kPa
+            p_max_entrada = p_obj + _TOLERANCIA_PSAT_KPA if add_liq > 0.0 else math.inf
+            if temp >= t_obj and p_min_banda <= pres <= p_max_entrada:
                 self._en_sostenimiento = True
                 logger.info("Calentamiento: condición alcanzada — entra a ESTABLE_PREESTERILIZACION")
             else:

@@ -82,6 +82,11 @@ PRESION_CAMBIO_MODO_5_DEFECTO = 150                # kPa absolutos (1–400, com
 PARAMETROS_RETIRADOS_T32 = ("tiempo_apertura_chaqueta", "tiempo_cierre_chaqueta")
 ORIGEN_MIGRACION_T32 = "migración tanda 32"
 CODIGO_COHERENCIA_DESCOMPRESION = "COHERENCIA_DESCOMPRESION"
+# Ajuste 7-nov (pedido de Cristian): presión adicional de calentamiento para
+# líquidos. Con carga líquida y valor > 0, la rampa de CALENTAMIENTO apunta a
+# Psat(T_obj) + este valor hasta alcanzar T_obj; 0 desactiva la función.
+PRESION_ADD_LIQUIDO_CALENTAMIENTO_DEFECTO = 15.0   # kPa (diferencia, 0–30)
+ORIGEN_MIGRACION_LIQ_CAL = "migración ajuste 7-nov (presión adicional líquidos)"
 
 # ── P1 (tanda 16, D-14.1): coherencia de la salida de RECUPERACION ─────────
 # Con vapor saturado, la temperatura más alta que permite el techo
@@ -238,6 +243,9 @@ _poner("esterilizacion", "max_reinicios_exposicion", 0, 10,
 # ── Tanda 28 ───────────────────────────────────────────────────────────────
 _poner("esterilizacion", "margen_chaqueta_est", 2, 30,
        "A14-M2 (tanda 28): margen del corte de vapor_chaqueta sobre la consigna")
+# ── Ajuste 7-nov ───────────────────────────────────────────────────────────
+_poner("calentamiento", "presion_add_liquido_calentamiento", 0, PRESION_ADD_MAX,
+       "Ajuste 7-nov: presión adicional de la rampa de calentamiento con líquidos")
 _poner("prevacio", "presion_inicio_vacio", 2, 15,
        "A12 (tanda 28): presión sobre la atmosférica para arrancar el vacío del pulso")
 _poner("prevacio", "timeout_descompresion", 1, 30,
@@ -520,6 +528,23 @@ def _evaluar_limites(parameters: dict) -> tuple[list, list]:
                 f"({suministro:.0f} kPa): la cámara no alcanzará el techo de presión; "
                 f"la válvula de vapor de cámara quedará abierta en ese tramo",
                 {(fase, clave_t), (fase, clave_add)}))
+    # Ajuste 7-nov: con carga líquida (todo valor distinto de "solido") el
+    # techo de la rampa suma presion_add_liquido_calentamiento; debe quedar
+    # bajo el alivio de cámara.
+    if _valor(parameters, "globals", "tipo_carga", defecto=None) != "solido":
+        t = _valor(parameters, "calentamiento", "temperatura_calentamiento")
+        add = _valor(parameters, "calentamiento", "presion_add_calentamiento")
+        extra = _valor(parameters, "calentamiento", "presion_add_liquido_calentamiento")
+        psat = _psat(t) if _num(t) else None
+        if psat is not None and _num(add) and _num(extra) and extra > 0:
+            techo = psat + add + extra
+            if techo >= alivio_cam:
+                maximo = alivio_cam - psat - add
+                rechazos.append((
+                    f"{_PREFIJO_CAMARA}Psat({t:g} °C) + presion_add_calentamiento + "
+                    f"presion_add_liquido_calentamiento = {techo:.1f} kPa alcanza el alivio de "
+                    f"cámara ({alivio_cam:.0f} kPa); presion_add_liquido_calentamiento debe ser "
+                    f"menor que {maximo:.1f} kPa", round(maximo, 1)))
     consigna = consigna_chaqueta_programa(parameters)
     if consigna is not None:
         alto = consigna + BANDA_CHAQUETA_KPA

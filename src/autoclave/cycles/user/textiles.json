@@ -271,6 +271,14 @@
                 "min": 0,
                 "max": 100
             },
+            "presion_add_liquido_calentamiento": {
+                "value": 15.0,
+                "type": "float",
+                "unit": "kPa",
+                "clase": "diferencia",
+                "min": 0,
+                "max": 30
+            },
             "histeresis_cierre_camara": {
                 "value": 3.0,
                 "type": "float",

@@ -75,6 +75,7 @@ _CAL_MAIN_KEYS  = {
 _CAL_ESTAB_KEYS = {
     "tiempo_estable_preesterilizacion", "rango_temp_estabilizacion",
     "timeout_recuperacion_estabilizacion", "presion_add_calentamiento",
+    "presion_add_liquido_calentamiento",   # ajuste 7-nov
 }
 
 

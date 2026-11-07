@@ -121,6 +121,14 @@
             "modo": {
                 "value": 1, "type": "int", "unit": "", "min": 0, "max": 5
             },
+            "presion_add_liquido_calentamiento": {
+                "value": 15.0,
+                "type": "float",
+                "unit": "kPa",
+                "clase": "diferencia",
+                "min": 0,
+                "max": 30
+            },
             "tiempo_pre_despresurizacion": {
                 "value": 0, "type": "int", "unit": "sec", "min": 0, "max": 3600
             },
