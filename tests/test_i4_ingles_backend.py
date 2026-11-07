@@ -200,7 +200,7 @@ def test_migracion_v7_sobre_base_v6(tmp_path):
     conn.commit()
     conn.close()
     db = DbManager(db_path=tmp_path / "t.db")
-    assert db.get_version_esquema() == db_manager.ESQUEMA_VERSION == 13   # v13: usuarios.eliminado (T30-03)
+    assert db.get_version_esquema() == db_manager.ESQUEMA_VERSION == 14   # v14: ciclos.fecha_resultado (ENT-07)
 
 
 def test_registrar_fallo_deja_los_valores_en_el_estado():

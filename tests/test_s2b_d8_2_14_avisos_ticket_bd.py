@@ -38,7 +38,7 @@ def _pie(texto: str) -> list[str]:
 
 def test_esquema_v10_tiene_la_columna(tmp_path):
     db = DbManager(tmp_path / "t.db")
-    assert db.get_version_esquema() == db_manager.ESQUEMA_VERSION == 13   # v13: usuarios.eliminado (T30-03)
+    assert db.get_version_esquema() == db_manager.ESQUEMA_VERSION == 14   # v14: ciclos.fecha_resultado (ENT-07)
     columnas = {r["name"] for r in db._conn.execute("PRAGMA table_info(ciclos)")}
     assert "avisos_ticket" in columnas
     db.close()

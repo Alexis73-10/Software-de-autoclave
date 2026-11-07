@@ -197,7 +197,9 @@ def _correr_ciclo(cl, estado):
     cl.update()                       # inicio
     cl.update()                       # primera lectura
     estado.fase_ciclo = "COMPLETADO"
-    cl.update()                       # cierre
+    cl.update()                       # resultado (ENT-06, tanda 31)
+    estado.entrega_camara = {"entregada": True}
+    cl.update()                       # entrega de la cámara: cierre
 
 
 def test_ciclo_sin_bd_va_al_respaldo_y_al_ticket(tmp_path):

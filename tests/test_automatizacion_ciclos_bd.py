@@ -30,7 +30,7 @@ def _fila(db, ciclo_id):
 
 def test_bd_nueva_tiene_columnas_y_version_12(tmp_path):
     db = DbManager(tmp_path / "a.db")
-    assert db.get_version_esquema() == db_manager.ESQUEMA_VERSION == 13   # v13: usuarios.eliminado (T30-03)
+    assert db.get_version_esquema() == db_manager.ESQUEMA_VERSION == 14   # v14: ciclos.fecha_resultado (ENT-07)
     cols = _columnas(db._conn)
     assert "serie_original" in cols and "modelo_original" in cols
 

@@ -388,6 +388,8 @@ class AccionesCiclos(QObject):
                 logger.debug("listado del periodo no disponible: %s", e)
                 raise _ErrorConMensaje(i18n.t("exportacion.error_datos"))
             filas = list(reversed(lista.get("ciclos") or []))   # el más antiguo primero
+            # ENT-11 (tanda 31): sin los ciclos aún no cerrados (sin fecha de fin)
+            filas = [f for f in filas if f.get("fecha_fin")]
             ciclos = []
             for i, fila in enumerate(filas, start=1):
                 self._avance.emit(i18n.t("exportacion.preparando", i=i, n=len(filas)))
@@ -543,6 +545,10 @@ class AccionesCiclos(QObject):
             logger.debug("datos del ciclo %s no disponibles: %s", ciclo_id, e)
             raise _ErrorConMensaje(i18n.t("exportacion.error_datos"))
         ciclo = ticket["ciclo"]
+        # ENT-11 (tanda 31): un ciclo sin fecha de fin (resultado sin entrega
+        # de la cámara) aún no tiene el ticket cerrado: no se exporta
+        if not ciclo.get("fecha_fin"):
+            raise _ErrorConMensaje(i18n.t("manejo_ciclos.en_ciclo"))
         p = self._presentacion()             # una vez por ciclo: ticket, gráfica y datos iguales
         acumulador = AcumuladorGrafica()
         acumulador.incorporar(grafica)

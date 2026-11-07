@@ -138,7 +138,8 @@ def test_alarma_tras_el_cierre_esperando_confirmacion(entorno):
     ciclo = logger.ciclo_id
     estado.fase_ciclo, estado.motivo_fallo = "CANCELADO", "Cancelado"
     logger.update()
-    assert logger.ciclo_id is None and logger.ciclo_id_pantalla == ciclo
+    # ENT-06/07 (tanda 31): con el resultado el ciclo sigue abierto hasta la entrega
+    assert logger.ciclo_id == ciclo and logger.ciclo_id_pantalla == ciclo
     am.activar(PRE_06, temp=70.0, maximo=65.0)
     am.activar(SEN_11, sensor="temp_ref", fase="ESTERILIZACION")
     filas = _filas(db, hist)

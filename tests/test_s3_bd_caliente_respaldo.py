@@ -173,6 +173,10 @@ def test_la_marca_de_ciclo_se_limpia_despues_del_cierre_del_respaldo(tmp_path):
     cl.update()
     cl.update()
     estado.fase_ciclo = "COMPLETADO"
+    cl.update()                                       # resultado (ENT-06)
+    diferido.correr()
+    assert cl.contador.en_curso() is not None         # ENT-07: hasta la entrega, marca puesta
+    estado.entrega_camara = {"entregada": True}
     cl.update()                                       # cierre en el tick
     assert cl.contador.en_curso() is not None         # marca aún puesta
     diferido.correr()                                 # hilo del respaldo: cierre y luego limpia

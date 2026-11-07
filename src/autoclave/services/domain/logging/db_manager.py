@@ -443,6 +443,28 @@ def _migracion_v13(conn: sqlite3.Connection) -> None:
         "BEGIN SELECT RAISE(ABORT, 'cuenta del sistema protegida'); END")
 
 
+def _migracion_v14(conn: sqlite3.Connection) -> None:
+    """ENT-07 (tanda 31): `fecha_resultado`, hora del resultado del ciclo
+    (fallo, cancelación o COMPLETADO). `fecha_fin` pasa a ser la hora de la
+    entrega de la cámara o de la confirmación. Aditiva e idempotente, sin
+    DEFAULT: las filas anteriores quedan en NULL (resultado y fin a la vez)."""
+    columnas = {f[1] for f in conn.execute("PRAGMA table_info(ciclos)")}
+    if "fecha_resultado" not in columnas:
+        conn.execute("ALTER TABLE ciclos ADD COLUMN fecha_resultado TEXT")
+
+
+def _avisos_con_corte(texto) -> str:
+    """ENT-07: `avisos_ticket` (JSON) con el aviso de entrega no registrada
+    por corte de energía agregado una vez. Nunca lanza."""
+    from autoclave.services.domain.logging.ticket_formatter import (
+        CLAVE_ENTREGA_NO_REGISTRADA, leer_avisos_ticket)
+    sin_datos_s, avisos = leer_avisos_ticket(texto)
+    if not any(isinstance(a, dict) and a.get("clave") == CLAVE_ENTREGA_NO_REGISTRADA
+               for a in avisos):
+        avisos = [*avisos, {"clave": CLAVE_ENTREGA_NO_REGISTRADA}]
+    return _valores_fallo_json({"sin_datos_s": sin_datos_s, "avisos": avisos})
+
+
 def _valores_fallo_json(valores) -> str:
     """'' sin parámetros; JSON (sin NaN) si los hay. Nunca lanza."""
     if not isinstance(valores, dict) or not valores:
@@ -467,6 +489,7 @@ _MIGRACIONES = (
     (11, _migracion_v11),
     (12, _migracion_v12),
     (13, _migracion_v13),
+    (14, _migracion_v14),
 )
 
 ESQUEMA_VERSION = _MIGRACIONES[-1][0]
@@ -955,15 +978,27 @@ class DbManager:
     def cerrar_ciclos_interrumpidos(self, motivo: str) -> list[dict]:
         """D-08 / PF-17: todo ciclo sin fecha_fin quedó interrumpido (corte de
         energía o reinicio). Se cierra como INTERRUMPIDO, nunca se reanuda.
-        Devuelve las filas cerradas (la más reciente al final)."""
+        ENT-07 (tanda 31): uno con resultado (`fecha_resultado`) y sin entrega
+        de la cámara conserva su resultado y recibe la fecha de fin del
+        arranque y el aviso de entrega no registrada. Devuelve todas las filas
+        cerradas (la más reciente al final): las dos clases cuentan como ciclo
+        interrumpido (DECISIÓN SIN CONFIRMAR)."""
+        ahora = datetime.now().isoformat()
         with self._lock:
             filas = [dict(f) for f in self._conn.execute(
                 "SELECT * FROM ciclos WHERE fecha_fin IS NULL ORDER BY id").fetchall()]
             if filas:
-                self._conn.execute(
-                    "UPDATE ciclos SET fecha_fin=?, resultado='INTERRUMPIDO', motivo_fallo=? "
-                    "WHERE fecha_fin IS NULL",
-                    (datetime.now().isoformat(), motivo))
+                for fila in filas:
+                    if fila.get("fecha_resultado"):
+                        self._conn.execute(
+                            "UPDATE ciclos SET fecha_fin=?, avisos_ticket=? "
+                            "WHERE id=? AND fecha_fin IS NULL",
+                            (ahora, _avisos_con_corte(fila.get("avisos_ticket")), fila["id"]))
+                    else:
+                        self._conn.execute(
+                            "UPDATE ciclos SET fecha_fin=?, resultado='INTERRUMPIDO', "
+                            "motivo_fallo=? WHERE id=? AND fecha_fin IS NULL",
+                            (ahora, motivo, fila["id"]))
                 self._conn.commit()
         return filas
 
@@ -1031,15 +1066,37 @@ class DbManager:
 
     def cerrar_ciclo(self, ciclo_id: int, resultado: str, motivo_fallo: str | None = None,
                      codigo_fallo: str | None = None, f0_final: float | None = None,
-                     valores_fallo: dict | None = None, avisos_ticket: dict | None = None):
+                     valores_fallo: dict | None = None, avisos_ticket: dict | None = None,
+                     fecha_fin: str | None = None):
         """Registra la hora de fin, el resultado y (si lo hay) el motivo, el
         código y los parámetros del fallo, y el F0 final si el ciclo tenía F0 activo.
-        `avisos_ticket` (D8-2.14): líneas de aviso del pie del ticket."""
+        `avisos_ticket` (D8-2.14): líneas de aviso del pie del ticket.
+        ENT-07 (tanda 31): la hora de fin es la de la entrega de la cámara o la
+        confirmación; el resultado ya se guardó con `registrar_resultado` y
+        `fecha_resultado` no cambia aquí."""
         with self._lock:
             self._conn.execute(
                 "UPDATE ciclos SET fecha_fin=?, resultado=?, motivo_fallo=?, codigo_fallo=?, "
                 "f0_final=?, valores_fallo=?, avisos_ticket=? WHERE id=?",
-                (datetime.now().isoformat(), resultado, motivo_fallo or "",
+                (fecha_fin or datetime.now().isoformat(), resultado, motivo_fallo or "",
+                 codigo_fallo or "", f0_final, _valores_fallo_json(valores_fallo),
+                 _valores_fallo_json(avisos_ticket), ciclo_id),
+            )
+            self._conn.commit()
+
+    def registrar_resultado(self, ciclo_id: int, resultado: str,
+                            motivo_fallo: str | None = None, codigo_fallo: str | None = None,
+                            f0_final: float | None = None, valores_fallo: dict | None = None,
+                            avisos_ticket: dict | None = None,
+                            fecha_resultado: str | None = None) -> None:
+        """ENT-07 (tanda 31): resultado del ciclo en su instante (fallo,
+        cancelación o COMPLETADO), sin `fecha_fin`: el ciclo sigue abierto
+        hasta la entrega de la cámara o la confirmación (`cerrar_ciclo`)."""
+        with self._lock:
+            self._conn.execute(
+                "UPDATE ciclos SET fecha_resultado=?, resultado=?, motivo_fallo=?, "
+                "codigo_fallo=?, f0_final=?, valores_fallo=?, avisos_ticket=? WHERE id=?",
+                (fecha_resultado or datetime.now().isoformat(), resultado, motivo_fallo or "",
                  codigo_fallo or "", f0_final, _valores_fallo_json(valores_fallo),
                  _valores_fallo_json(avisos_ticket), ciclo_id),
             )
@@ -1054,13 +1111,16 @@ class DbManager:
             self._conn.commit()
 
     def importar_ciclo_respaldo(self, encabezado: dict, lecturas: list[dict],
-                                cierre: dict | None, motivo_interrumpido: str) -> bool:
+                                cierre: dict | None, motivo_interrumpido: str,
+                                resultado: dict | None = None) -> bool:
         """Reimporta un ciclo del respaldo JSONL (T8, §7.4) en una sola
         transacción. Idempotente por uuid. Devuelve "importado" (no estaba),
         "completado" (estaba incompleto: la base falló a mitad de ciclo; se
         agregan las lecturas que faltan y, si no tenía fin, el cierre del
         respaldo; SAF-02) o "ya_registrado". Sin cierre, un ciclo nuevo queda
-        INTERRUMPIDO."""
+        INTERRUMPIDO. ENT-07 (tanda 31): sin cierre pero con el registro
+        `resultado` (corte durante la espera de la entrega), conserva su
+        resultado, fecha de fin = importación y aviso de entrega no registrada."""
         uuid_ciclo = encabezado.get("uuid")
         if not uuid_ciclo:
             raise ValueError("respaldo sin uuid")
@@ -1069,7 +1129,9 @@ class DbManager:
                                       (uuid_ciclo,)).fetchone()
             if fila is not None:
                 return self._completar_ciclo_respaldo(fila["id"], fila["fecha_fin"],
-                                                      lecturas, cierre)
+                                                      lecturas, cierre, resultado)
+            fecha_resultado = (resultado.get("fecha_resultado") or None
+                               if isinstance(resultado, dict) else None)
             try:
                 if cierre is not None:
                     fin = (cierre.get("fecha_fin") or datetime.now().isoformat(),
@@ -1077,6 +1139,13 @@ class DbManager:
                            cierre.get("motivo") or "", cierre.get("codigo") or "",
                            cierre.get("f0_final"),
                            _valores_fallo_json(cierre.get("avisos_ticket")))
+                elif isinstance(resultado, dict):
+                    fecha_resultado = fecha_resultado or datetime.now().isoformat()
+                    fin = (datetime.now().isoformat(),
+                           resultado.get("resultado") or "DESCONOCIDO",
+                           resultado.get("motivo") or "", resultado.get("codigo") or "",
+                           resultado.get("f0_final"),
+                           _avisos_con_corte(_valores_fallo_json(resultado.get("avisos_ticket"))))
                 else:
                     fin = (datetime.now().isoformat(), "INTERRUMPIDO",
                            motivo_interrumpido, "", None, "")
@@ -1088,8 +1157,8 @@ class DbManager:
                          modelo, serie, version_sw, operador,
                          asignacion_sensores, numero_programa, uuid, programa_json,
                          fecha_fin, resultado, motivo_fallo, codigo_fallo, f0_final,
-                         avisos_ticket, serie_original, modelo_original)
-                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                         avisos_ticket, serie_original, modelo_original, fecha_resultado)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                     """,
                     (
                         encabezado.get("numero"),
@@ -1109,6 +1178,7 @@ class DbManager:
                     ) + fin + (
                         encabezado.get("serie_original"),
                         encabezado.get("modelo_original"),
+                        fecha_resultado,
                     ),
                 )
                 ciclo_id = cur.lastrowid
@@ -1138,11 +1208,15 @@ class DbManager:
         )
 
     def _completar_ciclo_respaldo(self, ciclo_id: int, fecha_fin, lecturas: list[dict],
-                                  cierre: dict | None) -> str:
+                                  cierre: dict | None, resultado: dict | None = None) -> str:
         """Con _lock tomado. SAF-02 de T8: agrega las lecturas del respaldo que
         faltan (clave: timestamp_abs, timestamp_rel y fase) y, si la fila no
         tiene fin, aplica el cierre del respaldo. Una fila ya cerrada conserva
-        su resultado."""
+        su resultado. ENT-07 (tanda 31): sin cierre y con el registro
+        `resultado`, aplica el resultado con fecha de fin = ahora y el aviso de
+        entrega no registrada."""
+        if not isinstance(resultado, dict):
+            resultado = None
         existentes = {
             (r["timestamp_abs"], r["timestamp_rel"], r["fase_codigo"])
             for r in self._conn.execute(
@@ -1153,11 +1227,27 @@ class DbManager:
                   if (l.get("timestamp_abs") or "", l.get("timestamp_rel") or "",
                       l.get("fase_codigo") or "") not in existentes]
         cerrar = fecha_fin is None and cierre is not None
-        if not faltan and not cerrar:
+        con_resultado = fecha_fin is None and cierre is None and resultado is not None
+        if not faltan and not cerrar and not con_resultado:
             return "ya_registrado"
         try:
             for l in faltan:
                 self._insertar_lectura_respaldo(ciclo_id, l)
+            if cerrar and resultado is not None and resultado.get("fecha_resultado"):
+                self._conn.execute(
+                    "UPDATE ciclos SET fecha_resultado=? WHERE id=? AND fecha_resultado IS NULL",
+                    (resultado["fecha_resultado"], ciclo_id))
+            if con_resultado:
+                self._conn.execute(
+                    "UPDATE ciclos SET fecha_fin=?, resultado=?, motivo_fallo=?, codigo_fallo=?, "
+                    "f0_final=?, valores_fallo=?, avisos_ticket=?, "
+                    "fecha_resultado=COALESCE(fecha_resultado, ?) WHERE id=?",
+                    (datetime.now().isoformat(),
+                     resultado.get("resultado") or "DESCONOCIDO", resultado.get("motivo") or "",
+                     resultado.get("codigo") or "", resultado.get("f0_final"),
+                     _valores_fallo_json(resultado.get("valores")),
+                     _avisos_con_corte(_valores_fallo_json(resultado.get("avisos_ticket"))),
+                     resultado.get("fecha_resultado") or datetime.now().isoformat(), ciclo_id))
             if cerrar:
                 self._conn.execute(
                     "UPDATE ciclos SET fecha_fin=?, resultado=?, motivo_fallo=?, codigo_fallo=?, "

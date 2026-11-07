@@ -23,6 +23,7 @@ _NO_ESTERIL = "CARGA NO ESTÉRIL"
 
 
 def _ticket(a) -> str:
+    e1._confirmar(a)          # ENT-06 (tanda 31): el pie sale al confirmar
     return e1._ticket(a)
 
 
