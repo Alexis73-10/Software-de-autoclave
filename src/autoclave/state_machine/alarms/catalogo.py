@@ -102,6 +102,11 @@ CIC_20 = "CIC-20"
 # bloqueante, despeje manual (DECISIÓN SIN CONFIRMAR: nivel y textos).
 # Era CIC-20 en la rama tanda28b; renumerada a CIC-21 al unir (A12 ya usaba CIC-20)
 CIC_21 = "CIC-21"
+# Tanda 32 (LIQ-01/LIQ-02): enfriamiento de líquidos con contrapresión (modos
+# 4/5). CIC-22/23/24: FALLO bloqueante de DESCOMPRESION como CIC-20 (topes de
+# LIQ-01 y contrapresión baja sostenida); CIC-25: aviso no bloqueante que se
+# despeja solo (contrapresión baja), como CIC-18
+CIC_22, CIC_23, CIC_24, CIC_25 = "CIC-22", "CIC-23", "CIC-24", "CIC-25"
 # M1 (tanda 3): aviso no bloqueante de mantenimiento vencido (id descriptivo
 # como OPERANDO_SIN_BD; nunca impide un ciclo)
 MANTENIMIENTO_VENCIDO = SIS_04
@@ -420,6 +425,34 @@ DEFINICIONES: tuple[DefinicionAlarma, ...] = (
        "{minimo:.1f} kPa durante {segundos} s. La cámara puede conservar vapor residual.",
        "Abra la puerta con precaución: puede salir vapor caliente. Revise la bomba de vacío, "
        "su agua de sello y la válvula de vacío."),
+    # Tanda 32 (LIQ-01): la chaqueta no se despresurizó a tiempo en el
+    # enfriamiento con contrapresión (el agua de chaqueta no se abrió)
+    _d(CIC_22, _AL, True, _M, "Chaqueta sin despresurizar en el enfriamiento",
+       "La presión de chaqueta no bajó a {maximo:.1f} kPa (atmosférica + {margen} kPa) en "
+       "{minutos} min, en el enfriamiento con contrapresión del modo {modo}. El agua de chaqueta "
+       "no se abrió. El ciclo se abortó.",
+       "No abra la puerta: la carga líquida puede seguir caliente. Revise la válvula de "
+       "descompresión de chaqueta, el escape de la chaqueta y el sensor de presión de chaqueta "
+       "(calibración)."),
+    # Tanda 32 (LIQ-01): la cámara no llegó a la presión de enfriamiento a tiempo
+    _d(CIC_23, _AL, True, _M, "Cámara sin presurizar en el enfriamiento",
+       "La presión de cámara no llegó a {objetivo:.1f} kPa en {minutos} min, en el enfriamiento "
+       "con contrapresión del modo {modo}. El agua de chaqueta no se abrió. El ciclo se abortó.",
+       "No abra la puerta: la carga líquida puede seguir caliente. Revise el suministro de aire "
+       "comprimido, su válvula y el sensor de presión de cámara (calibración)."),
+    # Tanda 32 (LIQ-02): contrapresión bajo el mínimo sostenida
+    _d(CIC_24, _AL, True, _M, "Contrapresión insuficiente en el enfriamiento",
+       "La presión de cámara estuvo bajo el mínimo de contrapresión (presión de saturación de "
+       "la carga más {margen} kPa) durante {segundos} s seguidos, en el enfriamiento del modo "
+       "{modo}. La carga líquida pudo hervir. El ciclo se abortó.",
+       "No abra la puerta: la carga líquida puede seguir caliente. Revise el suministro de aire "
+       "comprimido, su válvula, el sensor de presión de cámara y la sonda Principal."),
+    # Tanda 32 (LIQ-02): aviso previo de contrapresión baja; se despeja solo
+    _d(CIC_25, _AV, False, _A, "Contrapresión baja en el enfriamiento",
+       "La presión de cámara está bajo el mínimo de contrapresión (presión de saturación de la "
+       "carga más {margen} kPa) desde hace {segundos} s, en el enfriamiento con contrapresión. "
+       "La carga líquida puede hervir.",
+       "Revise el suministro de aire comprimido, su válvula y el sensor de presión de cámara."),
     # F2 (tanda 16, D-CHQ / VCH-CHQ): no hay FALLO por esta vía (§4.6)
     _d(CIC_18, _AV, False, _A, "Presión de chaqueta en el límite de control",
        "La chaqueta llegó a {pres:.1f} kPa (límite {maximo:.1f} kPa) en la fase {fase}: la "

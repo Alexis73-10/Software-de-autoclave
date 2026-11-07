@@ -160,6 +160,7 @@
     "cargando": "Cargando…",
     "err_rol_sonda_no_activa": "No se puede guardar: hay un rol asignado a una sonda que no está activa en el perfil de instalación.",
     "err_coherencia_recuperacion": "No se puede guardar: con esta temperatura y brecha segura, el techo de presión de esterilización no permite salir de RECUPERACIÓN. La presión adicional de esterilización debe ser al menos {valor} kPa.",
+    "err_coherencia_descompresion": "No se puede guardar: con «Descompresión lenta y luego rápida» activa en el modo 5, la «Presión de cambio al escape rápido» debe ser menor que la «Presión de cámara durante el enfriamiento».",
     "equipo_err_empaque": "El valor no es coherente con la presión atmosférica y la presión y el vacío de empaque.",
     "equipo_err_empaque_sin_referencia": "No se puede comprobar la coherencia: falta un valor válido de presión de empaque, vacío de empaque o presión atmosférica.",
     "equipo_err_empaque_sobre_atm": "La presión de empaque ({presion_empaque}) debe quedar al menos {margen_empaque} sobre la presión atmosférica ({presion_atmosferica}).",
@@ -325,6 +326,7 @@
     "aviso_modo_liquido": "Carga líquida: el modo de descompresión cambió a {modo} ({nombre}).",
     "aviso_modo_solido": "Carga sólida: el modo de descompresión volvió a {modo} ({nombre}).",
     "err_limite_presion_camara": "No se puede guardar: el techo de presión de cámara llegaría al alivio de cámara ({alivio_camara} kPa). La presión adicional debe ser menor que {valor} kPa.",
+    "err_limite_contrapresion_enfriamiento": "No se puede guardar: la «Presión de cámara durante el enfriamiento» debe ser como máximo {valor} kPa (alivio de cámara {alivio_camara} kPa menos 10 kPa), para que el aire comprimido no levante la válvula de alivio.",
     "err_limite_consigna_chaqueta": "No se puede guardar: la consigna calculada de chaqueta es {valor} kPa y, con la banda de ±10 kPa, llega al alivio de chaqueta ({alivio_chaqueta} kPa).",
     "err_limite_presion_chaqueta": "No se puede guardar: «Presión de chaqueta» + «Rango de presión de chaqueta» llega al alivio de chaqueta ({alivio_chaqueta} kPa). La presión de chaqueta debe ser menor que {valor} kPa.",
     "aviso_techo_sobre_suministro": "Guardado con advertencia: el techo de presión de cámara supera el suministro (350 kPa). La cámara no lo alcanzará y la válvula de vapor de cámara quedará abierta en ese tramo.",
@@ -1278,6 +1280,26 @@
       "plantilla": "El secado tras el fallo no logró vacío: la presión de cámara no se mantuvo bajo {minimo:.1f} kPa durante {segundos} s. La cámara puede conservar vapor residual.",
       "accion": "Abra la puerta con precaución: puede salir vapor caliente. Revise la bomba de vacío, su agua de sello y la válvula de vacío."
     },
+    "CIC-22": {
+      "titulo": "Chaqueta sin despresurizar en el enfriamiento",
+      "plantilla": "La presión de chaqueta no bajó a {maximo:.1f} kPa (atmosférica + {margen} kPa) en {minutos} min, en el enfriamiento con contrapresión del modo {modo}. El agua de chaqueta no se abrió. El ciclo se abortó.",
+      "accion": "No abra la puerta: la carga líquida puede seguir caliente. Revise la válvula de descompresión de chaqueta, el escape de la chaqueta y el sensor de presión de chaqueta (calibración)."
+    },
+    "CIC-23": {
+      "titulo": "Cámara sin presurizar en el enfriamiento",
+      "plantilla": "La presión de cámara no llegó a {objetivo:.1f} kPa en {minutos} min, en el enfriamiento con contrapresión del modo {modo}. El agua de chaqueta no se abrió. El ciclo se abortó.",
+      "accion": "No abra la puerta: la carga líquida puede seguir caliente. Revise el suministro de aire comprimido, su válvula y el sensor de presión de cámara (calibración)."
+    },
+    "CIC-24": {
+      "titulo": "Contrapresión insuficiente en el enfriamiento",
+      "plantilla": "La presión de cámara estuvo bajo el mínimo de contrapresión (presión de saturación de la carga más {margen} kPa) durante {segundos} s seguidos, en el enfriamiento del modo {modo}. La carga líquida pudo hervir. El ciclo se abortó.",
+      "accion": "No abra la puerta: la carga líquida puede seguir caliente. Revise el suministro de aire comprimido, su válvula, el sensor de presión de cámara y la sonda Principal."
+    },
+    "CIC-25": {
+      "titulo": "Contrapresión baja en el enfriamiento",
+      "plantilla": "La presión de cámara está bajo el mínimo de contrapresión (presión de saturación de la carga más {margen} kPa) desde hace {segundos} s, en el enfriamiento con contrapresión. La carga líquida puede hervir.",
+      "accion": "Revise el suministro de aire comprimido, su válvula y el sensor de presión de cámara."
+    },
     "COM-02": {
       "titulo": "Comunicación perdida durante el ciclo",
       "plantilla": "Se perdió la comunicación con el módulo E/S por más de {segundos:.1f} s en la fase {fase}. El ciclo se abortó.",
@@ -1576,16 +1598,20 @@
       "modo_4": {
         "timeout": "Tiempo máximo, en minutos, de todo el modo 4 (enfriamiento y despresurización final), contado tras la espera previa. Si vence, el ciclo falla y el registro indica la etapa en la que ocurrió.",
         "presion_camara_enfriamiento": "Contrapresión absoluta mínima de la cámara durante el enfriamiento: si la presión baja de este valor se abre el aire comprimido. Evita la ebullición de la carga. Con carga líquida debe ser al menos Psat(«Temperatura de esterilización») + 30 kPa.",
-        "temperatura_enfriamiento": "Temperatura de la sonda Principal que da por enfriada la carga (3 lecturas consecutivas en o por debajo de este valor). Al cumplirse se cierran el aire comprimido y el agua, y se abren el drenaje de chaqueta y el escape rápido hasta la atmosférica.",
-        "tiempo_apertura_chaqueta": "Segundos que el drenaje de la chaqueta permanece abierto en cada ciclo de su temporizador durante el enfriamiento con agua.",
-        "tiempo_cierre_chaqueta": "Segundos que el drenaje de la chaqueta permanece cerrado entre aperturas durante el enfriamiento. 0 = abierto continuo."
+        "temperatura_enfriamiento": "Temperatura de la sonda Principal que da por enfriada la carga (3 lecturas consecutivas en o por debajo de este valor). Al cumplirse se cierran el aire comprimido y el agua, el drenaje de chaqueta sigue abierto y se abre el escape rápido hasta la atmosférica.",
+        "presion_despresurizacion_chaqueta": "Kilopascales sobre la presión atmosférica del equipo. Al empezar el enfriamiento se abre el drenaje de chaqueta; la chaqueta se da por despresurizada cuando su presión baja a la atmosférica + este valor. El agua de chaqueta solo se abre con la chaqueta despresurizada y la cámara en «Presión de cámara durante el enfriamiento».",
+        "timeout_despresurizacion_chaqueta": "Tiempo máximo, en minutos, para que la chaqueta quede despresurizada al empezar el enfriamiento. Si vence, el ciclo falla.",
+        "timeout_presurizacion_enfriamiento": "Tiempo máximo, en minutos, para que el aire comprimido lleve la cámara a «Presión de cámara durante el enfriamiento» al empezar el enfriamiento. Si vence, el ciclo falla."
       },
       "modo_5": {
         "timeout": "Tiempo máximo, en minutos, de todo el modo 5 (enfriamiento y despresurización final), contado tras la espera previa. Si vence, el ciclo falla y el registro indica la etapa en la que ocurrió.",
         "presion_camara_enfriamiento": "Contrapresión absoluta mínima de la cámara durante el enfriamiento: si la presión baja de este valor se abre el aire comprimido. Evita la ebullición de la carga. Con carga líquida debe ser al menos Psat(«Temperatura de esterilización») + 30 kPa.",
-        "temperatura_enfriamiento": "Temperatura de la sonda Principal que da por enfriada la carga (3 lecturas consecutivas en o por debajo de este valor). Al cumplirse se cierran el aire comprimido y el agua, y se abren el drenaje de chaqueta y el escape rápido hasta la atmosférica.",
-        "tiempo_apertura_chaqueta": "Segundos que el drenaje de la chaqueta permanece abierto en cada ciclo de su temporizador durante el enfriamiento con agua.",
-        "tiempo_cierre_chaqueta": "Segundos que el drenaje de la chaqueta permanece cerrado entre aperturas durante el enfriamiento. 0 = abierto continuo."
+        "temperatura_enfriamiento": "Temperatura de la sonda Principal que da por enfriada la carga (3 lecturas consecutivas en o por debajo de este valor). Al cumplirse se cierran el aire comprimido y el agua y el drenaje de chaqueta sigue abierto. Con «Descompresión lenta y luego rápida» activa, el escape lento sigue abierto hasta «Presión de cambio al escape rápido» y luego se cierra y se abre el rápido hasta la atmosférica; desactivada, se cierra el escape lento y se abre el rápido de inmediato.",
+        "presion_despresurizacion_chaqueta": "Kilopascales sobre la presión atmosférica del equipo. Al empezar el enfriamiento se abre el drenaje de chaqueta; la chaqueta se da por despresurizada cuando su presión baja a la atmosférica + este valor. El agua de chaqueta solo se abre con la chaqueta despresurizada y la cámara en «Presión de cámara durante el enfriamiento».",
+        "timeout_despresurizacion_chaqueta": "Tiempo máximo, en minutos, para que la chaqueta quede despresurizada al empezar el enfriamiento. Si vence, el ciclo falla.",
+        "timeout_presurizacion_enfriamiento": "Tiempo máximo, en minutos, para que el aire comprimido lleve la cámara a «Presión de cámara durante el enfriamiento» al empezar el enfriamiento. Si vence, el ciclo falla.",
+        "descompresion_lenta_rapida": "Al terminar el enfriamiento, mantiene abierto el escape lento hasta «Presión de cambio al escape rápido» y luego abre el escape rápido. Desactivada, abre el escape rápido directamente.",
+        "presion_cambio": "Solo con «Descompresión lenta y luego rápida» activa: presión absoluta de cámara a la que se cierra el escape lento y se abre el rápido. Debe ser menor que «Presión de cámara durante el enfriamiento»."
       }
     },
     "finalizacion": {
@@ -1614,11 +1640,11 @@
     },
     "4": {
       "nombre": "Con enfriamiento",
-      "desc": "Para líquidos. Enfriamiento: agua en la chaqueta, drenaje de chaqueta pulsado y aire comprimido que mantiene la cámara en o sobre «Presión de cámara durante el enfriamiento». Cuando la sonda Principal queda en o por debajo de «Temperatura de enfriamiento» (3 lecturas), cierra agua y aire y abre el drenaje de chaqueta y el escape rápido hasta la atmosférica."
+      "desc": "Para líquidos. Enfriamiento: el drenaje de chaqueta queda abierto fijo para despresurizar la chaqueta y el aire comprimido mantiene la cámara en o sobre «Presión de cámara durante el enfriamiento». El agua de chaqueta solo se abre cuando la cámara alcanzó esa contrapresión y la chaqueta quedó despresurizada. Cuando la sonda Principal queda en o por debajo de «Temperatura de enfriamiento» (3 lecturas), cierra agua y aire y abre el escape rápido hasta la atmosférica, con el drenaje de chaqueta abierto."
     },
     "5": {
       "nombre": "Con enfriamiento y escape lento",
-      "desc": "Igual que el modo 4, pero con el escape lento abierto durante todo el enfriamiento: libera vapor de la cámara mientras el aire comprimido sostiene la contrapresión. Al cumplirse la temperatura de enfriamiento se cierra el escape lento y se abre el rápido."
+      "desc": "Igual que el modo 4 (drenaje de chaqueta abierto fijo; agua de chaqueta solo con la contrapresión alcanzada y la chaqueta despresurizada), pero con el escape lento abierto durante todo el enfriamiento: libera vapor de la cámara mientras el aire comprimido sostiene la contrapresión. Al cumplirse la temperatura de enfriamiento se cierra el escape lento y se abre el rápido; con «Descompresión lenta y luego rápida» activa, el escape lento sigue abierto hasta «Presión de cambio al escape rápido» y después se abre el rápido."
     }
   },
   "calibracion_atm": {
@@ -2161,15 +2187,19 @@
         "timeout": "Tiempo límite del modo 4",
         "presion_camara_enfriamiento": "Presión de cámara durante el enfriamiento",
         "temperatura_enfriamiento": "Temperatura de enfriamiento",
-        "tiempo_apertura_chaqueta": "Tiempo abierto del drenaje de chaqueta",
-        "tiempo_cierre_chaqueta": "Tiempo cerrado del drenaje de chaqueta"
+        "presion_despresurizacion_chaqueta": "Presión de chaqueta despresurizada",
+        "timeout_despresurizacion_chaqueta": "Tiempo límite de despresurización de chaqueta",
+        "timeout_presurizacion_enfriamiento": "Tiempo límite de presurización para el enfriamiento"
       },
       "modo_5": {
         "timeout": "Tiempo límite del modo 5",
         "presion_camara_enfriamiento": "Presión de cámara durante el enfriamiento",
         "temperatura_enfriamiento": "Temperatura de enfriamiento",
-        "tiempo_apertura_chaqueta": "Tiempo abierto del drenaje de chaqueta",
-        "tiempo_cierre_chaqueta": "Tiempo cerrado del drenaje de chaqueta"
+        "presion_despresurizacion_chaqueta": "Presión de chaqueta despresurizada",
+        "timeout_despresurizacion_chaqueta": "Tiempo límite de despresurización de chaqueta",
+        "timeout_presurizacion_enfriamiento": "Tiempo límite de presurización para el enfriamiento",
+        "descompresion_lenta_rapida": "Descompresión lenta y luego rápida",
+        "presion_cambio": "Presión de cambio al escape rápido"
       }
     },
     "finalizacion": {
@@ -2291,6 +2321,9 @@
     "aviso_uniformidad": "Uniformidad termica fuera de rango: {sensor} {temp}",
     "aviso_excursion": "Excursión de {sensor}: {duracion} s fuera de banda, mínima {temp_min}",
     "aviso_excursion_alta": "Excursión de {sensor}: {duracion} s fuera de banda, mínima {temp_min}, máxima {temp_max}",
+    "aviso_contrapresion": "Contrapresión baja en el enfriamiento a las {hora}",
+    "aviso_enfriamiento_detenido_chaqueta": "Enfriamiento con contrapresión detenido a las {hora}: la chaqueta no se despresurizó a tiempo",
+    "aviso_enfriamiento_detenido_presurizacion": "Enfriamiento con contrapresión detenido a las {hora}: la cámara no llegó a la presión de enfriamiento a tiempo",
     "no_conforme_referencia": "NO CONFORME: punto de referencia sin verificar ({sensor})",
     "observacion": "Observación",
     "observacion_referencia": "{sensor} sin lectura desde {hora} ({fase})",

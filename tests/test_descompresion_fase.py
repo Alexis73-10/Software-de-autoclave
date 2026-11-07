@@ -16,13 +16,15 @@ _BASE_PARAMS = {
     ("descompresion", "modo_3", "timeout"): 30,
     ("descompresion", "modo_4", "presion_camara_enfriamiento"): 200,
     ("descompresion", "modo_4", "temperatura_enfriamiento"): 80.0,
-    ("descompresion", "modo_4", "tiempo_apertura_chaqueta"): 5,
-    ("descompresion", "modo_4", "tiempo_cierre_chaqueta"): 10,
+    ("descompresion", "modo_4", "presion_despresurizacion_chaqueta"): 20,
+    ("descompresion", "modo_4", "timeout_despresurizacion_chaqueta"): 3,
+    ("descompresion", "modo_4", "timeout_presurizacion_enfriamiento"): 3,
     ("descompresion", "modo_4", "timeout"): 120,
     ("descompresion", "modo_5", "presion_camara_enfriamiento"): 200,
     ("descompresion", "modo_5", "temperatura_enfriamiento"): 80.0,
-    ("descompresion", "modo_5", "tiempo_apertura_chaqueta"): 5,
-    ("descompresion", "modo_5", "tiempo_cierre_chaqueta"): 10,
+    ("descompresion", "modo_5", "presion_despresurizacion_chaqueta"): 20,
+    ("descompresion", "modo_5", "timeout_despresurizacion_chaqueta"): 3,
+    ("descompresion", "modo_5", "timeout_presurizacion_enfriamiento"): 3,
     ("descompresion", "modo_5", "timeout"): 120,
 }
 
@@ -233,10 +235,21 @@ def test_modo_3_timeout_retorna_fallo():
 # ── Modo 4 ────────────────────────────────────────────────────────────────────
 
 def test_modo_4_activa_agua_chaqueta():
+    # Tanda 32 (LIQ-01): el agua abre solo con la cámara en la presión de
+    # enfriamiento (a) y la chaqueta despresurizada (b)
     fase, estado, set_do = _make_fase(modo=4, pres=300.0, temp=120.0)
+    estado.sensores_pres["pres_chaqueta"] = 110.0      # <= 101.3 + 20
     fase.update()
     fase.update()
     set_do.agua_chaqueta_on.assert_called()
+
+
+def test_t32_modo_4_sin_chaqueta_despresurizada_no_abre_agua():
+    fase, estado, set_do = _make_fase(modo=4, pres=300.0, temp=120.0)
+    estado.sensores_pres["pres_chaqueta"] = 300.0
+    fase.update()
+    fase.update()
+    set_do.agua_chaqueta_on.assert_not_called()
 
 
 def test_modo_4_pulso_aire_cuando_pres_baja():
@@ -257,34 +270,15 @@ def test_modo_4_aire_espera_3s_entre_pulsos():
     set_do.aire_comprimido_camara_on.assert_not_called()
 
 
-def test_modo_4_chaqueta_siempre_abierta_si_cierre_0():
-    fase, estado, set_do = _make_fase(
-        modo=4, pres=300.0, temp=120.0,
-        extra_params={("descompresion", "modo_4", "tiempo_cierre_chaqueta"): 0},
-    )
-    fase.update()
+def test_modo_4_chaqueta_abierta_fija():
+    # Tanda 32 (LIQ-01): sin pulsos; la descompresión de chaqueta queda abierta
+    fase, estado, set_do = _make_fase(modo=4, pres=300.0, temp=120.0)
+    fase.update()        # entrada: _apagar_todo()
     set_do.reset_mock()
-    fase.update()
+    for _ in range(5):
+        fase.update()
     set_do.descompresion_chaqueta_on.assert_called()
     set_do.descompresion_chaqueta_off.assert_not_called()
-
-
-def test_modo_4_chaqueta_pulso_on_off():
-    fase, estado, set_do = _make_fase(
-        modo=4, pres=300.0, temp=120.0,
-        extra_params={
-            ("descompresion", "modo_4", "tiempo_apertura_chaqueta"): 5,
-            ("descompresion", "modo_4", "tiempo_cierre_chaqueta"): 10,
-        },
-    )
-    fase.update()
-    fase.update()   # primer tick: _t_pulso inicializado, chaqueta ON
-    # Simular > 5 s transcurridos
-    fase._t_pulso_chaqueta = _time.monotonic() - 6
-    fase._chaqueta_abierta = True
-    set_do.reset_mock()
-    fase.update()
-    set_do.descompresion_chaqueta_off.assert_called()
 
 
 def test_modo_4_transicion_a_descompresion_al_alcanzar_temp():

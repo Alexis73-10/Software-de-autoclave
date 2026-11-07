@@ -161,6 +161,88 @@ def _agregar_clave_t29_03(parameters: dict, agregadas) -> bool:
     return True
 
 
+# Tanda 32 (LIQ-01 y LIQ-03): parámetros nuevos de los modos 4 y 5 de
+# descompresión y retiro del drenaje de chaqueta pulsado. Mismo patrón que
+# A12/T29-03 (cambia el comportamiento de un programa existente): cada
+# agregado y cada retiro va a `agregadas` (auditoría param_ciclo_cambio con
+# origen «migración tanda 32», sin SIS-06) y el JSON de usuario se reescribe
+# con .bak. Un retiro lleva el valor anterior y nuevo None. Los agregados van
+# antes de `timeout` del modo (o al final si no lo tiene).
+_LIQ01_HOJAS = (
+    ("presion_despresurizacion_chaqueta",
+     {"value": catalogo_parametros.PRESION_DESPRESURIZACION_CHAQUETA_DEFECTO, "type": "float",
+      "unit": "kPa", "clase": "diferencia", "min": 5, "max": 50}, "kPa"),
+    ("timeout_despresurizacion_chaqueta",
+     {"value": catalogo_parametros.TIMEOUT_DESPRESURIZACION_CHAQUETA_DEFECTO, "type": "int",
+      "unit": "min", "min": 1, "max": 15}, "min"),
+    ("timeout_presurizacion_enfriamiento",
+     {"value": catalogo_parametros.TIMEOUT_PRESURIZACION_ENFRIAMIENTO_DEFECTO, "type": "int",
+      "unit": "min", "min": 1, "max": 15}, "min"),
+)
+_LIQ03_HOJAS = (
+    ("descompresion_lenta_rapida",
+     {"value": catalogo_parametros.DESCOMPRESION_LENTA_RAPIDA_DEFECTO, "type": "bool",
+      "unit": ""}, ""),
+    ("presion_cambio",
+     {"value": catalogo_parametros.PRESION_CAMBIO_MODO_5_DEFECTO, "type": "int", "unit": "kPa",
+      "clase": "absoluto", "min": 0, "max": 500}, "kPa"),
+)
+_CLAVES_NUEVAS_T32 = {"modo_4": _LIQ01_HOJAS, "modo_5": _LIQ01_HOJAS + _LIQ03_HOJAS}
+
+
+def _migrar_t32(parameters: dict, agregadas) -> bool:
+    """LIQ-01/LIQ-03 (tanda 32): en descompresion.modo_4 y modo_5 (solo si
+    existen) quita tiempo_apertura_chaqueta y tiempo_cierre_chaqueta y agrega
+    con su defecto los parámetros nuevos que falten. Nunca cambia el valor de
+    un parámetro existente; idempotente. Otros modos no se tocan."""
+    desc = parameters.get("descompresion")
+    if not isinstance(desc, dict):
+        return False
+    origen = catalogo_parametros.ORIGEN_MIGRACION_T32
+    cambio = False
+    for modo, hojas in _CLAVES_NUEVAS_T32.items():
+        seccion = desc.get(modo)
+        if not isinstance(seccion, dict):
+            continue
+        registros = []
+        for clave in catalogo_parametros.PARAMETROS_RETIRADOS_T32:
+            if clave not in seccion:
+                continue
+            viejo = seccion[clave]
+            anterior = viejo.get("value") if isinstance(viejo, dict) else viejo
+            registros.append({"fase": "descompresion", "parametro": f"{modo}.{clave}",
+                              "anterior": anterior, "nuevo": None,
+                              "unidad": (viejo.get("unit") if isinstance(viejo, dict) else "") or "",
+                              "origen": origen})
+            logger.warning("Programa con descompresion.%s.%s = %r: parámetro retirado (%s)",
+                           modo, clave, anterior, origen)
+        faltan = [(c, h, u) for c, h, u in hojas if c not in seccion]
+        if not registros and not faltan:
+            continue
+        nuevo, puestas = {}, False
+        for k, v in seccion.items():
+            if k in catalogo_parametros.PARAMETROS_RETIRADOS_T32:
+                continue
+            if k == "timeout" and not puestas:
+                nuevo.update({c: copy.deepcopy(h) for c, h, _ in faltan})
+                puestas = True
+            nuevo[k] = v
+        if not puestas:
+            nuevo.update({c: copy.deepcopy(h) for c, h, _ in faltan})
+        seccion.clear()
+        seccion.update(nuevo)
+        for clave, hoja, unidad in faltan:
+            logger.warning("Programa sin descompresion.%s.%s: agregado con el defecto %r %s (%s)",
+                           modo, clave, hoja["value"], unidad, origen)
+            registros.append({"fase": "descompresion", "parametro": f"{modo}.{clave}",
+                              "anterior": None, "nuevo": hoja["value"], "unidad": unidad,
+                              "origen": origen})
+        if agregadas is not None:
+            agregadas.extend(registros)
+        cambio = True
+    return cambio
+
+
 def _migrar_modo_solido(parameters: dict, correcciones, modo_fabrica=None) -> bool:
     """T29-05 (tanda 29): un programa con carga sólida y descompresión 4 o 5
     (enfriamiento de líquidos) pasa a `modo_fabrica` (el del programa de
@@ -230,7 +312,8 @@ def migrar_parametros(parameters, correcciones: list | None = None,
     valores con los que corrió (DECISIÓN SIN CONFIRMAR). `agregadas`
     (opcional, A12 de la tanda 28) recibe un dict por cada parámetro nuevo
     del prevacío agregado con su defecto (para la auditoría, sin SIS-06),
-    y desde la tanda 29 también presion_fin_descompresion (T29-03).
+    y desde la tanda 29 también presion_fin_descompresion (T29-03); desde la
+    tanda 32, los agregados y retiros de los modos 4 y 5 (LIQ-01/LIQ-03).
     `modo_fabrica` (T29-05): modo de descompresión del programa de fábrica
     del mismo número, para la migración de un sólido con modo 4 o 5 (solo con
     `recuperacion`)."""
@@ -246,6 +329,7 @@ def migrar_parametros(parameters, correcciones: list | None = None,
     cambio = _agregar_claves_t28(parameters) or cambio
     cambio = _agregar_claves_a12(parameters, agregadas) or cambio
     cambio = _agregar_clave_t29_03(parameters, agregadas) or cambio
+    cambio = _migrar_t32(parameters, agregadas) or cambio
     for fase, clave in _PRESION_ADD:
         hoja = parameters.get(fase, {}).get(clave) if isinstance(parameters.get(fase), dict) else None
         if not isinstance(hoja, dict):

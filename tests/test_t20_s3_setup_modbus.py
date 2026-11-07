@@ -427,11 +427,11 @@ def test_ejecuta_consulta_de_adaptadores_solo_lectura():
     # fallo de la consulta es un fallo de la prueba
     hay = subprocess.run(["powershell.exe", "-NoProfile", "-NonInteractive", "-Command",
                           "if (Get-Command Get-NetAdapter -ErrorAction SilentlyContinue) { 'si' } else { 'no' }"],
-                         capture_output=True, text=True, timeout=120).stdout.strip()
+                         capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120).stdout.strip()
     if hay != "si":
         pytest.skip("Get-NetAdapter no existe aquí (el Setup muestra la lista vacía)")
     r = subprocess.run(["powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
-                        "-Command", orden], capture_output=True, text=True, timeout=120)
+                        "-Command", orden], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120)
     assert r.returncode == 0, (r.returncode, r.stderr)
     lineas = [l.strip() for l in r.stdout.splitlines() if l.strip()]
     assert lineas, "sin adaptadores"
