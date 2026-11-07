@@ -3,14 +3,15 @@ Rama `tanda29` desde `dev` (9775fc68). Requisito previo verificado (f9eaa9d8 en 
 | Paso | Estado |
 |---|---|
 | Previo | Hecho |
-| T29-01 | Pendiente |
-| T29-02 | Pendiente |
-| T29-03 | Pendiente |
-| T29-04 | Pendiente |
-| T29-05 | Pendiente |
-| T29-06 | Pendiente |
-| T29-07 | Pendiente |
-| T29-08 | Pendiente |
+| T29-01 | Hecho |
+| T29-02 | Hecho |
+| T29-03 | Hecho |
+| T29-04 | Hecho |
+| T29-05 | Hecho |
+| T29-06 | Hecho |
+| T29-07 | Hecho |
+| T29-08 | Hecho |
 | Revisión de seguridad | Pendiente |
-| Docs, suite, merge, CERRADO | Pendiente |
-Último commit: (ninguno aún)
+| Docs (CLAUDE.md, riesgos, trazabilidad, banco, informe) | Hecho |
+| Suite completa, merge, CERRADO | Pendiente |
+Último commit: 1e8e5417 (código en c5fc5bb4). Revisor de seguridad lanzado; suite completa en curso.
