@@ -534,7 +534,7 @@ Item {
             MouseArea { anchors.fill: parent; onClicked: elegirRol.visible = false }
         }
         Rectangle {
-            id: tarjetaRol
+            id: panelRol
             width: parent.width - Escala.px(160)
             height: columnaRol.implicitHeight + Escala.px(96)
             anchors.centerIn: parent
@@ -544,7 +544,7 @@ Item {
             Column {
                 id: columnaRol
                 x: Escala.px(48); y: Escala.px(48)
-                width: tarjetaRol.width - Escala.px(96)
+                width: panelRol.width - Escala.px(96)
                 spacing: Escala.px(16)
                 Text {
                     width: parent.width

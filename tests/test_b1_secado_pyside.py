@@ -145,6 +145,7 @@ def test_barrido_toda_ruta_http_de_ui_pyside_existe_en_el_backend():
         for py in carpeta.rglob("*.py"):
             for metodo, ruta in patron.findall(py.read_text(encoding="utf-8")):
                 ruta = re.sub(r"\{[^}]+\}", "x", ruta)
+                ruta = ruta.split("?")[0]
                 if not any(rx.match(ruta) and m == metodo.upper() for rx, m in rutas):
                     faltan.append(f"{py.name}: {metodo.upper()} {ruta}")
     assert not faltan, faltan

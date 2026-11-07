@@ -206,6 +206,9 @@
 | T29-02-01 | Sin avisos PRE en CICLO; PRE-04 tras líquidos modo 4 | Con vapor | T29-02; HAZ-T29-02-01 |
 | T29-04-01 | Temperatura de apertura: rige la del programa | Con vapor | T29-04; HAZ-T29-04-01 |
 | T29-08-01 | Aire atmosférico abierto fuera de ciclo con puertas cerradas | En seco y con vapor | T29-08; HAZ-T29-08-01 |
+| T30-01-01 | Operador obligatorio al iniciar sin sesión (dos puertas) | En seco | T30-01; HAZ-T30-01 |
+| T30-02-01 | Progreso por fase en lugar del tiempo restante | Con vapor | T30-02 |
+| T30-03-01 | Usuarios: eliminar, cambiar rol y cambiar mi contraseña | En seco | T30-03; HAZ-T30-03 |
 
 ## Bloque A. Arranque, instalación y módulo E/S (en seco)
 
@@ -3211,5 +3214,28 @@
 ### T29-08-01 — Aire atmosférico abierto fuera de ciclo
 - **Modo:** En seco y con vapor  ·  **Origen:** T29-08; HAZ-T29-08-01
 - **Pasos:** con las dos puertas cerradas en PREPARADO y la válvula de aire abierta: (a) presurizar sobre atm + rango y verificar el cierre en ≤ 1 tick; (b) desconectar el transductor y verificar el cierre; (c) abrir una puerta y verificar el cierre en 3 ticks; (d) iniciar un ciclo y verificar el aire cerrado desde PRECALENTAMIENTO; (e) en modo prueba la regla no actúa.
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+## Bloque T30. Operador, progreso por fase y usuarios (tanda 30)
+
+### T30-01-01 — Operador obligatorio al iniciar
+- **Modo:** En seco  ·  **Origen:** T30-01; HAZ-T30-01
+- **Pasos:** sin sesión y con operadores activos, deslizar INICIAR en cada puerta: aparece la lista; Cancelar no inicia; elegir uno inicia y su nombre sale en ticket, PDF, historial y Reportes. Con sesión no pregunta. Sin operadores activos no pregunta. Desactivar al operador con el modal abierto y confirmar: el backend rechaza.
+- **Criterio:** Aprobado si no hay inicio sin operador en ninguna puerta y el nombre queda en todos los registros.
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### T30-02-01 — Progreso por fase
+- **Modo:** Con vapor  ·  **Origen:** T30-02
+- **Pasos:** recorrer un ciclo completo anotando el texto de cada fase (precalentamiento kPa, prevacío n/N Bajo|Alto, calentamiento °C y Estabilizando, esterilización min y F0, descompresión, secado); cambiar unidades; sin dato debe verse «—».
+- **Criterio:** Aprobado si los valores coinciden con el panel y no se recorta ningún texto.
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### T30-03-01 — Usuarios
+- **Modo:** En seco  ·  **Origen:** T30-03; HAZ-T30-03
+- **Pasos:** con ingeniero y admin: eliminar un usuario (confirmación), verificar que desaparece, no puede iniciar sesión ni reutilizar el nombre; cambiar rol con confirmación y verificar cierre de sesión; probar los rechazos (a sí mismo, cuentas del sistema, último ingeniero, rol fuera de lo gestionable); «Cambiar mi contraseña» con cada rol.
+- **Criterio:** Aprobado si cada rechazo muestra su texto es/en y la bitácora registra eliminación y rol anterior/nuevo.
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________

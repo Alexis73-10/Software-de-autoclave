@@ -112,6 +112,14 @@ Ver `docs/mis_plans/prompt_claude_code_tanda29.md` e informe `docs/informes/tand
 - **T29-07:** con F0 activo la cabecera del ticket (en vivo, reimpresión, PDF y correo) dice «F0 activo · objetivo N min» (`ticket_ciclo.f0_activo`).
 - **T29-08:** fuera de CICLO, con todas las puertas confirmadas cerradas (DI vigentes), `aire_admosferico_camara` queda abierta; cierra en el mismo tick con sobrepresión, sin lectura o con trama AI vencida, y al entrar a CICLO; no rige en modo prueba.
 
+## Tanda 30: operador, progreso por fase y usuarios (6-nov)
+
+Ver `docs/mis_plans/prompt_claude_code_tanda30.md` e informe `docs/informes/tanda30/R30_informe.md`; riesgos HAZ-T30-01 y HAZ-T30-03; trazabilidad REQ-73..REQ-75; banco: bloque T30. Entrega no compilada.
+
+- **T30-01:** con sesión el operador es el usuario; sin sesión y con operadores activos `/cycle/start` exige `operador_id` activo (409 `operador_requerido`, 422 `operador_invalido`, 503 `operador_no_verificable`; falla cerrada, textos `operador_ciclo.*` es/en) y la pantalla lo pide con `Componentes/ModalOperador.qml` desde `PantallaPreciclo.qml` (dos puertas); sin operadores activos no pregunta. El nombre va a `ciclos.operador`, ticket, PDF, correo, historial, Reportes y a la bitácora del inicio.
+- **T30-02:** Ciclo en curso muestra el transcurrido y, en lugar del restante, el progreso de la fase activa: dato crudo en `GET /cycle/current/progress.detalle_fase` (`progreso_ciclo.detalle_fase`), texto armado en `ui_qml/domain/ciclo_en_curso.py` con las unidades del equipo; sin dato «—». El llenado de los círculos (LLF) no cambia.
+- **T30-03:** `DELETE /usuarios/{u}` es borrado lógico (columna `eliminado`, migración de esquema; no reversible desde la UI, nombre no reutilizable, cierra sesiones, bitácora `usuario_eliminado`); `PATCH /usuarios/{u}` acepta `rol` (bitácora `usuario_rol_cambiado` con anterior y nuevo; nombre y usuario siguen con 409). Reglas comunes con desactivar: nadie sobre sí mismo, cuentas del sistema no, el equipo no queda sin ingeniero activo, rol actual y nuevo dentro de `ROLES_CREABLES`. Reemplaza en parte U11. Opciones › Usuarios ofrece «Cambiar mi contraseña» a todos los roles (`CambioClave.qml` voluntario) y confirmación modal para eliminar y cambiar rol.
+
 ## Dashboard de Reportes (tanda 25, 2-nov)
 
 Ver `docs/mis_plans/planeacion_dashboard_reportes.md` (REP-01..14, DR-H01..H09, AJ-01) e informe `docs/informes/dashboard_reportes/R_informe.md`. Pantalla completa `Pantallas/Reportes.qml` (reemplaza a `ventanaReportes` de `MenuPrincipal.qml`), solo lectura y visible sin sesión; QML solo dibuja, los textos y la geometría salen de `ui_qml/domain/reporte_dashboard.py` y el puente `bridge/reporte_dashboard.py`.

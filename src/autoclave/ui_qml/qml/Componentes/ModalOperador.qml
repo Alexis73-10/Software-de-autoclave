@@ -44,7 +44,7 @@ Item {
 
     Rectangle {
         id: tarjeta
-        objectName: "tarjetaModalOperador"
+        objectName: "panelModalOperador"
         readonly property real margen: Escala.px(48)
         width: parent.width - Escala.px(160)
         height: Math.min(Escala.px(1300), parent.height - Escala.px(192))
