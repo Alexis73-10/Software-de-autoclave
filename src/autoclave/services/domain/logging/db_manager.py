@@ -1213,8 +1213,10 @@ class DbManager:
         faltan (clave: timestamp_abs, timestamp_rel y fase) y, si la fila no
         tiene fin, aplica el cierre del respaldo. Una fila ya cerrada conserva
         su resultado. ENT-07 (tanda 31): sin cierre y con el registro
-        `resultado`, aplica el resultado con fecha de fin = ahora y el aviso de
-        entrega no registrada."""
+        `resultado`, aplica el resultado y el aviso de entrega no registrada
+        SIN fijar la fecha de fin (M1 de la revisión): la fila la cierra
+        `cerrar_ciclos_interrumpidos`, que la audita como ciclo interrumpido y
+        la deja como el ciclo interrumpido del arranque."""
         if not isinstance(resultado, dict):
             resultado = None
         existentes = {
@@ -1239,11 +1241,10 @@ class DbManager:
                     (resultado["fecha_resultado"], ciclo_id))
             if con_resultado:
                 self._conn.execute(
-                    "UPDATE ciclos SET fecha_fin=?, resultado=?, motivo_fallo=?, codigo_fallo=?, "
+                    "UPDATE ciclos SET resultado=?, motivo_fallo=?, codigo_fallo=?, "
                     "f0_final=?, valores_fallo=?, avisos_ticket=?, "
                     "fecha_resultado=COALESCE(fecha_resultado, ?) WHERE id=?",
-                    (datetime.now().isoformat(),
-                     resultado.get("resultado") or "DESCONOCIDO", resultado.get("motivo") or "",
+                    (resultado.get("resultado") or "DESCONOCIDO", resultado.get("motivo") or "",
                      resultado.get("codigo") or "", resultado.get("f0_final"),
                      _valores_fallo_json(resultado.get("valores")),
                      _avisos_con_corte(_valores_fallo_json(resultado.get("avisos_ticket"))),

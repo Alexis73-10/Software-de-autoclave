@@ -261,6 +261,52 @@ def test_ciclostate_completado_espera_y_cic07_una_vez(monkeypatch):
     alarmas.resolver.assert_any_call(CIC_07)
 
 
+@pytest.mark.req("ENT-02")
+def test_entrega_resuelve_cic07_de_la_apertura_automatica(monkeypatch):
+    """B2 (revisión tanda 31): CIC-07 activada por la apertura automática
+    (marca compartida) se resuelve al entregar la cámara."""
+    t = [5000.0]
+    _reloj(monkeypatch, t)
+    ciclo, estado, _, alarmas = _ciclo(CicloResultado.COMPLETADO, tiempo_espera=0)
+    ciclo._apertura_auto_alarmado = True        # la activó _mantener_apertura_automatica
+    ciclo._entrega_cic07 = False
+    for _ in range(3):
+        t[0] += 0.5
+        ciclo.run()
+    assert estado.entrega_camara["entregada"] is True
+    alarmas.resolver.assert_any_call(CIC_07)
+
+
+@pytest.mark.req("ENT-01")
+@pytest.mark.parametrize("seq", [None, "3", 2.5, True])
+def test_con_proveedor_sin_numero_de_trama_no_suma(seq):
+    """B1 (revisión tanda 31): con proveedor de vigencia, una trama sin número
+    entero no suma lecturas (falla cerrada)."""
+    e = EntregaCamara("FALLO", 0.0)
+    for t in range(1, 6):
+        e.actualizar(float(t), True, seq_ai=seq, exige_seq=True)
+    assert not e.entregada and [m.codigo for m in e.motivos] == ["sin_datos_vigentes"]
+    # sin proveedor (dobles de prueba) se cuenta como antes
+    e2 = EntregaCamara("FALLO", 0.0)
+    for t in range(1, 4):
+        e2.actualizar(float(t), True, seq_ai=None)
+    assert e2.entregada
+
+
+@pytest.mark.req("ENT-01")
+def test_ciclostate_proveedor_sin_numero_de_trama_no_entrega():
+    ciclo, estado, _, _ = _ciclo()
+    estado.lectura_ai = lambda: (True, None)     # vigente, pero sin número
+    for _ in range(5):
+        ciclo.run()
+    assert estado.entrega_camara["entregada"] is False
+    seqs = iter(range(10, 20))
+    estado.lectura_ai = lambda: (True, next(seqs))
+    for _ in range(3):
+        ciclo.run()
+    assert estado.entrega_camara["entregada"] is True
+
+
 @pytest.mark.req("ENT-05")
 def test_ciclostate_paro_soltado_no_evalua_la_entrega():
     ciclo, estado, flags, _ = _ciclo()

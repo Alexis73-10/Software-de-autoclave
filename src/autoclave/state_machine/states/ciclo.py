@@ -1105,10 +1105,13 @@ class CicloState:
         sellado = (self._resultado_pendiente != CicloResultado.COMPLETADO
                    and self._protocolo.sellado is True)
         entrega.actualizar(ahora, segura, lista, ai_vigente=vigentes, seq_ai=seq_ai,
-                           sellado=sellado)
+                           sellado=sellado,
+                           exige_seq=vigencia_ai.proveedor_de(self.estado) is not None)
         if entrega.entregada and not ya_entregada:
             logger.info("CicloState: cámara entregada (%s)", self._resultado_pendiente)
-            if self._entrega_cic07:
+            # B2 (revisión tanda 31): también la que activó la apertura
+            # automática (comparten la marca _apertura_auto_alarmado)
+            if self._entrega_cic07 or self._apertura_auto_alarmado:
                 self.alarm_manager.resolver(CIC_07)
             return
         # ENT-02: timeout de temperatura tras un COMPLETADO -> CIC-07 una vez

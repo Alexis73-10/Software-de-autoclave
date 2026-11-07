@@ -367,8 +367,12 @@ def test_completar_desde_respaldo_con_resultado_sin_cierre(tmp_path):
     r = reimportar(respaldo, db, MOTIVO_INT)
     assert r["completados"] and r["interrumpidos"] == r["completados"]
     fila = db.get_ciclo(cid)
-    assert fila["resultado"] == "FALLO_ESTERILIZACION" and fila["fecha_fin"]
+    # M1 (revisión tanda 31): el resultado se aplica, la fila no se cierra aquí
+    assert fila["resultado"] == "FALLO_ESTERILIZACION" and fila["fecha_fin"] is None
     assert fila["fecha_resultado"]
+    assert [f["id"] for f in db.cerrar_ciclos_interrumpidos(MOTIVO_INT)] == [cid]
+    fila = db.get_ciclo(cid)
+    assert fila["resultado"] == "FALLO_ESTERILIZACION" and fila["fecha_fin"]
 
 
 def test_respaldo_completo_conserva_fecha_resultado_al_importar(tmp_path):
@@ -476,8 +480,65 @@ def test_corte_en_la_espera_orden_del_arranque_reimportar_y_luego_cerrar(tmp_pat
     cid = cl.ciclo_id
     r = reimportar(respaldo, db, MOTIVO_INT)
     assert r["interrumpidos"] == r["completados"] and len(r["completados"]) == 1
-    assert db.cerrar_ciclos_interrumpidos(MOTIVO_INT) == []
+    # M1: la fila la cierra cerrar_ciclos_interrumpidos, no la reimportación
+    assert [f["id"] for f in db.cerrar_ciclos_interrumpidos(MOTIVO_INT)] == [cid]
     fila = db.get_ciclo(cid)
     assert fila["resultado"] == "FALLO_ESTERILIZACION" and fila["fecha_fin"]
     avisos = json.loads(fila["avisos_ticket"])["avisos"]
     assert avisos.count({"clave": CLAVE_ENTREGA_NO_REGISTRADA}) == 1
+
+
+def _contexto_arranque(db, respaldo, monkeypatch):
+    from autoclave.backend.context import BackendContext
+    contador = MagicMock()
+    contador.en_curso.return_value = None
+    monkeypatch.setattr(BackendContext, "contador_ciclos", property(lambda self: contador))
+    ctx = BackendContext()
+    ctx.db = db
+    ctx._respaldo_ciclos = respaldo
+    ctx.sin_base_de_datos = False
+    return ctx
+
+
+def test_m1_arranque_con_base_y_respaldo_cierra_como_interrumpido(tmp_path, monkeypatch):
+    """M1 (revisión tanda 31): corte en la espera con base Y respaldo sanos.
+    El arranque real (reimportar y luego cerrar) audita ciclo_interrumpido,
+    agrega el aviso una vez, deja la fila en _ciclo_interrumpido y
+    hubo_ciclo_interrumpido() es True."""
+    cl, db, estado, reloj, imp, respaldo = _entorno(tmp_path)
+    _fallo_presurizado(cl, estado, reloj)
+    _avanzar(cl, reloj, 200)
+    cid = cl.ciclo_id
+    ctx = _contexto_arranque(db, respaldo, monkeypatch)
+    ctx._numeracion_y_ciclos_interrumpidos()
+    fila = db.get_ciclo(cid)
+    assert fila["resultado"] == "FALLO_ESTERILIZACION" and fila["fecha_fin"]
+    avisos = json.loads(fila["avisos_ticket"])["avisos"]
+    assert avisos.count({"clave": CLAVE_ENTREGA_NO_REGISTRADA}) == 1
+    eventos = [r[0] for r in db._conn.execute(
+        "SELECT evento FROM audit_log WHERE entidad=?", (f"ciclo/{cid}",)).fetchall()]
+    assert "ciclo_interrumpido" in eventos
+    assert ctx._ciclo_interrumpido is not None and ctx._ciclo_interrumpido["id"] == cid
+    assert ctx.hubo_ciclo_interrumpido() is True
+    assert "Entrega de la cámara no registrada (corte de energía)" in format_ticket(
+        dict(fila), [dict(x) for x in db.get_lecturas_para_imprimir(cid)])
+
+
+def test_m1_arranque_solo_respaldo_importa_cerrado_con_aviso(tmp_path, monkeypatch):
+    """Base perdida (sin fila): el ciclo importado se cierra con la fecha de
+    la importación y el aviso; el arranque lo cuenta como interrumpido."""
+    from autoclave.backend.arranque.sin_bd import BdNoDisponible
+    cl, _, estado, reloj, imp, respaldo = _entorno(tmp_path, db=BdNoDisponible())
+    cl.sin_base_de_datos = True
+    cl.contador = MagicMock()
+    cl.contador.siguiente.return_value = 12
+    _fallo_presurizado(cl, estado, reloj)
+    _avanzar(cl, reloj, 180)
+    db = DbManager(tmp_path / "b.db")
+    ctx = _contexto_arranque(db, respaldo, monkeypatch)
+    ctx._numeracion_y_ciclos_interrumpidos()
+    fila = db._conn.execute("SELECT * FROM ciclos").fetchone()
+    assert fila["resultado"] == "FALLO_ESTERILIZACION" and fila["fecha_fin"]
+    assert {"clave": CLAVE_ENTREGA_NO_REGISTRADA} in json.loads(fila["avisos_ticket"])["avisos"]
+    assert ctx.hubo_ciclo_interrumpido() is True
+    db.close()

@@ -78,11 +78,14 @@ class EntregaCamara:
         return int(math.ceil(restante)) if restante > 0 else None
 
     def actualizar(self, ahora: float, segura: bool, motivos=(), ai_vigente: bool = True,
-                   seq_ai=None, sellado: bool = False) -> None:
+                   seq_ai=None, sellado: bool = False, exige_seq: bool = False) -> None:
         """Una evaluación (un tick). `segura`: camara_segura.evaluar con datos
         vigentes; `motivos`: los de camara_segura.motivos si no es segura;
         `ai_vigente`/`seq_ai`: trama AI de este tick (vigencia_ai.leer);
-        `sellado`: el protocolo de fallo mantiene la cámara sellada (D8-2.10)."""
+        `sellado`: el protocolo de fallo mantiene la cámara sellada (D8-2.10);
+        `exige_seq`: hay proveedor de vigencia (ControlLoop), de modo que una
+        trama sin número entero no suma lecturas (B1 de la revisión, falla
+        cerrada); sin proveedor (dobles de prueba) se cuenta como antes."""
         if self.entregada:
             return
         if self.espera_restante_s(ahora) is not None:
@@ -102,6 +105,11 @@ class EntregaCamara:
             else:
                 lista = list(motivos or ())
                 self.motivos = lista or [_motivo_sin_dato()]
+            self._revisar_timeout(ahora)
+            return
+        # B1: con proveedor, sin número de trama válido no se suma (falla cerrada)
+        if exige_seq and (isinstance(seq_ai, bool) or not isinstance(seq_ai, int)):
+            self.motivos = [_motivo_sin_dato()]
             self._revisar_timeout(ahora)
             return
         # misma trama AI que la última contada: no suma (tramas distintas)
