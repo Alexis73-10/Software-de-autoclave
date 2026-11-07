@@ -9,6 +9,15 @@ Una entrada por **entrega** (compilación con Setup que se instala en el equipo)
 
 <!-- entradas: las agrega compilar_entrega.py debajo de esta línea, la más nueva primero -->
 
+## 1.0.0-alpha.21 — 2026-11-07
+
+- Etiqueta: `v1.0.0-alpha.21` (commit `chore(ver): 1.0.0-alpha.21`, sobre `548999c`)
+- AppVerNum: `1.0.0.1021`
+- SHA-256 del Setup y del zip: en el mensaje de la etiqueta y en `entrega/v1.0.0-alpha.21_2026-11-07/SHA256SUMS.txt` (solo existen después de compilar)
+- Commits desde `v1.0.0-alpha.20`:
+  - 548999cc feat: presion adicional de calentamiento para liquidos
+
+
 ## 1.0.0-alpha.20 — 2026-11-07
 
 - Etiqueta: `v1.0.0-alpha.20` (commit `chore(ver): 1.0.0-alpha.20`, sobre `1f23a23`)
