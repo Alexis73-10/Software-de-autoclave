@@ -32,6 +32,8 @@ Item {
     property QtObject puente: null     // UiBridge (solo lectura)
     property QtObject progreso: null   // ProgresoCiclo (solo lectura)
     property QtObject comandos: null   // ComandosCicloEnCurso (cancelar / confirmar)
+    // ENT-09 (tanda 31): teclado en pantalla de la ventana (contraseña de la confirmación forzada)
+    property var teclado: null
     property QtObject infoEquipo: null
     // ComandosSistema (E5): Apagar equipo en el panel de equipo
     property QtObject comandosSistema: null
@@ -85,6 +87,21 @@ Item {
     // "" mientras el ciclo corre; "exitoso" / "cancelado" / "fallo" al terminar
     property string resultado: progreso?.resultado ?? ""
     readonly property bool terminado: resultado !== ""
+    // ENT-09 (tanda 31): CONFIRMAR solo con la cámara entregada (falla cerrada: sin
+    // dato, no entregada). Tras un paro soltado, la confirmación del estado seguro
+    // sigue disponible sin esperar la entrega (ENT-05).
+    property bool entregada: progreso?.entregada ?? false
+    property bool forzable: progreso?.forzable ?? false
+    readonly property bool puedeConfirmar: terminado && (entregada || ackEstadoSeguro)
+    readonly property bool esperandoEntrega: terminado && !puedeConfirmar
+    // el backend declara posible la confirmación forzada y la sesión es de ingeniero
+    readonly property bool puedeForzar: esperandoEntrega && forzable && (comandos?.rolIngeniero ?? false)
+    property string textoEntrega: (esperandoEntrega && progreso && progreso.textoEntrega && progreso.revisionFin >= 0)
+                                  ? progreso.textoEntrega(I18n.lang) : ""
+    onVisibleChanged: if (visible) refrescarRol()
+    onForzableChanged: refrescarRol()
+    Component.onCompleted: refrescarRol()
+    function refrescarRol() { if (comandos && comandos.refrescarRol) comandos.refrescarRol() }
     // D8-2.16: todo ciclo terminado que no fue COMPLETADO (falla segura)
     readonly property bool cargaNoEsteril: terminado && resultado !== "exitoso"
     // FC-01..FC-07 (tanda 21): textos del panel de fin de ciclo en el idioma
@@ -111,12 +128,15 @@ Item {
     // se envía con el texto de otra situación
     onResultadoChanged: {
         vistaGrafica = false; verObservaciones = false
-        modalCancelar.cerrar(); modalConfirmar.cerrar(); modalEstadoSeguro.cerrar()
+        modalCancelar.cerrar(); modalConfirmar.cerrar(); modalEstadoSeguro.cerrar(); modalForzar.cerrar()
     }
     readonly property bool ackEstadoSeguro: puente?.ackConfirmaEstadoSeguro ?? false
     onAckEstadoSeguroChanged: modalConfirmar.cerrar()
+    // ENT-09: si la cámara deja de estar entregada, un modal de CONFIRMAR abierto se cierra
+    onPuedeConfirmarChanged: if (!puedeConfirmar) { modalConfirmar.cerrar(); modalEstadoSeguro.cerrar() }
+    onPuedeForzarChanged: if (!puedeForzar) modalForzar.cerrar()
     readonly property bool modalAbierto: modalCancelar.abierto || modalConfirmar.abierto
-                                         || modalEstadoSeguro.abierto || avisoComando.visible
+                                         || modalEstadoSeguro.abierto || modalForzar.abierto || avisoComando.visible
     property bool comandoOcupado: comandos?.ocupado ?? false
     property string errorComando: comandos?.error ?? ""
     // D8-2.15 (tanda 8): clave del catálogo del aviso de una cancelación
@@ -867,6 +887,64 @@ Item {
             }
         }
 
+        // ENT-09 (tanda 31): con el resultado y la cámara sin entregar, en lugar de CONFIRMAR
+        // va un indicador (no botón) con el motivo vigente o la espera fija; solo
+        // el ingeniero ve debajo «Confirmar sin condiciones seguras». El texto lo
+        // arma Python (domain/entrega_camara.py); la letra baja, nunca se recorta (D8-5.4).
+        Item {
+            objectName: "indicadorEntrega"
+            visible: raiz.esperandoEntrega
+            x: barraInferior.mx(650 - 34); y: raiz.m(1760 - 1746)
+            width: barraInferior.mx(1081 - 650); height: raiz.m(raiz.puedeForzar ? 50 : 100)
+            Rectangle {
+                anchors.fill: parent
+                radius: raiz.m(14)
+                color: Colores.advertenciaFondo
+                border.width: raiz.m(2); border.color: Colores.advertencia
+            }
+            Text {
+                objectName: "textoEntrega"
+                anchors.fill: parent
+                anchors.margins: raiz.m(8)
+                text: raiz.textoEntrega !== "" ? raiz.textoEntrega : I18n.t("ciclo.entrega_sin_motivo", I18n.lang)
+                color: Colores.advertenciaTexto
+                font.family: Tipografia.familia
+                font.weight: Tipografia.pesoMedium
+                font.pixelSize: raiz.fuente(16)
+                wrapMode: Text.WordWrap
+                fontSizeMode: Text.Fit; minimumPixelSize: Escala.fuenteMinima
+                horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
+            }
+        }
+        Item {
+            objectName: "botonConfirmarForzado"
+            visible: raiz.puedeForzar
+            x: barraInferior.mx(650 - 34); y: raiz.m(1814 - 1746)
+            width: barraInferior.mx(1081 - 650); height: raiz.m(46)
+            enabled: raiz.datosVigentes && !raiz.comandoOcupado
+            opacity: enabled ? 1.0 : 0.4
+            Rectangle {
+                anchors.fill: parent
+                radius: raiz.m(14)
+                color: Colores.peligroFondo
+                border.width: raiz.m(2); border.color: Colores.peligroTexto
+            }
+            Text {
+                anchors.fill: parent
+                anchors.margins: raiz.m(8)
+                text: I18n.t("ciclo.confirmar_forzado", I18n.lang)
+                color: Colores.peligroTexto
+                font.family: Tipografia.familia
+                font.weight: Tipografia.pesoMedium
+                font.pixelSize: raiz.fuente(16)
+                fontSizeMode: Text.HorizontalFit; minimumPixelSize: Escala.fuenteMinima
+                horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
+            }
+            MouseArea { anchors.fill: parent; onClicked: modalForzar.abrir() }
+        }
+
         // Botón CANCELAR CICLO (mockup: x 846..1081, y 1768..1856). Al terminar el
         // ciclo el mismo lugar lo ocupa CONFIRMAR (PROVISIONAL: colores de INICIAR
         // CICLO, ícono de check). Deshabilitado sin conexión y mientras hay un envío
@@ -877,6 +955,8 @@ Item {
             // antes x 846, y 1768 de la pantalla; relativo a la barra (34, 1746)
             x: barraInferior.mx(846 - 34); y: raiz.m(1768 - 1746)
             width: raiz.m(235); height: raiz.m(88)
+            // ENT-09: terminado y sin entrega, el lugar lo ocupa el indicador de espera
+            visible: !raiz.esperandoEntrega
             enabled: raiz.datosVigentes && !raiz.comandoOcupado
             opacity: enabled ? 1.0 : 0.4
             Rectangle {
@@ -1041,6 +1121,25 @@ Item {
         }
     }
 
+    // ENT-04/09 (tanda 31): confirmación forzada del ingeniero. Advertencia y, al aceptar,
+    // contraseña con el teclado en pantalla de acción (una sola entrega al Confirmar con
+    // texto); el backend reautentica y decide (403 / 409 se muestran en el aviso).
+    ModalConfirmacion {
+        id: modalForzar
+        objectName: "modalConfirmarForzado"
+        titulo: I18n.t("ciclo.modal_forzar_titulo", I18n.lang)
+        cuerpo: I18n.t("ciclo.modal_forzar_cuerpo", I18n.lang)
+        nota: raiz.textoEntrega
+        textoAccion: I18n.t("ciclo.modal_forzar_accion", I18n.lang)
+        colorAccion: Colores.peligroTexto
+        onAceptado: {
+            if (!raiz.teclado || !raiz.puedeForzar)
+                return
+            raiz.teclado.abrirAlfanumericoAccion(I18n.t("ciclo.forzar_clave_titulo", I18n.lang), "", 64, true,
+                                                 (clave) => raiz.comandos?.confirmarForzado(String(clave)))
+        }
+    }
+
     // P-6 (tanda 6): tras un paro, CONFIRMAR también lleva la cámara a estado
     // seguro (fin de ciclo §15.2): se pide verificar que no haya fugas
     ModalConfirmacion {
@@ -1075,7 +1174,11 @@ Item {
         }
         Text {
             width: parent.width
-            text: raiz.errorComando === "confirmar" ? I18n.t("ciclo.confirmar_error", I18n.lang)
+            // ENT-09: rechazo conocido de CONFIRMAR (cámara no entregada con su motivo,
+            // contraseña, rol); sin él, el texto genérico
+            text: raiz.errorComando === "confirmar"
+                  ? ((raiz.comandos?.rechazo ?? "") !== "" ? raiz.comandos.textoRechazo(I18n.lang)
+                                                           : I18n.t("ciclo.confirmar_error", I18n.lang))
                 : raiz.errorComando !== "" ? I18n.t("ciclo.cancelar_error", I18n.lang)
                 : raiz.avisoCancelacion !== "" ? I18n.t(raiz.avisoCancelacion, I18n.lang)
                 : I18n.t("ciclo.cancelar_error", I18n.lang)

@@ -198,9 +198,15 @@ def crear_app(repeticion, cycle_manager, config: dict, velocidad: float = 10.0,
                 if progreso_ciclo.fase_ui(f) == "esterilizacion" and t0 <= t < t1:
                     total_exp, restante_exp = float(t1 - t0), float(t1 - t)
                     break
-        return {"activo": True, "ciclo_db_id": est.ciclo_id, "fase_ciclo": fase,
-                **progreso_ciclo.armar_progreso(aplicables, filas, fase, t, _referencias(),
-                                                restante_exp, total_exposicion_s=total_exp)}
+        datos = {"activo": True, "ciclo_db_id": est.ciclo_id, "fase_ciclo": fase,
+                 **progreso_ciclo.armar_progreso(aplicables, filas, fase, t, _referencias(),
+                                                 restante_exp, total_exposicion_s=total_exp)}
+        if datos.get("resultado") is not None:
+            # Tanda 31 (ENT-12): el simulador no modela la espera de la cámara;
+            # con resultado, la entrega ya está hecha (CONFIRMAR disponible)
+            datos["entrega"] = {"entregada": True, "motivos": [], "motivos_detalle": [],
+                                "espera_restante_s": None, "forzable": False}
+        return datos
 
     @app.get("/cycle/current/graph")
     def graph(desde_id: int | None = None):

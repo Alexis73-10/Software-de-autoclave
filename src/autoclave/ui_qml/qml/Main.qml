@@ -438,6 +438,7 @@ Window {
             puente: ventana.puente
             progreso: ventana.progreso
             comandos: ventana.comandosCicloEnCurso
+            teclado: panelTeclado
             infoEquipo: ventana.infoEquipo
             comandosSistema: ventana.comandosSistema
             onAjustesPulsado: ventana.abrirConfiguracion()

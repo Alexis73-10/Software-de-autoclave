@@ -16,6 +16,8 @@
 import logging
 import threading
 
+from autoclave.ui_qml.domain import entrega_camara
+
 from PySide6.QtCore import Property, QObject, Signal, Slot
 
 logger = logging.getLogger(__name__)
@@ -32,6 +34,8 @@ class ComandosCicloEnCurso(QObject):
     ocupadoChanged = Signal()
     errorChanged = Signal()
     avisoChanged = Signal()
+    rechazoChanged = Signal()
+    rolChanged = Signal()
     terminado = Signal(str, bool)     # (acción, ok)
     _respuesta = Signal(str, bool, str)   # (acción, ok, aviso); desde el hilo de trabajo
 
@@ -43,6 +47,9 @@ class ComandosCicloEnCurso(QObject):
         self._ocupado = False
         self._error = ""
         self._aviso = ""
+        self._clave_rechazo = ""      # ENT-09: clave i18n del rechazo de CONFIRMAR
+        self._cuerpo_rechazo = {}
+        self._rol_ingeniero = False
         self._respuesta.connect(self._al_responder)
 
     @Slot()
@@ -52,6 +59,32 @@ class ComandosCicloEnCurso(QObject):
     @Slot()
     def confirmar(self) -> None:
         self._enviar("confirmar", self._ui.acknowledge_cycle)
+
+    @Slot(str)
+    def confirmarForzado(self, clave: str) -> None:
+        """ENT-04/09: confirmación forzada (solo ingeniero, con su contraseña);
+        la contraseña va solo al backend, nunca a logs ni propiedades."""
+        self._enviar("confirmar", lambda: self._ui.acknowledge_cycle(forzar=True, clave=clave))
+
+    @Slot()
+    def refrescarRol(self) -> None:
+        """ENT-09: relee el rol de la sesión de esta ventana."""
+        try:
+            from autoclave.cliente.session_manager import SessionManager
+            from autoclave.auth.roles import ROL_INGENIERO
+            valor = SessionManager.current_role() == ROL_INGENIERO
+        except Exception:
+            valor = False
+        if valor != self._rol_ingeniero:
+            self._rol_ingeniero = valor
+            self.rolChanged.emit()
+
+    @Slot(str, result=str)
+    def textoRechazo(self, idioma: str) -> str:
+        """ENT-09: texto del último rechazo de CONFIRMAR ("" si no hubo)."""
+        if not self._clave_rechazo:
+            return ""
+        return entrega_camara.texto_rechazo(self._clave_rechazo, self._cuerpo_rechazo, idioma)
 
     @Slot()
     def descartarError(self) -> None:
@@ -68,6 +101,7 @@ class ComandosCicloEnCurso(QObject):
             logger.warning("%s ciclo: sin conexión con el backend", accion)
             self._fijar_error(accion)
             return
+        self._fijar_rechazo("", {})
         self._fijar_error("")
         self._fijar_aviso("")
         self._fijar_ocupado(True)
@@ -78,6 +112,8 @@ class ComandosCicloEnCurso(QObject):
             try:
                 r = operacion()
                 ok = bool(r)
+                if not ok and accion == "confirmar":
+                    self._rechazo_pendiente = self._leer_rechazo()
                 # D8-2.15 (tanda 8): cancelación aceptada en espera de los
                 # datos del módulo E/S (R1-P5 / D8-2.13) → texto del catálogo
                 if ok and isinstance(r, dict) and r.get("pendiente") is True:
@@ -100,8 +136,35 @@ class ComandosCicloEnCurso(QObject):
             self._fijar_aviso(aviso)
         else:
             logger.warning("Backend no aceptó %s ciclo", accion)
+            if accion == "confirmar":
+                self._fijar_rechazo(*self._rechazo_pendiente)
             self._fijar_error(accion)
         self.terminado.emit(accion, ok)
+
+    _rechazo_pendiente = ("", {})
+
+    def _leer_rechazo(self):
+        """(clave i18n, cuerpo) del último rechazo HTTP de CONFIRMAR, desde el
+        hilo de trabajo; ("", {}) si no hubo respuesta HTTP o el código no se
+        conoce (entonces rige el texto genérico de confirmar_error)."""
+        try:
+            rechazo = self._ui.ultimo_rechazo_ack()
+            if not rechazo:
+                return "", {}
+            from autoclave.ui_qml import sesion_backend
+            estado, cuerpo = rechazo
+            codigo = sesion_backend.interpretar(estado, cuerpo, "/cycle/acknowledge").causa
+            if codigo == sesion_backend.ERROR_GENERICO:
+                return "", {}
+            return sesion_backend.clave_mensaje(codigo, "/cycle/acknowledge"), cuerpo
+        except Exception:
+            return "", {}
+
+    def _fijar_rechazo(self, clave: str, cuerpo: dict) -> None:
+        self._cuerpo_rechazo = cuerpo if isinstance(cuerpo, dict) else {}
+        if clave != self._clave_rechazo:
+            self._clave_rechazo = clave
+        self.rechazoChanged.emit()
 
     def _fijar_ocupado(self, valor: bool) -> None:
         if valor != self._ocupado:
@@ -132,3 +195,14 @@ class ComandosCicloEnCurso(QObject):
     @Property(str, notify=avisoChanged)
     def aviso(self) -> str:
         return self._aviso
+
+    # ENT-09: clave i18n del último rechazo de CONFIRMAR ("" = sin rechazo
+    # conocido); el texto con el motivo sale de textoRechazo(idioma)
+    @Property(str, notify=rechazoChanged)
+    def rechazo(self) -> str:
+        return self._clave_rechazo
+
+    # ENT-09: la sesión de esta ventana es de ingeniero (refrescarRol())
+    @Property(bool, notify=rolChanged)
+    def rolIngeniero(self) -> bool:
+        return self._rol_ingeniero

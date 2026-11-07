@@ -14,7 +14,7 @@ import math
 
 from autoclave import i18n
 from autoclave.core.runtime.progreso_ciclo import FASES_UI, TOPE_FRACCION_ACTIVA
-from autoclave.ui_qml.domain import fin_de_ciclo
+from autoclave.ui_qml.domain import entrega_camara, fin_de_ciclo
 
 # FC-06 (tanda 21): fallida (fallo, emergencia) e interrumpida (cancelación)
 _ESTADOS_FASE = {"completada", "activa", "pendiente", "fallida", "interrumpida"}
@@ -122,7 +122,7 @@ def normalizar_progreso(respuesta) -> dict:
     vacio = {"activo": False, "ciclo_db_id": None, "fase_ciclo": "", "fase_activa": None,
              "resultado": None, "fase_terminacion": None, "terminacion": None, "alarmas_ciclo": [],
              "fases": [], "aplicables": [], "transcurrido_s": None, "restante_s": None,
-             "detalle_fase": None}
+             "detalle_fase": None, "entrega": entrega_camara.normalizar_entrega(None, None)}
     if not isinstance(respuesta, dict) or respuesta.get("activo") is not True:
         return vacio
 
@@ -165,6 +165,8 @@ def normalizar_progreso(respuesta) -> dict:
         "transcurrido_s": _numero(respuesta.get("transcurrido_s")),
         "restante_s": _numero(respuesta.get("restante_s")),
         "detalle_fase": normalizar_detalle(respuesta.get("detalle_fase")),
+        # ENT-09 (tanda 31): entrega de la cámara; sin ella, no entregada
+        "entrega": entrega_camara.normalizar_entrega(respuesta.get("entrega"), resultado),
     }
 
 

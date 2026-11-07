@@ -48,6 +48,7 @@ Window {
         id: progresoFalso
         objectName: "progresoFalso"
         property string resultado: ""
+        property bool entregada: true   // ENT-09: CONFIRMAR exige la cámara entregada
         property bool activo: true
         property int revisionFin: 0
         property var datosFin: ({})
