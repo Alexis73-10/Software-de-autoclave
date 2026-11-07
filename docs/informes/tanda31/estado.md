@@ -1,6 +1,6 @@
 # Tanda 31: estado (rama tanda31)
 
-Paso 1 Lectura: Hecho (mapa abajo). Pasos 2-6: Pendiente. Último commit: ninguno.
+Paso 1 Lectura: Hecho. Pasos 2-3 (ENT-01/02/03/04/05/12): Hecho (e50a2a04). Paso 4 (logger/BD/respaldo): en curso. Paso 5 (pantalla): en curso. Paso 6: Pendiente.
 
 ## Mapa ENT (src/autoclave/)
 - ENT-01/02/12: nuevo state_machine/states/entrega_camara.py (puro); lo crea CicloState (states/ciclo.py run paso 0, l.1050-1107; _mantener_apertura_automatica l.933); publica en estado.entrega_camara; backend/rutas/ciclo.py get_current_cycle_progress (l.149-200) agrega `entrega`.
