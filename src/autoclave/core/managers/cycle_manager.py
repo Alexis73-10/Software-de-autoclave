@@ -169,7 +169,9 @@ def _migrar_modo_solido(parameters: dict, correcciones, modo_fabrica=None) -> bo
     SIS-06 y .bak en el backend). Carga líquida, tipo ilegible o modo ausente
     no se tocan."""
     cp = catalogo_parametros
-    if cp._valor(parameters, "globals", "tipo_carga", defecto="solido") != "solido":
+    # Revisión T29 (M1): solo con la clave presente y exactamente "solido";
+    # ausente o ilegible se trata como líquida (SAF-03) y no se toca.
+    if cp._valor(parameters, "globals", "tipo_carga", defecto=None) != "solido":
         return False
     desc = parameters.get("descompresion")
     if not isinstance(desc, dict):

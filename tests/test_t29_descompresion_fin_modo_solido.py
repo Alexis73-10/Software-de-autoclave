@@ -248,3 +248,13 @@ def test_migracion_al_cargar_bowie_dick_con_auditoria_sis06_y_bak(tmp_path):
     bak = json.loads((ruta.parent / (ruta.name + ".bak")).read_text(encoding="utf-8"))
     assert bak["parameters"]["descompresion"]["modo"]["value"] == 4
     assert cargar().cycle_manager.migraciones_correctivas() == []
+
+
+def test_migracion_no_toca_programa_sin_tipo_carga():
+    """Revisión T29 (M1): sin globals.tipo_carga se trata como líquida (SAF-03)."""
+    p = _datos()["parameters"]
+    p["descompresion"]["modo"]["value"] = 4
+    p["globals"].pop("tipo_carga", None)
+    corr = []
+    migrar_parametros(p, corr, [], recuperacion=True)
+    assert p["descompresion"]["modo"]["value"] == 4 and corr == []
