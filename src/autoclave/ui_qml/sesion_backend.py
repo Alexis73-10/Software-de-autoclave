@@ -101,6 +101,7 @@ _CLAVES = {
     "LIMITE_PRESION_CHAQUETA": "opciones.err_limite_presion_chaqueta",
     # Tanda 16: P1 (D-14.1) y PRG-01 (D-PRG-1)
     "COHERENCIA_RECUPERACION": "opciones.err_coherencia_recuperacion",
+    "COHERENCIA_DESCOMPRESION": "opciones.err_coherencia_descompresion",   # LIQ-03 (tanda 32)
     "ROL_SONDA_NO_ACTIVA": "opciones.err_rol_sonda_no_activa",
     # Opciones › Entradas / Salidas (planeacion_opciones_entradas_salidas.md):
     # el texto del backend (`detail`) acompaña a estas claves en pantalla

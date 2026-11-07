@@ -67,6 +67,21 @@ ORIGEN_MIGRACION_T29_03 = "migración tanda 29 (T29-03)"
 # de líquidos) pasa al modo del programa de fábrica si es sólido y válido; si
 # no, a MODO_SOLIDO_SIN_DEFECTO (auditoría, SIS-06 y .bak).
 ORIGEN_MIGRACION_T29_05 = "migración tanda 29 (T29-05)"
+# Tanda 32 (LIQ-01): enfriamiento de líquidos con contrapresión (modos 4 y 5).
+# El agua de chaqueta se abre con la cámara presurizada y la chaqueta
+# despresurizada (pres_chaqueta <= atm + presion_despresurizacion_chaqueta),
+# cada condición con su tiempo límite. Retira el drenaje de chaqueta pulsado
+# (tiempo_apertura_chaqueta / tiempo_cierre_chaqueta).
+PRESION_DESPRESURIZACION_CHAQUETA_DEFECTO = 20.0   # kPa sobre la atmosférica (diferencia, 5–50)
+TIMEOUT_DESPRESURIZACION_CHAQUETA_DEFECTO = 3      # min (int, 1–15)
+# DECISIÓN SIN CONFIRMAR (no lo pidió Cristian): tope de la presurización
+TIMEOUT_PRESURIZACION_ENFRIAMIENTO_DEFECTO = 3     # min (int, 1–15)
+# Tanda 32 (LIQ-03): opción lenta → rápida en el modo 5
+DESCOMPRESION_LENTA_RAPIDA_DEFECTO = False
+PRESION_CAMBIO_MODO_5_DEFECTO = 150                # kPa absolutos (1–400, como modo_3)
+PARAMETROS_RETIRADOS_T32 = ("tiempo_apertura_chaqueta", "tiempo_cierre_chaqueta")
+ORIGEN_MIGRACION_T32 = "migración tanda 32"
+CODIGO_COHERENCIA_DESCOMPRESION = "COHERENCIA_DESCOMPRESION"
 
 # ── P1 (tanda 16, D-14.1): coherencia de la salida de RECUPERACION ─────────
 # Con vapor saturado, la temperatura más alta que permite el techo
@@ -164,6 +179,7 @@ for _fase, _ruta in (
     ("secado", "presion_baja_secado"),
     ("secado", "presion_chaqueta_secado"),
     ("descompresion", "modo_3.presion_cambio"),
+    ("descompresion", "modo_5.presion_cambio"),          # tanda 32 (LIQ-03)
     *[("descompresion", f"{m}.presion_camara_enfriamiento") for m in _MODOS_ENFRIAMIENTO],
     *[("prevacio", f"presion_{nivel}_pulso_{p}") for nivel in ("alta", "baja") for p in _PULSOS],
 ):
@@ -191,7 +207,6 @@ for _fase, _ruta in (
     ("finalizacion", "timeout_temperatura"),
     ("estabilizacion", "timeout_recuperacion"),
     *[("descompresion", f"modo_{n}.timeout") for n in range(1, 6)],
-    *[("descompresion", f"{m}.tiempo_apertura_chaqueta") for m in _MODOS_ENFRIAMIENTO],
 ):
     _poner(_fase, _ruta, 1, None, "tiempo: mínimo 1 en su unidad")
 
@@ -224,6 +239,14 @@ _poner("prevacio", "timeout_descompresion", 1, 30,
 # ── Tanda 29 ───────────────────────────────────────────────────────────────
 _poner("descompresion", "presion_fin_descompresion", 2, 20,
        "T29-03 (tanda 29): presión sobre la atmosférica para terminar la descompresión")
+# ── Tanda 32 (LIQ-01) ──────────────────────────────────────────────────────
+for _m in _MODOS_ENFRIAMIENTO:
+    _poner("descompresion", f"{_m}.presion_despresurizacion_chaqueta", 5, 50,
+           "LIQ-01 (tanda 32): presión de chaqueta sobre la atmosférica para abrir el agua")
+    _poner("descompresion", f"{_m}.timeout_despresurizacion_chaqueta", 1, 15,
+           "LIQ-01 (tanda 32): tiempo límite de la despresurización de chaqueta")
+    _poner("descompresion", f"{_m}.timeout_presurizacion_enfriamiento", 1, 15,
+           "LIQ-01 (tanda 32): tiempo límite de la presurización de cámara")
 # modo 0 de descompresión se conserva (enfriamiento natural, decisión 1.2)
 _poner("descompresion", "modo", 0, 5, "modo 0 conservado (enfriamiento natural)")
 
@@ -262,7 +285,8 @@ class ErrorCoherencia(ValueError):
     COHERENCIA_LIQUIDO para el resto de las reglas de carga líquida;
     LIMITE_PRESION_CAMARA (C-04.3), LIMITE_CONSIGNA_CHAQUETA (C-05.5) y
     LIMITE_PRESION_CHAQUETA (C-05.9) para los límites físicos de la tanda 12;
-    COHERENCIA_RECUPERACION para P1 (tanda 16, D-14.1). `valor`: el máximo
+    COHERENCIA_RECUPERACION para P1 (tanda 16, D-14.1);
+    COHERENCIA_DESCOMPRESION para LIQ-03 (tanda 32). `valor`: el máximo
     admisible (o la consigna calculada) del primer límite físico incumplido
     o, en P1, el presion_add_esterilizacion mínimo; None si no hay."""
 
@@ -278,6 +302,7 @@ _PREFIJO_CAMARA = "Límite de presión de cámara: "
 _PREFIJO_CHAQUETA = "Límite de presión de chaqueta: "
 _PREFIJO_CONSIGNA = "Límite de consigna de chaqueta: "
 _PREFIJO_RECUPERACION = "Coherencia de recuperación: "
+_PREFIJO_DESCOMPRESION = "Coherencia de descompresión: "
 
 
 def codigo_coherencia(errores: list[str]) -> str:
@@ -295,6 +320,8 @@ def codigo_coherencia(errores: list[str]) -> str:
         return CODIGO_LIMITE_CHAQUETA
     if any(e.startswith(_PREFIJO_RECUPERACION) for e in errores):
         return CODIGO_COHERENCIA_RECUPERACION
+    if any(e.startswith(_PREFIJO_DESCOMPRESION) for e in errores):
+        return CODIGO_COHERENCIA_DESCOMPRESION
     return "COHERENCIA_LIQUIDO"
 
 
@@ -635,14 +662,33 @@ def advertencias_programa(parameters: dict, fase: str | None = None,
     return [(c, m) for c, m, rutas in advertencias if rutas & editados]
 
 
+def errores_descompresion(parameters: dict) -> list[str]:
+    """LIQ-03 (tanda 32), para todo tipo de carga: con
+    descompresion.modo_5.descompresion_lenta_rapida activa (true), la
+    presion_cambio del modo 5 debe ser menor que su
+    presion_camara_enfriamiento. Falla cerrada: con la opción activa y alguno
+    de los dos valores ausente o no numérico también se rechaza. Opción
+    desactivada o ausente: sin regla."""
+    if _valor(parameters, "descompresion", "modo_5", "descompresion_lenta_rapida") is not True:
+        return []
+    cambio = _valor(parameters, "descompresion", "modo_5", "presion_cambio")
+    enfr = _valor(parameters, "descompresion", "modo_5", "presion_camara_enfriamiento")
+    if _num(cambio) and _num(enfr) and cambio < enfr:
+        return []
+    return [f"{_PREFIJO_DESCOMPRESION}con descompresion_lenta_rapida activa en el modo 5, "
+            f"presion_cambio ({cambio!r} kPa) debe ser menor que presion_camara_enfriamiento "
+            f"({enfr!r} kPa)"]
+
+
 def errores_coherencia(parameters: dict) -> list[str]:
     """Reglas entre parámetros: límites físicos de presión (tanda 12; con los
-    del equipo desde la tanda 16, DEU-01) y coherencia de RECUPERACION (P1,
-    tanda 16) para todo tipo de carga y, para carga líquida (decisión 1.2; SAF-05 y
+    del equipo desde la tanda 16, DEU-01), coherencia de RECUPERACION (P1,
+    tanda 16) y LIQ-03 (tanda 32) para todo tipo de carga y, para carga líquida
+    (decisión 1.2; SAF-05 y
     SAF-06 de T11; D8-5.7): descompresión modo 4, 5 o 0; sin prevacío ni secado (vacío
     sobre líquido caliente); sin apertura automática; contrapresión de
     enfriamiento de al menos P_sat(temperatura de esterilización) + 30 kPa."""
-    limites_fisicos = errores_limites_fisicos(parameters)
+    limites_fisicos = errores_limites_fisicos(parameters) + errores_descompresion(parameters)
     tipo_carga = _valor(parameters, "globals", "tipo_carga", defecto="solido")
     if tipo_carga != "liquido":
         # T29-05 (tanda 29): carga sólida solo con los modos 0 a 3

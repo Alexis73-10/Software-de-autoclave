@@ -160,6 +160,7 @@
     "cargando": "Loading…",
     "err_rol_sonda_no_activa": "Cannot save: a role is assigned to a probe that is not active in the installation profile.",
     "err_coherencia_recuperacion": "Cannot save: with this temperature and safe gap, the sterilization pressure ceiling does not allow leaving RECOVERY. The additional sterilization pressure must be at least {valor} kPa.",
+    "err_coherencia_descompresion": "Cannot save: with slow then fast depressurization enabled in mode 5, the switch-to-fast-exhaust pressure must be lower than the cooling chamber pressure.",
     "equipo_err_empaque": "The value is not consistent with atmospheric pressure and the gasket pressure and vacuum.",
     "equipo_err_empaque_sin_referencia": "Consistency cannot be checked: a valid gasket pressure, gasket vacuum or atmospheric pressure value is missing.",
     "equipo_err_empaque_sobre_atm": "Gasket pressure ({presion_empaque}) must stay at least {margen_empaque} above atmospheric pressure ({presion_atmosferica}).",
@@ -1278,6 +1279,26 @@
       "plantilla": "The drying after the failure did not reach vacuum: the chamber pressure did not stay below {minimo:.1f} kPa for {segundos} s. The chamber may still hold residual steam.",
       "accion": "Open the door with caution: hot steam may come out. Check the vacuum pump, its seal water and the vacuum valve."
     },
+    "CIC-22": {
+      "titulo": "Jacket not depressurized during cooling",
+      "plantilla": "The jacket pressure did not drop to {maximo:.1f} kPa (atmospheric + {margen} kPa) within {minutos} min, during the cooling with counter-pressure of mode {modo}. The jacket water was not opened. The cycle was aborted.",
+      "accion": "Do not open the door: the liquid load may still be hot. Check the jacket decompression valve, the jacket exhaust and the jacket pressure sensor (calibration)."
+    },
+    "CIC-23": {
+      "titulo": "Chamber not pressurized during cooling",
+      "plantilla": "The chamber pressure did not reach {objetivo:.1f} kPa within {minutos} min, during the cooling with counter-pressure of mode {modo}. The jacket water was not opened. The cycle was aborted.",
+      "accion": "Do not open the door: the liquid load may still be hot. Check the compressed air supply, its valve and the chamber pressure sensor (calibration)."
+    },
+    "CIC-24": {
+      "titulo": "Insufficient counter-pressure during cooling",
+      "plantilla": "The chamber pressure stayed below the minimum counter-pressure (saturation pressure of the load plus {margen} kPa) for {segundos} s in a row, during the cooling of mode {modo}. The liquid load may have boiled. The cycle was aborted.",
+      "accion": "Do not open the door: the liquid load may still be hot. Check the compressed air supply, its valve, the chamber pressure sensor and the Main probe."
+    },
+    "CIC-25": {
+      "titulo": "Low counter-pressure during cooling",
+      "plantilla": "The chamber pressure has been below the minimum counter-pressure (saturation pressure of the load plus {margen} kPa) for {segundos} s, during the cooling with counter-pressure. The liquid load may boil.",
+      "accion": "Check the compressed air supply, its valve and the chamber pressure sensor."
+    },
     "COM-02": {
       "titulo": "Communication lost during the cycle",
       "plantilla": "Communication with the I/O module was lost for more than {segundos:.1f} s in phase {fase}. The cycle was aborted.",
@@ -1576,16 +1597,20 @@
       "modo_4": {
         "timeout": "Maximum time of mode 4; if exceeded, the cycle fails.",
         "presion_camara_enfriamiento": "Pressure held in the chamber with compressed air while cooling.",
-        "temperatura_enfriamiento": "Temperature below which the load is considered cooled and depressurization starts.",
-        "tiempo_apertura_chaqueta": "Seconds the jacket drain stays open on each pulse.",
-        "tiempo_cierre_chaqueta": "Seconds the drain stays closed between pulses (0 = always open)."
+        "temperatura_enfriamiento": "Main probe temperature at which the load counts as cooled (3 consecutive readings at or below this value). Then the compressed air and the water close, the jacket drain stays open and the fast exhaust opens down to atmospheric.",
+        "presion_despresurizacion_chaqueta": "Kilopascals above the unit's atmospheric pressure. When cooling starts the jacket drain opens; the jacket counts as depressurized when its pressure drops to atmospheric + this value. Jacket water opens only with the jacket depressurized and the chamber at the cooling chamber pressure.",
+        "timeout_despresurizacion_chaqueta": "Maximum time, in minutes, for the jacket to become depressurized when cooling starts. If exceeded, the cycle fails.",
+        "timeout_presurizacion_enfriamiento": "Maximum time, in minutes, for the compressed air to bring the chamber to the cooling chamber pressure when cooling starts. If exceeded, the cycle fails."
       },
       "modo_5": {
         "timeout": "Maximum time of mode 5; if exceeded, the cycle fails.",
         "presion_camara_enfriamiento": "Pressure held in the chamber with compressed air while cooling.",
-        "temperatura_enfriamiento": "Temperature below which the load is considered cooled and depressurization starts.",
-        "tiempo_apertura_chaqueta": "Seconds the jacket drain stays open on each pulse.",
-        "tiempo_cierre_chaqueta": "Seconds the drain stays closed between pulses (0 = always open)."
+        "temperatura_enfriamiento": "Main probe temperature at which the load counts as cooled (3 consecutive readings at or below this value). Then the compressed air and the water close and the jacket drain stays open. With slow then fast depressurization enabled, the slow exhaust stays open down to the switch-to-fast-exhaust pressure and then closes and the fast exhaust opens down to atmospheric; disabled, the slow exhaust closes and the fast one opens at once.",
+        "presion_despresurizacion_chaqueta": "Kilopascals above the unit's atmospheric pressure. When cooling starts the jacket drain opens; the jacket counts as depressurized when its pressure drops to atmospheric + this value. Jacket water opens only with the jacket depressurized and the chamber at the cooling chamber pressure.",
+        "timeout_despresurizacion_chaqueta": "Maximum time, in minutes, for the jacket to become depressurized when cooling starts. If exceeded, the cycle fails.",
+        "timeout_presurizacion_enfriamiento": "Maximum time, in minutes, for the compressed air to bring the chamber to the cooling chamber pressure when cooling starts. If exceeded, the cycle fails.",
+        "descompresion_lenta_rapida": "When cooling ends, keeps the slow exhaust open down to the switch-to-fast-exhaust pressure and then opens the fast exhaust. Disabled, it opens the fast exhaust directly.",
+        "presion_cambio": "Only with slow then fast depressurization enabled: absolute chamber pressure at which the slow exhaust closes and the fast one opens. Must be lower than the cooling chamber pressure."
       }
     },
     "finalizacion": {
@@ -1614,11 +1639,11 @@
     },
     "4": {
       "nombre": "With cooling",
-      "desc": "Cools with jacket water and holds pressure with compressed air until below the cooling temperature, then opens the fast exhaust. For liquid loads."
+      "desc": "For liquid loads. Cooling: the jacket drain stays open to depressurize the jacket and compressed air holds the chamber at or above the cooling chamber pressure. Jacket water opens only once the chamber has reached that counter-pressure and the jacket is depressurized. When the Main probe is at or below the cooling temperature (3 readings), water and air close and the fast exhaust opens down to atmospheric, with the jacket drain open."
     },
     "5": {
       "nombre": "With cooling and slow exhaust",
-      "desc": "Like mode 4, but assisted by the slow exhaust during cooling, then opens the fast exhaust."
+      "desc": "Like mode 4 (jacket drain open; jacket water only with the counter-pressure reached and the jacket depressurized), but with the slow exhaust open during the whole cooling. When the cooling temperature is reached the slow exhaust closes and the fast one opens; with slow then fast depressurization enabled, the slow exhaust stays open down to the switch-to-fast-exhaust pressure and then the fast one opens."
     }
   },
   "calibracion_atm": {
@@ -2161,15 +2186,19 @@
         "timeout": "Mode 4 time limit",
         "presion_camara_enfriamiento": "Chamber pressure during cooling",
         "temperatura_enfriamiento": "Cooling temperature",
-        "tiempo_apertura_chaqueta": "Jacket drain open time",
-        "tiempo_cierre_chaqueta": "Jacket drain closed time"
+        "presion_despresurizacion_chaqueta": "Depressurized jacket pressure",
+        "timeout_despresurizacion_chaqueta": "Jacket depressurization time limit",
+        "timeout_presurizacion_enfriamiento": "Cooling pressurization time limit"
       },
       "modo_5": {
         "timeout": "Mode 5 time limit",
         "presion_camara_enfriamiento": "Chamber pressure during cooling",
         "temperatura_enfriamiento": "Cooling temperature",
-        "tiempo_apertura_chaqueta": "Jacket drain open time",
-        "tiempo_cierre_chaqueta": "Jacket drain closed time"
+        "presion_despresurizacion_chaqueta": "Depressurized jacket pressure",
+        "timeout_despresurizacion_chaqueta": "Jacket depressurization time limit",
+        "timeout_presurizacion_enfriamiento": "Cooling pressurization time limit",
+        "descompresion_lenta_rapida": "Slow then fast depressurization",
+        "presion_cambio": "Switch-to-fast-exhaust pressure"
       }
     },
     "finalizacion": {
@@ -2291,6 +2320,9 @@
     "aviso_uniformidad": "Thermal uniformity out of range: {sensor} {temp}",
     "aviso_excursion": "Excursion of {sensor}: {duracion} s out of band, minimum {temp_min}",
     "aviso_excursion_alta": "Excursion of {sensor}: {duracion} s out of band, minimum {temp_min}, maximum {temp_max}",
+    "aviso_contrapresion": "Low counter-pressure during cooling at {hora}",
+    "aviso_enfriamiento_detenido_chaqueta": "Cooling with counter-pressure stopped at {hora}: the jacket was not depressurized in time",
+    "aviso_enfriamiento_detenido_presurizacion": "Cooling with counter-pressure stopped at {hora}: the chamber did not reach the cooling pressure in time",
     "no_conforme_referencia": "NONCONFORMING: reference point not verified ({sensor})",
     "observacion": "Observation",
     "observacion_referencia": "{sensor} without reading since {hora} ({fase})",

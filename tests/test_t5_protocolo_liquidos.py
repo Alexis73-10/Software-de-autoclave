@@ -44,7 +44,10 @@ def test_modos_4_5_enfrian_antes_de_despresurizar(modo, tipo_carga):
     p.ejecutar()
     set_do.descompresion_rapida_on.assert_not_called()
     set_do.aire_comprimido_camara_on.assert_called()      # contrapresión (150 < 200)
-    set_do.agua_chaqueta_on.assert_called()
+    # Tanda 32 (LIQ-01): drenaje de chaqueta abierto fijo; el agua espera a
+    # la presión de enfriamiento y a la chaqueta despresurizada
+    set_do.descompresion_chaqueta_on.assert_called()
+    set_do.agua_chaqueta_on.assert_not_called()
     if modo == 5:
         set_do.descompresion_lenta_on.assert_called()
 

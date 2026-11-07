@@ -66,6 +66,11 @@ _EJEMPLOS = {
     "CIC-20": {"maximo": 84.6, "margen": "10", "minutos": "5", "pulso": "A 2/4"},
     # A13-M3 (tanda 28b): secado tras fallo sin vacío (CIC-21 al unir)
     "CIC-21": {"minimo": 96.3, "segundos": 10},
+    # Tanda 32 (LIQ-01/LIQ-02): enfriamiento de líquidos con contrapresión
+    "CIC-22": {"maximo": 95.3, "margen": "20", "minutos": "3", "modo": 4},
+    "CIC-23": {"objetivo": 200.0, "minutos": "3", "modo": 5},
+    "CIC-24": {"margen": "30", "segundos": 60, "modo": 4},
+    "CIC-25": {"margen": "30", "segundos": 10},
     "SIS-04": {"motivo": "Mantenimiento vencido por fecha"},
     "SIS-05": {},
     # J12 (tanda 12, C-04.4): migración correctiva de un programa
@@ -149,6 +154,9 @@ def test_niveles_migrados_iguales_a_hoy():
         "CIC-19": Nivel.ALARMA,
         # A12 (tanda 28): bloqueante como CIC-15
         "CIC-20": Nivel.ALARMA,
+        # Tanda 32: fallos del enfriamiento con contrapresión, como CIC-20
+        # (CIC-25, aviso de contrapresión baja, es AVISO: el defecto)
+        "CIC-22": Nivel.ALARMA, "CIC-23": Nivel.ALARMA, "CIC-24": Nivel.ALARMA,
         # D9-2 (tanda 9, H3): pasan de AVISO a ALARMA conservando su bloqueo
         "SEN-01": Nivel.ALARMA, "SEN-03": Nivel.ALARMA, "SEN-06": Nivel.ALARMA,
         "SEN-07": Nivel.ALARMA, "CIC-10": Nivel.ALARMA,
