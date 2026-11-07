@@ -1,0 +1,3 @@
+Fecha: 2026-11-07
+Commit del merge a dev: fbfb796f
+Suite: 11681 pasan, 1 intermitente ajeno (test_t26_arq_revision, pasa solo). No se compilo en la tanda; compilacion pedida aparte por Cristian (--sin-suite).
