@@ -1,0 +1,3 @@
+2026-11-07. Tanda 30 cerrada. Merge a dev: f43c4cd9.
+Suite completa (rama tanda30): 11426 pasadas, 7 fallos en la primera corrida; 4 intermitentes (pasan al repetir), 2 corregidos (ids QML con "tarjeta") y 1 preexistente en dev (test_t26_ald_detalle_alarmas::test_qml_tocar_no_abrir, subproceso sin salida). Las pruebas afectadas pasan tras la correccion (166).
+No se compilo. Para compilar: python tools/entrega/compilar_entrega.py (desde dev limpio).
