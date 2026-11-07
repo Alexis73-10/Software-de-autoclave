@@ -11,7 +11,7 @@ Rama `tanda29` desde `dev` (9775fc68). Requisito previo verificado (f9eaa9d8 en 
 | T29-06 | Hecho |
 | T29-07 | Hecho |
 | T29-08 | Hecho |
-| Revisión de seguridad | Pendiente |
+| Revisión de seguridad | Hecho (M1 corregida) |
 | Docs (CLAUDE.md, riesgos, trazabilidad, banco, informe) | Hecho |
-| Suite completa, merge, CERRADO | Pendiente |
-Último commit: 1e8e5417 (código en c5fc5bb4). Revisor de seguridad lanzado; suite completa en curso.
+| Suite completa, merge, CERRADO | Hecho |
+Último commit: 1e8e5417 (código en c5fc5bb4). Merge a dev en 4c5b2f6a.

@@ -1,0 +1,8 @@
+Fecha: 2026-11-06
+Commit del merge a dev: 4c5b2f6a (rama tanda29 unida; dev sin push).
+Suite (PYTHONUTF8=1 pytest tests -n auto): 11320 pasan, 11 omitidas, 3 xfail, 3 rojas:
+  - test_t20_s3_setup_modbus::test_ejecuta_consulta_de_adaptadores_solo_lectura (codificación de consola, preexistente).
+  - test_t21_pantalla_fin_ciclo_qml::test_la_cuenta_se_detiene_con_un_modal y test_tema_oscuro::test_a_sin_literales_de_color_fuera_de_tema: pasan al repetirlas aisladas y completas (56/56); intermitentes bajo la carga del -n auto.
+Revisión de seguridad: sin ALTA; M1 (MEDIA) corregida; B1, B2 y B3 (BAJA) sin corregir, en R29_informe.md.
+Entrega NO compilada. Comando: python tools/entrega/compilar_entrega.py (desde dev limpio).
+Pendientes de Cristian: ver DECISIÓN SIN CONFIRMAR en R29_informe.md (PRE-04 tras líquidos modo 4, SIS-06 de T29-03, B1 antirretorno/SECADO, B3 límite en líquidos).

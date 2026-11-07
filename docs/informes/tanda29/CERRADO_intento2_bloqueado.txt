@@ -1,0 +1,4 @@
+BLOQUEADO: hotfix del estado seguro no cerrado: su merge a dev tiene conflictos de fondo con la tanda 28 y necesita decisión de Cristian.
+Fecha: 2026-11-06
+Detalle: docs/informes/hotfix_estado_seguro/CERRADO.txt empieza con BLOQUEADO (rama hotfix-estado-seguro en 7c6d8d5a; dev en fa18324a con A9/A10/A13 de la tanda 28 sobre el mismo protocolo que el hotfix retira).
+Tanda 29: no se empezó (sin rama, sin commits, sin cambios en src/tests/tools/packaging). No se compiló entrega.

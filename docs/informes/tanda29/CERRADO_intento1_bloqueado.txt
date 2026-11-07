@@ -1,0 +1,3 @@
+BLOQUEADO: falta el hotfix del estado seguro
+Fecha: 2026-11-06
+Motivo: docs/informes/hotfix_estado_seguro/CERRADO.txt no existe (el hotfix sigue en la rama hotfix-estado-seguro, sin cerrar ni unir a dev).
