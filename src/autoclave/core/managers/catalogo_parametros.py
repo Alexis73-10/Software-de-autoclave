@@ -57,6 +57,16 @@ MARGEN_CHAQUETA_EST_DEFECTO = 8.0          # kPa (clase diferencia, 2–30)
 PRESION_INICIO_VACIO_DEFECTO = 10.0        # kPa sobre la atmosférica (diferencia, 0–30)
 TIMEOUT_DESCOMPRESION_DEFECTO = 5          # min (int, 1–30)
 ORIGEN_MIGRACION_T28_A12 = "migración tanda 28 (A12)"
+# Tanda 29 (T29-03, decisión de Cristian): DESCOMPRESION termina (modos 1 a 5,
+# sólidos y líquidos) con pres <= atm + presion_fin_descompresion (antes atm +
+# rango_presion_atm: el vapor residual la sostenía apenas encima). El modo 0
+# no cambia. Defecto y rango DECISIÓN SIN CONFIRMAR hasta el banco.
+PRESION_FIN_DESCOMPRESION_DEFECTO = 10.0   # kPa sobre la atmosférica (diferencia, 2–20)
+ORIGEN_MIGRACION_T29_03 = "migración tanda 29 (T29-03)"
+# Tanda 29 (T29-05): un programa sólido con descompresión 4 o 5 (enfriamiento
+# de líquidos) pasa al modo del programa de fábrica si es sólido y válido; si
+# no, a MODO_SOLIDO_SIN_DEFECTO (auditoría, SIS-06 y .bak).
+ORIGEN_MIGRACION_T29_05 = "migración tanda 29 (T29-05)"
 
 # ── P1 (tanda 16, D-14.1): coherencia de la salida de RECUPERACION ─────────
 # Con vapor saturado, la temperatura más alta que permite el techo
@@ -211,6 +221,9 @@ _poner("prevacio", "presion_inicio_vacio", 2, 15,
        "A12 (tanda 28): presión sobre la atmosférica para arrancar el vacío del pulso")
 _poner("prevacio", "timeout_descompresion", 1, 30,
        "A12 (tanda 28): tiempo límite del paso de descompresión del pulso")
+# ── Tanda 29 ───────────────────────────────────────────────────────────────
+_poner("descompresion", "presion_fin_descompresion", 2, 20,
+       "T29-03 (tanda 29): presión sobre la atmosférica para terminar la descompresión")
 # modo 0 de descompresión se conserva (enfriamiento natural, decisión 1.2)
 _poner("descompresion", "modo", 0, 5, "modo 0 conservado (enfriamiento natural)")
 
@@ -226,6 +239,9 @@ MODOS_CONTRAPRESION = (4, 5)
 MODO_AL_PASAR_A_LIQUIDO = 4
 # Al volver a sólido sin defecto sólido del programa (DECISIÓN SIN CONFIRMAR de D8-5.7)
 MODO_SOLIDO_SIN_DEFECTO = 1
+# T29-05 (tanda 29): con carga sólida solo los modos 0 a 3; 4 y 5 son de
+# enfriamiento de líquidos (contrapresión y agua de chaqueta)
+MODOS_SOLIDO = (0, 1, 2, 3)
 # D8-5.8: parámetros "modo" de los programas y sus valores válidos (se eligen
 # de una lista, no se escriben). Orden de presentación.
 MODOS_PARAMETRO = {
@@ -235,6 +251,9 @@ MODOS_PARAMETRO = {
 
 MOTIVO_MODO_LIQUIDO = ("Carga líquida: solo se permiten los modos de descompresión 4, 5 y 0 "
                        "(descomprimir rápido con líquido caliente produce ebullición violenta)")
+CODIGO_MODO_SOLIDO = "MODO_NO_PERMITIDO_SOLIDO"
+MOTIVO_MODO_SOLIDO = ("Carga sólida: solo se permiten los modos de descompresión 0 a 3 "
+                      "(los modos 4 y 5 son de enfriamiento de líquidos)")
 
 
 class ErrorCoherencia(ValueError):
@@ -264,6 +283,8 @@ _PREFIJO_RECUPERACION = "Coherencia de recuperación: "
 def codigo_coherencia(errores: list[str]) -> str:
     if MOTIVO_MODO_LIQUIDO in errores:
         return "MODO_NO_PERMITIDO_LIQUIDO"
+    if MOTIVO_MODO_SOLIDO in errores:
+        return CODIGO_MODO_SOLIDO
     if any(e.startswith("Carga líquida") for e in errores):
         return "COHERENCIA_LIQUIDO"
     if any(e.startswith(_PREFIJO_CAMARA) for e in errores):
@@ -284,8 +305,12 @@ def modos_validos(parameters: dict, fase: str, path) -> list[int]:
     modos = MODOS_PARAMETRO.get((fase, ruta))
     if modos is None:
         return []
-    if fase == "descompresion" and _valor(parameters, "globals", "tipo_carga", defecto="solido") == "liquido":
-        return list(MODOS_LIQUIDO)
+    if fase == "descompresion":
+        tipo = _valor(parameters, "globals", "tipo_carga", defecto="solido")
+        if tipo == "liquido":
+            return list(MODOS_LIQUIDO)
+        if tipo == "solido":
+            return list(MODOS_SOLIDO)        # T29-05
     return list(modos)
 # Contrapresión mínima sobre P_sat(temperatura de esterilización) para carga
 # líquida (SAF-05 de T11): bajo ella la carga hierve al empezar a enfriar
@@ -618,7 +643,12 @@ def errores_coherencia(parameters: dict) -> list[str]:
     sobre líquido caliente); sin apertura automática; contrapresión de
     enfriamiento de al menos P_sat(temperatura de esterilización) + 30 kPa."""
     limites_fisicos = errores_limites_fisicos(parameters)
-    if _valor(parameters, "globals", "tipo_carga", defecto="solido") != "liquido":
+    tipo_carga = _valor(parameters, "globals", "tipo_carga", defecto="solido")
+    if tipo_carga != "liquido":
+        # T29-05 (tanda 29): carga sólida solo con los modos 0 a 3
+        if (tipo_carga == "solido"
+                and _valor(parameters, "descompresion", "modo") in MODOS_CONTRAPRESION):
+            return [MOTIVO_MODO_SOLIDO] + limites_fisicos
         return limites_fisicos
     errores = []
     modo = _valor(parameters, "descompresion", "modo")

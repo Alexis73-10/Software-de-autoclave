@@ -36,6 +36,7 @@ def test_presion_en_banda_ok_sin_pedir_rapida():
 
 def test_presion_baja_pide_aire_no_pide_rapida():
     p, alarm_mgr, set_do = _make_preparacion(pres_camara=1000.0)
+    p.tiempo_estable = 0      # T29-02: el aviso exige tiempo_estable seguido
     ok, quiere_rapida = p.igualar_presion_camara()
     assert ok is False
     assert quiere_rapida is False
@@ -46,6 +47,7 @@ def test_presion_baja_pide_aire_no_pide_rapida():
 
 def test_presion_alta_pide_rapida():
     p, alarm_mgr, set_do = _make_preparacion(pres_camara=1030.0)
+    p.tiempo_estable = 0      # T29-02: el aviso exige tiempo_estable seguido
     ok, quiere_rapida = p.igualar_presion_camara()
     assert ok is False
     assert quiere_rapida is True

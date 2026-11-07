@@ -1,11 +1,13 @@
-import math
 from autoclave.state_machine.alarms.catalogo import (
     PRE_01, PRE_02, PRE_03, PRE_04, PRE_06, PUE_01, SEN_01, SIS_01,
     SUM_02, SUM_03, SUM_04, SUM_05, SUM_06, nombre_legible,
 )
 from autoclave.state_machine.states.control_banda import (evaluar_banda, ConfirmadorApagado,
                                                           carga_liquida, aplicar_venteo,
-                                                          cerrar_lenta_propia)
+                                                          cerrar_lenta_propia,
+                                                          CondicionSostenida, leer_tiempo_estable,
+                                                          puertas_confirmadas_cerradas)
+from autoclave.core.runtime import vigencia_ai
 from autoclave.state_machine.states import vaciado_chaqueta
 from autoclave.core.managers import limites_equipo
 from autoclave.core.runtime.lectura import lectura_valida
@@ -48,6 +50,13 @@ class preparado_state:
         self._confirmador_chaqueta = ConfirmadorApagado()
         self._confirmador_drenaje = ConfirmadorApagado()
         self._confirmador_aire_camara = ConfirmadorApagado()
+        # T29-02: PRE-03/PRE-04 solo si la condición dura tiempo_estable seguido
+        self._sostenida_pre03 = CondicionSostenida()
+        self._sostenida_pre04 = CondicionSostenida()
+        # T29-08: DI vigentes del tick (las fija run()) y aire abierto por la
+        # regla de puertas cerradas (para cerrarlo sin lectura de presión)
+        self._di_vigentes = False
+        self._aire_reposo = False
 
     # ==============================
     # RUN PRINCIPAL
@@ -56,15 +65,9 @@ class preparado_state:
     @property
     def tiempo_estable(self):
         """Tiempo requerido para considerar estable; se lee en cada uso para
-        que un cambio en Parámetros del equipo aplique sin reiniciar (OPC-11)."""
-        v = getattr(self, "_tiempo_estable_fijo", None)
-        if v is None:
-            v = self.config.get("tiempo_estable_alarma")
-        try:                                   # TMG-03: sin valor, el de fábrica (5 s)
-            v = float(v)
-        except (TypeError, ValueError):
-            return 5.0
-        return v if math.isfinite(v) and 0 <= v <= 3600 else 5.0
+        que un cambio en Parámetros del equipo aplique sin reiniciar (OPC-11).
+        TMG-03: sin valor, el de fábrica (5 s)."""
+        return leer_tiempo_estable(self.config, getattr(self, "_tiempo_estable_fijo", None))
 
     @tiempo_estable.setter
     def tiempo_estable(self, valor):
@@ -73,7 +76,13 @@ class preparado_state:
 
     def run(self, datos_vigentes: bool = True):
         vaciado = vaciado_chaqueta.de_estado(self.estado)
+        self._di_vigentes = datos_vigentes is True     # T29-08
         if self.estado.get_flag("PARO_EMERGENCIA"):
+            # el paro ya apaga todo (aire incluido): la regla T29-08 retoma
+            # después y las cuentas de PRE-03/PRE-04 empiezan de cero
+            self._aire_reposo = False
+            self._sostenida_pre03.reset()
+            self._sostenida_pre04.reset()
             # Vaciado de chaqueta: el paro lo cancela sin reintento, con sus
             # dos salidas en OFF además del apagado por paro
             if vaciado is not None and vaciado.activo:
@@ -362,8 +371,21 @@ class preparado_state:
         pres_atm = self.config.get("presion_admosferica")
         rango = self.config.get("rango_presion_atm")
 
-        # Sin dato (antes de la primera trama): sin órdenes y no lista (E0-3)
+        # T29-08 (tanda 29, DECISIÓN SIN CONFIRMAR en los detalles): con todas
+        # las puertas instaladas confirmadas cerradas (DI vigentes) el aire
+        # atmosférico queda abierto mientras la presión esté en banda o por
+        # debajo; se cierra en el mismo tick con sobrepresión, sin lectura o
+        # con la trama AI vencida. Con alguna puerta abierta o sin dato de
+        # puerta, como antes.
+        puertas = puertas_confirmadas_cerradas(self.estado, self.profile, self._di_vigentes)
+        ai_vigente, _ = vigencia_ai.leer(self.estado)
+
+        # Sin dato (antes de la primera trama): sin órdenes y no lista (E0-3);
+        # T29-08: el aire abierto por la regla de puertas se cierra
         if not lectura_valida(presion_camara):
+            self._cerrar_aire_reposo(puertas)
+            self._sostenida_pre03.reset()
+            self._sostenida_pre04.reset()
             cerrar_lenta_propia(self, self.set_do)      # T1: lenta propia, cerrada
             return False
 
@@ -371,9 +393,19 @@ class preparado_state:
         max_p = pres_atm + rango
 
         if min_p <= presion_camara <= max_p:
-            if self._confirmador_aire_camara.confirmar(True):
+            if puertas and ai_vigente:
+                self.set_do.aire_admosferico_camara_on()
+                self._confirmador_aire_camara.reset()
+                self._aire_reposo = True
+            elif not ai_vigente and (puertas or self._aire_reposo):
+                # presión posiblemente congelada: el aire de la regla, cerrado ya
+                self._cerrar_aire_reposo(True)
+            elif self._confirmador_aire_camara.confirmar(True):
                 self.set_do.aire_admosferico_camara_off()
+                self._aire_reposo = False
             aplicar_venteo(self, self.set_do, False, False)
+            self._sostenida_pre03.reset()
+            self._sostenida_pre04.reset()
             self.alarm_manager.resolver(PRE_03)
             self.alarm_manager.resolver(PRE_04)
             return True
@@ -382,16 +414,35 @@ class preparado_state:
             self.set_do.aire_admosferico_camara_on()
             self._confirmador_aire_camara.reset()
             aplicar_venteo(self, self.set_do, False, False)
-            self.generar_alarma_temporizada(PRE_03, pres=presion_camara, minimo=min_p)
+            self._sostenida_pre04.reset()
+            self.alarm_manager.resolver(PRE_04)
+            # T29-02: solo si dura tiempo_estable seguido (antes, el temporizador
+            # compartido de generar_alarma_temporizada, que no se reiniciaba)
+            if self._sostenida_pre03.evaluar(True, self.tiempo_estable):
+                self.alarm_manager.activar(PRE_03, pres=presion_camara, minimo=min_p)
 
         elif presion_camara > max_p:
             self.set_do.aire_admosferico_camara_off()
             self._confirmador_aire_camara.reset()
+            self._aire_reposo = False
             aplicar_venteo(self, self.set_do, True,
                            carga_liquida(self.programas_seguridad, self.cycle))
-            self.generar_alarma_temporizada(PRE_04, pres=presion_camara, maximo=max_p)
+            self._sostenida_pre03.reset()
+            self.alarm_manager.resolver(PRE_03)
+            if self._sostenida_pre04.evaluar(True, self.tiempo_estable):
+                self.alarm_manager.activar(PRE_04, pres=presion_camara, maximo=max_p)
 
         return False
+
+    def _cerrar_aire_reposo(self, puertas_cerradas: bool) -> None:
+        """T29-08: sin lectura de presión válida, el aire atmosférico se cierra
+        si rige la regla de puertas cerradas o si esa regla lo abrió; con
+        alguna puerta abierta y el aire abierto por vacío, como antes (sin
+        orden)."""
+        if puertas_cerradas or self._aire_reposo:
+            self.set_do.aire_admosferico_camara_off()
+            self._confirmador_aire_camara.reset()
+            self._aire_reposo = False
 
     # ==============================
     # CONTROL DRENAJE

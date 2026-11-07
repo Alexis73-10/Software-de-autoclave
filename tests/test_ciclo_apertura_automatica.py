@@ -431,7 +431,8 @@ def test_temp_max_apertura_no_supera_el_global(monkeypatch):
     monkeypatch.setattr(ciclo_module.time, "monotonic", lambda: 14_000_000.0)
     ciclo._mantener_apertura_automatica()
 
-    # temp_camara=125 > min(130 del ciclo, 120 global)=120 -> sigue esperando
+    # T29-04 (tanda 29): rige el del programa (130) recortado al techo absoluto
+    # de 120 °C (camara_segura.TECHO_TEMP_MAX_APERTURA); 125 > 120 -> sigue esperando
     door_service.request_open.assert_not_called()
 
 

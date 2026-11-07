@@ -521,11 +521,18 @@ class ControlLoop:
     def temp_max_tras_ciclo(self):
         """`finalizacion.temp_max_apertura` del último ciclo mientras su
         Principal siga contando para la seguridad (SAF-04 de T4); si no, None.
-        S9 (D9-1.3): también la de la recuperación de arranque; rige la menor."""
+        S9 (D9-1.3): también la de la recuperación de arranque; entre esos
+        programas rige la menor. T29-04 (tanda 29): este valor rige sobre el
+        del equipo (camara_segura.temp_max_vigente) y en CICLO es el del
+        programa en curso (antes None: regía el del equipo; DECISIÓN SIN
+        CONFIRMAR, para que la apertura automática y el interlock de puertas
+        usen el mismo límite)."""
         if self.estado.get_machine_state() == GlobalState.CICLO:
-            return None
+            programas = (getattr(self.state_machine.ciclo, "programa_en_curso", None),)
+        else:
+            programas = (self._programa_ultimo_ciclo, self._recuperacion_pendiente)
         valores = []
-        for programa in (self._programa_ultimo_ciclo, self._recuperacion_pendiente):
+        for programa in programas:
             if programa is None:
                 continue
             try:
@@ -689,8 +696,8 @@ class ControlLoop:
         lectura vigente de presión de cámara se retiran los bloqueos propios
         del estado seguro; rigen siempre la presión de cámara para abrir o
         desbloquear puertas y las puertas cerradas para el vapor de cámara.
-        La cámara se evalúa con los programas de seguridad, el menor
-        temp_max_apertura y la presión al día (presion_vigente); sin eso, no
+        La cámara se evalúa con los programas de seguridad, el
+        temp_max_apertura vigente (T29-04) y la presión al día (presion_vigente); sin eso, no
         segura. Cualquier error: todas. Bajo _sm_lock (reentrante: el backend
         ya lo tiene en guard_estado)."""
         try:

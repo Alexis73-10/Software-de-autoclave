@@ -33,6 +33,7 @@ from autoclave.core.runtime.sensores_ciclo import (asignacion_de, canonica, f0_d
 from autoclave.services.domain.logging.ticket_formatter import (
     CLAVE_CANCELADO_POR,
     aviso_secado_tras_fallo,
+    f0_objetivo_de_programa,
     format_footer,
     format_header,
     format_row,
@@ -431,6 +432,7 @@ class CycleLogger:
         asignacion = ""
         numero_programa = None
         programa_json = None
+        cycle = None
         try:
             cycle  = self._programa()
             tipo   = cycle.id
@@ -546,6 +548,14 @@ class CycleLogger:
             for _clave in ("serie_original", "modelo_original"):
                 if _clave in datos_ciclo:
                     meta[_clave] = datos_ciclo[_clave]
+            # T29-07: F0 activo y su objetivo, con la misma condición que el
+            # «F0 total» del pie (_on_fin); sin F0 el meta queda como antes
+            try:
+                if (cycle.get_param("globals", "F0") and f0_disponible(self.profile)):
+                    meta["f0_activo"] = True
+                    meta["f0_objetivo"] = f0_objetivo_de_programa(cycle)
+            except Exception as exc:
+                logger.warning("CycleLogger: no se pudo leer F0 del ciclo: %s", exc)
             # I3 (tanda 5): idioma y unidades vigentes al iniciar, para todo el ticket
             self._presentacion = presentacion_actual()
             self.printer.enqueue(format_header(meta, self._presentacion))

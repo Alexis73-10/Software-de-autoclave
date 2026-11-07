@@ -55,6 +55,7 @@ from autoclave.core.runtime.lectura import carga_enfriada, lectura_valida
 from autoclave.core.runtime.sensores_ciclo import sensor_principal, sensores_referencia
 from autoclave.core.runtime.steam import p_saturacion_kpa
 from autoclave.core.runtime import vigencia_ai
+from autoclave.core.runtime import camara_segura
 
 logger = logging.getLogger(__name__)
 
@@ -390,17 +391,15 @@ class ProtocoloFallo:
         return min(max(float(valor), bajo), alto) * 60.0
 
     def _temp_max_sellado(self) -> float:
-        """temp_max_apertura global; con el del programa, rige el menor (como
-        camara_segura y la apertura automática)."""
-        temp_max = self.config.get("temp_max_apertura") or 120.0
+        """T29-04 (tanda 29): el temp_max_apertura del programa; el del equipo
+        solo si el programa no lo trae (como camara_segura y la apertura
+        automática; antes regía el menor). Sin ninguno, 120 °C como antes."""
         try:
             del_ciclo = self.cycle.get_param("finalizacion", "temp_max_apertura")
         except Exception:
             del_ciclo = None
-        if (not isinstance(del_ciclo, bool) and isinstance(del_ciclo, (int, float))
-                and math.isfinite(del_ciclo)):
-            temp_max = min(float(temp_max), float(del_ciclo))
-        return float(temp_max)
+        temp_max = camara_segura.temp_max_vigente(self.config, del_ciclo)
+        return float(temp_max) if temp_max is not None else 120.0
 
     def _tope_presion_sellado(self) -> float:
         """SAF-01 (revisión S2a): presión máxima con la cámara sellada. Con el
@@ -1358,7 +1357,7 @@ class ProtocoloFallo:
         temp     = self._temp_principal()
         atm      = self.config.get("presion_admosferica") or 101.3
         rango    = self.config.get("rango_presion_atm")   or 20.0
-        temp_max = self.config.get("temp_max_apertura")   or 120.0
+        temp_max = self._temp_max_sellado()   # T29-04: el del programa
 
         enfriando = self._modo_efectivo() in (4, 5) and self._sub_etapa == "enfriamiento"
 

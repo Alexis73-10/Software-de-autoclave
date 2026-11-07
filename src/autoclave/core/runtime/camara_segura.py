@@ -6,6 +6,10 @@
 #   camara_segura = presión de cámara en [atm − rango_presion_atm, atm + rango_presion_atm]
 #                   Y temperatura del sensor Principal ≤ temp_max_apertura
 #
+# T29-04 (tanda 29): temp_max_apertura es el del programa (en CICLO, el del
+# ciclo en curso; fuera, el del último ciclo mientras cuente); el del equipo
+# solo sin programa (temp_max_vigente). Antes regía el menor de los dos.
+#
 # Falla cerrada: sin lectura válida o sin configuración, NO es segura. La usan
 # /status ("NO ABRIR"), la condición de inicio de ciclo (D-04), el interlock de
 # apertura de puertas y "Apagar equipo" (§16).
@@ -36,6 +40,28 @@ def _numero(valor) -> float | None:
     except (TypeError, ValueError):
         return None
     return v if math.isfinite(v) else None
+
+
+# T29-04 (tanda 29): techo absoluto del límite de apertura, igual al máximo
+# del parámetro del equipo (validacion_config: 40..120 °C). Un programa con un
+# valor mayor (sus hojas admiten hasta 150) se recorta aquí. DECISIÓN SIN
+# CONFIRMAR.
+TECHO_TEMP_MAX_APERTURA = 120.0
+
+
+def temp_max_vigente(config, del_programa) -> float | None:
+    """T29-04 (tanda 29; reemplaza «rige el menor», SAF-04 de T4): límite de
+    temperatura para abrir. Rige el `finalizacion.temp_max_apertura` del
+    programa (recortado a TECHO_TEMP_MAX_APERTURA); el `temp_max_apertura`
+    del equipo solo cuando no hay programa del que tomarlo (None o no
+    numérico). None si tampoco hay valor del equipo."""
+    prog = _numero(del_programa)
+    if prog is not None:
+        return min(prog, TECHO_TEMP_MAX_APERTURA)
+    try:
+        return _numero(config.get(CLAVE_TEMP_MAX))
+    except Exception:
+        return None
 
 
 # Hotfix ES (6-nov): los motivos de cámara no segura llevan el valor medido
@@ -115,6 +141,15 @@ def evaluar_presion(estado, config, datos_vigentes=True) -> tuple[bool, str]:
     return True, ""
 
 
+def _faltan_config(config, temp_max_ciclo) -> list:
+    """Claves de configuración que faltan. T29-04: el temp_max_apertura del
+    equipo solo hace falta sin valor del programa."""
+    claves = [CLAVE_ATM, CLAVE_RANGO]
+    if _numero(temp_max_ciclo) is None:
+        claves.append(CLAVE_TEMP_MAX)
+    return [c for c in claves if _numero(config.get(c)) is None]
+
+
 def evaluar(estado, config, programas, profile=None, datos_vigentes=True,
             temp_max_ciclo=None) -> tuple[bool, str]:
     """(segura, motivo). `programas` (uno o una lista) deciden los sensores
@@ -122,9 +157,11 @@ def evaluar(estado, config, programas, profile=None, datos_vigentes=True,
     segura (temp_seguridad). None = temp_camara. El motivo es "" si es segura.
 
     `datos_vigentes` False (enlace caído o DI vencida) = NO segura: las
-    lecturas guardadas son viejas (SAF-01 de T4). `temp_max_ciclo`: tras un
-    ciclo, su `finalizacion.temp_max_apertura`; rige el menor con el global
-    (SAF-04 de T4), igual que la apertura automática.
+    lecturas guardadas son viejas (SAF-01 de T4). `temp_max_ciclo`: el
+    `finalizacion.temp_max_apertura` del programa (en CICLO, el del ciclo en
+    curso; fuera, el del último ciclo); T29-04: rige el del programa y el del
+    equipo solo sin programa (temp_max_vigente), igual que la apertura
+    automática.
 
     A13-M4 (tanda 28b): secado tras fallo en curso = NO segura con el motivo
     "secando_vapor_residual" (antes que las lecturas); pendiente = NO segura
@@ -133,17 +170,13 @@ def evaluar(estado, config, programas, profile=None, datos_vigentes=True,
         return False, Motivo("sin_datos_vigentes", "Sin conexión con el módulo E/S: datos no vigentes")
     if secado_en_curso(estado):
         return False, _motivo_secando()
-    faltan = [c for c in (CLAVE_ATM, CLAVE_RANGO, CLAVE_TEMP_MAX)
-              if _numero(config.get(c)) is None]
+    faltan = _faltan_config(config, temp_max_ciclo)
     if faltan:
         return False, Motivo("falta_config", f"Falta configuración: {', '.join(faltan)}",
                              claves=", ".join(faltan))
     atm = _numero(config.get(CLAVE_ATM))
     rango = _numero(config.get(CLAVE_RANGO))
-    temp_max = _numero(config.get(CLAVE_TEMP_MAX))
-    del_ciclo = _numero(temp_max_ciclo)
-    if del_ciclo is not None:
-        temp_max = min(temp_max, del_ciclo)
+    temp_max = temp_max_vigente(config, temp_max_ciclo)
 
     pres = _numero(estado.sensores_pres.get("pres_camara"))
     if pres is None:
@@ -179,17 +212,13 @@ def motivos(estado, config, programas, profile=None, datos_vigentes=True,
     if secado_en_curso(estado):
         # A13-M4: mismo orden que evaluar(); las lecturas del vacío no se listan
         return [_motivo_secando()]
-    faltan = [c for c in (CLAVE_ATM, CLAVE_RANGO, CLAVE_TEMP_MAX)
-              if _numero(config.get(c)) is None]
+    faltan = _faltan_config(config, temp_max_ciclo)
     if faltan:
         return [Motivo("falta_config", f"Falta configuración: {', '.join(faltan)}",
                        claves=", ".join(faltan))]
     atm = _numero(config.get(CLAVE_ATM))
     rango = _numero(config.get(CLAVE_RANGO))
-    temp_max = _numero(config.get(CLAVE_TEMP_MAX))
-    del_ciclo = _numero(temp_max_ciclo)
-    if del_ciclo is not None:
-        temp_max = min(temp_max, del_ciclo)
+    temp_max = temp_max_vigente(config, temp_max_ciclo)
 
     salida = []
     pres = _numero(estado.sensores_pres.get("pres_camara"))

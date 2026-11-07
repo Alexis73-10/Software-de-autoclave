@@ -3,7 +3,10 @@ from autoclave.state_machine.alarms.catalogo import (
     PRE_01, PRE_02, PRE_03, PRE_04, PRE_05, PRE_06, SEN_01, SIS_01,
     SUM_02, SUM_03, SUM_04, SUM_05, SUM_06, nombre_legible,
 )
-from autoclave.state_machine.states.control_banda import evaluar_banda, ConfirmadorApagado
+from autoclave.state_machine.states.control_banda import (
+    evaluar_banda, ConfirmadorApagado, CondicionSostenida, leer_tiempo_estable,
+    puertas_confirmadas_cerradas,
+)
 from autoclave.core.managers import limites_equipo
 from autoclave.core.runtime.lectura import lectura_valida
 from autoclave.core.runtime import presion_sin_lectura, vigencia_ai
@@ -34,6 +37,25 @@ class preparacion_state:
         self._confirmador_chaqueta = ConfirmadorApagado()
         self._confirmador_drenaje = ConfirmadorApagado()
         self._confirmador_aire_camara = ConfirmadorApagado()
+        # T29-02: PRE-03/PRE-04 solo si la condición dura tiempo_estable seguido
+        # (también en FALLA, que usa este lazo vía nivelar_presion_camara)
+        self._sostenida_pre03 = CondicionSostenida()
+        self._sostenida_pre04 = CondicionSostenida()
+        # T29-08: DI vigentes del tick (las fija la StateMachine antes de
+        # correr PREPARACION o FALLA; sin ella, falso = regla inactiva) y aire
+        # abierto por la regla de puertas cerradas
+        self.di_vigentes = False
+        self._aire_reposo = False
+
+    @property
+    def tiempo_estable(self):
+        """`tiempo_estable_alarma` vigente (como PREPARADO)."""
+        return leer_tiempo_estable(self.config, getattr(self, "_tiempo_estable_fijo", None))
+
+    @tiempo_estable.setter
+    def tiempo_estable(self, valor):
+        """Solo para pruebas: fija un valor en lugar del vigente."""
+        self._tiempo_estable_fijo = valor
 
     #definicion del estado preparacion:
     # Todas las condiciones se evalúan en paralelo, cada tick, sin bloquear
@@ -55,6 +77,10 @@ class preparacion_state:
     def run(self):
         # Flag publicado por EmergencyStop, no el DI crudo (E1-5, D-16)
         if self.estado.get_flag("PARO_EMERGENCIA"):
+            # T29-08 / T29-02: el paro apaga todo; la regla y las cuentas retoman de cero
+            self._aire_reposo = False
+            self._sostenida_pre03.reset()
+            self._sostenida_pre04.reset()
             # ALL_OFF limitado: no esperar el ACK en cada tick (A-7)
             self.set_do.apagar_por_paro()
             # U4: SIS-01 solo se activa con el paro real; sin datos de la
@@ -315,21 +341,23 @@ class preparacion_state:
     def _liquido_frio_para_rapida(self, programas) -> bool:
         """P-12: True si la temperatura del Principal (el mayor de los
         programas de seguridad) lleva 3 lecturas seguidas en o por debajo de
-        temp_max_apertura (el menor entre el global y los de los programas).
+        temp_max_apertura. T29-04 (tanda 29): el de los programas (el menor
+        entre ellos); el del equipo solo si ninguno lo trae (antes, el menor
+        entre el global y los de los programas).
         Sin lectura o sin configuración: False (sigue la lenta)."""
         from autoclave.core.runtime.sensores_ciclo import temp_seguridad
+        from autoclave.core.runtime import camara_segura
         try:
             lista = programas() if programas is not None else [self.cycle]
             lista = [p for p in (lista or []) if p is not None] or [self.cycle]
             temp = temp_seguridad(self.estado, lista, self.profile)
-            limites = [self.config.get("temp_max_apertura")]
-            for p in lista:
-                limites.append(p.get_param("finalizacion", "temp_max_apertura", default=None))
-            limites = [float(v) for v in limites
-                       if isinstance(v, (int, float)) and not isinstance(v, bool)]
-            frio = (lectura_valida(temp) and bool(limites)
-                    and self.config.get("temp_max_apertura") is not None
-                    and float(temp) <= min(limites))
+            de_programas = [camara_segura._numero(
+                p.get_param("finalizacion", "temp_max_apertura", default=None)) for p in lista]
+            de_programas = [v for v in de_programas if v is not None]
+            limite = camara_segura.temp_max_vigente(
+                self.config, min(de_programas) if de_programas else None)
+            frio = (lectura_valida(temp) and limite is not None
+                    and float(temp) <= limite)
         except Exception:
             logger.exception("PREPARACION: no se pudo evaluar la temperatura del drenaje en líquidos")
             frio = False
@@ -342,14 +370,25 @@ class preparacion_state:
             compartida con drenar_camara() y se combina en ejecutor(). Sin dato de presión retorna (False, None):
             no ordena nada, ni siquiera apagar la rápida."""
             presion_camara = self.estado.sensores_pres.get("pres_camara")
+            # T29-08 (tanda 29, DECISIÓN SIN CONFIRMAR en los detalles): con
+            # todas las puertas instaladas confirmadas cerradas (DI vigentes)
+            # el aire atmosférico queda abierto en banda y por debajo; se
+            # cierra en el mismo tick con sobrepresión o sin lectura. Con
+            # alguna puerta abierta o sin dato de puerta, como antes.
+            puertas = puertas_confirmadas_cerradas(self.estado, self.profile, self.di_vigentes)
             # Sin dato (antes de la primera trama): sin órdenes (E0-3)
-            if not lectura_valida(presion_camara):
-                return False, None
             # Hotfix ES (revisión, MEDIA): con la trama AI vencida la presión
             # puede estar congelada: se trata como sin dato (también en FALLA,
             # que usa este lazo vía nivelar_presion_camara)
             ai_vigente, _ = vigencia_ai.leer(self.estado)
-            if not ai_vigente:
+            if not lectura_valida(presion_camara) or not ai_vigente:
+                # T29-08: salvo cerrar el aire que abrió la regla de puertas
+                if puertas or self._aire_reposo:
+                    self.set_do.aire_admosferico_camara_off()
+                    self._confirmador_aire_camara.reset()
+                    self._aire_reposo = False
+                self._sostenida_pre03.reset()
+                self._sostenida_pre04.reset()
                 return False, None
             presion_atmosferica = self.config.get("presion_admosferica")
             rango_presion_atmosferica = self.config.get("rango_presion_atm")
@@ -358,9 +397,16 @@ class preparacion_state:
 
             if pres_cam_min <= presion_camara <= pres_cam_max:
                 # Presión igualada
-                if self._confirmador_aire_camara.confirmar(True):
+                if puertas:
+                    self.set_do.aire_admosferico_camara_on()      # T29-08
+                    self._confirmador_aire_camara.reset()
+                    self._aire_reposo = True
+                elif self._confirmador_aire_camara.confirmar(True):
                     self.set_do.aire_admosferico_camara_off()
+                    self._aire_reposo = False
                 # la lenta se cierra en ejecutor(), junto con el drenaje (T1)
+                self._sostenida_pre03.reset()
+                self._sostenida_pre04.reset()
                 self.alarm_manager.resolver(PRE_03)
                 self.alarm_manager.resolver(PRE_04)
                 return True, False
@@ -369,13 +415,21 @@ class preparacion_state:
                 # Abrir entrada de aire comprimido a la camara
                 self.set_do.aire_admosferico_camara_on()
                 self._confirmador_aire_camara.reset()
-                self.alarm_manager.activar(PRE_03, pres=presion_camara, minimo=pres_cam_min)
+                self._sostenida_pre04.reset()
+                self.alarm_manager.resolver(PRE_04)
+                # T29-02: solo si dura tiempo_estable seguido
+                if self._sostenida_pre03.evaluar(True, self.tiempo_estable):
+                    self.alarm_manager.activar(PRE_03, pres=presion_camara, minimo=pres_cam_min)
                 return False, False
 
             # presion_camara > pres_cam_max: requiere venteo/vacío
             self.set_do.aire_admosferico_camara_off()
             self._confirmador_aire_camara.reset()
-            self.alarm_manager.activar(PRE_04, pres=presion_camara, maximo=pres_cam_max)
+            self._aire_reposo = False
+            self._sostenida_pre03.reset()
+            self.alarm_manager.resolver(PRE_03)
+            if self._sostenida_pre04.evaluar(True, self.tiempo_estable):
+                self.alarm_manager.activar(PRE_04, pres=presion_camara, maximo=pres_cam_max)
             return False, True
                 
     def nivelar_presion_camara(self) -> bool:
