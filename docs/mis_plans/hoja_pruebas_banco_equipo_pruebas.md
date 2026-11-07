@@ -209,6 +209,12 @@
 | T30-01-01 | Operador obligatorio al iniciar sin sesión (dos puertas) | En seco | T30-01; HAZ-T30-01 |
 | T30-02-01 | Progreso por fase en lugar del tiempo restante | Con vapor | T30-02 |
 | T30-03-01 | Usuarios: eliminar, cambiar rol y cambiar mi contraseña | En seco | T30-03; HAZ-T30-03 |
+| T31-01 | Fallo en esterilización con la cámara presurizada: CONFIRMAR oculto hasta la entrega | Con vapor | ENT-01/03/06/09; HAZ-ENT-01 |
+| T31-02 | Cancelación con la cámara caliente | Con vapor | ENT-01/06; HAZ-ENT-01 |
+| T31-03 | COMPLETADO con tiempo de espera de apertura | Con vapor | ENT-02/06/09 |
+| T31-04 | Principal desconectado tras el fallo: confirmación forzada por ingeniero | En seco | ENT-04; HAZ-ENT-01, HAZ-ENT-02 |
+| T31-05 | Corte de energía durante la espera de la entrega | En seco | ENT-07; HAZ-ENT-03 |
+| T31-06 | Paro de emergencia durante la espera | En seco | ENT-05; HAZ-ENT-04 |
 
 ## Bloque A. Arranque, instalación y módulo E/S (en seco)
 
@@ -3237,5 +3243,49 @@
 - **Modo:** En seco  ·  **Origen:** T30-03; HAZ-T30-03
 - **Pasos:** con ingeniero y admin: eliminar un usuario (confirmación), verificar que desaparece, no puede iniciar sesión ni reutilizar el nombre; cambiar rol con confirmación y verificar cierre de sesión; probar los rechazos (a sí mismo, cuentas del sistema, último ingeniero, rol fuera de lo gestionable); «Cambiar mi contraseña» con cada rol.
 - **Criterio:** Aprobado si cada rechazo muestra su texto es/en y la bitácora registra eliminación y rol anterior/nuevo.
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+## Bloque T31. Entrega de la cámara al terminar el ciclo (tanda 31)
+
+### T31-01 — Fallo en esterilización con la cámara presurizada
+- **Modo:** Con vapor  ·  **Origen:** ENT-01/03/06/09; HAZ-ENT-01
+- **Pasos:** provocar un fallo de presión baja en ESTERILIZACION con la cámara presurizada. Verificar el indicador «Esperando cámara segura: …» con valor y límite en lugar de CONFIRMAR; filas «E» en el ticket cada 3 min con Principal y presión; `/cycle/acknowledge` directo responde 409 `camara_no_entregada`. Con presión atmosférica y temperatura bajo el máximo del programa aparece CONFIRMAR; confirmar y revisar el pie (Temp. final, hora de la entrega, F0 del resultado) y que PDF y correo reproducen las filas «E» y «Error de ciclo».
+- **Criterio:** Aprobado si CONFIRMAR no aparece antes de la entrega, las filas «E» salen cada 3 min y la hora del pie es la de la entrega.
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### T31-02 — Cancelación con la cámara caliente
+- **Modo:** Con vapor  ·  **Origen:** ENT-01/06; HAZ-ENT-01
+- **Pasos:** cancelar un ciclo en esterilización; verificar la misma espera, el ticket con filas «E» y el pie con quién canceló.
+- **Criterio:** Aprobado si se comporta como el fallo (T31-01).
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### T31-03 — COMPLETADO con tiempo de espera de apertura
+- **Modo:** Con vapor  ·  **Origen:** ENT-02/06/09
+- **Pasos:** con `tiempo_espera_apertura` mayor que cero, completar un ciclo. Verificar «Esperando condiciones de apertura: m:ss», filas «E» durante la espera y CONFIRMAR solo tras la espera y con temperatura y presión seguras; con `timeout_temperatura` corto, verificar CIC-07 una sola vez y que la espera continúa.
+- **Criterio:** Aprobado si CONFIRMAR aparece solo con la espera cumplida y las condiciones seguras.
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### T31-04 — Confirmación forzada
+- **Modo:** En seco  ·  **Origen:** ENT-04; HAZ-ENT-01, HAZ-ENT-02
+- **Pasos:** tras un fallo, desconectar el Principal. Con operador o admin el botón forzado no aparece y `forzar: true` se rechaza; con ingeniero aparecen el botón, el modal de advertencia y la reautenticación; con contraseña errónea o ausente se rechaza (`reautenticacion_*`). Confirmar y verificar la bitácora `ciclo_confirmado_sin_entrega` y la línea «Confirmado sin condiciones seguras por …» en ticket, PDF y correo.
+- **Criterio:** Aprobado si solo el ingeniero reautenticado confirma y queda trazado en los tres lugares.
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### T31-05 — Corte de energía durante la espera
+- **Modo:** En seco  ·  **Origen:** ENT-07; HAZ-ENT-03
+- **Pasos:** tras un resultado y antes de la entrega, cortar la energía y reiniciar. Verificar que el ciclo conserva su resultado (no INTERRUMPIDO), tiene `fecha_fin` del arranque y el aviso «Entrega de la cámara no registrada (corte de energía)», y que «NO ABRIR» lo cuenta como ciclo interrumpido. Repetir exportando e importando el respaldo.
+- **Criterio:** Aprobado si resultado, aviso y fecha de cierre son los descritos en la base y el respaldo.
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### T31-06 — Paro de emergencia durante la espera
+- **Modo:** En seco  ·  **Origen:** ENT-05; HAZ-ENT-04
+- **Pasos:** con el resultado pendiente, pulsar y soltar el paro. Verificar que nada se mueve hasta confirmar, que la confirmación se permite sin esperar la entrega y que el pie dice «Confirmado tras paro de emergencia, cámara sin verificar».
+- **Criterio:** Aprobado si se confirma tras el paro con ese pie y la bitácora como antes.
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
