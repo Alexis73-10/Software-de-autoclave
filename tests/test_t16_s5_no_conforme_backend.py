@@ -49,6 +49,8 @@ class _Estado:
         self.sensores_di = {}
         self.salidas_do = {}
         self.exposicion_restante_s = None
+        # tanda 31 (ENT-03): cámara entregada (la compuerta no es lo probado aquí)
+        self.entrega_camara = {"entregada": True}
 
     def get_machine_state(self):
         return self.maquina

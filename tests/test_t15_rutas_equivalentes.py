@@ -29,6 +29,10 @@ Cambios deliberados de la línea base (nada más cambia sin tocar este archivo):
   ``GET /cycle/history/{ciclo_id}/readings``. Se quitaron sus entradas de
   ``rutas.json`` sin reordenar las demás y ``openapi.json`` se regeneró con
   ``openapi_ordenado``; la única diferencia son esos tres paths.
+- Entrega de la cámara (tanda 31, ENT-03/04): ``POST /cycle/acknowledge``
+  acepta un cuerpo opcional ``_AckBody`` (``forzar``, ``clave``) y la cabecera
+  ``authorization``; ``rutas.json`` no cambia y ``openapi.json`` se regeneró
+  con ``openapi_ordenado`` (solo ese path y el esquema ``_AckBody``).
 """
 import json
 from pathlib import Path

@@ -889,6 +889,7 @@
     "error_generico": "No se pudo completar la operación",
     "arranque_retenido": "El equipo aún está iniciando; espere a que termine el arranque e intente de nuevo",
     "arranque_no_iniciado": "El arranque del equipo todavía no ha comenzado; espere a que termine e intente de nuevo",
+    "camara_no_entregada": "La cámara aún no está en condiciones seguras; espere a que lo esté para confirmar",
     "rol_sin_permiso": "Su rol no tiene permiso para esta acción",
     "titulo_cambio_clave": "CAMBIAR CONTRASEÑA",
     "aviso_cambio_obligatorio": "Debe cambiar su contraseña antes de continuar",
@@ -1765,6 +1766,7 @@
     "temp_alta": "Temperatura {temp}, máximo {temp_max}",
     "no_permitida": "Orden de puerta no permitida",
     "secando_vapor_residual": "Secando vapor residual de la cámara",
+    "camara_sellada": "Cámara sellada: esperando que la carga se enfríe",
     "error_comunicacion": "Error de comunicación"
   },
   "roles": {
@@ -1952,7 +1954,8 @@
       "usuario_renombrado": "renombró la cuenta {anterior} → {nuevo}",
       "cuenta_sistema_rechazada": "intentó modificar la cuenta del sistema {entidad} (rechazado)",
       "usuario_eliminado": "eliminó al usuario {entidad}",
-      "usuario_rol_cambiado": "cambió el rol de {entidad}: {anterior} → {nuevo}"
+      "usuario_rol_cambiado": "cambió el rol de {entidad}: {anterior} → {nuevo}",
+      "ciclo_confirmado_sin_entrega": "confirmó el ciclo sin condiciones seguras de la cámara: {nuevo}"
     },
     "tipo": {
       "estado_seguro_secado_iniciado": "Secado tras fallo iniciado",
@@ -2017,7 +2020,8 @@
       "usuario_renombrado": "Cuenta renombrada",
       "cuenta_sistema_rechazada": "Cuenta del sistema protegida",
       "usuario_eliminado": "Usuario eliminado",
-      "usuario_rol_cambiado": "Rol de usuario cambiado"
+      "usuario_rol_cambiado": "Rol de usuario cambiado",
+      "ciclo_confirmado_sin_entrega": "Ciclo confirmado sin cámara segura"
     }
   },
   "correo_c2": {

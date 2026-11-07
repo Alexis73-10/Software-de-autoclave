@@ -68,6 +68,9 @@ EVENTOS = (
     # estado seguro (inicio y resultado: hecho, sin_vacio, cortado...).
     # AJ28B-08: antes se registraban como evento desconocido
     "estado_seguro_secado_iniciado", "estado_seguro_secado_terminado",
+    # ENT-04 (tanda 31): confirmación forzada por un ingeniero sin la cámara
+    # entregada (usuario y motivo vigente)
+    "ciclo_confirmado_sin_entrega",
 )
 
 # BIT-01/03/04 (tanda 17): eventos que ya no van a audit_log sino al log de
@@ -117,6 +120,7 @@ _CATEGORIA = {
         "arranque_camara_no_segura", "salidas_sin_confirmar", "salidas_confirmadas",
         "salidas_confirmadas_tras_reintento", "inicio_descartado_por_modo_prueba",
         "estado_seguro_secado_iniciado", "estado_seguro_secado_terminado",
+        "ciclo_confirmado_sin_entrega",
     ),
     "configuracion": (
         "param_sistema_cambio", "idioma_configurado", "unidades_configuradas",

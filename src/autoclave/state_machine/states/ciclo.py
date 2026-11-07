@@ -39,6 +39,9 @@ from autoclave.installation.profile import entrada_requerida, numero_puertas, re
 from autoclave.installation.profile import MODO_CAMARA, MODO_CHAQUETA, modo_vapor
 from autoclave.state_machine.cycle_phases.aislamiento_camara import AislamientoCamara
 from autoclave.state_machine.states.vaciado_chaqueta import VaciadoChaqueta, limpiar_en
+# Tanda 31 (ENT-01/02/12): entrega de la cámara tras el resultado
+from autoclave.state_machine.states.entrega_camara import EntregaCamara
+from autoclave.core.runtime import vigencia_ai
 from autoclave.state_machine.alarms.catalogo import CIC_15, CIC_16, CIC_17
 # s3 (tanda 16): corte único de la chaqueta (D-CHQ / SAF-09) y su aviso VCH-CHQ
 from autoclave.state_machine.alarms.catalogo import CIC_18
@@ -185,6 +188,12 @@ class CicloState:
         # para el log de entrada/salida) y CIC-18 activa por este ciclo
         self._corte_chaqueta_activo = False
         self._cic18_activa = False
+        # Tanda 31 (ENT-01/02): decisión de entrega del resultado pendiente y
+        # CIC-07 activada por su timeout (COMPLETADO). `datos_vigentes` lo fija
+        # StateMachine.update() en cada tick (DI al día); sin él, no vigentes.
+        self._entrega = None
+        self._entrega_cic07 = False
+        self.datos_vigentes = False
 
         # Construir pipeline (los objetos se reusan; reset() los reinicia)
         _args = (estado, set_do, cycle, config, alarm_manager, cap)
@@ -242,6 +251,12 @@ class CicloState:
         self.estado.aislamiento_camara = AislamientoCamara()
         self.estado.inhibir_vapor_chaqueta = False
         self.estado.cancelado_por = None   # FC-12 (tanda 21)
+        # Tanda 31 (ENT): entrega y marcas de la confirmación del ciclo anterior
+        self._entrega = None
+        self._entrega_cic07 = False
+        self.estado.entrega_camara = None
+        self.estado.confirmacion_forzada = None
+        self.estado.confirmado_tras_paro = False
         # Vaciado de chaqueta: un ciclo nuevo descarta el del anterior
         limpiar_en(self.estado, self.set_do)
         self.estado.vaciado_chaqueta = VaciadoChaqueta()
@@ -1030,6 +1045,87 @@ class CicloState:
                 CIC_08, puerta=puerta, motivo=motivo or "sin motivo reportado")
 
     # ------------------------------------------------------------------
+    # Tanda 31 (ENT-01, ENT-02, ENT-12): entrega de la cámara
+    # ------------------------------------------------------------------
+
+    def _crear_entrega(self, ahora: float) -> EntregaCamara:
+        espera = timeout_s = None
+        if self._resultado_pendiente == CicloResultado.COMPLETADO:
+            # mismos parámetros y defectos que _mantener_apertura_automatica
+            espera = self.cycle.get_param("finalizacion", "tiempo_espera_apertura", default=60)
+            if espera is None:
+                espera = 60
+            timeout_min = self.cycle.get_param("finalizacion", "timeout_temperatura", default=30)
+            if timeout_min is None:
+                timeout_min = 30
+            try:
+                timeout_s = float(timeout_min) * 60
+            except (TypeError, ValueError):
+                timeout_s = 30 * 60
+        return EntregaCamara(self._resultado_pendiente, ahora, tiempo_espera_s=espera or 0,
+                             timeout_s=timeout_s)
+
+    def _actualizar_entrega(self, evaluar: bool) -> None:
+        """Alimenta la decisión de entrega (una evaluación por tick con el
+        resultado pendiente) y la publica en estado.entrega_camara. Falla
+        cerrada: un error en la evaluación cuenta como cámara no segura; un
+        error al publicar deja la entrega como no entregada."""
+        ahora = time.monotonic()
+        try:
+            if self._entrega is None and self._resultado_pendiente is not None:
+                self._entrega = self._crear_entrega(ahora)
+            if self._entrega is None:
+                return
+            if evaluar and self._resultado_pendiente is not None:
+                self._evaluar_entrega(ahora)
+            self.estado.entrega_camara = self._entrega.publicar(
+                ahora, self._resultado_pendiente is not None)
+        except Exception:
+            logger.exception("CicloState: no se pudo evaluar la entrega de la cámara")
+            self.estado.entrega_camara = {"entregada": False, "motivos": [],
+                                          "espera_restante_s": None,
+                                          "forzable": self._resultado_pendiente is not None}
+
+    def _evaluar_entrega(self, ahora: float) -> None:
+        entrega = self._entrega
+        ya_entregada = entrega.entregada
+        ai_vigente, seq_ai = vigencia_ai.leer(self.estado)
+        vigentes = self.datos_vigentes is True and ai_vigente is True
+        temp_max_ciclo = self.cycle.get_param("finalizacion", "temp_max_apertura", default=None)
+        try:
+            segura, _ = camara_segura.evaluar(self.estado, self.config, [self.cycle],
+                                              self.profile, datos_vigentes=vigentes,
+                                              temp_max_ciclo=temp_max_ciclo)
+            lista = [] if segura else camara_segura.motivos(
+                self.estado, self.config, [self.cycle], self.profile,
+                datos_vigentes=vigentes, temp_max_ciclo=temp_max_ciclo)
+        except Exception:
+            logger.exception("CicloState: camara_segura no evaluable; entrega retenida")
+            segura, lista = False, []
+        sellado = (self._resultado_pendiente != CicloResultado.COMPLETADO
+                   and self._protocolo.sellado is True)
+        entrega.actualizar(ahora, segura, lista, ai_vigente=vigentes, seq_ai=seq_ai,
+                           sellado=sellado)
+        if entrega.entregada and not ya_entregada:
+            logger.info("CicloState: cámara entregada (%s)", self._resultado_pendiente)
+            if self._entrega_cic07:
+                self.alarm_manager.resolver(CIC_07)
+            return
+        # ENT-02: timeout de temperatura tras un COMPLETADO -> CIC-07 una vez
+        # (misma alarma y valores que la apertura automática, que comparte la
+        # marca: entre las dos se activa una sola vez)
+        if entrega.timeout_vencido and not self._apertura_auto_alarmado:
+            temp_alta = next((m for m in entrega.motivos
+                              if getattr(m, "codigo", None) == "temp_alta"), None)
+            if temp_alta is not None:
+                self._apertura_auto_alarmado = True
+                self._entrega_cic07 = True
+                valores = temp_alta.valores
+                self.alarm_manager.activar(
+                    CIC_07, temp=valores.get("temp"), maximo=valores.get("temp_max"),
+                    minutos=entrega.minutos_tras_espera(ahora))
+
+    # ------------------------------------------------------------------
     # Tick principal
     # ------------------------------------------------------------------
 
@@ -1066,6 +1162,10 @@ class CicloState:
                 for bandera in ("CICLO_CONFIRMADO", "RESET_FALLA"):
                     if self.estado.get_flag(bandera):
                         self.estado.set_flag(bandera, False)
+                # Tanda 31: las marcas de esa confirmación tampoco valen
+                self.estado.confirmacion_forzada = None
+                self.estado.confirmado_tras_paro = False
+                self._actualizar_entrega(evaluar=False)
                 self.set_do.apagar_por_paro()
                 # A13 (tanda 28): un paro corta el secado tras fallo y no se
                 # reanuda solo
@@ -1079,6 +1179,8 @@ class CicloState:
                 self.estado.set_flag("CICLO_CONFIRMADO", False)
                 resultado_final = self._resultado_pendiente
                 self._resultado_pendiente = None
+                # Tanda 31 (ENT-12): confirmado, ya no hay nada que forzar
+                self._actualizar_entrega(evaluar=False)
                 # F4 (tanda 16): fuera de ciclo no hay modo de vapor ni corte
                 # de chaqueta del ciclo
                 self.estado.modo_vapor = None
@@ -1096,7 +1198,9 @@ class CicloState:
             # update() reintenta reset_all_outputs() y apagaría el agua del
             # intercambiador justo después de que este método la encendiera.
             if self._paro_en_espera:
-                # Paro liberado sin confirmar: nada se mueve (§15.2)
+                # Paro liberado sin confirmar: nada se mueve (§15.2) y la
+                # entrega no puede ocurrir (ENT-05: se confirma sin ella)
+                self._actualizar_entrega(evaluar=False)
                 return CicloResultado.ESPERANDO_CONFIRMACION
             if self._resultado_pendiente == CicloResultado.COMPLETADO:
                 self._mantener_valvula_reposo()
@@ -1104,6 +1208,8 @@ class CicloState:
             else:
                 self._protocolo.update()
             self._mantener_drenaje()
+            # Tanda 31 (ENT-01/02): después del protocolo de este tick
+            self._actualizar_entrega(evaluar=True)
             return CicloResultado.ESPERANDO_CONFIRMACION
 
         # ── 0a. D-CHQ / SAF-09 (tanda 16): corte de chaqueta de este tick,

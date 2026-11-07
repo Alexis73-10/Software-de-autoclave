@@ -889,6 +889,7 @@
     "error_generico": "The operation could not be completed",
     "arranque_retenido": "The equipment is still starting up; wait for startup to finish and try again",
     "arranque_no_iniciado": "Equipment startup has not begun yet; wait for it to finish and try again",
+    "camara_no_entregada": "The chamber is not yet in safe conditions; wait until it is to confirm",
     "rol_sin_permiso": "Your role does not have permission for this action",
     "titulo_cambio_clave": "CHANGE PASSWORD",
     "aviso_cambio_obligatorio": "You must change your password before continuing",
@@ -1765,6 +1766,7 @@
     "temp_alta": "Temperature {temp}, maximum {temp_max}",
     "no_permitida": "Door command not allowed",
     "secando_vapor_residual": "Drying residual steam from the chamber",
+    "camara_sellada": "Chamber sealed: waiting for the load to cool",
     "error_comunicacion": "Communication error"
   },
   "roles": {
@@ -1952,7 +1954,8 @@
       "usuario_renombrado": "renamed the account {anterior} → {nuevo}",
       "cuenta_sistema_rechazada": "tried to modify the system account {entidad} (rejected)",
       "usuario_eliminado": "deleted the user {entidad}",
-      "usuario_rol_cambiado": "changed the role of {entidad}: {anterior} → {nuevo}"
+      "usuario_rol_cambiado": "changed the role of {entidad}: {anterior} → {nuevo}",
+      "ciclo_confirmado_sin_entrega": "confirmed the cycle without safe chamber conditions: {nuevo}"
     },
     "tipo": {
       "estado_seguro_secado_iniciado": "Drying after failure started",
@@ -2017,7 +2020,8 @@
       "usuario_renombrado": "Account renamed",
       "cuenta_sistema_rechazada": "Protected system account",
       "usuario_eliminado": "User deleted",
-      "usuario_rol_cambiado": "User role changed"
+      "usuario_rol_cambiado": "User role changed",
+      "ciclo_confirmado_sin_entrega": "Cycle confirmed without a safe chamber"
     }
   },
   "correo_c2": {

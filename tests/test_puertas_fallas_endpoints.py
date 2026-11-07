@@ -168,6 +168,8 @@ def test_acknowledge_reconoce_todo_resultado_fallo(entorno, fase, reset):
     cliente, ctx, _, flags = entorno
     ctx.estado.get_machine_state.return_value = GlobalState.CICLO
     ctx.estado.fase_ciclo = fase
+    # tanda 31 (ENT-03): solo con la cámara entregada
+    ctx.estado.entrega_camara = {"entregada": True}
     assert cliente.post("/cycle/acknowledge").status_code == 200
     assert flags.get_flag("CICLO_CONFIRMADO") is True
     assert flags.get_flag("RESET_FALLA") is reset

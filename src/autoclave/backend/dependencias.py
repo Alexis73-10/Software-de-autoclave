@@ -209,6 +209,31 @@ def requiere_rol(*roles: str, permitir_cambio_pendiente: bool = False):
     return dependencia
 
 
+def reautenticar(clave: str, sesion: Sesion, entidad: str, origen: str) -> None:
+    """Contraseña del usuario de la sesión (reasignación de E/S, R8; confirmación
+    forzada del ciclo, ENT-04 de la tanda 31). Antes vivía en
+    server_reasignacion._reautenticar (que ahora la llama). 403
+    `reautenticacion_requerida` (vacía) o `reautenticacion_fallida`; los fallos
+    suman al contador del login (como /auth/change_password): al bloquearse,
+    429 y token invalidado. `origen` va al detalle de `login_fallido`."""
+    # importaciones diferidas: rutas.usuarios importa este módulo
+    from autoclave.backend.contrasenas import verificar_password
+    from autoclave.backend.rutas.usuarios import _bloquear_por_cambio_clave
+    if not clave:
+        _rechazar(403, "reautenticacion_requerida", "Escriba su contraseña para confirmar",
+                  entidad, sesion)
+    if not intentos_login.reservar_intento(sesion.usuario):
+        _bloquear_por_cambio_clave(sesion, entidad)
+    fila = context.db.get_usuario_by_username(sesion.usuario)
+    if fila is None or not verificar_password(clave, fila.get("hash_pw")):
+        if intentos_login.bloqueado(sesion.usuario):
+            _auditar("login_fallido", sesion, entidad=entidad,
+                     detalle={"origen": origen, "bloqueado": True})
+            _bloquear_por_cambio_clave(sesion, entidad)
+        _rechazar(403, "reautenticacion_fallida", "Contraseña incorrecta", entidad, sesion)
+    intentos_login.registrar_exito(sesion.usuario)
+
+
 @contextmanager
 def guard_estado(prohibidos: frozenset, entidad: str, sesion: Sesion | None = None,
                  excepcion_ingeniero: bool = False):

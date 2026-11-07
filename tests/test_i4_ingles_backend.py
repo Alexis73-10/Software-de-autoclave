@@ -68,7 +68,9 @@ def test_cada_motivo_de_puerta_tiene_texto_es_en_con_mismos_campos(codigo):
 def test_los_codigos_usados_en_el_codigo_estan_declarados():
     usados = set()
     for ruta in (SRC / "services/domain/puertas/ser_puertas.py", SRC / "core/runtime/camara_segura.py",
-                 SRC / "devices/puertas/advanced_door.py", *archivos_backend()):
+                 SRC / "devices/puertas/advanced_door.py",
+                 # tanda 31 (ENT-01): motivo propio de la entrega de la cámara
+                 SRC / "state_machine/states/entrega_camara.py", *archivos_backend()):
         usados |= set(re.findall(r'Motivo\(\s*"([a-z_]+)"', ruta.read_text(encoding="utf-8")))
     assert usados and usados <= set(motivos.CODIGOS)
     assert set(motivos.CODIGOS) <= usados
