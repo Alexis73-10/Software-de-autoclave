@@ -19,8 +19,8 @@ Rama `tanda31` desde `dev`. Entrega NO compilada. Plan: `docs/mis_plans/planeaci
 ## Pruebas
 Nuevas: `tests/test_t31_entrega_camara.py`, `tests/test_t31_entrega_ticket.py`, `tests/test_t31_ent09_pantalla.py`. Ajustadas las que dependían del cierre inmediato (cycle_logger, ensayos del simulador, t15 rutas, t21, t16 no conforme, t6, t8, s3, entre otras).
 
-Suite completa: (se completa al cerrar)
-Revisor: (se completa al cerrar)
+Suite completa: 11519 pasan, 11 omitidas, 3 xfail, 2 fallos (12 min 30 s, `-n 8`; `suite_t31.txt`). Los dos fallos eran de entorno, no de la tanda: `test_t26_ald_detalle_alarmas::test_qml_tocar_no_abrir...` (la salida del subproceso salía en cp1252; corregido con `PYTHONIOENCODING=utf-8` y `errors="replace"`) y `test_t21_pantalla_fin_ciclo_qml::test_la_cuenta_se_detiene_con_un_modal` (intermitente bajo carga; pasa solo). Ambos archivos pasan juntos (21 passed).
+Revisor: hallazgos M1, B1 y B2 corregidos en f040022a.
 
 ## Riesgos
 HAZ-ENT-01..04 en `docs/riesgos/registro_riesgos.md`; HAZ-ENT-04 (ENT-05) queda con residual pendiente de Cristian. Trazabilidad REQ-76..REQ-81. Banco: bloque T31 (T31-01..06).

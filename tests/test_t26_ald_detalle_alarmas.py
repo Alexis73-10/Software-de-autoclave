@@ -237,9 +237,10 @@ Window {
 
 def test_qml_tocar_no_abrir_abre_detalle_con_valor_y_limite():
     pytest.importorskip("PySide6")
-    env = dict(os.environ, QT_QPA_PLATFORM="offscreen", PYTHONPATH=str(RAIZ / "src"))
+    env = dict(os.environ, QT_QPA_PLATFORM="offscreen", PYTHONPATH=str(RAIZ / "src"),
+               PYTHONIOENCODING="utf-8")
     p = subprocess.run([sys.executable, "-c", _SCRIPT, str(QML), _QML], capture_output=True,
-                       text=True, encoding="utf-8", timeout=120, env=env)
+                       text=True, encoding="utf-8", errors="replace", timeout=120, env=env)
     linea = [x for x in p.stdout.splitlines() if x.startswith("RES=")]
     assert linea, p.stdout + p.stderr
     r = json.loads(linea[0][4:])
