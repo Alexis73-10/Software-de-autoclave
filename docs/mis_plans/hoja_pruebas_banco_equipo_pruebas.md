@@ -202,6 +202,10 @@
 | T28-A10-01 | El estado seguro termina al ampliar la brecha de presión atmosférica, y dice qué le falta | En seco (sin vapor) | A10 (tanda 28) |
 | T28-A9-01 | Encendido con la cámara no segura: sin estado seguro en el normal, con estado seguro tras un ciclo interrumpido | En seco y con vapor | A9 (tanda 28); HAZ-A9-01 |
 | T28-A13-01 | Secado corto tras un ciclo fallido con carga sólida (y CIC-21 sin vacío) | Con vapor y en seco | A13 (tanda 28); HAZ-SFF-01 |
+| T29-03-01 | Fin de DESCOMPRESION a +10 kPa con líquidos (modos 4 y 5) | Con vapor | T29-03; HAZ-DSC-01 |
+| T29-02-01 | Sin avisos PRE en CICLO; PRE-04 tras líquidos modo 4 | Con vapor | T29-02; HAZ-T29-02-01 |
+| T29-04-01 | Temperatura de apertura: rige la del programa | Con vapor | T29-04; HAZ-T29-04-01 |
+| T29-08-01 | Aire atmosférico abierto fuera de ciclo con puertas cerradas | En seco y con vapor | T29-08; HAZ-T29-08-01 |
 
 ## Bloque A. Arranque, instalación y módulo E/S (en seco)
 
@@ -3181,3 +3185,31 @@
 - Versión del software (commit) y firmware de los módulos M31-U (Información del sistema) usados.
 - Certificados de calibración de los patrones de temperatura y presión usados.
 - Lista de desviaciones/no conformidades encontradas, con su informe de problema (IEC 62304 §9).
+
+## Bloque T29. Correcciones del segundo día de pruebas (tanda 29)
+
+### T29-03-01 — Fin de DESCOMPRESION con `presion_fin_descompresion` (líquidos modos 4 y 5)
+- **Modo:** Con vapor  ·  **Origen:** T29-03; HAZ-DSC-01
+- **Pasos:** ciclo de líquidos modos 4 y 5 con el parámetro en 10 y en 20; anotar presión y temperatura de salida de la fase, tiempo hasta NO ABRIR en verde y comportamiento del líquido.
+- **Criterio:** Aprobado si NO ABRIR impide abrir mientras haya sobrepresión y no hay ebullición ni expulsión de líquido.
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### T29-02-01 — Avisos de preparación durante y después del ciclo
+- **Modo:** Con vapor  ·  **Origen:** T29-02; HAZ-T29-02-01
+- **Pasos:** ciclo sólido y ciclo de líquidos modo 4: revisar bandeja, campana y observaciones durante el ciclo y 5 min después; medir cuánto dura la sobrepresión tras COMPLETADO y si aparece PRE-04.
+- **Criterio:** Aprobado si no aparece ningún PRE en CICLO ni en observaciones.
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### T29-04-01 — Temperatura de apertura del programa
+- **Modo:** Con vapor  ·  **Origen:** T29-04; HAZ-T29-04-01
+- **Pasos:** programa con 100 °C y equipo con 80 °C: NO ABRIR y la apertura automática deben liberarse a ≤ 100 °C; sin programa reciente rige 80 °C.
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### T29-08-01 — Aire atmosférico abierto fuera de ciclo
+- **Modo:** En seco y con vapor  ·  **Origen:** T29-08; HAZ-T29-08-01
+- **Pasos:** con las dos puertas cerradas en PREPARADO y la válvula de aire abierta: (a) presurizar sobre atm + rango y verificar el cierre en ≤ 1 tick; (b) desconectar el transductor y verificar el cierre; (c) abrir una puerta y verificar el cierre en 3 ticks; (d) iniciar un ciclo y verificar el aire cerrado desde PRECALENTAMIENTO; (e) en modo prueba la regla no actúa.
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
