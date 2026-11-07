@@ -9,6 +9,39 @@ Una entrada por **entrega** (compilación con Setup que se instala en el equipo)
 
 <!-- entradas: las agrega compilar_entrega.py debajo de esta línea, la más nueva primero -->
 
+## 1.0.0-alpha.19 — 2026-11-07
+
+- Etiqueta: `v1.0.0-alpha.19` (commit `chore(ver): 1.0.0-alpha.19`, sobre `9d3aa67`)
+- AppVerNum: `1.0.0.1019`
+- SHA-256 del Setup y del zip: en el mensaje de la etiqueta y en `entrega/v1.0.0-alpha.19_2026-11-07/SHA256SUMS.txt` (solo existen después de compilar)
+- Commits desde `v1.0.0-alpha.18`:
+  - 9d3aa679 docs(tanda32): CERRADO
+  - ea4ede0e fix(tanda 32): M-A contrapresion bajo alivio, M-B lenta con aviso, B-3 atmosferica; informe R32
+  - fcf586f5 fix(tanda 32): correcciones de la revision de seguridad y documentacion
+  - 63dd5a33 feat(tanda 32): enfriamiento de liquidos con contrapresion (LIQ-01 a LIQ-04)
+  - 38822c8a docs(tanda31): CERRADO
+  - 74814045 test(tanda 31): codificacion del subproceso QML y cierre del informe R31
+  - f040022a fix(tanda 31): hallazgos M1, B1 y B2 de la revision de seguridad
+  - fab2f1c8 docs(tanda31): CLAUDE.md, riesgos HAZ-ENT, trazabilidad REQ-76..81, banco T31 e informe R31
+  - e275fcd6 feat(tanda 31): resultado y cierre del ciclo separados en el registro (ENT-06/07/08/10/11)
+  - efcdeefb feat(tanda 31): pantalla de ciclo en curso con la entrega de la camara (ENT-09)
+  - 93764437 docs(tanda31): estado tras pasos 2-3
+  - e50a2a04 feat(tanda 31): entrega de la cámara y compuerta de /cycle/acknowledge (ENT-01..05, ENT-12)
+  - 4b446a20 docs(tanda31): estado, mapa de lectura
+  - 2bfbee10 docs(tanda30): CERRADO
+  - 7db33561 docs(tanda 30): CLAUDE.md, riesgos, trazabilidad, banco e informe; ids QML sin 'tarjeta'
+  - 935246a9 feat(tanda 30): T30-01 operador al iniciar, T30-02 progreso por fase, T30-03 usuarios
+  - ec78c939 docs(tanda29): CERRADO
+  - 1c37d618 docs(tanda29): salida de la suite completa
+  - 14a1bb06 docs(tanda29): hallazgos de la revisión de seguridad
+  - 05c0f2d9 fix(tanda 29, revisión MEDIA M1): la migración T29-05 solo actúa con tipo_carga sólido explícito
+  - 9f2ea438 docs(tanda29): estado al día
+  - 1e8e5417 docs(tanda 29): CLAUDE.md, riesgos, trazabilidad, banco e informe
+  - c5fc5bb4 feat(tanda 29): T29-01 a T29-08 (parámetros, avisos PRE, descompresión, apertura, sólidos, F0, aire atmosférico)
+  - 4f1d3f98 docs(tanda29): estado inicial
+  - 9775fc68 docs(hotfix ES merge): CERRADO con alpha.18 compilada
+
+
 ## 1.0.0-alpha.18 — 2026-11-06
 
 - Etiqueta: `v1.0.0-alpha.18` (commit `chore(ver): 1.0.0-alpha.18`, sobre `0c9cc71`)
