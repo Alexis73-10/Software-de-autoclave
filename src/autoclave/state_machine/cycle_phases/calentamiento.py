@@ -144,6 +144,17 @@ _HISTERESIS_CIERRE_RANGO = (1.0, 10.0)
 # 0–30; 0, ausente o no numérico desactiva la función.
 _ADD_LIQUIDO_RANGO = (0.0, 30.0)
 
+# Ajuste 7-nov (revisión MEDIA-2): el enclave «t_obj alcanzada» exige el
+# Principal en o sobre t_obj sostenido este tiempo seguido (s, monotonic), para
+# que una PT100 ruidosa (±1,1 °C) no lo dispare con una sola lectura.
+# DECISIÓN SIN CONFIRMAR
+_ENCLAVE_T_OBJ_SOSTENIDO_S = 5.0
+
+# Ajuste 7-nov (revisión MEDIA-2): tras el empuje, la rampa de líquidos apunta
+# a Psat(t_obj) + este valor (kPa, dentro de la banda de entrada ±2 kPa) para
+# que la Tsat de la cámara quede sobre t_obj. DECISIÓN SIN CONFIRMAR
+_OBJETIVO_POST_EMPUJE_KPA = 1.0
+
 
 def _numero_finito(valor) -> bool:
     return (isinstance(valor, (int, float)) and not isinstance(valor, bool)
@@ -250,6 +261,7 @@ class CalentamientoFase(BaseFase):
 
         # Ajuste 7-nov: enclave «t_obj alcanzada» del empuje con líquidos
         self._t_obj_alcanzada = False
+        self._t_obj_sostenida_desde = None   # MEDIA-2: inicio de T >= t_obj seguido
 
     # ------------------------------------------------------------------
     # Tanda 16, VCH: modo de vapor y aislamiento de cámara
@@ -511,11 +523,37 @@ class CalentamientoFase(BaseFase):
         temp = self._temp_principal()
         pres = self._pres_camara()
 
-        # Ajuste 7-nov (opción A): durante el empuje VCH-AIS usa el techo
-        # ampliado; sin lectura del Principal o con t_obj ya alcanzada en
-        # este tick (enclave más abajo), el techo normal (falla cerrada)
-        p_techo_ais = (p_techo_rampa if empuje and temp is not None and temp < t_obj
-                       else p_techo)
+        # Ajuste 7-nov: enclava t_obj alcanzada (una sola vez por fase) solo
+        # con T >= t_obj sostenida _ENCLAVE_T_OBJ_SOSTENIDO_S seguidos
+        # (MEDIA-2); bajo t_obj o sin lectura, la cuenta se reinicia
+        if add_liq > 0.0 and not self._t_obj_alcanzada:
+            if temp is not None and pres is not None and temp >= t_obj:
+                ahora_enc = time.monotonic()
+                if self._t_obj_sostenida_desde is None:
+                    self._t_obj_sostenida_desde = ahora_enc
+                if ahora_enc - self._t_obj_sostenida_desde >= _ENCLAVE_T_OBJ_SOSTENIDO_S:
+                    self._t_obj_alcanzada = True
+                    empuje = False
+                    logger.info("Calentamiento: T_obj alcanzada con presión adicional de "
+                                "líquidos (%.1f kPa) — P=%.1f kPa; se espera que baje a "
+                                "%.1f kPa", add_liq, pres, p_obj + _TOLERANCIA_PSAT_KPA)
+            else:
+                self._t_obj_sostenida_desde = None
+        if add_liq > 0.0 and self._t_obj_alcanzada:
+            # MEDIA-2 (b): tras el empuje, objetivo levemente sobre Psat(t_obj)
+            p_obj_rampa, p_techo_rampa = p_obj + _OBJETIVO_POST_EMPUJE_KPA, p_techo
+        # Tras el empuje y antes del sostenimiento: sin aporte de vapor
+        # mientras la presión siga sobre la saturación + tolerancia
+        bajando_a_psat = (add_liq > 0.0 and self._t_obj_alcanzada and not self._en_sostenimiento
+                          and pres is not None and pres > p_obj + _TOLERANCIA_PSAT_KPA)
+
+        # Ajuste 7-nov (MEDIA-1): VCH-AIS y A14-M2 usan el techo ampliado
+        # durante el empuje y durante la bajada a saturación que le sigue
+        # (bajando_a_psat, incluido el tick del enclave); sin lectura del
+        # Principal o de presión, el techo normal (falla cerrada)
+        techo_ampliado = (add_liq > 0.0 and temp is not None and pres is not None
+                          and (empuje or bajando_a_psat))
+        p_techo_ais = p_techo + add_liq if techo_ampliado else p_techo
 
         # ── VCH (solo modo chaqueta): aislamiento y válvula de cámara ─────
         aislado = False
@@ -544,19 +582,6 @@ class CalentamientoFase(BaseFase):
             return FaseResult.EN_CURSO
 
         now = time.monotonic()
-
-        # Ajuste 7-nov: enclava t_obj alcanzada (una sola vez por fase)
-        if add_liq > 0.0 and not self._t_obj_alcanzada and temp >= t_obj:
-            self._t_obj_alcanzada = True
-            empuje = False
-            p_obj_rampa, p_techo_rampa = p_obj, p_techo
-            logger.info("Calentamiento: T_obj alcanzada con presión adicional de líquidos "
-                        "(%.1f kPa) — P=%.1f kPa; se espera que baje a %.1f kPa",
-                        add_liq, pres, p_obj + _TOLERANCIA_PSAT_KPA)
-        # Tras el empuje y antes del sostenimiento: sin aporte de vapor
-        # mientras la presión siga sobre la saturación + tolerancia
-        bajando_a_psat = (add_liq > 0.0 and self._t_obj_alcanzada and not self._en_sostenimiento
-                          and pres > p_obj + _TOLERANCIA_PSAT_KPA)
 
         # ── 3. Cálculo de pendiente ──────────────────────────────────────
         # tasa_t/tasa_p alimentan duty_tasa en el paso 4 (control continuo de
@@ -689,9 +714,9 @@ class CalentamientoFase(BaseFase):
             # A14-M2 (tanda 28): AND con el corte por consigna (pres_chaqueta >
             # Psat(t_obj) + presion_add_calentamiento + margen_chaqueta_est, o
             # sin lectura); se evalúa siempre para registrar el corte. Ajuste
-            # 7-nov: durante el empuje, con el techo ampliado (p_techo_rampa
-            # vuelve a p_techo en el tick del enclave)
-            corte_m2 = self._corte_consigna_chaqueta(p_techo_rampa)
+            # 7-nov: durante el empuje y la bajada a saturación, con el techo
+            # ampliado (MEDIA-1, el mismo de VCH-AIS)
+            corte_m2 = self._corte_consigna_chaqueta(p_techo_ais)
             if (self._pwm_abierto and not aislado and not self._chaqueta_inhibida()
                     and not corte_m2):
                 self.set_do.vapor_chaqueta_on()
