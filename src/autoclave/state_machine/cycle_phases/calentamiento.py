@@ -465,7 +465,8 @@ class CalentamientoFase(BaseFase):
         # p_obj + extra (techo de la rampa p_techo + extra) hasta que el
         # Principal alcanza t_obj (enclavado); después vuelve a p_obj y la
         # presión debe bajar a saturación antes de ESTABLE_PREESTERILIZACION.
-        # VCH-AIS, A14-M2 y la banda de sostenimiento siguen con p_techo.
+        # Durante el empuje VCH-AIS y A14-M2 usan el techo ampliado; la banda
+        # de sostenimiento sigue con p_techo.
         add_liq = self._add_liquido()
         empuje = add_liq > 0.0 and not self._t_obj_alcanzada
         p_obj_rampa = p_obj + add_liq if empuje else p_obj
@@ -510,10 +511,16 @@ class CalentamientoFase(BaseFase):
         temp = self._temp_principal()
         pres = self._pres_camara()
 
+        # Ajuste 7-nov (opción A): durante el empuje VCH-AIS usa el techo
+        # ampliado; sin lectura del Principal o con t_obj ya alcanzada en
+        # este tick (enclave más abajo), el techo normal (falla cerrada)
+        p_techo_ais = (p_techo_rampa if empuje and temp is not None and temp < t_obj
+                       else p_techo)
+
         # ── VCH (solo modo chaqueta): aislamiento y válvula de cámara ─────
         aislado = False
         if self._modo_chaqueta:
-            aislado, fallo = self._vigilar_aislamiento(pres, p_techo, time.monotonic())
+            aislado, fallo = self._vigilar_aislamiento(pres, p_techo_ais, time.monotonic())
             if fallo is not None:
                 return fallo
             if aislado:
@@ -531,7 +538,7 @@ class CalentamientoFase(BaseFase):
                 # con la presión válida el aislamiento se sigue evaluando y una
                 # cámara aislada no se reabre a ciegas
                 ais = self._aislamiento()
-                ais.actualizar(pres, p_techo, self._histeresis_cierre(), time.monotonic())
+                ais.actualizar(pres, p_techo_ais, self._histeresis_cierre(), time.monotonic())
                 if ais.aislado:
                     self.set_do.vapor_camara_off()
             return FaseResult.EN_CURSO
@@ -681,8 +688,10 @@ class CalentamientoFase(BaseFase):
         if self._modo_chaqueta:
             # A14-M2 (tanda 28): AND con el corte por consigna (pres_chaqueta >
             # Psat(t_obj) + presion_add_calentamiento + margen_chaqueta_est, o
-            # sin lectura); se evalúa siempre para registrar el corte
-            corte_m2 = self._corte_consigna_chaqueta(p_techo)
+            # sin lectura); se evalúa siempre para registrar el corte. Ajuste
+            # 7-nov: durante el empuje, con el techo ampliado (p_techo_rampa
+            # vuelve a p_techo en el tick del enclave)
+            corte_m2 = self._corte_consigna_chaqueta(p_techo_rampa)
             if (self._pwm_abierto and not aislado and not self._chaqueta_inhibida()
                     and not corte_m2):
                 self.set_do.vapor_chaqueta_on()
