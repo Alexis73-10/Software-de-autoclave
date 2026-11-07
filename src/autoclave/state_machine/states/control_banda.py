@@ -1,5 +1,9 @@
 import logging
+import math
+import time
 from dataclasses import dataclass
+
+from autoclave.installation.profile import numero_puertas
 
 
 @dataclass(frozen=True)
@@ -47,6 +51,67 @@ class ConfirmadorApagado:
         self._contador = 0
 
 logger = logging.getLogger(__name__)
+
+
+_TIEMPO_ESTABLE_DEFECTO_S = 5.0
+
+
+def leer_tiempo_estable(config, fijo=None) -> float:
+    """`tiempo_estable_alarma` vigente (s); se lee en cada uso para que un
+    cambio en Parámetros del equipo aplique sin reiniciar (OPC-11). `fijo`:
+    valor de pruebas. Sin valor o fuera de 0..3600, el de fábrica (TMG-03)."""
+    v = fijo
+    if v is None:
+        try:
+            v = config.get("tiempo_estable_alarma")
+        except Exception:
+            v = None
+    try:
+        v = float(v)
+    except (TypeError, ValueError):
+        return _TIEMPO_ESTABLE_DEFECTO_S
+    return v if math.isfinite(v) and 0 <= v <= 3600 else _TIEMPO_ESTABLE_DEFECTO_S
+
+
+class CondicionSostenida:
+    """T29-02 (tanda 29): True solo cuando la condición lleva `segundos`
+    seguidos (time.monotonic); un tick sin la condición reinicia la cuenta.
+    La usan PRE-03/PRE-04 fuera de ciclo para que el igualado normal de la
+    cámara tras un ciclo no genere avisos."""
+
+    def __init__(self):
+        self._desde = None
+
+    def evaluar(self, condicion: bool, segundos: float) -> bool:
+        if not condicion:
+            self._desde = None
+            return False
+        ahora = time.monotonic()
+        if self._desde is None:
+            self._desde = ahora
+        return ahora - self._desde >= segundos
+
+    def reset(self):
+        self._desde = None
+
+
+def puertas_confirmadas_cerradas(estado, profile, di_vigentes) -> bool:
+    """T29-08 (tanda 29): todas las puertas instaladas (numero_puertas del
+    perfil) con puerta_N_cerrada en 1 y la trama DI vigente; mismo criterio que
+    ControlLoop.puertas_confirmadas_cerradas. Falla cerrada: sin dato, datos no
+    vigentes o un error, False."""
+    if di_vigentes is not True:
+        return False
+    try:
+        di = estado.sensores_di
+        for num in range(1, numero_puertas(profile) + 1):
+            valor = di.get(f"puerta_{num}_cerrada")
+            if not (valor is True or (type(valor) is int and valor == 1)):
+                return False
+        return True
+    except Exception:
+        logger.exception("No se pudo leer si las puertas están cerradas; se toman como abiertas")
+        return False
 
 
 # T1 (tanda 5, D-19 de planeacion_fin_de_ciclo_y_puertas.md): con carga líquida

@@ -54,6 +54,10 @@ def _programa_editable(cycle) -> bool:
 def get_programas():
     """Programas para Opciones (§6): número, nombre, origen, estado y sus
     secciones con la marca "No se ejecuta". Sin lectura de disco en la UI."""
+    # T29-06: `seleccionado` marca el programa activo (el de Preciclo), para
+    # que Parámetros del ciclo abra en él. (El docstring de arriba queda igual:
+    # forma parte del OpenAPI fijado por test_t15_rutas_equivalentes.)
+    activo = _id_programa_activo()
     salida = []
     for cycle in list(context.cycle_manager.cycles.values()):
         if cycle.number is None:
@@ -65,10 +69,23 @@ def get_programas():
             "editable": _programa_editable(cycle),
             "habilitado": getattr(cycle, "habilitado", True) is not False,
             "personalizado": getattr(cycle, "personalizado", False) is True,
+            "seleccionado": activo is not None and cycle.id == activo,
             "secciones": [{"clave": s, "no_se_ejecuta": _no_se_ejecuta(cycle, s)}
                           for s in _SECCIONES_PROGRAMA if s in cycle.parameters],
         })
     return {"programas": sorted(salida, key=lambda p: p["numero"])}
+
+
+def _id_programa_activo() -> str | None:
+    """T29-06: cycle_id del programa seleccionado (el del ControlLoop, como en
+    /programas/seleccionables); None si no se puede leer. Nunca lanza."""
+    try:
+        loop = context.control_loop
+        with loop.bloqueo_maquina():
+            activo = getattr(getattr(loop, "cycle", None), "id", None)
+        return activo if isinstance(activo, str) and activo else None
+    except Exception:
+        return None
 
 
 def _param_programa(cycle, seccion: str, nombre: str):

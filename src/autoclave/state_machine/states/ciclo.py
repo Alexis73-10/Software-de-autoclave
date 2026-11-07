@@ -20,7 +20,7 @@ from datetime import datetime
 from autoclave.state_machine.cycle_phases.base_fase import FaseResult
 from autoclave.state_machine.alarms.catalogo import (
     CIC_01, CIC_02, CIC_03, CIC_04, CIC_05, CIC_06, CIC_07, CIC_08, CIC_11,
-    COM_02, COM_03, PRE_06, PUE_02, PUE_03, SEN_02, SEN_08, SIS_01, SUM_01, SUM_06, codigo_visible,
+    COM_02, COM_03, PUE_02, PUE_03, SEN_02, SEN_08, SIS_01, SUM_01, SUM_06, codigo_visible,
     nombre_legible,
 )
 # E12 (tanda 12): alarmas propias de ESTERILIZACION (C-03, C-13) y Referencia
@@ -49,6 +49,7 @@ from autoclave.core.runtime.lectura import carga_enfriada, lectura_valida
 from autoclave.core.runtime.sensores_ciclo import sensor_principal, sensores_en_uso
 from autoclave.core.runtime import alarmas_i18n
 from autoclave.core.runtime import presion_sin_lectura
+from autoclave.core.runtime import camara_segura
 from autoclave.core.runtime.steam import t_saturacion_c
 from autoclave.core.managers import catalogo_parametros
 
@@ -741,12 +742,13 @@ class CicloState:
             self._contador_drenaje_baja += 1
             self._contador_drenaje_alta = 0
 
+        # T29-02 (tanda 29): el drenaje caliente es normal en el ciclo; solo se
+        # controla la válvula del intercambiador, sin el aviso PRE-06 (que no
+        # entra así en alarmas_ciclo ni en las observaciones del fin de ciclo)
         if self._contador_drenaje_alta >= _DEBOUNCE_LECTURAS_DRENAJE:
             self.set_do.agua_intercambiador_on()
-            self.alarm_manager.activar(PRE_06, temp=temp, maximo=temp_segura)
         elif self._contador_drenaje_baja >= _DEBOUNCE_LECTURAS_DRENAJE:
             self.set_do.agua_intercambiador_off()
-            self.alarm_manager.resolver(PRE_06)
 
     def _ejecutar_protocolo_respetando_paro(self) -> None:
         """Abortos forzados por el ControlLoop: con el paro activo, ALL_OFF sin
@@ -934,8 +936,9 @@ class CicloState:
         mientras _resultado_pendiente == COMPLETADO. Secuencia: espera fija
         (tiempo_espera_apertura) → espera a que temp_camara Y pres_camara
         estén en condición segura (mismo criterio fail-closed que el botón
-        CONFIRMAR manual: sensor ausente no habilita nada; temp_max_apertura
-        nunca por encima del tope global) → confirma solo cuando el estado
+        CONFIRMAR manual: sensor ausente no habilita nada; T29-04: rige el
+        temp_max_apertura del programa, el del equipo solo si el programa no
+        lo trae) → confirma solo cuando el estado
         observado de la puerta (no la sola respuesta de request_open)
         muestra que empezó a moverse. Mientras la puerta no responda
         (bloqueo mecánico, interlock, tipo de puerta sin actuador), reintenta
@@ -973,11 +976,12 @@ class CicloState:
         if not lectura_valida(temp):
             return
 
-        temp_max_ciclo  = self.cycle.get_param("finalizacion", "temp_max_apertura", default=80.0)
-        if temp_max_ciclo is None:
-            temp_max_ciclo = 80.0
-        temp_max_global = self.config.get("temp_max_apertura")
-        temp_max = min(temp_max_ciclo, temp_max_global) if temp_max_global is not None else temp_max_ciclo
+        # T29-04 (tanda 29): rige el del programa; el del equipo solo si el
+        # programa no lo trae (antes, el menor de los dos). Sin ninguno, no abre.
+        temp_max = camara_segura.temp_max_vigente(
+            self.config, self.cycle.get_param("finalizacion", "temp_max_apertura", default=None))
+        if temp_max is None:
+            return
 
         if temp > temp_max:
             timeout_min = self.cycle.get_param("finalizacion", "timeout_temperatura", default=30)

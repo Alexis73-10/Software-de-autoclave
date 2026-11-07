@@ -400,12 +400,10 @@ def _alguna_sonda_caliente(estado, temp_max_ciclo) -> bool:
     Referencia...) supera temp_max_apertura: la cámara puede estar caliente
     aunque falte el Principal. El drenaje no cuenta. Falla cerrada: True."""
     try:
-        temp_max = camara_segura._numero(context.config_manager.get(camara_segura.CLAVE_TEMP_MAX))
-        del_ciclo = camara_segura._numero(temp_max_ciclo)
+        # T29-04: el del programa; el del equipo solo sin programa
+        temp_max = camara_segura.temp_max_vigente(context.config_manager, temp_max_ciclo)
         if temp_max is None:
             return True
-        if del_ciclo is not None:
-            temp_max = min(temp_max, del_ciclo)
         for clave, valor in dict(estado.sensores_temp).items():
             if clave == "temp_drenaje":
                 continue
@@ -469,14 +467,14 @@ def _motivo_es_sensor(estado, programas, vigentes: bool, temp_max_ciclo) -> bool
 def _limites_camara_segura(temp_max_ciclo) -> dict:
     """ALD (tanda 26): límites con que se juzga la cámara, solo lectura, para
     el detalle de NO ABRIR (la UI muestra valor medido y límite). Mismos
-    números que camara_segura.evaluar: `temp_max_apertura` es el vigente (el
-    menor entre el del equipo y el del último ciclo), la presión va en kPa
-    absolutos. Un límite sin configuración o ante un error: None."""
+    números que camara_segura.evaluar: `temp_max_apertura` es el vigente
+    (T29-04: el del programa; el del equipo solo sin programa), la presión va
+    en kPa absolutos. Un límite sin configuración o ante un error: None."""
     try:
         cfg = context.config_manager
         temp_max = camara_segura._numero(cfg.get(camara_segura.CLAVE_TEMP_MAX))
         del_ciclo = camara_segura._numero(temp_max_ciclo)
-        vigente = temp_max if del_ciclo is None or temp_max is None else min(temp_max, del_ciclo)
+        vigente = camara_segura.temp_max_vigente(cfg, temp_max_ciclo)
         atm = camara_segura._numero(cfg.get(camara_segura.CLAVE_ATM))
         rango = camara_segura._numero(cfg.get(camara_segura.CLAVE_RANGO))
         return {"temp_max_apertura": vigente, "temp_max_apertura_equipo": temp_max,

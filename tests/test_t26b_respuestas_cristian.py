@@ -178,13 +178,15 @@ def _ctx(limites):
                         "limites": limites, "motivo": "", "textos": {}}}
 
 
-_FRASE = {"es": "el menor entre el del equipo y el del programa",
-          "en": "the lower of the equipment limit and that of"}
+# T29-04 (tanda 29): rige el del programa (antes «el menor entre el del
+# equipo y el del programa»)
+_FRASE = {"es": "el del programa del ciclo",
+          "en": "that of the cycle's program"}
 _EQUIPO = {"es": "rige el límite del equipo", "en": "the equipment limit applies"}
 
 
 @pytest.mark.parametrize("idioma", i18n.IDIOMAS)
-def test_temp_alta_con_programa_menciona_el_menor(idioma):
+def test_temp_alta_con_programa_dice_el_del_programa(idioma):
     from autoclave.ui_qml.domain import detalle_aviso as d
     texto = d.armar("no_abrir", _ctx({"temp_max_apertura": 60.0, "temp_max_apertura_equipo": 80.0,
                                       "temp_max_apertura_ciclo": 60.0}))["descripciones"][idioma]

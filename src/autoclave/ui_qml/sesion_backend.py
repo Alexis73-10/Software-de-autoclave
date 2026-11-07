@@ -93,6 +93,7 @@ _CLAVES = {
     "asignacion_desfasada": "opciones.err_valor_cambio",
     # D8-5.7 (tanda 8): reglas de carga líquida
     "MODO_NO_PERMITIDO_LIQUIDO": "opciones.err_modo_liquido",
+    "MODO_NO_PERMITIDO_SOLIDO": "opciones.err_modo_solido",    # T29-05
     "COHERENCIA_LIQUIDO": "opciones.err_coherencia_liquido",
     # J12 (tanda 12): límites físicos de presión
     "LIMITE_PRESION_CAMARA": "opciones.err_limite_presion_camara",

@@ -4,6 +4,7 @@ from autoclave.state_machine.states.preparado import preparado_state
 from autoclave.state_machine.states.ciclo import CicloState
 from autoclave.state_machine.states.falla import FallaState
 from autoclave.state_machine.alarms.alarm_manager import AlarmManager
+from autoclave.state_machine.alarms.catalogo import PRE_01, PRE_02, PRE_03, PRE_04, PRE_05, PRE_06
 from autoclave.core.runtime.sensores_ciclo import verificar_inicio
 from autoclave.state_machine.estado_seguro import ConfirmacionParo
 from autoclave.state_machine.states.vaciado_chaqueta import limpiar_en as limpiar_vaciado_chaqueta
@@ -11,6 +12,9 @@ from autoclave.state_machine.cycle_phases.valvula_reposo import cerrar_valvulas_
 import logging
 
 logger = logging.getLogger(__name__)
+
+# T29-02 (tanda 29): avisos de condición de preparación (no aplican en CICLO)
+AVISOS_PREPARACION = (PRE_01, PRE_02, PRE_03, PRE_04, PRE_05, PRE_06)
 
 
 class StateMachine:
@@ -64,6 +68,13 @@ class StateMachine:
             limpiar_vaciado_chaqueta(self.estado, self.set_do)
 
         elif state == GlobalState.CICLO:
+            # T29-08 (tanda 29): fuera de ciclo el aire atmosférico puede quedar
+            # abierto con las puertas cerradas; ninguna fase del ciclo lo cierra
+            # al empezar, así que se cierra aquí antes de la primera fase
+            self.set_do.aire_admosferico_camara_off()
+            # T29-02 (tanda 29): los avisos de condición de preparación no
+            # aplican en CICLO; los que siguieran activos se resuelven
+            self._resolver_avisos_preparacion()
             # Limpiar flags de ciclo anteriores y arrancar el pipeline
             self.estado.set_flag("CICLO_CANCELADO",  False)
             self.estado.set_flag("CICLO_CONFIRMADO", False)
@@ -75,6 +86,17 @@ class StateMachine:
             # Limpiar flag de inicio para evitar auto-arranques
             self.estado.set_flag("START_CICLO", False)
             logger.info("StateMachine: entrando a PREPARADO")
+
+    def _resolver_avisos_preparacion(self) -> None:
+        """T29-02: al entrar a CICLO se resuelven PRE-01..PRE-06 (condiciones
+        normales de preparación). Ninguno se activa durante el ciclo, así que
+        no entran en alarmas_ciclo ni en las observaciones. Un error no impide
+        iniciar el ciclo."""
+        for codigo in AVISOS_PREPARACION:
+            try:
+                self.alarm_manager.resolver(codigo)
+            except Exception:
+                logger.exception("StateMachine: no se pudo resolver %s al entrar a CICLO", codigo)
 
     def confirmar_paro(self) -> bool:
         """Hotfix ES: "Confirmar" tras soltar un paro real. Sin protocolo: desde
@@ -113,6 +135,9 @@ class StateMachine:
 
     def update(self, datos_vigentes: bool = True):
         current_state = self.estado.get_machine_state()
+        # T29-08: PREPARACION y FALLA (nivelar_presion_camara) miran las puertas
+        # solo con la trama DI vigente
+        self.preparacion.di_vigentes = datos_vigentes is True
 
         logger.debug(
             "Actualizando maquina de estados. Estado actual: %s",

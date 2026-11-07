@@ -117,10 +117,15 @@ def test_set_param_usa_el_catalogo_y_tipos_estrictos(tmp_path):
     with pytest.raises(ValueError):
         c.set_param("globals", ["tipo_carga"], "liquido")   # modo 1: incoherente
     assert c.get_param("globals", "tipo_carga") == "solido"  # no muta si falla
-    c.set_param("descompresion", ["modo"], 4)
+    # T29-05 (tanda 29): un sólido ya no admite el modo 4; el paso a líquido
+    # con el modo 4 de arrastre sigue rechazado por el prevacío (SAF-06 de T11)
+    with pytest.raises(ValueError):
+        c.set_param("descompresion", ["modo"], 4)
     with pytest.raises(ValueError):                          # SAF-06 de T11: con prevacío
-        c.set_param("globals", ["tipo_carga"], "liquido")
+        c.set_param("globals", ["tipo_carga"], "liquido",
+                    arrastres=[("descompresion", ["modo"], 4)])
     assert c.get_param("globals", "tipo_carga") == "solido"
+    assert c.get_param("descompresion", "modo") == 1
 
 
 def test_liquidos_reglas_de_coherencia():

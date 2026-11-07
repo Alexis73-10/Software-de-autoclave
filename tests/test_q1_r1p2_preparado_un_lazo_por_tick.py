@@ -47,13 +47,16 @@ def test_cada_lazo_corre_una_sola_vez_por_tick():
 def test_el_aire_de_camara_cierra_a_los_3_ticks_reales():
     # Presión en banda (101 kPa con atm 101,3 ± 10): el aire debe apagarse solo
     # tras 3 ticks consecutivos "en banda" (ConfirmadorApagado).
+    # T29-08 (tanda 29): con las puertas confirmadas cerradas el aire queda
+    # abierto en banda; el apagado con confirmación rige sin esa confirmación
+    # (aquí, DI no vigentes).
     obj, set_do = _preparado()
 
-    obj.run()
-    obj.run()
+    obj.run(datos_vigentes=False)
+    obj.run(datos_vigentes=False)
     set_do.aire_admosferico_camara_off.assert_not_called()
 
-    obj.run()
+    obj.run(datos_vigentes=False)
     set_do.aire_admosferico_camara_off.assert_called_once()
 
 

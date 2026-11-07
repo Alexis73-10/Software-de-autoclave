@@ -561,6 +561,14 @@ Item {
                     font.pixelSize: Escala.fuente(30)
                     color: Colores.textoPrimario
                 }
+                // T29-06: el programa al que pertenecen los roles
+                Text {
+                    objectName: "programaSensores"
+                    text: control.etiquetaPrograma
+                    font.family: Tipografia.familia; font.weight: Tipografia.pesoSemiBold
+                    font.pixelSize: Escala.fuente(22)
+                    color: Colores.textoPrimario
+                }
                 Text {
                     text: I18n.t("opciones.sensores_instruccion", I18n.lang)
                     font.family: Tipografia.familia
@@ -719,6 +727,16 @@ Item {
                 id: columnaEntradas
                 width: parent.width
                 spacing: Escala.px(6)
+                // T29-06: el programa al que pertenecen las entradas mostradas
+                Text {
+                    objectName: "programaEntradas"
+                    width: parent.width
+                    wrapMode: Text.WordWrap
+                    text: control.etiquetaPrograma
+                    font.family: Tipografia.familia; font.weight: Tipografia.pesoSemiBold
+                    font.pixelSize: Escala.fuente(26)
+                    color: Colores.textoPrimario
+                }
                 Text {
                     width: parent.width
                     wrapMode: Text.WordWrap

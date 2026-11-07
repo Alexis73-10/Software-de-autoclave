@@ -1,3 +1,4 @@
+import math
 import time
 import logging
 
@@ -110,8 +111,23 @@ class DescompresionFase(BaseFase):
         return handler()
 
     def _en_presion_atm(self) -> bool:
+        """Modo 0 (sin cambio): pres <= atm + rango_presion_atm."""
         p = self._pres_camara()
         return p is not None and p <= self._pres_atm() + self._rango_atm()
+
+    def _en_presion_fin(self) -> bool:
+        """T29-03 (tanda 29): fin de la despresurización de los modos 1 a 5
+        con pres <= atm + descompresion.presion_fin_descompresion. Sin el
+        parámetro (o no numérico/no positivo) rige el criterio anterior
+        (atm + rango_presion_atm). El modo 0 y el timeout no cambian."""
+        p = self._pres_camara()
+        if p is None:
+            return False
+        margen = self.cycle.get_param("descompresion", "presion_fin_descompresion")
+        if (isinstance(margen, bool) or not isinstance(margen, (int, float))
+                or not math.isfinite(margen) or margen <= 0):
+            margen = self._rango_atm()
+        return p <= self._pres_atm() + margen
 
     def _apagar_todo(self):
         self.set_do.descompresion_rapida_off()
@@ -142,13 +158,13 @@ class DescompresionFase(BaseFase):
 
     def _tick_modo_1(self) -> FaseResult:
         self.set_do.descompresion_rapida_on()
-        if self._en_presion_atm():
+        if self._en_presion_fin():
             return self._finalizar()
         return FaseResult.EN_CURSO
 
     def _tick_modo_2(self) -> FaseResult:
         self.set_do.descompresion_lenta_on()
-        if self._en_presion_atm():
+        if self._en_presion_fin():
             return self._finalizar()
         return FaseResult.EN_CURSO
 
@@ -162,7 +178,7 @@ class DescompresionFase(BaseFase):
                 self._sub_etapa = "rapida"
         else:
             self.set_do.descompresion_rapida_on()
-            if self._en_presion_atm():
+            if self._en_presion_fin():
                 return self._finalizar()
         return FaseResult.EN_CURSO
 
@@ -239,6 +255,6 @@ class DescompresionFase(BaseFase):
     def _tick_sub_descompresion(self) -> FaseResult:
         self.set_do.descompresion_chaqueta_on()
         self.set_do.descompresion_rapida_on()
-        if self._en_presion_atm():
+        if self._en_presion_fin():
             return self._finalizar()
         return FaseResult.EN_CURSO

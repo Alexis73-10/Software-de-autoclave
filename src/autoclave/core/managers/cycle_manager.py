@@ -124,6 +124,75 @@ def _agregar_claves_a12(parameters: dict, agregadas) -> bool:
     return cambio
 
 
+# Tanda 29 (T29-03): presion_fin_descompresion, mismo patrón que A12 (cambia
+# el comportamiento de un programa existente: auditoría y .bak, sin SIS-06).
+# Va después de tiempo_pre_despresurizacion si el programa lo tiene.
+_CLAVE_FIN_DESCOMPRESION = (
+    "descompresion", "presion_fin_descompresion",
+    {"value": catalogo_parametros.PRESION_FIN_DESCOMPRESION_DEFECTO, "type": "float",
+     "unit": "kPa", "clase": "diferencia", "min": 2, "max": 20}, "kPa")
+
+
+def _agregar_clave_t29_03(parameters: dict, agregadas) -> bool:
+    """T29-03: agrega presion_fin_descompresion con su defecto si falta (solo
+    en un programa con sección descompresion). El agregado va a `agregadas`
+    (si no es None) con origen «migración tanda 29 (T29-03)». Solo agrega."""
+    fase, clave, hoja, unidad = _CLAVE_FIN_DESCOMPRESION
+    seccion = parameters.get(fase)
+    if not isinstance(seccion, dict) or clave in seccion:
+        return False
+    ancla = "tiempo_pre_despresurizacion"
+    if ancla in seccion:
+        nuevo = {}
+        for k, v in seccion.items():
+            nuevo[k] = v
+            if k == ancla:
+                nuevo[clave] = copy.deepcopy(hoja)
+        seccion.clear()
+        seccion.update(nuevo)
+    else:
+        seccion[clave] = copy.deepcopy(hoja)
+    origen = catalogo_parametros.ORIGEN_MIGRACION_T29_03
+    logger.warning("Programa sin %s.%s: agregado con el defecto %g %s (%s)", fase, clave,
+                   hoja["value"], unidad, origen)
+    if agregadas is not None:
+        agregadas.append({"fase": fase, "parametro": clave, "anterior": None,
+                          "nuevo": hoja["value"], "unidad": unidad, "origen": origen})
+    return True
+
+
+def _migrar_modo_solido(parameters: dict, correcciones, modo_fabrica=None) -> bool:
+    """T29-05 (tanda 29): un programa con carga sólida y descompresión 4 o 5
+    (enfriamiento de líquidos) pasa a `modo_fabrica` (el del programa de
+    fábrica, si es sólido y válido; lo resuelve CycleManager) o, sin él, a
+    MODO_SOLIDO_SIN_DEFECTO. La corrección va a `correcciones` (auditoría,
+    SIS-06 y .bak en el backend). Carga líquida, tipo ilegible o modo ausente
+    no se tocan."""
+    cp = catalogo_parametros
+    # Revisión T29 (M1): solo con la clave presente y exactamente "solido";
+    # ausente o ilegible se trata como líquida (SAF-03) y no se toca.
+    if cp._valor(parameters, "globals", "tipo_carga", defecto=None) != "solido":
+        return False
+    desc = parameters.get("descompresion")
+    if not isinstance(desc, dict):
+        return False
+    hoja = desc.get("modo")
+    if not isinstance(hoja, dict) or hoja.get("value") not in cp.MODOS_CONTRAPRESION:
+        return False
+    anterior = hoja["value"]
+    if isinstance(anterior, bool):
+        return False
+    es_entero = isinstance(modo_fabrica, int) and not isinstance(modo_fabrica, bool)
+    nuevo = modo_fabrica if es_entero and modo_fabrica in cp.MODOS_SOLIDO else cp.MODO_SOLIDO_SIN_DEFECTO
+    hoja["value"] = nuevo
+    logger.warning("Programa sólido con descompresion.modo = %r (enfriamiento de líquidos): "
+                   "migrado al modo %d (%s)", anterior, nuevo, cp.ORIGEN_MIGRACION_T29_05)
+    if correcciones is not None:
+        correcciones.append({"fase": "descompresion", "parametro": "modo", "anterior": anterior,
+                             "nuevo": nuevo, "origen": cp.ORIGEN_MIGRACION_T29_05, "unidad": ""})
+    return True
+
+
 def _agregar_claves_t28(parameters: dict) -> bool:
     """A14-M2: agrega margen_chaqueta_est con su defecto si falta, después de
     histeresis_cierre_camara (o al final de la sección). Solo agrega."""
@@ -149,7 +218,7 @@ def _agregar_claves_t28(parameters: dict) -> bool:
 
 def migrar_parametros(parameters, correcciones: list | None = None,
                       no_migradas: list | None = None, recuperacion: bool = False,
-                      agregadas: list | None = None) -> bool:
+                      agregadas: list | None = None, modo_fabrica=None) -> bool:
     """Migra en el sitio los parámetros de un programa viejo. Devuelve True si
     cambió algo. `correcciones` (opcional) recibe un dict por cada migración
     correctiva (C-04.4 y P2 de la tanda 16): fase, parametro, anterior, nuevo,
@@ -160,7 +229,11 @@ def migrar_parametros(parameters, correcciones: list | None = None,
     viene migrada y la instantánea de un ciclo interrumpido debe conservar los
     valores con los que corrió (DECISIÓN SIN CONFIRMAR). `agregadas`
     (opcional, A12 de la tanda 28) recibe un dict por cada parámetro nuevo
-    del prevacío agregado con su defecto (para la auditoría, sin SIS-06)."""
+    del prevacío agregado con su defecto (para la auditoría, sin SIS-06),
+    y desde la tanda 29 también presion_fin_descompresion (T29-03).
+    `modo_fabrica` (T29-05): modo de descompresión del programa de fábrica
+    del mismo número, para la migración de un sólido con modo 4 o 5 (solo con
+    `recuperacion`)."""
     cambio = _migrar_rango_calentamiento(parameters)
     if not isinstance(parameters, dict):
         return cambio
@@ -172,6 +245,7 @@ def migrar_parametros(parameters, correcciones: list | None = None,
     cambio = _agregar_claves_t16(parameters) or cambio
     cambio = _agregar_claves_t28(parameters) or cambio
     cambio = _agregar_claves_a12(parameters, agregadas) or cambio
+    cambio = _agregar_clave_t29_03(parameters, agregadas) or cambio
     for fase, clave in _PRESION_ADD:
         hoja = parameters.get(fase, {}).get(clave) if isinstance(parameters.get(fase), dict) else None
         if not isinstance(hoja, dict):
@@ -193,6 +267,7 @@ def migrar_parametros(parameters, correcciones: list | None = None,
         # A14-M3 antes que P2: el mínimo de P1 se calcula con la brecha final
         cambio = _migrar_brecha_t28(parameters, correcciones) or cambio
         cambio = _migrar_recuperacion(parameters, correcciones, no_migradas) or cambio
+        cambio = _migrar_modo_solido(parameters, correcciones, modo_fabrica) or cambio
     return cambio
 
 
@@ -413,7 +488,7 @@ def escribir_parametros(cycle) -> None:
 
 class Cycle:
     def __init__(self, cycle_id: str, name: str, parameters: dict, number: int | None = None,
-                 migrar_recuperacion: bool = False):
+                 migrar_recuperacion: bool = False, modo_fabrica=None):
         self.id = cycle_id
         self.name = name
         # R1-P3 y tanda 12 (C-04.4: migración correctiva, ver migrar_parametros)
@@ -424,7 +499,7 @@ class Cycle:
         self.migraciones_agregadas: list[dict] = []
         migrar_parametros(parameters, self.migraciones_correctivas,
                           self.migraciones_no_aplicadas, recuperacion=migrar_recuperacion,
-                          agregadas=self.migraciones_agregadas)
+                          agregadas=self.migraciones_agregadas, modo_fabrica=modo_fabrica)
         self.parameters = parameters
         # Indicativo del ciclo ("cycle_number" del JSON), único entre ciclos.
         # None si falta, no es entero positivo o está repetido.
@@ -551,7 +626,8 @@ class Cycle:
             if modo not in catalogo_parametros.MODOS_LIQUIDO:
                 destino = catalogo_parametros.MODO_AL_PASAR_A_LIQUIDO
         elif nuevo_tipo == "solido" and actual == "liquido":
-            validos = catalogo_parametros.MODOS_PARAMETRO[("descompresion", "modo")]
+            # T29-05: el defecto sólido solo vale si es uno de los modos de sólido
+            validos = catalogo_parametros.MODOS_SOLIDO
             es_entero = isinstance(modo_solido, int) and not isinstance(modo_solido, bool)
             destino = (modo_solido if es_entero and modo_solido in validos
                        else catalogo_parametros.MODO_SOLIDO_SIN_DEFECTO)
@@ -621,9 +697,26 @@ class CycleManager:
                     continue
                 self.defectos[numero] = Cycle(data["cycle_id"], data.get("display_name", ""),
                                               data.get("parameters", {}), numero,
-                                              migrar_recuperacion=True)
+                                              migrar_recuperacion=True,
+                                              modo_fabrica=self._modo_solido_fabrica(numero))
             except Exception:
                 logger.exception("Defecto %s ilegible: se ignora", file)
+
+    def _modo_solido_fabrica(self, numero) -> int | None:
+        """T29-05: modo de descompresión del programa de fábrica con ese
+        número si es sólido y su modo es de sólido (0 a 3); None si no hay
+        (la migración usa entonces MODO_SOLIDO_SIN_DEFECTO). Nunca lanza."""
+        try:
+            fab = self.fabrica.get(numero) if numero is not None else None
+            if fab is None or fab.get_param("globals", "tipo_carga", default="solido") != "solido":
+                return None
+            modo = fab.get_param("descompresion", "modo")
+            if isinstance(modo, int) and not isinstance(modo, bool) \
+                    and modo in catalogo_parametros.MODOS_SOLIDO:
+                return modo
+        except Exception:
+            logger.exception("No se pudo leer el modo de fábrica del programa %r", numero)
+        return None
 
     def nombre_clave_de(self, cycle) -> str | None:
         """I4 (tanda 6; D-14, §3.7): clave de catálogo del nombre del ciclo. La
@@ -689,12 +782,14 @@ class CycleManager:
                     with open(full_path, "r", encoding="utf-8") as f:
                         data = json.load(f)
 
+                        numero = _numero_de_ciclo(data.get("cycle_number"))
                         cycle = Cycle(
                             cycle_id=data["cycle_id"],
                             name=data.get("display_name", data.get("cycle_name", data["cycle_id"])),
                             parameters=data.get("parameters", {}),
-                            number=_numero_de_ciclo(data.get("cycle_number")),
+                            number=numero,
                             migrar_recuperacion=True,     # P2 (tanda 16)
+                            modo_fabrica=self._modo_solido_fabrica(numero),   # T29-05
                         )
 
                         cycle.source = source
@@ -769,9 +864,10 @@ class CycleManager:
                 correcciones: list[dict] = []
                 no_aplicadas: list[dict] = []
                 agregadas: list[dict] = []
-                # R1-P3, C-04.4, P2 (tanda 16), M3 y A12 (tanda 28)
+                # R1-P3, C-04.4, P2 (tanda 16), M3 y A12 (tanda 28), T29-03/05
                 migrar_parametros(respaldo, correcciones, no_aplicadas, recuperacion=True,
-                                  agregadas=agregadas)
+                                  agregadas=agregadas,
+                                  modo_fabrica=self._modo_solido_fabrica(cycle.number))
                 if not catalogo_parametros.errores_programa(respaldo):
                     logger.error("Programa %s fuera del catálogo (%s); se usa %s",
                                  cycle.id, "; ".join(errores), os.path.basename(bak))

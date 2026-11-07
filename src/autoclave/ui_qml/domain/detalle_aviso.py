@@ -145,8 +145,8 @@ def _motivo_no_abrir(ctx: dict, idioma: str) -> tuple[str, str]:
     }
     descripcion = base + ".descripcion"
     if codigo == "temp_alta" and _numero(lim.get("temp_max_apertura_ciclo")) is None:
-        # Sin programa (sin límite del ciclo) rige solo el del equipo: no se
-        # habla de «el menor entre el del equipo y el del programa»
+        # T29-04: con programa rige el suyo; sin programa (sin límite del
+        # ciclo), el del equipo
         descripcion = base + ".descripcion_sin_programa"
     return _t(descripcion, idioma, **params), _t(base + ".accion", idioma, **params)
 

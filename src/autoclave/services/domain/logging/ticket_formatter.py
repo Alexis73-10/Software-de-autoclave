@@ -419,6 +419,10 @@ def format_header(meta: dict, p: Presentacion | None = None) -> str:
     ]
     if p != _POR_DEFECTO:
         lines.append(unidades)
+    # T29-07: con F0 activo, el objetivo del programa (meta["f0_activo"]);
+    # sin F0 activo el encabezado queda idéntico
+    if meta.get("f0_activo"):
+        lines.append(_t(p, "f0_activo", objetivo=_texto_f0_objetivo(meta.get("f0_objetivo"))))
     # T8 (§7.6): ciclo sin base de datos, sin operador registrado
     if meta.get("sin_registro"):
         lines.append(_t(p, "sin_bd"))
@@ -512,6 +516,42 @@ def _f0_guardado(valor) -> float | None:
     return float(valor)
 
 
+def _texto_f0_objetivo(valor) -> str:
+    """T29-07: objetivo de F0 para el encabezado ("---" si no es un número)."""
+    if isinstance(valor, bool) or not isinstance(valor, (int, float)):
+        return "---"
+    return f"{valor:g}"
+
+
+def f0_objetivo_de_programa(programa) -> float | None:
+    """T29-07: globals.F0_objetivo de un programa (Cycle) o de su instantánea
+    (dict con "parameters", o el texto JSON de `programa_json`); None si no se
+    puede leer. Nunca lanza."""
+    try:
+        if isinstance(programa, str):
+            programa = json.loads(programa)
+        if isinstance(programa, dict):
+            hoja = ((programa.get("parameters") or {}).get("globals") or {}).get("F0_objetivo")
+            valor = hoja.get("value") if isinstance(hoja, dict) else None
+        else:
+            valor = programa.get_param("globals", "F0_objetivo")
+    except Exception:
+        return None
+    if isinstance(valor, bool) or not isinstance(valor, (int, float)):
+        return None
+    return float(valor)
+
+
+def _meta_f0(ciclo) -> dict:
+    """T29-07 (reimpresión, PDF y correo): F0 activo si el ciclo guardó
+    f0_final (solo se guarda con F0 activo, como el «F0 total» del pie); el
+    objetivo sale de la instantánea del programa. {} sin F0: encabezado igual."""
+    if _f0_guardado(_campo(ciclo, "f0_final")) is None:
+        return {}
+    return {"f0_activo": True,
+            "f0_objetivo": f0_objetivo_de_programa(_campo(ciclo, "programa_json"))}
+
+
 def leer_avisos_ticket(texto) -> tuple[float | None, list]:
     """D8-2.14: (sin_datos_s, avisos) de la columna `avisos_ticket` de un ciclo
     guardado. Vacía, ausente o dañada: (None, []) — el ticket se reimprime
@@ -559,6 +599,7 @@ def format_ticket(ciclo, lecturas, p: Presentacion | None = None) -> str:
         "tiempo_esterilizacion": ciclo["tiempo_esterilizacion"],
         "fecha_inicio":          ciclo["fecha_inicio"],
         "no_conforme":           ciclo_no_conforme(ciclo),   # P4 (D-14.4)
+        **_meta_f0(ciclo),                                     # T29-07
     }
 
     temp_final = None

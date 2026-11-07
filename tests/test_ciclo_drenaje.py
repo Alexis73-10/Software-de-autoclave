@@ -1,5 +1,5 @@
 from unittest.mock import MagicMock
-from tests.helpers.alarmas_helpers import ultima_activacion, codigos_resueltos, ids_viejos_activados
+from tests.helpers.alarmas_helpers import activaciones
 from autoclave.state_machine.alarms.catalogo import PRE_06
 from autoclave.state_machine.states.ciclo import CicloState
 
@@ -34,7 +34,8 @@ def test_temp_alta_activa_agua_al_llegar_a_3_lecturas():
     ciclo._mantener_drenaje()
     ciclo._mantener_drenaje()
     set_do.agua_intercambiador_on.assert_called_once()
-    assert ultima_activacion(alarm_manager)[0] == PRE_06
+    # T29-02 (tanda 29): en CICLO el drenaje caliente no activa PRE-06
+    assert PRE_06 not in [a[0] for a in activaciones(alarm_manager)]
 
 
 def test_temp_segura_apaga_agua_al_llegar_a_3_lecturas():
@@ -50,7 +51,8 @@ def test_temp_segura_apaga_agua_al_llegar_a_3_lecturas():
     set_do.agua_intercambiador_off.assert_not_called()
     ciclo._mantener_drenaje()
     set_do.agua_intercambiador_off.assert_called_once()
-    assert PRE_06 in codigos_resueltos(alarm_manager)
+    # T29-02: sin PRE-06 en CICLO (se resuelve al entrar, en la StateMachine)
+    alarm_manager.activar.assert_not_called()
 
 
 def test_oscilacion_resetea_contador_sin_falso_positivo():
@@ -88,7 +90,8 @@ def test_sensor_ausente_no_reinicia_contador_alto_en_progreso():
     ciclo._mantener_drenaje()  # alta (3) -- debe disparar, no reiniciarse a 1
     assert ciclo._contador_drenaje_alta == 3
     assert set_do.agua_intercambiador_on.call_count == 2
-    assert "TEMP_DRENAJE_ALTA" in ids_viejos_activados(alarm_manager)
+    # T29-02: la válvula sí, el aviso PRE-06 no
+    assert PRE_06 not in [a[0] for a in activaciones(alarm_manager)]
 
 
 def test_se_llama_en_run_sin_importar_la_fase_activa():

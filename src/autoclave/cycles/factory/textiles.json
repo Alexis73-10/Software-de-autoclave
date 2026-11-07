@@ -598,6 +598,14 @@
                 "min": 0,
                 "max": 3600
             },
+            "presion_fin_descompresion": {
+                "value": 10.0,
+                "type": "float",
+                "unit": "kPa",
+                "clase": "diferencia",
+                "min": 2,
+                "max": 20
+            },
             "modo_1": {
                 "timeout": {
                     "value": 10,

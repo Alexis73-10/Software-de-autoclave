@@ -69,6 +69,7 @@ _MENSAJES = {
     "asignacion_desfasada": "opciones.err_valor_cambio",
     # D8-5.7 (tanda 8): carga líquida
     "MODO_NO_PERMITIDO_LIQUIDO": "opciones.err_modo_liquido",
+    "MODO_NO_PERMITIDO_SOLIDO": "opciones.err_modo_solido",    # T29-05
     "COHERENCIA_LIQUIDO": "opciones.err_coherencia_liquido",
     # J12 (tanda 12): límites físicos de presión (alivio de cámara/chaqueta)
     "LIMITE_PRESION_CAMARA": "opciones.err_limite_presion_camara",
@@ -164,6 +165,20 @@ def opciones_fila(disponibles, filas, fila: int) -> list[str]:
     return [e for e in (disponibles or []) if e not in otras]
 
 
+def numero_inicial(programas) -> int:
+    """T29-06: número del programa en que abre Parámetros del ciclo: el
+    marcado `seleccionado` (el activo en Preciclo) o, si no hay, el primero."""
+    elegido = next((p for p in programas or [] if p.get("seleccionado") is True), None)
+    return (elegido or programas[0])["numero"]
+
+
+def etiqueta_programa(numero, nombre) -> str:
+    """T29-06: «03 · Nombre» para las vistas del flujo ("" sin programa)."""
+    if not isinstance(numero, int) or isinstance(numero, bool) or numero <= 0:
+        return ""
+    return f"{numero:02d} · {nombre}" if nombre else f"{numero:02d}"
+
+
 def entradas_de_filas(filas) -> tuple[list[str], str]:
     """(entradas a guardar en orden, clave de error o "")."""
     filas = [str(e or "") for e in (filas or [])][:FILAS_ENTRADAS]
@@ -196,6 +211,7 @@ class ParametrosCicloController(QObject):
         self._sesion = sesion
         self._programas: list = []
         self._numero = 0
+        self._abrir_en_seleccionado = True     # T29-06: solo la primera carga
         self._seccion = ""
         self._parametros: list = []
         self._editable_seccion = False
@@ -305,7 +321,13 @@ class ParametrosCicloController(QObject):
             return
         self._programas = list(r.datos.get("programas") or [])
         self.programasChanged.emit()
-        if self._programas and not any(p["numero"] == self._numero for p in self._programas):
+        if self._abrir_en_seleccionado and self._programas:
+            # T29-06: la primera carga abre en el programa seleccionado en
+            # Preciclo (`seleccionado` de GET /programas); si no hay, el primero.
+            # Las cargas posteriores (tras guardar) no cambian de programa.
+            self._abrir_en_seleccionado = False
+            self.elegirPrograma(numero_inicial(self._programas))
+        elif self._programas and not any(p["numero"] == self._numero for p in self._programas):
             self.elegirPrograma(self._programas[0]["numero"])
         else:
             self.programaChanged.emit()
@@ -332,6 +354,11 @@ class ParametrosCicloController(QObject):
     @Property(str, notify=programaChanged)
     def nombrePrograma(self) -> str:
         return self._programa().get("nombre", "")
+
+    @Property(str, notify=programaChanged)
+    def etiquetaPrograma(self) -> str:
+        """T29-06: «03 · Nombre» del programa abierto (todas las vistas)."""
+        return etiqueta_programa(self._numero, self._programa().get("nombre", ""))
 
     @Property("QVariantList", notify=programaChanged)
     def secciones(self) -> list:

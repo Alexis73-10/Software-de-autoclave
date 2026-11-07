@@ -46,9 +46,18 @@ def test_liquido_rechaza_1_2_3_con_su_motivo(modo):
     assert cp.codigo_coherencia(errores) == "MODO_NO_PERMITIDO_LIQUIDO"
 
 
-def test_solido_admite_todos_los_modos():
-    for modo in range(6):
+def test_solido_admite_los_modos_0_a_3():
+    # T29-05 (tanda 29): antes un sólido admitía los 6 modos; 4 y 5 son de
+    # enfriamiento de líquidos y ya no se permiten con carga sólida
+    for modo in range(4):
         assert cp.errores_coherencia(_params("solido", modo)) == []
+
+
+@pytest.mark.parametrize("modo", [4, 5])
+def test_solido_rechaza_4_y_5_con_su_codigo(modo):
+    errores = cp.errores_coherencia(_params("solido", modo))
+    assert errores and errores[0] == cp.MOTIVO_MODO_SOLIDO
+    assert cp.codigo_coherencia(errores) == "MODO_NO_PERMITIDO_SOLIDO"
 
 
 def test_modo_0_liquido_no_exige_contrapresion():
@@ -58,7 +67,8 @@ def test_modo_0_liquido_no_exige_contrapresion():
 
 
 def test_modos_validos_por_parametro():
-    assert cp.modos_validos(_params("solido", 1), "descompresion", ["modo"]) == [0, 1, 2, 3, 4, 5]
+    # T29-05: con carga sólida, 0 a 3 (antes los 6)
+    assert cp.modos_validos(_params("solido", 1), "descompresion", ["modo"]) == [0, 1, 2, 3]
     assert cp.modos_validos(_params("liquido", 4), "descompresion", ["modo"]) == [4, 5, 0]
     assert cp.modos_validos(_params("solido", 1), "secado", ["modo"]) == [1, 2, 3]
     assert cp.modos_validos(_params("solido", 1), "esterilizacion", ["tiempo_esterilizacion"]) == []
@@ -254,7 +264,7 @@ def test_seccion_entrega_los_modos_validos(cliente):
     p = {x["clave"]: x for x in client.get("/programas/4/seccion/descompresion").json()["parametros"]}
     assert p["modo"]["modos"] == [4, 5, 0]
     p = {x["clave"]: x for x in client.get("/programas/2/seccion/descompresion").json()["parametros"]}
-    assert p["modo"]["modos"] == [0, 1, 2, 3, 4, 5]
+    assert p["modo"]["modos"] == [0, 1, 2, 3]          # T29-05: sólido, 0 a 3
     assert p["tiempo_pre_despresurizacion"]["modos"] == []
     p = {x["clave"]: x for x in client.get("/programas/2/seccion/secado").json()["parametros"]}
     assert p["modo"]["modos"] == [1, 2, 3]
@@ -316,6 +326,7 @@ def test_controlador_sin_arrastre_no_avisa(qt_app):
 
 
 @pytest.mark.parametrize("codigo, clave", [("MODO_NO_PERMITIDO_LIQUIDO", "opciones.err_modo_liquido"),
+                                           ("MODO_NO_PERMITIDO_SOLIDO", "opciones.err_modo_solido"),
                                            ("COHERENCIA_LIQUIDO", "opciones.err_coherencia_liquido")])
 def test_controlador_muestra_el_motivo_del_rechazo(qt_app, codigo, clave):
     from autoclave.ui_qml.sesion_backend import Resultado
