@@ -215,6 +215,8 @@ class CalentamientoFase(BaseFase):
         self._timer_sostenido_desde = None
         self._timer_recuperacion_fin = None
         self._coherente_previo = True   # C-02: log solo al perder coherencia
+        self.estado.estabilizacion_s = None          # T30-02: publicación para la pantalla
+        self.estado.estabilizacion_total_s = None
 
         # Pendiente sobre ventana (tasa_calentamiento / tasa_presion) —
         # alimenta duty_tasa en el paso 4 (control continuo de vapor_camara).
@@ -706,6 +708,9 @@ class CalentamientoFase(BaseFase):
                 self._timer_sostenido_desde = now
                 self._ventana_pausada_s = 0.0   # re-revisión S2b: ventana nueva
             self.estado.fase_en_sostenimiento = True
+            # T30-02: avance de la ventana de estabilización (solo publicación)
+            self.estado.estabilizacion_total_s = float(tiempo_est)
+            self.estado.estabilizacion_s = min(float(tiempo_est), max(0.0, now - self._timer_sostenido_desde))
             if now - self._timer_sostenido_desde >= tiempo_est:
                 logger.info(
                     "Calentamiento: COMPLETADO tras sostenimiento continuo de %.0fs — %.1f°C / %.1f kPa",
@@ -716,6 +721,8 @@ class CalentamientoFase(BaseFase):
         else:
             self._timer_sostenido_desde = None
             self.estado.fase_en_sostenimiento = False
+            self.estado.estabilizacion_s = None          # T30-02
+            self.estado.estabilizacion_total_s = None
             if self._timer_recuperacion_fin is None:
                 self._timer_recuperacion_fin = now + timeout_rec_seg
                 logger.warning("Calentamiento: condición fuera de rango en sostenimiento — recuperando")

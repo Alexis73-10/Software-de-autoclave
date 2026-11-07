@@ -23,6 +23,11 @@ def instalar_servicio(servicio) -> None:
     global _servicio_activo
     _servicio_activo = servicio
 
+
+# T30-01: rechazo del último POST /cycle/start, por hilo (cada envío corre en
+# su propio hilo de trabajo; las dos ventanas no se pisan)
+_rechazo_inicio = threading.local()
+
 # D8-2.15 (tanda 8): rechazo de DESPEJAR (POST /alarms/{clave}/acknowledge)
 # por código HTTP → clave del catálogo i18n. 409: el enlace con el módulo E/S no
 # ha vuelto (T2-b de la tanda 7); 404: la alarma ya no está activa.
@@ -224,23 +229,60 @@ class UIServiceBackend:
     # ACCIONES DE CICLO
     # ==============================
 
-    def start_cycle(self, confirmar_sin_registro: bool = False) -> bool:
+    def start_cycle(self, confirmar_sin_registro: bool = False, operador_id: int | None = None) -> bool:
         """Envía POST /cycle/start. Retorna True si tuvo éxito. Sin base de
-        datos (T8) el backend exige `confirmar_sin_registro` en cada ciclo."""
+        datos (T8) el backend exige `confirmar_sin_registro` en cada ciclo.
+        T30-01: `operador_id` = operador elegido sin sesión. El rechazo HTTP
+        (estado, cuerpo JSON) queda en `ultimo_rechazo_inicio()`, por hilo."""
+        _rechazo_inicio.valor = None
         try:
             # O1 (tanda 3): con sesión abierta en esta ventana, su token identifica al
-            # operador del ciclo; sin sesión el ciclo inicia igual, sin operador
+            # operador del ciclo; sin sesión, el operador elegido (T30-01)
             from autoclave.cliente.session_manager import SessionManager
             token = SessionManager.token()
             extra = {"headers": {"Authorization": f"Bearer {token}"}} if token else {}
+            cuerpo = {}
             if confirmar_sin_registro:
-                self.backend.post(path="/cycle/start", body={"confirmar_sin_registro": True}, **extra)
+                cuerpo["confirmar_sin_registro"] = True
+            if operador_id is not None:
+                cuerpo["operador_id"] = operador_id
+            if cuerpo:
+                self.backend.post(path="/cycle/start", body=cuerpo, **extra)
             else:
                 self.backend.post(path="/cycle/start", **extra)
             return True
         except Exception as e:
+            respuesta = getattr(e, "response", None)
+            if respuesta is not None:
+                try:
+                    datos = respuesta.json()
+                except Exception:
+                    datos = {}
+                _rechazo_inicio.valor = (respuesta.status_code, datos if isinstance(datos, dict) else {})
             logger.warning("start_cycle error: %s", e)
             return False
+
+    def ultimo_rechazo_inicio(self):
+        """T30-01: (estado HTTP, cuerpo) del último start_cycle rechazado en
+        este hilo; None si fue aceptado o no hubo respuesta HTTP."""
+        return getattr(_rechazo_inicio, "valor", None)
+
+    def operadores_activos(self):
+        """T30-01: [{"id", "nombre"}] de GET /operadores?activos=true, o None
+        si no se pudo leer (falla cerrada: quien llama no inicia)."""
+        try:
+            r = self.backend.get("/operadores?activos=true")
+            filas = r.get("operadores") if isinstance(r, dict) else None
+            if not isinstance(filas, list):
+                return None
+            return [{"id": o["id"], "nombre": o["nombre"]} for o in filas
+                    if isinstance(o, dict) and isinstance(o.get("id"), int)
+                    and not isinstance(o.get("id"), bool)
+                    and isinstance(o.get("nombre"), str) and o["nombre"].strip()
+                    and o.get("activo", True) is not False]
+        except Exception as e:
+            logger.warning("operadores_activos error: %s", e)
+            return None
 
     def abort_cycle(self):
         """Envía POST /cycle/abort. Si tuvo éxito devuelve la respuesta (dict,

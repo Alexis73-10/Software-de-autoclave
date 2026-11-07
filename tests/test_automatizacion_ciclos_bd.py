@@ -30,7 +30,7 @@ def _fila(db, ciclo_id):
 
 def test_bd_nueva_tiene_columnas_y_version_12(tmp_path):
     db = DbManager(tmp_path / "a.db")
-    assert db.get_version_esquema() == db_manager.ESQUEMA_VERSION == 12
+    assert db.get_version_esquema() == db_manager.ESQUEMA_VERSION == 13   # v13: usuarios.eliminado (T30-03)
     cols = _columnas(db._conn)
     assert "serie_original" in cols and "modelo_original" in cols
 
@@ -50,7 +50,7 @@ def test_bd_v11_se_migra_y_filas_viejas_quedan_null(tmp_path):
     con.close()
 
     db2 = DbManager(ruta)
-    assert db2.get_version_esquema() == 12
+    assert db2.get_version_esquema() == db_manager.ESQUEMA_VERSION   # migra hasta la última (v13, T30-03)
     fila = _fila(db2, viejo)
     assert fila["serie_original"] is None and fila["modelo_original"] is None
     nuevo = _crear(db2, uuid="u2", numero=2, serie_original=ORIG[0], modelo_original=ORIG[1])

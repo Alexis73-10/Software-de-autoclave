@@ -167,8 +167,12 @@ _CODIGOS_REASIGNACION = frozenset({
 # Opciones › Usuarios (corrección tras revisión de la fase 1, B1): 409 propios
 # de PUT /usuarios/{u}/activo y POST /operadores; solo en /usuarios y
 # /operadores. Su texto lo pone UsuariosController (_MENSAJES).
+# T30-03 (tanda 30): eliminar (DELETE) y cambiar el rol (PATCH /usuarios/{u})
+# suman `autoeliminacion`, `autocambio_rol` y `rol_no_gestionable` (403, que
+# antes llegaba como error_generico).
 _CODIGOS_USUARIOS = frozenset({
     "ultimo_ingeniero", "autodesactivacion", "cuenta_sistema", "operador_existe",
+    "autoeliminacion", "autocambio_rol", "rol_no_gestionable",
 })
 # AJUSTES 2026-11-02 (revisión de las fases 2 a 5): rechazos propios de otras
 # pantallas de Opciones que llegaban como "error_generico"; solo en su ruta.
@@ -247,7 +251,14 @@ _CLAVES_RESTAURAR = {
     "confirmacion_requerida": "respaldo.err_confirmacion",
 }
 _CLAVES_TEMA = {"ARCHIVO_NO_ESCRIBIBLE": "opciones.equipo_err_guardar"}
+# T30-01 (tanda 30): operador obligatorio al iniciar sin sesión (POST /cycle/start)
+_CLAVES_INICIO_CICLO = {
+    "operador_requerido": "operador_ciclo.err_requerido",
+    "operador_invalido": "operador_ciclo.err_invalido",
+    "operador_no_verificable": "operador_ciclo.err_no_verificable",
+}
 _CLAVES_POR_RUTA = (("/io/test", _CLAVES_IO_TEST),
+                    ("/cycle/start", _CLAVES_INICIO_CICLO),
                     ("/maintenance/atm-calibration", _CLAVES_CALIBRACION_ATM),
                     ("/backup/restore", _CLAVES_RESTAURAR),
                     ("/theme", _CLAVES_TEMA))

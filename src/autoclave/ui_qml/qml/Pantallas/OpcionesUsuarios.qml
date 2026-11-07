@@ -9,8 +9,13 @@ import Autoclave.I18n
 // Operadores. Usuarios: nombre, rol, último ingreso y chip Activo/Desactivado;
 // para el seleccionado, "Restablecer contraseña" y "Desactivar" (o Reactivar),
 // y "+ Nuevo usuario" (abre la pantalla existente). Operadores: lista con
-// agregar y desactivar. Nunca se borra un usuario; nadie se desactiva a sí
-// mismo ni deja el equipo sin un ingeniero activo (lo impone el backend).
+// agregar y desactivar. Nadie se desactiva a sí mismo ni deja el equipo sin
+// un ingeniero activo (lo impone el backend).
+// T30-03 (tanda 30): "Cambiar rol" (elegir el rol y confirmar) y "Eliminar"
+// (confirmar; sale de la lista sin borrarse de la base, sin deshacer) para el
+// seleccionado, con las mismas reglas; "Cambiar mi contraseña", visible y
+// habilitado para todos los roles, emite cambiarMiClavePulsado (Main.qml abre
+// CambioClave en modo voluntario).
 // Decisión 1.9: el técnico ve los controles deshabilitados, con el motivo.
 Item {
     id: raiz
@@ -24,6 +29,7 @@ Item {
     readonly property bool cambiosPendientes: false
 
     signal nuevoUsuarioPulsado()
+    signal cambiarMiClavePulsado()     // T30-03: cambiar la propia contraseña
 
     UsuariosController {
         id: control
@@ -73,6 +79,23 @@ Item {
             })
     }
     property string _confirmacion: ""
+
+    // T30-03: cambiar el rol (elegir y confirmar) y eliminar
+    property string _rolNuevo: ""
+    readonly property var rolesDestino: control.usuarios.length >= 0 && control.motivo !== null
+                                        && raiz.seleccionado !== ""
+                                        ? control.rolesDestino(raiz.seleccionado) : []
+    readonly property bool seleccionGestionable: raiz.filaSeleccionada !== null
+                                                 && raiz.motivoSeleccionado === ""
+                                                 && raiz.filaSeleccionada.cuentaSistema !== true
+    Connections {
+        target: control
+        // el eliminado sale de la lista: nada queda seleccionado
+        function onCambioResuelto(clave, aceptado, mensaje) {
+            if (aceptado && clave === "eliminar:" + raiz.seleccionado)
+                raiz.seleccionado = ""
+        }
+    }
 
     component Boton: Rectangle {
         id: boton
@@ -341,12 +364,49 @@ Item {
                     onPulsado: confirmarActivo.abrir()
                 }
             }
-            Boton {
-                objectName: "botonNuevoUsuario"
+            Row {
                 width: parent.width
-                texto: I18n.t("gestion_usuarios.nuevo", I18n.lang)
-                habilitado: control.motivo === ""
-                onPulsado: raiz.nuevoUsuarioPulsado()
+                spacing: Escala.px(12)
+                Boton {
+                    objectName: "botonCambiarRol"
+                    width: (parent.width - Escala.px(12)) / 2
+                    secundario: true
+                    texto: raiz.pendiente("rol:" + raiz.seleccionado)
+                           ? I18n.t("opciones.guardando", I18n.lang)
+                           : I18n.t("usuarios_cuenta.cambiar_rol", I18n.lang)
+                    habilitado: raiz.seleccionGestionable && raiz.rolesDestino.length > 0
+                                && !raiz.pendiente("rol:" + raiz.seleccionado)
+                    onPulsado: { raiz._rolNuevo = ""; elegirRol.visible = true }
+                }
+                Boton {
+                    objectName: "botonEliminarUsuario"
+                    width: (parent.width - Escala.px(12)) / 2
+                    secundario: true
+                    texto: raiz.pendiente("eliminar:" + raiz.seleccionado)
+                           ? I18n.t("opciones.guardando", I18n.lang)
+                           : I18n.t("usuarios_cuenta.eliminar", I18n.lang)
+                    habilitado: raiz.seleccionGestionable
+                                && !raiz.pendiente("eliminar:" + raiz.seleccionado)
+                    onPulsado: confirmarEliminar.abrir()
+                }
+            }
+            Row {
+                width: parent.width
+                spacing: Escala.px(12)
+                Boton {
+                    objectName: "botonNuevoUsuario"
+                    width: (parent.width - Escala.px(12)) / 2
+                    texto: I18n.t("gestion_usuarios.nuevo", I18n.lang)
+                    habilitado: control.motivo === ""
+                    onPulsado: raiz.nuevoUsuarioPulsado()
+                }
+                // T30-03: para todos los roles (también el técnico)
+                Boton {
+                    objectName: "botonCambiarMiClave"
+                    width: (parent.width - Escala.px(12)) / 2
+                    texto: I18n.t("usuarios_cuenta.mi_clave", I18n.lang)
+                    onPulsado: raiz.cambiarMiClavePulsado()
+                }
             }
         }
     }
@@ -459,5 +519,99 @@ Item {
             raiz._claveTemporal = ""; raiz._confirmacion = ""
         }
         onDescartado: { raiz._claveTemporal = ""; raiz._confirmacion = "" }
+    }
+
+    // T30-03: elegir el rol nuevo (luego se confirma con confirmarRol)
+    Item {
+        id: elegirRol
+        objectName: "elegirRol"
+        anchors.fill: parent
+        visible: false
+        z: 100
+        Rectangle {
+            anchors.fill: parent
+            color: Colores.velo
+            MouseArea { anchors.fill: parent; onClicked: elegirRol.visible = false }
+        }
+        Rectangle {
+            id: tarjetaRol
+            width: parent.width - Escala.px(160)
+            height: columnaRol.implicitHeight + Escala.px(96)
+            anchors.centerIn: parent
+            radius: Escala.px(28)
+            color: Colores.fondoTarjeta
+            MouseArea { anchors.fill: parent }   // no dejar pasar el toque al fondo
+            Column {
+                id: columnaRol
+                x: Escala.px(48); y: Escala.px(48)
+                width: tarjetaRol.width - Escala.px(96)
+                spacing: Escala.px(16)
+                Text {
+                    width: parent.width
+                    wrapMode: Text.WordWrap
+                    horizontalAlignment: Text.AlignHCenter
+                    text: raiz.filaSeleccionada === null ? ""
+                          : I18n.t("usuarios_cuenta.elegir_rol", I18n.lang,
+                                   { usuario: raiz.seleccionado,
+                                     rol: raiz.etiquetaRol(raiz.filaSeleccionada.rol) })
+                    color: Colores.textoPrimario
+                    font.family: Tipografia.familia
+                    font.weight: Tipografia.pesoSemiBold
+                    font.pixelSize: Escala.fuente(30)
+                }
+                Repeater {
+                    model: raiz.rolesDestino
+                    delegate: Boton {
+                        required property string modelData
+                        objectName: "opcionRol_" + modelData
+                        width: columnaRol.width
+                        texto: raiz.etiquetaRol(modelData)
+                        onPulsado: {
+                            raiz._rolNuevo = modelData
+                            elegirRol.visible = false
+                            confirmarRol.abrir()
+                        }
+                    }
+                }
+                Boton {
+                    objectName: "cancelarElegirRol"
+                    width: columnaRol.width
+                    secundario: true
+                    texto: I18n.t("acciones.cancelar", I18n.lang)
+                    onPulsado: elegirRol.visible = false
+                }
+            }
+        }
+    }
+    DialogoConfirmacion {
+        id: confirmarRol
+        objectName: "confirmarCambiarRol"
+        mensaje: raiz.filaSeleccionada === null || raiz._rolNuevo === "" ? ""
+                 : I18n.t("usuarios_cuenta.confirmar_rol", I18n.lang,
+                          { usuario: raiz.seleccionado,
+                            anterior: raiz.etiquetaRol(raiz.filaSeleccionada.rol),
+                            nuevo: raiz.etiquetaRol(raiz._rolNuevo) })
+        textoConfirmar: I18n.t("usuarios_cuenta.cambiar_rol", I18n.lang)
+        textoCancelar: I18n.t("acciones.cancelar", I18n.lang)
+        onConfirmado: {
+            cerrar()
+            if (raiz._rolNuevo !== "")
+                control.cambiarRol(raiz.seleccionado, raiz._rolNuevo)
+            raiz._rolNuevo = ""
+        }
+        onDescartado: raiz._rolNuevo = ""
+    }
+    DialogoConfirmacion {
+        id: confirmarEliminar
+        objectName: "confirmarEliminarUsuario"
+        mensaje: I18n.t("usuarios_cuenta.confirmar_eliminar", I18n.lang, { usuario: raiz.seleccionado })
+        textoConfirmar: I18n.t("usuarios_cuenta.eliminar", I18n.lang)
+        textoCancelar: I18n.t("acciones.cancelar", I18n.lang)
+        colorConfirmar: Colores.peligroTexto
+        onConfirmado: {
+            cerrar()
+            if (raiz.filaSeleccionada)
+                control.eliminar(raiz.seleccionado)
+        }
     }
 }

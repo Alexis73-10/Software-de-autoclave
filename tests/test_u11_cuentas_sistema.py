@@ -360,13 +360,16 @@ def test_409_borrar_cambiar_rol_renombrar_cuenta_sistema(api, objetivo, metodo, 
 
 
 def test_borrar_o_modificar_otro_usuario_tampoco_disponible(api):
+    # T30-03 (tanda 30) reemplaza en parte U11: DELETE elimina (sin borrar la
+    # fila) y PATCH cambia el rol; nombre y usuario siguen sin editarse
     client, srv, ctx, cab = api
     h = cab(srv, "ingeniero", usuario="ines_ing")
-    r = client.delete("/usuarios/tomas_tec", headers=h)
-    assert r.status_code == 409 and r.json()["codigo"] == "usuario_no_se_borra"
-    r = client.patch("/usuarios/tomas_tec", json={"rol": "admin"}, headers=h)
+    r = client.patch("/usuarios/tomas_tec", json={"nombre": "Otro"}, headers=h)
     assert r.status_code == 409 and r.json()["codigo"] == "modificacion_no_disponible"
-    assert ctx.db.get_usuario_cualquiera("tomas_tec")["rol"] == "tecnico"
+    r = client.patch("/usuarios/tomas_tec", json={"rol": "admin"}, headers=h)
+    assert r.status_code == 200 and ctx.db.get_usuario_cualquiera("tomas_tec")["rol"] == "admin"
+    r = client.delete("/usuarios/tomas_tec", headers=h)
+    assert r.status_code == 200 and ctx.db.get_usuario_cualquiera("tomas_tec") is None
     assert client.delete("/usuarios/nadie", headers=h).status_code == 404
     assert client.patch("/usuarios/Admin", json={"rol": "x"},
                         headers=cab(srv, "tecnico", usuario="tomas_tec")).status_code == 403

@@ -7,6 +7,12 @@
 # agregar (POST /operadores) y desactivar / reactivar (PUT /operadores/{id}/activo).
 # Nuevo usuario abre la pantalla existente (Opciones.nuevoUsuarioPulsado).
 #
+# T30-03 (tanda 30): eliminar (DELETE /usuarios/{u}) y cambiar el rol (PATCH
+# /usuarios/{u} con `rol`), asíncronos como restablecer (claves "eliminar:<u>"
+# y "rol:<u>"); `rolesDestino(u)` da los roles a los que la sesión puede
+# pasarlo (gestionables, sin el actual). «Cambiar mi contraseña» no pasa por
+# aquí: la pantalla emite cambiarMiClavePulsado y Main.qml abre CambioClave.
+#
 # U11 (tanda 11, D11-6): las cuentas del sistema (Admin, Ingeniero; marca
 # `cuenta_sistema` del backend) no se pueden desactivar: la pantalla deshabilita
 # ese botón y explica el motivo; restablecer su contraseña sigue disponible.
@@ -40,6 +46,8 @@ _MENSAJES = {
     "rol_sin_permiso": "gestion_usuarios.err_rol",
     "rol_no_gestionable": "gestion_usuarios.err_rol_objetivo",
     "autodesactivacion": "gestion_usuarios.err_propio",
+    "autoeliminacion": "usuarios_cuenta.err_propio_eliminar",
+    "autocambio_rol": "usuarios_cuenta.err_propio_rol",
     "usar_cambio_clave": "gestion_usuarios.err_propia_clave",
     "ultimo_ingeniero": "gestion_usuarios.err_ultimo_ingeniero",
     "cuenta_sistema": "gestion_usuarios.err_cuenta_sistema",
@@ -285,7 +293,8 @@ class UsuariosController(QObject):
         return self._aplicar(f"operador:{int(id_)}", bool(activo))
 
     # ── restablecer contraseña, agregar operador: asíncronos ─────────────
-    def _accion(self, clave: str, metodo: str, ruta: str, cuerpo: dict) -> bool:
+    def _accion(self, clave: str, metodo: str, ruta: str, cuerpo: dict | None,
+                mensajes: dict | None = None) -> bool:
         if clave in self._en_vuelo:
             return False                   # esa acción sigue pendiente
         self._en_vuelo[clave] = ENVIANDO
@@ -298,7 +307,8 @@ class UsuariosController(QObject):
             self._resuelto = r.ok
             if r.ok or r.causa == sesion_backend.BACKEND_NO_RESPONDE:
                 self.cargar()              # sin respuesta el resultado es incierto: se relee
-            self._fijar_mensaje("" if r.ok else mensaje_de(r.causa))
+            propio = (mensajes or {}).get(r.causa)
+            self._fijar_mensaje("" if r.ok else (propio or mensaje_de(r.causa)))
             self.cambioResuelto.emit(clave, r.ok, self._mensaje)
 
         self._enviar(metodo, ruta, cuerpo, terminar)
@@ -310,6 +320,38 @@ class UsuariosController(QObject):
         return self._accion(f"clave:{usuario}", "POST",
                             f"/usuarios/{quote(usuario, safe='')}/restablecer_clave",
                             {"clave": clave, "confirmacion": confirmacion})
+
+    # ── eliminar y cambiar el rol (T30-03): asíncronos ───────────────────
+    def _fila_usuario(self, usuario: str):
+        return next((u for u in self._usuarios if u.get("usuario") == usuario), None)
+
+    @Slot(str, result="QVariantList")
+    def rolesDestino(self, usuario: str) -> list:
+        """Roles a los que la sesión puede pasar a `usuario`: los
+        gestionables, sin el actual; vacío si no puede modificarlo o es una
+        cuenta del sistema. El backend es la autoridad."""
+        fila = self._fila_usuario(usuario)
+        if (fila is None or self.motivoSobre(usuario) or fila.get("cuenta_sistema") is True
+                or fila.get("rol") not in self._gestionables):
+            return []
+        return [r for r in ("admin", "tecnico", "ingeniero")
+                if r in self._gestionables and r != fila.get("rol")]
+
+    @Slot(str, result=bool)
+    def eliminar(self, usuario: str) -> bool:
+        if not usuario:
+            return False
+        return self._accion(f"eliminar:{usuario}", "DELETE",
+                            f"/usuarios/{quote(usuario, safe='')}", None)
+
+    @Slot(str, str, result=bool)
+    def cambiarRol(self, usuario: str, rol: str) -> bool:
+        if not usuario or rol not in self.rolesDestino(usuario):
+            self._fijar_mensaje(mensaje_de("rol_no_gestionable"))
+            return False
+        return self._accion(f"rol:{usuario}", "PATCH", f"/usuarios/{quote(usuario, safe='')}",
+                            {"rol": rol},
+                            mensajes={"validacion": "usuarios_cuenta.err_rol_invalido"})
 
     @Slot(str, result=bool)
     def agregarOperador(self, nombre: str) -> bool:

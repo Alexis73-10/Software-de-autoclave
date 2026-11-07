@@ -160,6 +160,15 @@ class EstadoAutoclave:
         # Nada de control los lee.
         self.exposicion_restante_s = None
         self.exposicion_total_s = None
+        # T30-02: datos de progreso de la fase activa que publican
+        # CALENTAMIENTO (ventana de estabilización), DESCOMPRESION (modos 4/5
+        # enfriando) y SECADO (conteo de la fase) para la pantalla de ciclo en
+        # curso. Solo publicación: nada de control los lee. None = sin dato.
+        self.estabilizacion_s = None
+        self.estabilizacion_total_s = None
+        self.descompresion_enfriando = False
+        self.secado_transcurrido_s = None
+        self.secado_total_s = None
         # O1 (tanda 3): usuario autenticado que pidió el inicio (POST /cycle/start).
         # Lo fija el backend junto con START_CICLO y lo toma el CycleLogger al
         # crear el ciclo. "" = sin sesión.

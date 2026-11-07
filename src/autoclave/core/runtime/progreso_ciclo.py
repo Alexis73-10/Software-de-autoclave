@@ -300,6 +300,115 @@ def armar_progreso(aplicables, filas_fases, fase_ciclo, transcurrido_s: float, r
     }
 
 
+# ── T30-02 (tanda 30): progreso de la fase activa ───────────────────────
+# Dato crudo (°C, kPa absolutos, segundos) del avance de la fase activa; el
+# texto, las unidades de presentación y el idioma los pone la UI
+# (ui_qml/domain/ciclo_en_curso.py). Nada de control lo lee.
+
+_NIVEL_BAJO = ("DECOMPRESION", "VACIO_BAJO", "HOLD_BAJO", "APAGANDO_VACIO")
+
+
+def _finito(valor) -> float | None:
+    if isinstance(valor, bool) or not isinstance(valor, (int, float)):
+        return None
+    v = float(valor)
+    return v if v == v and v not in (float("inf"), float("-inf")) else None
+
+
+def _param(cycle, *ruta, default=None):
+    try:
+        return cycle.get_param(*ruta, default=default)
+    except Exception:
+        return default
+
+
+def _pulso_prevacio(estado, cycle) -> dict:
+    """Pulso en curso / total del prevacío (suma de A, B, C y D) y nivel."""
+    import re
+    conteos = []
+    for t in _TIPOS_PULSO:
+        n = _finito(_param(cycle, "prevacio", f"conteo_pulso_{t}", default=0))
+        conteos.append(max(0, int(n)) if n is not None else 0)
+    total = sum(conteos)
+    m = re.match(r"^\s*([A-Da-d])\s+(\d+)\s*/\s*(\d+)\s*$",
+                 str(getattr(estado, "prevacio_progreso", "") or ""))
+    pulso = None
+    if m and total > 0:
+        pulso = sum(conteos[:"abcd".index(m.group(1).lower())]) + int(m.group(2))
+        pulso = pulso if 1 <= pulso <= total else None
+    paso = getattr(estado, "sub_estado_ciclo", "")
+    nivel = None
+    if isinstance(paso, str) and paso:
+        nivel = "bajo" if paso in _NIVEL_BAJO else "alto"
+    return {"tipo": "prevacio", "pulso": pulso, "total": total if total > 0 else None,
+            "nivel": nivel if pulso is not None else None}
+
+
+def _margen_atm(config) -> float:
+    v = _finito(config.get("rango_presion_atm")) if config is not None else None
+    return v if v is not None and v > 0 else 20.0
+
+
+def detalle_fase(fase_activa, estado, cycle, cap=None, config=None) -> dict | None:
+    """`detalle_fase` de GET /cycle/current/progress: avance crudo de la fase
+    activa, o None sin fase activa o ante cualquier error (nunca tumba el
+    endpoint). `tipo`:
+    - "presion": actual / objetivo en kPa abs (precalentamiento, descompresión);
+    - "temperatura": actual / objetivo en °C (calentamiento, descompresión 4/5
+      enfriando);
+    - "prevacio": pulso, total, nivel ("bajo"|"alto");
+    - "estabilizando": transcurrido_s / total_s de la ventana de estabilización;
+    - "exposicion": transcurrido_s / total_s y, con F0 activo, f0 / f0_objetivo;
+    - "tiempo": transcurrido_s / total_s (secado)."""
+    try:
+        if fase_activa not in FASES_UI or cycle is None:
+            return None
+        pres = getattr(estado, "sensores_pres", None) or {}
+        temp = getattr(estado, "sensores_temp", None) or {}
+        if fase_activa == "precalentamiento":
+            return {"tipo": "presion", "actual": _finito(pres.get("pres_chaqueta")),
+                    "objetivo": _finito(_param(cycle, "precalentamiento", "presion_precalentamiento"))}
+        if fase_activa == "vacio":
+            return _pulso_prevacio(estado, cycle)
+        if fase_activa == "calentamiento":
+            est_s, est_t = _finito(getattr(estado, "estabilizacion_s", None)),                 _finito(getattr(estado, "estabilizacion_total_s", None))
+            if getattr(estado, "fase_en_sostenimiento", False) is True and est_s is not None                     and est_t is not None and est_t > 0:
+                return {"tipo": "estabilizando", "transcurrido_s": est_s, "total_s": est_t}
+            return {"tipo": "temperatura", "actual": _finito(temp.get("temp_camara")),
+                    "objetivo": _finito(_param(cycle, "calentamiento", "temperatura_calentamiento"))}
+        if fase_activa == "esterilizacion":
+            total = _finito(getattr(estado, "exposicion_total_s", None))
+            resto = _finito(getattr(estado, "exposicion_restante_s", None))
+            det = {"tipo": "exposicion",
+                   "transcurrido_s": max(0.0, total - resto) if total is not None and resto is not None else None,
+                   "total_s": total, "f0": None, "f0_objetivo": None}
+            f0_activo = bool(_param(cycle, "globals", "F0")) and (
+                cap is None or bool(getattr(cap, "has_liquid_sensor", False)))
+            if f0_activo:
+                det["f0"] = _finito(getattr(estado, "f0_acumulado", None))
+                det["f0_objetivo"] = _finito(_param(cycle, "globals", "F0_objetivo"))
+            return det
+        if fase_activa == "descompresion":
+            modo = _param(cycle, "descompresion", "modo", default=0)
+            if modo in (4, 5) and getattr(estado, "descompresion_enfriando", False) is True:
+                return {"tipo": "temperatura", "actual": _finito(temp.get("temp_camara")),
+                        "objetivo": _finito(_param(cycle, "descompresion", f"modo_{modo}",
+                                                   "temperatura_enfriamiento", default=80.0))}
+            atm = _finito(config.get("presion_admosferica")) if config is not None else None
+            atm = atm if atm is not None else 101.3
+            margen = _finito(_param(cycle, "descompresion", "presion_fin_descompresion"))
+            if modo not in (1, 2, 3, 4, 5) or margen is None or margen <= 0:
+                margen = _margen_atm(config)    # modo 0 y T29-03 sin parámetro válido
+            return {"tipo": "presion", "actual": _finito(pres.get("pres_camara")),
+                    "objetivo": atm + margen}
+        # secado
+        return {"tipo": "tiempo",
+                "transcurrido_s": _finito(getattr(estado, "secado_transcurrido_s", None)),
+                "total_s": _finito(getattr(estado, "secado_total_s", None))}
+    except Exception:
+        return None
+
+
 # ── FC-13 (tanda 21): datos de la pantalla de fin de ciclo ───────────────
 
 def _texto_o_none(valor) -> str | None:

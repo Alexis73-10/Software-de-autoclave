@@ -38,6 +38,8 @@ EVENTOS = (
     "ciclo_no_conforme_reconocido",
     # FC-12 (tanda 21): cancelación del ciclo, con el usuario si hay sesión
     "ciclo_cancelado",
+    # T30-01 (tanda 30): inicio del ciclo con su operador (sesión o lista)
+    "ciclo_iniciado",
     # X9 (tanda 9, D9-13.3 TMG-01): el cambio registrado como "en_curso" no
     # llegó al ciclo en curso porque su fase inició antes de aplicarlo
     "param_ciclo_no_aplicado_en_curso",
@@ -56,6 +58,8 @@ EVENTOS = (
     "programa_creado", "programa_duplicado", "programa_habilitado", "programa_borrado",
     # U11 (tanda 11, D11-6): cuentas del sistema Admin e Ingeniero
     "usuario_renombrado", "cuenta_sistema_rechazada",
+    # T30-03 (tanda 30): eliminar usuario (sin borrar la fila) y cambiar su rol
+    "usuario_eliminado", "usuario_rol_cambiado",
     # LIC-02 (licencia L0): contraseña de Admin/Ingeniero fijada en el asistente
     "contrasena_fijada_instalacion",
     # BIT-02 (tanda 17): única fila de la instalación, al terminar el asistente
@@ -109,6 +113,7 @@ _CATEGORIA = {
         "modo_prueba_entra", "modo_prueba_sale", "modo_prueba_salida_forzada", "salida_prueba",
         "salida_prueba_cortada", "atrapamiento_orden_invertida", "aire_atmosferico_cortado_prueba",
         "apagado_windows_rechazado", "ciclo_no_conforme_reconocido", "ciclo_cancelado",
+        "ciclo_iniciado",
         "arranque_camara_no_segura", "salidas_sin_confirmar", "salidas_confirmadas",
         "salidas_confirmadas_tras_reintento", "inicio_descartado_por_modo_prueba",
         "estado_seguro_secado_iniciado", "estado_seguro_secado_terminado",
@@ -126,6 +131,7 @@ _CATEGORIA = {
         "usuario_creado", "usuario_desactivado", "usuario_reactivado", "clave_restablecida",
         "operador_creado", "operador_desactivado", "operador_reactivado",
         "usuario_renombrado", "cuenta_sistema_rechazada", "contrasena_fijada_instalacion",
+        "usuario_eliminado", "usuario_rol_cambiado",
     ),
     "mantenimiento_calibracion": (
         "mantenimiento_registrado", "mantenimiento_configurado",

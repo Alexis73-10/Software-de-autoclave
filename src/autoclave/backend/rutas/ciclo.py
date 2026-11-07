@@ -184,6 +184,10 @@ def get_current_cycle_progress():
     progreso = progreso_ciclo.armar_progreso(aplicables, filas, fase_ciclo, transcurrido,
                                              referencias, restante_exp,
                                              total_exposicion_s=total_exp)
+    # T30-02: avance crudo de la fase activa (el texto lo arma la UI)
+    progreso["detalle_fase"] = progreso_ciclo.detalle_fase(
+        progreso.get("fase_activa"), context.estado, cycle, context.cap,
+        getattr(context, "config_manager", None))
     # FC-06/FC-13 (tanda 21): con el ciclo terminado, la fase en que terminó,
     # cómo terminó y las alarmas del ciclo. P4 (NO CONFORME) se retiró (FC-08).
     if progreso.get("resultado") is not None:
@@ -254,6 +258,11 @@ def start_cycle(body: dict | None = Body(default=None),
                       "iniciar un ciclo", "/cycle/start")
     if getattr(context.control_loop, "apagando", False) is True:
         _rechazar(409, "apagado_en_curso", "El equipo se está apagando", "/cycle/start")
+    # T30-01: sin sesión válida y con operadores activos, el operador elegido
+    # (operador_id) es obligatorio; falla cerrada
+    operador_lista = None
+    if sesion_operador is None:
+        operador_lista = _operador_de_la_lista(body)
 
     # S2 (revisión): la validación del programa y START_CICLO van juntas bajo
     # el lock de la máquina: un /cycle/select concurrente no puede cambiar el
@@ -265,13 +274,64 @@ def start_cycle(body: dict | None = Body(default=None),
         # pausada: START_CICLO quedaría pendiente y el ciclo arrancaría solo)
         rechazo = _rechazo_salidas_pendientes() or _validar_inicio(estado)
         if rechazo is None:
-            estado.operador_inicio = sesion_operador.usuario if sesion_operador else ""
+            if sesion_operador is not None:
+                operador = sesion_operador.usuario
+            else:
+                operador = operador_lista["nombre"] if operador_lista else ""
+            estado.operador_inicio = operador
             estado.set_flag("START_CICLO", True)
     if rechazo is not None:
         if rechazo[0] is None:
             raise HTTPException(status_code=409, detail=rechazo[1])
         _rechazar(409, rechazo[0], rechazo[1], "/cycle/start")
+    # T30-01: fila del inicio con el operador (sesión, lista o ninguno).
+    # DECISIÓN SIN CONFIRMAR: sin sesión, el usuario de la fila es el
+    # operador elegido (rol vacío), para que el filtro Usuario lo encuentre.
+    detalle = {"origen_operador": ("sesion" if sesion_operador is not None
+                                   else "lista" if operador_lista else "sin_operador"),
+               "operador": operador,
+               "programa": getattr(getattr(context.control_loop, "cycle", None), "id", None)}
+    if operador_lista:
+        detalle["operador_id"] = operador_lista["id"]
+    _auditar("ciclo_iniciado", sesion_operador,
+             usuario="" if sesion_operador is not None else operador,
+             entidad="/cycle/start", valor_nuevo=operador or "—", detalle=detalle)
     return {"ok": True, "action": "START_CICLO"}
+
+
+OPERADOR_REQUERIDO = "operador_requerido"
+OPERADOR_INVALIDO = "operador_invalido"
+OPERADOR_NO_VERIFICABLE = "operador_no_verificable"
+
+
+def _operador_de_la_lista(body) -> dict | None:
+    """T30-01: operador elegido para un inicio sin sesión válida.
+    None si no se exige (sin base de datos, como hoy, o sin operadores
+    activos); {"id", "nombre"} si `operador_id` es un operador activo. Si no,
+    rechaza: 409 operador_requerido (falta), 422 operador_invalido (inactivo,
+    inexistente o mal formado) o 503 operador_no_verificable (no se pudo leer
+    la lista: falla cerrada, DECISIÓN SIN CONFIRMAR)."""
+    if getattr(context, "sin_base_de_datos", False) is True:
+        return None
+    try:
+        activos = [o for o in list(context.db.listar_operadores(solo_activos=True))
+                   if isinstance(o, dict) and o.get("activo") is not False]
+    except Exception:
+        logger.exception("/cycle/start: no se pudo leer la lista de operadores")
+        _rechazar(503, OPERADOR_NO_VERIFICABLE, _i18n_t("operador_ciclo.err_no_verificable"),
+                  "/cycle/start")
+    if not activos:
+        return None
+    ident = body.get("operador_id") if isinstance(body, dict) else None
+    if ident is None:
+        _rechazar(409, OPERADOR_REQUERIDO, _i18n_t("operador_ciclo.err_requerido"),
+                  "/cycle/start")
+    if not isinstance(ident, int) or isinstance(ident, bool):
+        _rechazar(422, OPERADOR_INVALIDO, _i18n_t("operador_ciclo.err_invalido"), "/cycle/start")
+    for o in activos:
+        if o.get("id") == ident and isinstance(o.get("nombre"), str) and o["nombre"].strip():
+            return {"id": ident, "nombre": o["nombre"]}
+    _rechazar(422, OPERADOR_INVALIDO, _i18n_t("operador_ciclo.err_invalido"), "/cycle/start")
 
 
 PRINCIPAL_SIN_LECTURA = "PRINCIPAL_SIN_LECTURA"
