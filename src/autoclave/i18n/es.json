@@ -322,7 +322,7 @@
     "mant_guardar_intervalos": "Guardar intervalos",
     "err_modo_liquido": "Con carga líquida solo se permiten los modos de descompresión 4, 5 y 0: descomprimir rápido con líquido caliente produce ebullición violenta.",
     "err_modo_solido": "Con carga sólida solo se permiten los modos de descompresión 0 a 3: los modos 4 y 5 son de enfriamiento de líquidos.",
-    "err_coherencia_liquido": "No se puede pasar a carga líquida: el programa debe estar sin prevacío, sin secado, sin apertura automática y con contrapresión de enfriamiento suficiente.",
+    "err_coherencia_liquido": "No se puede pasar a carga líquida: el programa debe estar sin secado, sin apertura automática y con contrapresión de enfriamiento suficiente.",
     "aviso_modo_liquido": "Carga líquida: el modo de descompresión cambió a {modo} ({nombre}).",
     "aviso_modo_solido": "Carga sólida: el modo de descompresión volvió a {modo} ({nombre}).",
     "err_limite_presion_camara": "No se puede guardar: el techo de presión de cámara llegaría al alivio de cámara ({alivio_camara} kPa). La presión adicional debe ser menor que {valor} kPa.",

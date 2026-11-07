@@ -322,7 +322,7 @@
     "mant_guardar_intervalos": "Save intervals",
     "err_modo_liquido": "With a liquid load only depressurization modes 4, 5 and 0 are allowed: fast depressurization of hot liquid causes violent boiling.",
     "err_modo_solido": "With a solid load only depressurization modes 0 to 3 are allowed: modes 4 and 5 are for cooling liquids.",
-    "err_coherencia_liquido": "The program cannot switch to a liquid load: it must have no prevacuum, no drying, no automatic opening and enough cooling counterpressure.",
+    "err_coherencia_liquido": "The program cannot switch to a liquid load: it must have no drying, no automatic opening and enough cooling counterpressure.",
     "aviso_modo_liquido": "Liquid load: the depressurization mode changed to {modo} ({nombre}).",
     "aviso_modo_solido": "Solid load: the depressurization mode returned to {modo} ({nombre}).",
     "err_limite_presion_camara": "Cannot save: the chamber pressure ceiling would reach the chamber relief ({alivio_camara} kPa). The additional pressure must be lower than {valor} kPa.",

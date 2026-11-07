@@ -725,8 +725,7 @@ def errores_coherencia(parameters: dict) -> list[str]:
     modo = _valor(parameters, "descompresion", "modo")
     if modo not in MODOS_LIQUIDO:
         errores.append(MOTIVO_MODO_LIQUIDO)
-    if any(_valor(parameters, "prevacio", f"conteo_pulso_{p}", defecto=0) for p in _PULSOS):
-        errores.append("Carga líquida: sin pulsos de prevacío")
+    # Prevacío permitido con carga líquida (decisión de Cristian, 7-nov): igual que sólidos.
     if _valor(parameters, "secado", "tiempo_secado", defecto=0):
         errores.append("Carga líquida: sin secado (tiempo_secado = 0)")
     if _valor(parameters, "finalizacion", "apertura_automatica", defecto=False) is True:
