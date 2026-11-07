@@ -166,6 +166,16 @@ Item {
         const dos = n => n < 10 ? "0" + n : "" + n
         return dos(Math.floor(s / 3600)) + ":" + dos(Math.floor(s % 3600 / 60)) + ":" + dos(s % 60)
     }
+    // T30-02: texto de progreso de la fase activa; "—" sin conexión o sin dato.
+    // revisionFin, el idioma y las unidades de presentación lo vuelven a pedir.
+    readonly property string textoProgresoFase: {
+        const sin = I18n.t("sistema.sin_lectura", I18n.lang)
+        if (!datosVigentes || !progreso)
+            return sin
+        const _dep = [progreso.revisionFin, puente?.tempUnidad, puente?.presionUnidad]
+        return progreso.textoProgreso ? (progreso.textoProgreso(I18n.lang) || sin) : sin
+    }
+    // la barra de abajo sigue siendo el avance global (transcurrido / estimado)
     readonly property real fraccionProgreso: {
         const t = raiz.transcurridoS, r = raiz.restanteS
         if (t === null || t === undefined || r === null || r === undefined || t + r <= 0)
@@ -188,7 +198,7 @@ Item {
         readonly property string unidadTiempo: I18n.t("unidades.tiempo", I18n.lang)
         readonly property string unidadPresion: raiz.puente?.presionUnidad || I18n.t("unidades.presion", I18n.lang)
         readonly property string transcurrido: I18n.t("ciclo.tiempo_transcurrido", I18n.lang)
-        readonly property string restante: I18n.t("ciclo.tiempo_restante", I18n.lang)
+        readonly property string progresoFase: I18n.t("progreso_fase.rotulo", I18n.lang)
         readonly property string cancelar: I18n.t("ciclo.cancelar", I18n.lang)
         readonly property string modelo: I18n.t("ciclo.modelo", I18n.lang)
         readonly property string serie: I18n.t("ciclo.serie", I18n.lang)
@@ -745,8 +755,18 @@ Item {
     }
     Reloj { cx: 426.5; text: raiz.formatoReloj(raiz.transcurridoS) }
     RotuloReloj { cx: 426.5; text: raiz.textos.transcurrido }
-    Reloj { cx: 995; text: raiz.formatoReloj(raiz.restanteS) }
-    RotuloReloj { cx: 994.5; text: raiz.textos.restante }
+    // T30-02: en lugar del tiempo restante, el progreso de la fase activa
+    // (texto armado en ui_qml/domain/ciclo_en_curso.py, en las unidades del
+    // equipo). Baja la letra si no cabe, nunca se recorta (D8-5.4).
+    Reloj {
+        objectName: "textoProgresoFase"
+        lx: 740; width: raiz.m(440)
+        tam: 40
+        horizontalAlignment: Text.AlignHCenter
+        fontSizeMode: Text.HorizontalFit; minimumPixelSize: Escala.fuenteMinima
+        text: raiz.textoProgresoFase
+    }
+    RotuloReloj { cx: 960; text: raiz.textos.progresoFase }
 
     // Barra de progreso: ancho completo bajo los relojes (plan §5.6; el mockup
     // la corta en x = 814). Sin estimación de restante queda vacía.

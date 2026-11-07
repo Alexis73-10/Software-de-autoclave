@@ -86,7 +86,11 @@ Item {
     readonly property bool inicioCicloVisible: puente?.inicioCicloVisible ?? false
     // si el control desaparece con la confirmación «sin registro» abierta, se
     // cierra: no queda un camino de inicio en pantalla
-    onInicioCicloVisibleChanged: if (!inicioCicloVisible) confirmarSinRegistro.cerrar()
+    // T30-01: igual con la elección del operador abierta (no inicia)
+    onInicioCicloVisibleChanged: if (!inicioCicloVisible) {
+        confirmarSinRegistro.cerrar()
+        if (comandoCiclo?.eligiendoOperador ?? false) comandoCiclo.cancelarOperador()
+    }
     property bool cicloOcupado: comandoCiclo?.ocupado ?? false
     // T-16 (§5.9, decisión 22): sin rol, solo con la máquina en FALLA
     readonly property bool enFalla: (puente?.machineState ?? "") === "FALLA"
@@ -964,6 +968,18 @@ Item {
         textoAccion: I18n.t("ciclo.sin_bd_continuar", I18n.lang)
         colorAccion: Colores.accionPrimario
         onAceptado: raiz.iniciarSinRegistroPulsado()
+    }
+    // T30-01 (tanda 30): sin sesión y con operadores activos, el backend pide
+    // el operador; la elección la abre y la cierra ComandoIniciarCiclo
+    ModalOperador {
+        id: modalOperador
+        objectName: "modalOperador"
+        visible: (raiz.comandoCiclo?.eligiendoOperador ?? false) && raiz.inicioCicloVisible
+        operadores: raiz.comandoCiclo?.operadores ?? []
+        mensajeClave: raiz.comandoCiclo?.mensajeClave ?? ""
+        ocupado: raiz.cicloOcupado
+        onAceptado: (operadorId) => raiz.comandoCiclo?.iniciarConOperador(operadorId)
+        onCancelado: raiz.comandoCiclo?.cancelarOperador()
     }
     // B6 (tanda 4), PROVISIONAL (sin diseño): selector de ciclo. Lista de los
     // programas habilitados; los 3 más usados primero con la marca "Más usado".

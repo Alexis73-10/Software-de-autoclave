@@ -22,11 +22,16 @@ import Autoclave.I18n
 //   atrasPulsado / inicioPulsado -> pantalla anterior / principal; la sesión
 //                       ya se descartó con logout y el siguiente login vuelve
 //                       a pedir el cambio (R1-3; U2 de la tanda 2)
+//
+// T30-03 (tanda 30): `voluntario` (desde Opciones › Usuarios, «Cambiar mi
+// contraseña»): mismo formulario y misma ruta; aviso propio y Atrás/Inicio
+// salen SIN cerrar la sesión (no hay cambio obligatorio que abandonar).
 Item {
     id: raiz
     objectName: "cambioClave"
 
     property QtObject teclado: null
+    property bool voluntario: false
 
     signal claveCambiada()
     signal sesionTerminada()
@@ -94,7 +99,8 @@ Item {
         if (teclado)
             teclado.cerrar()
         limpiar()
-        control.abandonar()
+        if (!voluntario)
+            control.abandonar()     // solo el cambio obligatorio descarta la sesión
         senal()
     }
     function atras() { _salirCon(atrasPulsado) }
@@ -232,7 +238,8 @@ Item {
                         Text {
                             objectName: "avisoCambioObligatorio"
                             anchors.horizontalCenter: parent.horizontalCenter
-                            text: I18n.t("sesion.aviso_cambio_obligatorio", I18n.lang)
+                            text: raiz.voluntario ? I18n.t("usuarios_cuenta.aviso_voluntario", I18n.lang)
+                                                  : I18n.t("sesion.aviso_cambio_obligatorio", I18n.lang)
                             color: Colores.textoSecundario
                             font.family: Tipografia.familia
                             font.pixelSize: Escala.fuente(Tipografia.campoValorTam)

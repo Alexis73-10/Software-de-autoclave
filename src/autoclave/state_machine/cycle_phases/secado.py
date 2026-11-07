@@ -32,6 +32,8 @@ class SecadoFase(BaseFase):
         self._limite_vacio      = None
         self._lecturas_sin_vacio = 0
         self.estado.fase_en_sostenimiento = False
+        self.estado.secado_transcurrido_s = None   # T30-02: publicación para la pantalla
+        self.estado.secado_total_s = None
 
     def update(self) -> FaseResult:
         if not self.cap.has_vacuum:
@@ -61,6 +63,11 @@ class SecadoFase(BaseFase):
             self._inicializado = True
             self.estado.fase_en_sostenimiento = True
             logger.info("SecadoFase: modo %d | %.1f min", modo, float(tiempo_min))
+
+        # T30-02: avance del conteo del secado (solo publicación)
+        total_s = float(tiempo_min) * 60
+        self.estado.secado_total_s = total_s
+        self.estado.secado_transcurrido_s = min(total_s, max(0.0, total_s - (self._timer_fin - time.monotonic())))
 
         if modo == 1:
             return self._tick_modo_1()

@@ -44,6 +44,7 @@ Item {
     // ya no hay Salir que la cierre (solo la inactividad, SAF-01, decisión 7)
     signal atrasPulsado()
     signal nuevoUsuarioPulsado()   // sección Usuarios: abrir Nuevo usuario
+    signal cambiarMiClavePulsado() // T30-03, sección Usuarios: cambiar la propia contraseña
     signal cerrarSesionPulsado()   // barra inferior: cerrar la sesión y salir
     signal menuPulsado()           // engranaje del encabezado: Menú Principal
 
@@ -468,6 +469,7 @@ Item {
                 rol: control.rol
                 usuarioActual: control.usuario
                 onNuevoUsuarioPulsado: raiz.nuevoUsuarioPulsado()
+                onCambiarMiClavePulsado: raiz.cambiarMiClavePulsado()
             }
         }
 

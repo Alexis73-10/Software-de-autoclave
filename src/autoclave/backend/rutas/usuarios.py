@@ -9,9 +9,9 @@ from fastapi import Depends
 from pydantic import BaseModel, StrictBool
 from autoclave.backend.autenticacion import Sesion
 from autoclave.backend.contrasenas import hash_password, simular_verificacion, verificar_password
-from autoclave.auth.roles import ROL_ADMIN, ROL_INGENIERO, ROL_TECNICO, ROLES_CREABLES
+from autoclave.auth.roles import ROL_ADMIN, ROL_INGENIERO, ROL_TECNICO, ROLES_CREABLES, VALORES_ROL
 from autoclave.auth.validacion_usuario import (COD_IGUAL_ACTUAL, COD_OBLIGATORIO,
-    USUARIO_EXISTE, codigo_clave, codigo_confirmacion, codigos_nuevo_usuario)
+    COD_ROL_INVALIDO, USUARIO_EXISTE, codigo_clave, codigo_confirmacion, codigos_nuevo_usuario)
 from fastapi import APIRouter
 
 from autoclave.backend.dependencias import (RechazoApi, _auditar, _rechazar,
@@ -199,9 +199,10 @@ def crear_usuario(body: _NuevoUsuarioBody,
 # ── Gestión de usuarios y operadores (O2b, tanda 6; decisión 1.9) ────────────
 # Ver: admin, técnico e ingeniero (el técnico, en solo lectura). Modificar:
 # admin e ingeniero, y solo usuarios de un rol que pueden crear
-# (ROLES_CREABLES: el admin no toca a un ingeniero). Nunca se borra un usuario;
-# nadie se desactiva a sí mismo ni deja el equipo sin un ingeniero activo.
-# Desactivar o restablecer la contraseña cierra las sesiones abiertas del usuario.
+# (ROLES_CREABLES: el admin no toca a un ingeniero). Nunca se borra la fila de
+# un usuario: eliminar (T30-03) solo lo marca; nadie se desactiva ni se elimina
+# a sí mismo ni deja el equipo sin un ingeniero activo. Desactivar, eliminar,
+# cambiar el rol o restablecer la contraseña cierra las sesiones del usuario.
 
 _LECTURA_USUARIOS = (ROL_ADMIN, ROL_TECNICO, ROL_INGENIERO)
 _GESTION_USUARIOS = (ROL_ADMIN, ROL_INGENIERO)
@@ -320,11 +321,17 @@ def restablecer_clave(usuario: str, body: _RestablecerClaveBody,
     return {"ok": True, "usuario": usuario}
 
 
-# U11 (tanda 11, D11-6.3): borrar, cambiar el rol y renombrar no existen como
-# operación para ningún usuario (nunca se borra; nombre, usuario y rol no se
-# editan desde O2b). Estas dos rutas solo dan un rechazo explícito: 409
-# `cuenta_sistema` (auditado) para Admin e Ingeniero y 409 genérico para el
-# resto. No modifican nada en ningún caso.
+# U11 (tanda 11, D11-6.3), reemplazado en parte por T30-03 (tanda 30):
+# - DELETE elimina: el usuario desaparece de la lista sin borrarse de la base
+#   (columna `eliminado`), no inicia sesión, no cuenta en las reglas y su
+#   nombre no se reutiliza. No se revierte desde la UI.
+# - PATCH solo cambia el rol; nombre y usuario siguen sin editarse (409
+#   `modificacion_no_disponible`).
+# Mismas reglas que desactivar: nadie lo hace consigo mismo, las cuentas del
+# sistema no (409 `cuenta_sistema`, auditado), el rol actual y el nuevo deben
+# ser gestionables por la sesión (ROLES_CREABLES) y el equipo no queda sin un
+# ingeniero activo. Ambas cierran las sesiones del usuario y van a la bitácora.
+# Sin docstring a propósito: el contrato OpenAPI fijado (tanda 15) no cambia.
 
 class _ModificarUsuarioBody(BaseModel):
     model_config = {"extra": "forbid"}
@@ -340,14 +347,38 @@ def _objetivo_existente(usuario: str) -> dict:
     return fila
 
 
+def _rechazar_resultado(resultado: str, fila: dict, accion: str, entidad: str, sesion: Sesion):
+    """Rechazos comunes del resultado de la base al eliminar o cambiar el rol
+    (la comprobación definitiva va con el candado de la base)."""
+    if resultado == "no_existe":
+        raise RechazoApi(404, "no_existe", "El usuario no existe")
+    if resultado == "cuenta_sistema":
+        _rechazar_cuenta_sistema(fila, accion, entidad, sesion)
+    if resultado == "rol_no_gestionable":
+        _rechazar(403, "rol_no_gestionable", "Su rol no puede modificar usuarios con ese rol",
+                  entidad, sesion)
+    if resultado == "ultimo_protegido":
+        _rechazar(409, "ultimo_ingeniero", "El equipo no puede quedar sin un ingeniero activo",
+                  entidad, sesion)
+
+
 @router.delete("/usuarios/{usuario}")
 def borrar_usuario(usuario: str, sesion: Sesion = Depends(requiere_rol(*_GESTION_USUARIOS))):
     entidad = f"/usuarios/{usuario}"
+    if usuario == sesion.usuario:
+        _rechazar(409, "autoeliminacion", "Nadie puede eliminarse a sí mismo", entidad, sesion)
     fila = _objetivo_existente(usuario)
     if fila.get("cuenta_sistema"):
         _rechazar_cuenta_sistema(fila, "borrar", entidad, sesion)
-    _rechazar(409, "usuario_no_se_borra", "Los usuarios no se borran; se desactivan",
-              entidad, sesion)
+    _objetivo_gestionable(usuario, sesion, entidad)
+    resultado = context.db.eliminar_usuario(usuario, ROL_INGENIERO,
+                                            ROLES_CREABLES.get(sesion.rol, frozenset()))
+    _rechazar_resultado(resultado, fila, "borrar", entidad, sesion)
+    cerradas = _cerrar_sesiones_de(usuario, "usuario eliminado")
+    _auditar("usuario_eliminado", sesion, entidad=usuario,
+             valor_anterior={"rol": fila.get("rol"), "activo": bool(fila.get("activo"))},
+             detalle={"sesiones_cerradas": cerradas} if cerradas else None)
+    return {"ok": True, "usuario": usuario, "eliminado": True}
 
 
 @router.patch("/usuarios/{usuario}")
@@ -361,8 +392,29 @@ def modificar_usuario(usuario: str, body: _ModificarUsuarioBody,
     if fila.get("cuenta_sistema"):
         accion = "cambiar_rol" if body.rol is not None else "renombrar"
         _rechazar_cuenta_sistema(fila, accion, entidad, sesion, campos=campos)
-    _rechazar(409, "modificacion_no_disponible",
-              "El nombre, el usuario y el rol no se modifican", entidad, sesion)
+    if body.nombre is not None or body.usuario is not None:
+        # DECISIÓN SIN CONFIRMAR: rol junto con nombre o usuario se rechaza
+        # entero (no se aplica solo el rol)
+        _rechazar(409, "modificacion_no_disponible",
+                  "El nombre y el usuario no se modifican", entidad, sesion)
+    if usuario == sesion.usuario:
+        _rechazar(409, "autocambio_rol", "Nadie puede cambiar su propio rol", entidad, sesion)
+    if body.rol not in VALORES_ROL:
+        _rechazar_validacion({"rol": COD_ROL_INVALIDO})
+    gestionables = ROLES_CREABLES.get(sesion.rol, frozenset())
+    if fila.get("rol") not in gestionables or body.rol not in gestionables:
+        _rechazar(403, "rol_no_gestionable", "Su rol no puede modificar usuarios con ese rol",
+                  entidad, sesion)
+    resultado, anterior = context.db.cambiar_rol_usuario(usuario, body.rol, ROL_INGENIERO,
+                                                         gestionables)
+    _rechazar_resultado(resultado, fila, "cambiar_rol", entidad, sesion)
+    if resultado == "sin_cambio":
+        return {"ok": True, "usuario": usuario, "rol": body.rol, "sin_cambio": True}
+    cerradas = _cerrar_sesiones_de(usuario, "rol cambiado")
+    _auditar("usuario_rol_cambiado", sesion, entidad=usuario,
+             valor_anterior={"rol": anterior}, valor_nuevo={"rol": body.rol},
+             detalle={"sesiones_cerradas": cerradas} if cerradas else None)
+    return {"ok": True, "usuario": usuario, "rol": body.rol}
 
 
 @router.get("/operadores")

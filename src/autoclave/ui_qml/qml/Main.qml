@@ -545,6 +545,33 @@ Window {
             }
         }
     }
+    // T30-03 (tanda 30): cambio VOLUNTARIO de la propia contraseña desde
+    // Opciones › Usuarios. Clave cambiada o Atrás -> Opciones; Inicio ->
+    // principal (la sesión se conserva); sesión terminada (bloqueo, sin
+    // respuesta, 401) -> Login.
+    Component {
+        id: cambioClaveVoluntarioComp
+        AreaFija {
+            id: areaCambioClaveVoluntario
+            objectName: "areaCambioClaveVoluntario"
+            readonly property bool usaToken: true
+            readonly property bool sinCampana: true
+            CambioClave {
+                anchors.fill: parent
+                teclado: panelTeclado
+                voluntario: true
+                onClaveCambiada: { sesionVentana.refrescar(); if (ventana.esActual(areaCambioClaveVoluntario)) ventana.atras() }
+                onSesionTerminada: { sesionVentana.refrescar(); if (ventana.esActual(areaCambioClaveVoluntario)) ventana.irALogin() }
+                onAtrasPulsado: ventana.atras()
+                onInicioPulsado: ventana.volverAPrincipal()
+            }
+        }
+    }
+    function abrirCambioClaveVoluntario() {
+        if (seguridadUrgente)
+            return
+        pila.push(cambioClaveVoluntarioComp)
+    }
     function abrirNuevoUsuario() {
         if (seguridadUrgente)
             return
@@ -579,6 +606,7 @@ Window {
             onAtrasPulsado: ventana.atras()
             onInicioPulsado: ventana.volverAPrincipal()
             onNuevoUsuarioPulsado: ventana.abrirNuevoUsuario()
+            onCambiarMiClavePulsado: ventana.abrirCambioClaveVoluntario()
             onMenuPulsado: pila.push(menuComp)
             // D8-4.2 (tanda 8): cerrar sesión invalida el token (/auth/logout)
             // y lleva al LOGIN sobre la principal: su Atrás/Home vuelven a

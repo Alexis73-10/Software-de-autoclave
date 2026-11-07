@@ -12,6 +12,7 @@
 
 import math
 
+from autoclave import i18n
 from autoclave.core.runtime.progreso_ciclo import FASES_UI, TOPE_FRACCION_ACTIVA
 from autoclave.ui_qml.domain import fin_de_ciclo
 
@@ -120,7 +121,8 @@ def normalizar_progreso(respuesta) -> dict:
     """Respuesta de GET /cycle/current/progress validada para la pantalla."""
     vacio = {"activo": False, "ciclo_db_id": None, "fase_ciclo": "", "fase_activa": None,
              "resultado": None, "fase_terminacion": None, "terminacion": None, "alarmas_ciclo": [],
-             "fases": [], "aplicables": [], "transcurrido_s": None, "restante_s": None}
+             "fases": [], "aplicables": [], "transcurrido_s": None, "restante_s": None,
+             "detalle_fase": None}
     if not isinstance(respuesta, dict) or respuesta.get("activo") is not True:
         return vacio
 
@@ -162,4 +164,81 @@ def normalizar_progreso(respuesta) -> dict:
         "aplicables": [f["fase"] for f in fases],
         "transcurrido_s": _numero(respuesta.get("transcurrido_s")),
         "restante_s": _numero(respuesta.get("restante_s")),
+        "detalle_fase": normalizar_detalle(respuesta.get("detalle_fase")),
     }
+
+
+# ── T30-02 (tanda 30): texto de progreso de la fase activa ───────────────
+_TIPOS_DETALLE = {
+    "presion": ("actual", "objetivo"),
+    "temperatura": ("actual", "objetivo"),
+    "estabilizando": ("transcurrido_s", "total_s"),
+    "exposicion": ("transcurrido_s", "total_s", "f0", "f0_objetivo"),
+    "tiempo": ("transcurrido_s", "total_s"),
+    "prevacio": ("pulso", "total"),
+}
+
+
+def normalizar_detalle(valor) -> dict | None:
+    """`detalle_fase` validado: solo tipos conocidos y números finitos; un campo
+    mal formado queda None (se mostrará «—»), nunca tumba el resto."""
+    if not isinstance(valor, dict) or valor.get("tipo") not in _TIPOS_DETALLE:
+        return None
+    salida = {"tipo": valor["tipo"]}
+    for campo in _TIPOS_DETALLE[valor["tipo"]]:
+        salida[campo] = _numero(valor.get(campo))
+    if valor["tipo"] == "prevacio":
+        salida["nivel"] = valor.get("nivel") if valor.get("nivel") in ("bajo", "alto") else None
+    return salida
+
+
+def _mmss(segundos) -> str | None:
+    v = _numero(segundos)
+    if v is None or v < 0:
+        return None
+    s = int(v)
+    return f"{s // 60}:{s % 60:02d}"
+
+
+def texto_progreso(detalle, idioma: str) -> str:
+    """Texto de progreso de la fase activa en las unidades vigentes del equipo
+    (`unidades_qml`) e `idioma`; «—» sin dato. Dato crudo en °C / kPa abs."""
+    sin = i18n.t("sistema.sin_lectura", idioma)
+    try:
+        d = normalizar_detalle(detalle)
+        if d is None:
+            return sin
+        tipo = d["tipo"]
+        if tipo in ("presion", "temperatura"):
+            from autoclave.ui_qml.domain import pantalla_ciclo as pc
+            if d["actual"] is None or d["objetivo"] is None:
+                return sin
+            if tipo == "presion":
+                a, o = pc.formatear_presion(d["actual"]), pc.formatear_presion(d["objetivo"])
+                unidad = pc.simbolo_presion(d["actual"])
+            else:
+                a, o = pc.formatear_temperatura(d["actual"]), pc.formatear_temperatura(d["objetivo"])
+                unidad = pc.simbolo_temperatura()
+            if pc.SIN_DATO in (a, o):
+                return sin
+            return i18n.t("progreso_fase.valor_objetivo", idioma, actual=a, objetivo=o, unidad=unidad)
+        if tipo == "prevacio":
+            if d["pulso"] is None or d["total"] is None or d["nivel"] is None:
+                return sin
+            return i18n.t("progreso_fase.prevacio", idioma, pulso=int(d["pulso"]), total=int(d["total"]),
+                          nivel=i18n.t(f"progreso_fase.nivel_{d['nivel']}", idioma))
+        a, o = _mmss(d["transcurrido_s"]), _mmss(d["total_s"])
+        if a is None or o is None:
+            return sin
+        if tipo == "estabilizando":
+            return i18n.t("progreso_fase.estabilizando", idioma, actual=a, total=o)
+        texto = i18n.t("progreso_fase.tiempo", idioma, actual=a, total=o,
+                       unidad=i18n.t("unidades.tiempo", idioma))
+        if tipo == "exposicion" and d["f0"] is not None and d["f0_objetivo"] is not None:
+            from autoclave.ui_qml.domain.formato_numerico import formatear_decimal
+            texto += "  " + i18n.t("progreso_fase.f0", idioma, actual=formatear_decimal(d["f0"], 1),
+                                   objetivo=formatear_decimal(d["f0_objetivo"], 1),
+                                   unidad=i18n.t("unidades.tiempo", idioma))
+        return texto
+    except Exception:
+        return sin

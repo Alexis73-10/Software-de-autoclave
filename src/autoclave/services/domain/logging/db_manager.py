@@ -421,6 +421,28 @@ def _migracion_v12(conn: sqlite3.Connection) -> None:
             conn.execute(f"ALTER TABLE ciclos ADD COLUMN {columna} TEXT")
 
 
+def _migracion_v13(conn: sqlite3.Connection) -> None:
+    """T30-03 (tanda 30): eliminar un usuario sin borrarlo. Columna
+    `eliminado` (0/1): el usuario eliminado no aparece en la lista, no inicia
+    sesión ni cuenta en las reglas, pero su fila queda (trazabilidad, y su
+    nombre de usuario no se reutiliza). Triggers: no se restaura (eliminado,
+    activo y usuario quedan fijos) y una cuenta del sistema no se elimina.
+    Aditiva e idempotente."""
+    columnas = {f[1] for f in conn.execute("PRAGMA table_info(usuarios)")}
+    if "eliminado" not in columnas:
+        conn.execute("ALTER TABLE usuarios ADD COLUMN eliminado INTEGER NOT NULL DEFAULT 0")
+    conn.execute(
+        "CREATE TRIGGER IF NOT EXISTS usuarios_eliminado_irreversible "
+        "BEFORE UPDATE ON usuarios WHEN OLD.eliminado = 1 AND ("
+        " NEW.eliminado IS NOT 1 OR NEW.activo IS NOT 0 OR NEW.usuario IS NOT OLD.usuario) "
+        "BEGIN SELECT RAISE(ABORT, 'un usuario eliminado no se restaura'); END")
+    conn.execute(
+        "CREATE TRIGGER IF NOT EXISTS usuarios_sistema_no_se_elimina "
+        "BEFORE UPDATE OF eliminado ON usuarios "
+        "WHEN OLD.cuenta_sistema = 1 AND NEW.eliminado IS NOT 0 "
+        "BEGIN SELECT RAISE(ABORT, 'cuenta del sistema protegida'); END")
+
+
 def _valores_fallo_json(valores) -> str:
     """'' sin parámetros; JSON (sin NaN) si los hay. Nunca lanza."""
     if not isinstance(valores, dict) or not valores:
@@ -444,6 +466,7 @@ _MIGRACIONES = (
     (10, _migracion_v10),
     (11, _migracion_v11),
     (12, _migracion_v12),
+    (13, _migracion_v13),
 )
 
 ESQUEMA_VERSION = _MIGRACIONES[-1][0]
@@ -1499,7 +1522,8 @@ class DbManager:
             return cur.lastrowid
 
     def existe_usuario(self, usuario: str) -> bool:
-        """True si ya hay un usuario con ese nombre, activo o inactivo, sin
+        """True si ya hay un usuario con ese nombre, activo, inactivo o
+        eliminado (T30-03: el nombre de un eliminado no se reutiliza), sin
         distinguir mayúsculas. Se compara en Python con normalizar_usuario
         (NFKC + casefold; SAF-01 de U11) porque LOWER/NOCASE de SQLite solo
         pliegan ASCII (no la Ñ ni acentos ni las formas de ancho completo)."""
@@ -1513,14 +1537,17 @@ class DbManager:
         D11-6.4; normalizar_usuario, como existe_usuario). Si en una base
         antigua dos usuarios difieren solo en mayúsculas, decide la
         coincidencia exacta; sin ella no se elige ninguno (None). Un candidato
-        inactivo cuenta para esa decisión pero nunca se devuelve."""
+        inactivo o eliminado (T30-03) cuenta para esa decisión pero nunca se
+        devuelve."""
         buscado = normalizar_usuario(usuario)
         with self._lock:
             filas = [dict(f) for f in self._conn.execute("SELECT * FROM usuarios")]
         candidatos = [f for f in filas if normalizar_usuario(f["usuario"]) == buscado]
         exacto = [f for f in candidatos if f["usuario"] == usuario]
         elegido = exacto[0] if exacto else (candidatos[0] if len(candidatos) == 1 else None)
-        return elegido if elegido is not None and elegido["activo"] == 1 else None
+        if elegido is None or elegido["activo"] != 1 or elegido.get("eliminado"):
+            return None
+        return elegido
 
     def cuentas_con_clave_semilla(self) -> list[str]:
         """LIC-02: cuentas del sistema activas que conservan el hash semilla
@@ -1573,7 +1600,8 @@ class DbManager:
         """Guarda el nuevo hash y baja la bandera debe_cambiar_clave."""
         with self._lock:
             self._conn.execute(
-                "UPDATE usuarios SET hash_pw=?, debe_cambiar_clave=0 WHERE usuario=?",
+                "UPDATE usuarios SET hash_pw=?, debe_cambiar_clave=0"
+                " WHERE usuario=? AND eliminado=0",
                 (hash_pw, usuario),
             )
             self._conn.commit()
@@ -1584,14 +1612,16 @@ class DbManager:
                        " debe_cambiar_clave, cuenta_sistema")
 
     def listar_usuarios(self) -> list[dict]:
-        """Todos los usuarios (activos e inactivos), SIN el hash, con el último
+        """Todos los usuarios (activos e inactivos; sin los eliminados, T30-03),
+        SIN el hash, con el último
         ingreso (`login_ok` de audit_log; None si nunca). El ingreso se busca
         sin distinguir mayúsculas (normalizar_usuario), para que Admin e
         Ingeniero encuentren los ingresos registrados como admin/ingeniero
         antes del renombre de U11, sin reescribir la auditoría."""
         with self._lock:
             filas = self._conn.execute(
-                f"SELECT {self._CAMPOS_USUARIO} FROM usuarios ORDER BY nombre COLLATE NOCASE, id"
+                f"SELECT {self._CAMPOS_USUARIO} FROM usuarios WHERE eliminado=0"
+                " ORDER BY nombre COLLATE NOCASE, id"
             ).fetchall()
             ingresos: dict[str, str] = {}
             for u, ts in self._conn.execute(
@@ -1610,10 +1640,12 @@ class DbManager:
         return resultado
 
     def get_usuario_cualquiera(self, usuario: str) -> dict | None:
-        """El usuario (activo o no), SIN el hash; None si no existe."""
+        """El usuario (activo o no), SIN el hash; None si no existe o está
+        eliminado (T30-03)."""
         with self._lock:
             row = self._conn.execute(
-                f"SELECT {self._CAMPOS_USUARIO} FROM usuarios WHERE usuario=?", (usuario,)
+                f"SELECT {self._CAMPOS_USUARIO} FROM usuarios WHERE usuario=? AND eliminado=0",
+                (usuario,)
             ).fetchone()
         return dict(row) if row else None
 
@@ -1624,7 +1656,7 @@ class DbManager:
         "no_existe", "cuenta_sistema", "sin_cambio" o "ultimo_protegido"."""
         with self._lock:
             row = self._conn.execute(
-                "SELECT rol, activo, cuenta_sistema FROM usuarios WHERE usuario=?",
+                "SELECT rol, activo, cuenta_sistema FROM usuarios WHERE usuario=? AND eliminado=0",
                 (usuario,)).fetchone()
             if row is None:
                 return "no_existe"
@@ -1633,10 +1665,7 @@ class DbManager:
             if bool(row["activo"]) == bool(activo):
                 return "sin_cambio"
             if not activo and row["rol"] == rol_protegido:
-                otros = self._conn.execute(
-                    "SELECT COUNT(*) FROM usuarios WHERE rol=? AND activo=1 AND usuario<>?",
-                    (rol_protegido, usuario)).fetchone()[0]
-                if otros == 0:
+                if self._otros_activos(rol_protegido, usuario) == 0:
                     return "ultimo_protegido"
             self._conn.execute("UPDATE usuarios SET activo=? WHERE usuario=?",
                                (1 if activo else 0, usuario))
@@ -1647,10 +1676,74 @@ class DbManager:
         """Nuevo hash y cambio obligatorio en el siguiente login. False si no existe."""
         with self._lock:
             cur = self._conn.execute(
-                "UPDATE usuarios SET hash_pw=?, debe_cambiar_clave=1 WHERE usuario=?",
+                "UPDATE usuarios SET hash_pw=?, debe_cambiar_clave=1"
+                " WHERE usuario=? AND eliminado=0",
                 (hash_pw, usuario))
             self._conn.commit()
             return cur.rowcount > 0
+
+    def _otros_activos(self, rol: str, usuario: str) -> int:
+        """Usuarios activos y no eliminados de `rol` distintos de `usuario`.
+        Se llama con el candado tomado."""
+        return self._conn.execute(
+            "SELECT COUNT(*) FROM usuarios WHERE rol=? AND activo=1 AND eliminado=0"
+            " AND usuario<>?", (rol, usuario)).fetchone()[0]
+
+    def eliminar_usuario(self, usuario: str, rol_protegido: str,
+                         roles_gestionables=None) -> str:
+        """T30-03: marca al usuario como eliminado (y desactivado) sin borrar
+        la fila. Comprobación y escritura con el candado tomado, como
+        fijar_activo_usuario. Devuelve "ok", "no_existe" (o ya eliminado),
+        "cuenta_sistema", "rol_no_gestionable" (su rol fuera de
+        `roles_gestionables`, si se da) o "ultimo_protegido" (es el último
+        `rol_protegido` activo)."""
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT rol, activo, cuenta_sistema FROM usuarios WHERE usuario=? AND eliminado=0",
+                (usuario,)).fetchone()
+            if row is None:
+                return "no_existe"
+            if row["cuenta_sistema"]:
+                return "cuenta_sistema"
+            if roles_gestionables is not None and row["rol"] not in roles_gestionables:
+                return "rol_no_gestionable"
+            if (row["activo"] and row["rol"] == rol_protegido
+                    and self._otros_activos(rol_protegido, usuario) == 0):
+                return "ultimo_protegido"
+            self._conn.execute(
+                "UPDATE usuarios SET eliminado=1, activo=0 WHERE usuario=? AND eliminado=0",
+                (usuario,))
+            self._conn.commit()
+            return "ok"
+
+    def cambiar_rol_usuario(self, usuario: str, rol_nuevo: str, rol_protegido: str,
+                            roles_gestionables=None) -> tuple[str, str | None]:
+        """T30-03: cambia el rol. Devuelve (resultado, rol anterior); resultado
+        "ok", "sin_cambio", "no_existe", "cuenta_sistema",
+        "rol_no_gestionable" (rol actual o nuevo fuera de
+        `roles_gestionables`, si se da) o "ultimo_protegido" (dejaría el equipo
+        sin un `rol_protegido` activo)."""
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT rol, activo, cuenta_sistema FROM usuarios WHERE usuario=? AND eliminado=0",
+                (usuario,)).fetchone()
+            if row is None:
+                return "no_existe", None
+            anterior = row["rol"]
+            if row["cuenta_sistema"]:
+                return "cuenta_sistema", anterior
+            if roles_gestionables is not None and (anterior not in roles_gestionables
+                                                   or rol_nuevo not in roles_gestionables):
+                return "rol_no_gestionable", anterior
+            if anterior == rol_nuevo:
+                return "sin_cambio", anterior
+            if (row["activo"] and anterior == rol_protegido
+                    and self._otros_activos(rol_protegido, usuario) == 0):
+                return "ultimo_protegido", anterior
+            self._conn.execute("UPDATE usuarios SET rol=? WHERE usuario=? AND eliminado=0",
+                               (rol_nuevo, usuario))
+            self._conn.commit()
+            return "ok", anterior
 
     def listar_operadores(self, solo_activos: bool = False) -> list[dict]:
         where = "WHERE activo=1 " if solo_activos else ""

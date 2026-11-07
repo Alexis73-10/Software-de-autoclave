@@ -31,6 +31,7 @@ class DescompresionFase(BaseFase):
         self._chaqueta_abierta = False
         self._t_aire_comprimido = None
         self._lecturas_enfriada = 0
+        self.estado.descompresion_enfriando = False   # T30-02: publicación para la pantalla
 
     @property
     def chaqueta_en_enfriamiento(self) -> bool:
@@ -195,6 +196,7 @@ class DescompresionFase(BaseFase):
 
     def _tick_sub_enfriamiento(self, modo_key: str, use_lenta: bool) -> FaseResult:
         now = time.monotonic()
+        self.estado.descompresion_enfriando = True   # T30-02
 
         presion_obj = self.cycle.get_param("descompresion", modo_key, "presion_camara_enfriamiento", default=200)
         p = self._pres_camara()
@@ -249,6 +251,7 @@ class DescompresionFase(BaseFase):
             self.set_do.descompresion_chaqueta_on()
             self.set_do.descompresion_rapida_on()
             self._sub_etapa = "descompresion"
+            self.estado.descompresion_enfriando = False   # T30-02
 
         return FaseResult.EN_CURSO
 

@@ -1805,9 +1805,9 @@
     "sin_operadores": "No hay operadores registrados",
     "clave_temporal": "Contraseña temporal",
     "clave_confirmar": "Confirme la contraseña temporal",
-    "nota": "No se borran usuarios: se desactivan. Nadie se desactiva a sí mismo ni deja el equipo sin un ingeniero activo.",
+    "nota": "Un usuario eliminado sale de la lista, pero queda en el registro y su nombre de usuario no se puede volver a usar. Nadie se desactiva, se elimina ni cambia su propio rol, y el equipo no puede quedar sin un ingeniero activo.",
     "motivo_rol": "Su rol no puede crear ni modificar usuarios ni operadores (solo admin e ingeniero).",
-    "motivo_propio": "No puede desactivarse a sí mismo; su contraseña se cambia en Cambiar contraseña.",
+    "motivo_propio": "No puede desactivarse, eliminarse ni cambiar su propio rol; su contraseña se cambia en Cambiar mi contraseña.",
     "motivo_rol_objetivo": "Su rol no puede modificar usuarios con ese rol.",
     "confirmar_desactivar": "¿Desactivar al usuario {usuario}? Se cerrarán sus sesiones abiertas.",
     "confirmar_reactivar": "¿Reactivar al usuario {usuario}?",
@@ -1893,6 +1893,7 @@
       "equipo_instalado": "registró la instalación del equipo {entidad}",
       "ciclo_no_conforme_reconocido": "reconoció que la carga del ciclo NO CONFORME no es liberable",
       "ciclo_cancelado": "canceló el ciclo {nuevo}",
+      "ciclo_iniciado": "inició un ciclo; operador: {nuevo}",
       "login_ok": "inició sesión",
       "login_fallido": "intento de ingreso fallido",
       "login_bloqueado": "quedó bloqueado por intentos fallidos",
@@ -1949,7 +1950,9 @@
       "programa_deshabilitado": "deshabilitó el programa ({entidad})",
       "programa_borrado": "borró el programa {anterior}",
       "usuario_renombrado": "renombró la cuenta {anterior} → {nuevo}",
-      "cuenta_sistema_rechazada": "intentó modificar la cuenta del sistema {entidad} (rechazado)"
+      "cuenta_sistema_rechazada": "intentó modificar la cuenta del sistema {entidad} (rechazado)",
+      "usuario_eliminado": "eliminó al usuario {entidad}",
+      "usuario_rol_cambiado": "cambió el rol de {entidad}: {anterior} → {nuevo}"
     },
     "tipo": {
       "estado_seguro_secado_iniciado": "Secado tras fallo iniciado",
@@ -1957,6 +1960,7 @@
       "equipo_instalado": "Equipo instalado",
       "ciclo_no_conforme_reconocido": "Carga no liberable reconocida",
       "ciclo_cancelado": "Ciclo cancelado",
+      "ciclo_iniciado": "Ciclo iniciado",
       "login_ok": "Inicio de sesión",
       "login_fallido": "Ingreso fallido",
       "login_bloqueado": "Bloqueo por intentos",
@@ -2011,7 +2015,9 @@
       "programa_habilitado": "Programa habilitado o deshabilitado",
       "programa_borrado": "Programa borrado",
       "usuario_renombrado": "Cuenta renombrada",
-      "cuenta_sistema_rechazada": "Cuenta del sistema protegida"
+      "cuenta_sistema_rechazada": "Cuenta del sistema protegida",
+      "usuario_eliminado": "Usuario eliminado",
+      "usuario_rol_cambiado": "Rol de usuario cambiado"
     }
   },
   "correo_c2": {
@@ -2549,5 +2555,38 @@
       "D"
     ]
   },
-  "configurar_modulo": {"ok": "Conexión correcta con los módulos de E/S: {modelo}, {n} módulos, firmware {firmware}, ID {mac}.", "ok_clave": "La contraseña web del módulo se cambió y se comprobó.", "backend_activo": "El software del autoclave está en marcha y usa el módulo. No se probó la conexión: ciérrelo y vuelva a intentarlo.", "sin_conexion": "No hay respuesta del módulo principal en 192.168.3.7:502.", "sin_conexion_accion": "Revise el cable de red entre el PC y el módulo, que el adaptador elegido sea el correcto y que el módulo esté encendido (24 VDC).", "composicion": "La composición de módulos no es la esperada: {detalle}.", "composicion_accion": "Sin energía, revise el modelo y el orden de los módulos (principal, DI, DO, DO, PT100) y negocie (doble pulsación de Reload).", "orden": "El módulo informa orden incorrecto o negociación pendiente: {detalle}.", "orden_accion": "Sin energía, revise el orden de los módulos y negocie (doble pulsación de Reload).", "firmware": "Firmware incompatible entre el principal y las expansiones: {detalle}.", "firmware_accion": "Consulte al fabricante: el firmware del principal debe ser igual o más nuevo que el de las expansiones.", "expansor": "Una expansión no responde: {detalle}.", "clave_invalida": "La contraseña web no es válida (de 1 a 6 caracteres ASCII imprimibles). No se cambió.", "clave_no_quedo": "No se pudo comprobar la contraseña web escrita en el módulo. Puede que no haya cambiado.", "clave_no_quedo_accion": "Entre a http://192.168.3.7 con la contraseña anterior y cámbiela a mano, o repita la instalación con Reparar.", "error": "Error inesperado al probar la conexión con el módulo: {detalle}.", "argumentos": "Argumentos no válidos para configurar el módulo: {detalle}."}
+  "configurar_modulo": {"ok": "Conexión correcta con los módulos de E/S: {modelo}, {n} módulos, firmware {firmware}, ID {mac}.", "ok_clave": "La contraseña web del módulo se cambió y se comprobó.", "backend_activo": "El software del autoclave está en marcha y usa el módulo. No se probó la conexión: ciérrelo y vuelva a intentarlo.", "sin_conexion": "No hay respuesta del módulo principal en 192.168.3.7:502.", "sin_conexion_accion": "Revise el cable de red entre el PC y el módulo, que el adaptador elegido sea el correcto y que el módulo esté encendido (24 VDC).", "composicion": "La composición de módulos no es la esperada: {detalle}.", "composicion_accion": "Sin energía, revise el modelo y el orden de los módulos (principal, DI, DO, DO, PT100) y negocie (doble pulsación de Reload).", "orden": "El módulo informa orden incorrecto o negociación pendiente: {detalle}.", "orden_accion": "Sin energía, revise el orden de los módulos y negocie (doble pulsación de Reload).", "firmware": "Firmware incompatible entre el principal y las expansiones: {detalle}.", "firmware_accion": "Consulte al fabricante: el firmware del principal debe ser igual o más nuevo que el de las expansiones.", "expansor": "Una expansión no responde: {detalle}.", "clave_invalida": "La contraseña web no es válida (de 1 a 6 caracteres ASCII imprimibles). No se cambió.", "clave_no_quedo": "No se pudo comprobar la contraseña web escrita en el módulo. Puede que no haya cambiado.", "clave_no_quedo_accion": "Entre a http://192.168.3.7 con la contraseña anterior y cámbiela a mano, o repita la instalación con Reparar.", "error": "Error inesperado al probar la conexión con el módulo: {detalle}.", "argumentos": "Argumentos no válidos para configurar el módulo: {detalle}."},
+  "progreso_fase": {
+    "valor_objetivo": "{actual} / {objetivo} {unidad}",
+    "prevacio": "{pulso}/{total} {nivel}",
+    "nivel_bajo": "Bajo",
+    "nivel_alto": "Alto",
+    "estabilizando": "Estabilizando {actual} / {total}",
+    "tiempo": "{actual} / {total} {unidad}",
+    "f0": "F0 {actual} / {objetivo} {unidad}",
+    "rotulo": "Progreso de la fase"
+  },
+  "operador_ciclo": {
+    "titulo": "¿Quién inicia el ciclo?",
+    "cuerpo": "Elija el operador que inicia este ciclo. Es obligatorio: su nombre queda en el registro del ciclo, el ticket y la bitácora.",
+    "iniciar": "Iniciar ciclo",
+    "cancelar": "Cancelar",
+    "err_requerido": "Debe elegir el operador que inicia el ciclo.",
+    "err_invalido": "El operador elegido no existe o está desactivado. Elija otro.",
+    "err_no_verificable": "No se pudo leer la lista de operadores: el ciclo no se inició.",
+    "err_lista": "No se pudo leer la lista de operadores: el ciclo no se inició. Vuelva a intentarlo.",
+    "err_otro": "El equipo rechazó el inicio del ciclo."
+  },
+  "usuarios_cuenta": {
+    "eliminar": "Eliminar",
+    "cambiar_rol": "Cambiar rol",
+    "mi_clave": "Cambiar mi contraseña",
+    "elegir_rol": "Nuevo rol para {usuario} (ahora: {rol})",
+    "confirmar_rol": "¿Cambiar el rol de {usuario} de {anterior} a {nuevo}? Se cerrarán sus sesiones abiertas.",
+    "confirmar_eliminar": "¿Eliminar al usuario {usuario}? Saldrá de la lista, se cerrarán sus sesiones y su nombre de usuario no se podrá volver a usar. No se puede deshacer.",
+    "err_propio_eliminar": "Nadie puede eliminarse a sí mismo.",
+    "err_propio_rol": "Nadie puede cambiar su propio rol.",
+    "err_rol_invalido": "El rol elegido no es válido.",
+    "aviso_voluntario": "Escriba su contraseña actual y la nueva"
+  }
 }

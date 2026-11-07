@@ -16,7 +16,7 @@ from PySide6.QtCore import Property, QObject, QTimer, Signal, Slot
 
 from autoclave.ui_qml.domain import fin_de_ciclo
 from autoclave.ui_qml.domain.ciclo_en_curso import (
-    NIVEL_INDETERMINADO, AcumuladorGrafica, normalizar_progreso,
+    NIVEL_INDETERMINADO, AcumuladorGrafica, normalizar_progreso, texto_progreso,
 )
 from autoclave.core.runtime.progreso_ciclo import TOPE_FRACCION_ACTIVA
 
@@ -163,6 +163,13 @@ class ProgresoCiclo(QObject):
                 return fin_de_ciclo.armar(None, [], idioma)
             return {"modo": "fallo", "horaFin": "", "causa": {}, "alarmas": [],
                     "cantidad": 1, "notaObservaciones": ""}
+
+    @Slot(str, result=str)
+    def textoProgreso(self, idioma: str) -> str:
+        """T30-02: texto de progreso de la fase activa en `idioma` y las
+        unidades vigentes («—» sin dato); la pantalla lo vuelve a pedir con
+        revisionFin y al cambiar las unidades."""
+        return texto_progreso(self._progreso["detalle_fase"], idioma)
 
     # LLF: id del ciclo en curso (-1 sin ciclo); lo usa la barra de fases para
     # distinguir un ciclo nuevo (primera carga sin animación)
