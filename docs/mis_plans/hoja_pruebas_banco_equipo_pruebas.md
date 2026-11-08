@@ -221,6 +221,7 @@
 | T32-04 | Chaqueta que no despresuriza (CIC-22) | En seco | LIQ-01; HAZ-T32-02 |
 | T32-05 | Aire que no alcanza la presión (CIC-23) | En seco | LIQ-01/02; HAZ-T32-01 |
 | T32-06 | Lenta → rápida activa (cambio a `presion_cambio`) y pantalla del modo 5 | Con vapor | LIQ-03; HAZ-T32-03 |
+| M2-REC-01 | Líquidos 121 °C con carga máxima en modo chaqueta: reposición de la cámara bajo la banda con la chaqueta cargada | Con vapor | M2-REC-01; HAZ-M2-REC-01 |
 
 ## Bloque T32. Enfriamiento de líquidos con contrapresión (tanda 32)
 
@@ -263,6 +264,15 @@
 - **Modo:** Con vapor  ·  **Origen:** LIQ-03; HAZ-T32-03
 - **Pasos:** con `descompresion_lenta_rapida` activa, verificar que al terminar el enfriamiento la lenta y la chaqueta siguen abiertas hasta `pres_camara <= presion_cambio` y luego lenta OFF y rápida ON; con la opción inactiva, sin cambio. Verificar a la vista en Parámetros del ciclo los 5 parámetros nuevos del modo 5/4 con rótulos es/en (y que `presion_cambio` se ve siempre).
 - **Criterio:** Aprobado si el cambio ocurre a la presión indicada y la pantalla muestra los parámetros.
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+## Bloque M2-REC. Exención del corte A14-M2 bajo la banda (7-nov)
+
+### M2-REC-01 — Líquidos 121 °C con carga máxima
+- **Modo:** Con vapor  ·  **Origen:** M2-REC-01; HAZ-M2-REC-01, HAZ-EST-07
+- **Pasos:** equipo con chaqueta (modo chaqueta), programa Líquidos 121 °C con la carga máxima. Registrar durante ESTERILIZACION `pres_camara`, `pres_chaqueta` y `temp_camara` (gráfica y `backend.log`), las líneas «exención del corte A14-M2 (M2-REC-01, motivo bajo_banda)» y su fin, los cortes A14-M2 y los aislamientos «cámara AISLADA». Anotar la presión de chaqueta al entrar a ESTERILIZACION, la máxima de chaqueta, la mínima y la máxima de cámara en esterilización y el número de aislamientos.
+- **Criterio:** Aprobado si el ciclo completa sin CIC-04 ni CIC-16, la cámara no baja de Psat(121) - 2 = 203,0 kPa, los aislamientos no se repiten (anotar cuántos) y la chaqueta queda bajo 375 kPa. Si la cámara oscila en el borde de la banda o hay aislamientos, anotarlo para la decisión de Cristian (histéresis o tope de chaqueta).
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
 
