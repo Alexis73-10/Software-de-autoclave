@@ -251,12 +251,23 @@ def test_chaqueta_m2_techo_ampliado_en_empuje_y_en_bajada_normal_despues(reloj):
     _tick(ref, est_ref, 110.0, 150.0)
     do_ref.vapor_chaqueta_on.assert_not_called()
     assert ref._corte_m2_previo is True
-    # durante la bajada a saturación sigue el techo ampliado
-    _enclavar(fase, estado, reloj, P_OBJ + 10)
+    # CAS-03 (tanda 33): desde el enclave decide la cascada (A14-M2 deja de
+    # evaluarse); en la bajada la cámara está alta: OFF desde el tick del enclave
+    _tick(fase, estado, T_OBJ, P_OBJ + 10)
+    reloj[0] += 6.0
+    set_do.reset_mock()
+    _tick(fase, estado, T_OBJ, P_OBJ + 10)
+    assert fase._t_obj_alcanzada is True
     assert fase._corte_m2_previo is False
-    # terminada la bajada (P <= Psat+2) vuelve el techo normal y corta
+    assert estado.cascada_chaqueta["nivel"] == "alta"
+    set_do.vapor_chaqueta_on.assert_not_called()
+    # terminada la bajada (P <= Psat+2) la cascada sigue con el techo
+    # normal: p_chaq sobre la consigna -> OFF (tiempo_estable 0: el mismo tick
+    # completa y limpia la publicación)
     _tick(fase, estado, T_OBJ, P_OBJ + 1.5)
-    assert fase._corte_m2_previo is True
+    assert fase._corte_m2_previo is False
+    assert fase._cascada.valvula is False
+    set_do.vapor_chaqueta_on.assert_not_called()
 
 
 # ── Validación y migración ────────────────────────────────────────────────

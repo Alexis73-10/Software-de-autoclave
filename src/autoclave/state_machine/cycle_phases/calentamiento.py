@@ -96,6 +96,16 @@
 #     pres_chaqueta (corte_chaqueta_consigna.py);
 #   - COMPLETADO no cierra vapor_camara (ESTERILIZACION la mantiene
 #     abierta); FALLO cierra las dos.
+#   - CAS-03 (tanda 33, planeacion_control_cascada_chaqueta.md §3): en
+#     ESTABLE_PREESTERILIZACION (self._en_sostenimiento) y, con carga líquida
+#     y empuje (add_liq > 0), desde el enclave de t_obj alcanzada (incluida la
+#     bajada a saturación), vapor_chaqueta la decide la cascada
+#     (cascada_chaqueta.py) en lugar del PWM y de A14-M2, con p_ref =
+#     Psat(t_obj) y p_techo = Psat(t_obj) + presion_add_calentamiento (techo
+#     normal, nunca el ampliado). Siguen prevaleciendo VCH-AIS (con el techo
+#     de hoy), estado.inhibir_vapor_chaqueta (D-CHQ) y el corte duro de CICLO.
+#     La rampa previa no cambia. Se publica en estado.cascada_chaqueta
+#     (None mientras la cascada no decide).
 # En modo cámara (equipos de mesa) el comportamiento es el de antes.
 
 import math
@@ -108,6 +118,7 @@ from autoclave.core.managers import limites_equipo as le
 from autoclave.installation.profile import MODO_CHAQUETA
 from autoclave.state_machine.alarms.catalogo import CIC_15, CIC_16, nombre_legible
 from .aislamiento_camara import AislamientoCamara
+from .cascada_chaqueta import CascadaChaqueta
 from . import corte_chaqueta_consigna as ccc
 from .base_fase import BaseFase, FaseResult
 
@@ -253,6 +264,10 @@ class CalentamientoFase(BaseFase):
         self._aislado_previo = False
         # A14-M2: estado del corte por consigna (solo para el log)
         self._corte_m2_previo = False
+        # CAS-03 (tanda 33): cascada de vapor_chaqueta, nueva en cada fase
+        self._cascada = CascadaChaqueta()
+        self._cascada_activa_previo = False
+        self.estado.cascada_chaqueta = None
         # Mecanismo de CIC-11 de ESTERILIZACION: CicloState registra
         # `alarma_fallo` (CIC-15/16 del aislamiento)
         self.alarma_fallo = None
@@ -400,6 +415,38 @@ class CalentamientoFase(BaseFase):
         self.set_do.descompresion_lenta_off()
         self.set_do.descompresion_rapida_off()
         self.estado.fase_en_sostenimiento = False
+        # CAS-03: la cascada de esta fase deja de decidir (ESTERILIZACION
+        # publica la suya)
+        self._cascada.valvula = False
+        self.estado.cascada_chaqueta = None
+
+    def _cascada_decide(self, add_liq: float) -> bool:
+        """CAS-03: True si la cascada decide vapor_chaqueta en este tick (solo
+        modo chaqueta): en ESTABLE_PREESTERILIZACION o, con empuje de
+        líquidos, desde el enclave de t_obj alcanzada (incluye la bajada a
+        saturación). Registra la entrada una sola vez."""
+        activa = bool(self._modo_chaqueta) and (
+            self._en_sostenimiento or (add_liq > 0.0 and self._t_obj_alcanzada))
+        if activa and not self._cascada_activa_previo:
+            logger.info("Calentamiento: vapor_chaqueta pasa a control en cascada (CAS-03, %s)",
+                        "sostenimiento" if self._en_sostenimiento else "tras el empuje de líquidos")
+            if self._corte_m2_previo:
+                # A14-M2 deja de evaluarse bajo la cascada (su tope queda
+                # siempre bajo el umbral M2)
+                logger.info("Calentamiento: fin del corte de vapor_chaqueta por consigna "
+                            "(A14-M2) al pasar a la cascada")
+                self._corte_m2_previo = False
+        self._cascada_activa_previo = activa
+        return activa
+
+    def _decision_cascada(self, pres, p_obj, p_techo) -> bool:
+        """CAS-03: evalúa la cascada con p_ref = Psat(t_obj) y el techo
+        normal. Devuelve la decisión (sin las prevalencias)."""
+        limites = le.limites_presion(self.config)
+        res = self._cascada.evaluar(
+            pres, self._pres_chaqueta(), p_obj, p_techo, ccc.margen_kpa(self.cycle),
+            le.presion_max_chaqueta_control(self.config), limites.suministro)
+        return res.decision
 
     def _fallo(self, mensaje: str) -> FaseResult:
         logger.error("Calentamiento: FALLO — %s", mensaje)
@@ -579,6 +626,11 @@ class CalentamientoFase(BaseFase):
                 ais.actualizar(pres, p_techo_ais, self._histeresis_cierre(), time.monotonic())
                 if ais.aislado:
                     self.set_do.vapor_camara_off()
+                # CAS-03: sin lectura la cascada queda con la válvula cerrada
+                # (no reabre por histéresis al volver la lectura)
+                if self._cascada_decide(add_liq):
+                    self._cascada.valvula = False
+                    self.estado.cascada_chaqueta = self._cascada.publicar()
             return FaseResult.EN_CURSO
 
         now = time.monotonic()
@@ -710,7 +762,22 @@ class CalentamientoFase(BaseFase):
                 on_fn, off_fn, now,
             )
 
-        if self._modo_chaqueta:
+        if self._modo_chaqueta and self._cascada_decide(add_liq):
+            # CAS-03 (tanda 33): la cascada decide en lugar del PWM y de
+            # A14-M2, con p_ref = Psat(t_obj) y el techo NORMAL (en la bajada
+            # a saturación la cámara está sobre p_ref + 1: nivel alta, OFF).
+            # Prevalecen VCH-AIS y D-CHQ; el corte duro de CICLO va después.
+            decision = self._decision_cascada(pres, p_obj, p_techo)
+            encender = decision and not aislado and not self._chaqueta_inhibida()
+            # la válvula de la cascada sigue a la salida real (DECISIÓN SIN
+            # CONFIRMAR): forzada a OFF no reabre por histéresis al liberarse
+            self._cascada.valvula = encender
+            self.estado.cascada_chaqueta = self._cascada.publicar()
+            if encender:
+                self.set_do.vapor_chaqueta_on()
+            else:
+                self.set_do.vapor_chaqueta_off()
+        elif self._modo_chaqueta:
             # A14-M2 (tanda 28): AND con el corte por consigna (pres_chaqueta >
             # Psat(t_obj) + presion_add_calentamiento + margen_chaqueta_est, o
             # sin lectura); se evalúa siempre para registrar el corte. Ajuste

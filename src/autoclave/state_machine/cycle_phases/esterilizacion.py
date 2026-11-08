@@ -69,11 +69,10 @@
 # exposición empieza en la última lectura válida, no en el primer tick sin
 # dato.
 #
-# VCH (tanda 16, solo modo chaqueta: estado.modo_vapor == "chaqueta"): la
-# lógica de decisión de arriba no cambia; cambia solo la válvula actuadora.
-#   - Donde el modo cámara conmuta vapor_camara, el modo chaqueta conmuta
-#     vapor_chaqueta (nunca la enciende con estado.inhibir_vapor_chaqueta,
-#     corte D-CHQ que fija CICLO).
+# VCH (tanda 16, solo modo chaqueta: estado.modo_vapor == "chaqueta"):
+#   - vapor_chaqueta la decide la cascada CAS-02 (ver abajo); nunca se
+#     enciende con estado.inhibir_vapor_chaqueta (corte D-CHQ, sin suministro
+#     o sin lectura de pres_chaqueta, que fija CICLO).
 #   - vapor_camara se ordena ON en cada tick mientras no haya aislamiento.
 #   - Aislamiento VCH-AIS (estado.aislamiento_camara, compartido con
 #     CALENTAMIENTO): entra en P >= P_control_max, sale con P <=
@@ -87,14 +86,22 @@
 #     vapor_camara abierta, salvo un aislamiento en curso (no se reabre a
 #     ciegas una cámara aislada; DECISIÓN SIN CONFIRMAR).
 #   - COMPLETADO y FALLO: las dos OFF.
-#   - A14-M2 (tanda 28): vapor_chaqueta OFF también con pres_chaqueta >
-#     P_sp + margen_chaqueta_est o sin lectura de pres_chaqueta
-#     (corte_chaqueta_consigna.py). AND con la decisión y con D-CHQ.
-#   - M2-REC-01 (7-nov, opción 1 de Cristian): el corte por umbral de A14-M2
-#     no aplica en el tick en que pres_camara < P_sp - 2 (la cámara necesita
-#     vapor); RECUPERACION por sí sola no exime. Sin lectura de pres_chaqueta
-#     sigue cortando; el aislamiento, D-CHQ y el corte duro de CICLO
-#     prevalecen.
+#
+# CAS-02 (tanda 33, planeacion_control_cascada_chaqueta.md §3, decisiones de
+# Cristian del 7-nov): en modo chaqueta vapor_chaqueta la decide en cada tick
+# la cascada (cascada_chaqueta.py) con p_ref = P_sp (A14-M1) y p_techo =
+# P_control_max; reemplaza en esta fase al PWM, al corte A14-M2 y a la
+# exención M2-REC-01 (retirados de esta fase). El nivel lo decide solo la
+# presión de cámara: RECUPERACION (_en_recuperacion) se sigue calculando para
+# el log y la publicación pero no decide la válvula, y factor_esterilizacion e
+# intervalo_segmentos_ester no se usan en modo chaqueta (siguen en modo
+# cámara). Prevalecen: aislamiento VCH-AIS, inhibir_vapor_chaqueta, falta de
+# lectura del Principal o de la presión de cámara (OFF) y el corte duro de
+# CICLO después de update(). El estado de la válvula de la cascada se
+# sincroniza con la orden realmente dada (OFF por prevalencia = OFF para su
+# histéresis). Publicación de solo lectura en estado.cascada_chaqueta
+# ({nivel, consigna, valvula}, con valvula = orden aplicada); None al entrar,
+# en COMPLETADO/FALLO y en modo cámara. El modo cámara no cambia.
 
 import math
 import time
@@ -109,6 +116,7 @@ from autoclave.state_machine.alarms.catalogo import nombre_legible
 from autoclave.core.managers import limites_equipo as le
 from autoclave.installation.profile import MODO_CHAQUETA
 from .aislamiento_camara import AislamientoCamara
+from .cascada_chaqueta import CascadaChaqueta
 from . import corte_chaqueta_consigna as ccc
 from .debounce_acumulado import DebounceAcumulado
 from .base_fase import BaseFase, FaseResult
@@ -166,11 +174,9 @@ class EsterilizacionFase(BaseFase):
         self._techo_recup_off = False
         # A14-M1: consigna fija de la banda PWM (kPa), al entrar a la fase
         self.p_sp = None
-        # A14-M2: estado del corte por consigna (solo para el log)
-        self._corte_m2_previo = False
-        # M2-REC-01: motivo de la exención del corte M2 en este tick
-        # ("bajo_banda" o None); se fija en update() antes del control de vapor
-        self._exencion_m2 = None
+        # CAS-02: cascada de vapor_chaqueta, una por fase (solo modo chaqueta)
+        self._cascada = CascadaChaqueta()
+        self.estado.cascada_chaqueta = None
 
         # P6 / D-14.6: debounce acumulado de cada condición de falla
         self._debounce: dict[str, DebounceAcumulado] = {
@@ -335,9 +341,12 @@ class EsterilizacionFase(BaseFase):
         if self._modo_chaqueta():
             # VCH: COMPLETADO y FALLO cierran también la chaqueta
             self.set_do.vapor_chaqueta_off()
+            self._cascada.valvula = False
         self.set_do.descompresion_lenta_off()
         self.set_do.descompresion_rapida_off()
         self.estado.fase_en_sostenimiento = False
+        # CAS-02: fuera de la fase no hay cascada publicada
+        self.estado.cascada_chaqueta = None
 
     def _fallo(self, mensaje: str) -> FaseResult:
         logger.error("Esterilización: FALLO — %s", mensaje)
@@ -585,68 +594,37 @@ class EsterilizacionFase(BaseFase):
             setattr(self, abierto_attr, True)
             setattr(self, timer_attr, now)
 
-    def _corte_consigna_chaqueta(self) -> bool:
-        """A14-M2: True si vapor_chaqueta debe quedar OFF por pres_chaqueta >
-        P_sp + margen_chaqueta_est (o sin lectura / sin consigna: falla
-        cerrada). Registra en el log el inicio y el fin del corte."""
-        pres = self._pres_chaqueta()
-        margen = ccc.margen_kpa(self.cycle)
-        # M2-REC-01: con la cámara bajo la banda el umbral no corta (sin
-        # lectura de pres_chaqueta sigue cortando)
-        cortar = ccc.debe_cortar(pres, self.p_sp, margen,
-                                 camara_necesita_vapor=self._exencion_m2 is not None)
-        if cortar != self._corte_m2_previo:
-            umbral = ccc.umbral_kpa(self.p_sp, margen)
-            if cortar:
-                logger.warning("Esterilización: vapor_chaqueta cortada por consigna (A14-M2): "
-                               "pres_chaqueta %s kPa, umbral %s kPa",
-                               ccc.texto_lectura(pres),
-                               "?" if umbral is None else f"{umbral:.1f}")
-            else:
-                logger.info("Esterilización: fin del corte de vapor_chaqueta por consigna "
-                            "(pres_chaqueta %.1f kPa)", pres)
-            self._corte_m2_previo = cortar
-        return cortar
-
-    def _actualizar_exencion_m2(self, motivo, pres_camara) -> None:
-        """M2-REC-01: fija el motivo de la exención del tick y registra en el
-        log (sin bitácora) el inicio y el fin de cada tramo, sin repetirlo en
-        cada tick."""
-        previo = self._exencion_m2
-        self._exencion_m2 = motivo
-        if motivo == previo:
-            return
-        pres_chq = self._pres_chaqueta()
-        umbral = ccc.umbral_kpa(self.p_sp, ccc.margen_kpa(self.cycle))
-        texto_umbral = "?" if umbral is None else f"{umbral:.1f}"
-        texto_camara = ccc.texto_lectura(pres_camara)
-        if motivo is not None:
-            logger.warning("Esterilización: exención del corte A14-M2 (M2-REC-01, motivo %s): "
-                           "pres_camara %s kPa, pres_chaqueta %s kPa, umbral M2 %s kPa",
-                           motivo, texto_camara, ccc.texto_lectura(pres_chq), texto_umbral)
+    def _aplicar_cascada(self, pres, p_control_max, permitido: bool) -> None:
+        """CAS-02 (solo modo chaqueta): evalúa la cascada con p_ref = P_sp y
+        p_techo = P_control_max y ordena vapor_chaqueta. La orden es ON solo si
+        la cascada lo pide, `permitido` (False con aislamiento VCH-AIS o sin
+        lectura del Principal o de la presión de cámara) y CICLO no la inhibe
+        (D-CHQ, sin suministro, sin lectura de pres_chaqueta). La válvula de
+        la cascada se sincroniza con la orden dada y se publica
+        estado.cascada_chaqueta con valvula = orden aplicada."""
+        limites = le.limites_presion(self.config)
+        res = self._cascada.evaluar(
+            pres, self._pres_chaqueta(), self.p_sp, p_control_max,
+            ccc.margen_kpa(self.cycle), le.presion_max_chaqueta_control(self.config),
+            limites.suministro)
+        aplicado = res.decision is True and permitido and not self._inhibir_chaqueta()
+        if aplicado:
+            self.set_do.vapor_chaqueta_on()
         else:
-            logger.info("Esterilización: fin de la exención del corte A14-M2 (motivo %s): "
-                        "pres_camara %s kPa, pres_chaqueta %s kPa, umbral M2 %s kPa",
-                        previo, texto_camara, ccc.texto_lectura(pres_chq), texto_umbral)
+            self.set_do.vapor_chaqueta_off()
+        self._cascada.valvula = aplicado
+        publicado = self._cascada.publicar()
+        publicado["valvula"] = aplicado
+        self.estado.cascada_chaqueta = publicado
 
     def _vapor_on(self):
-        """Abre la válvula actuadora del modo: vapor_camara (modo cámara) o
-        vapor_chaqueta (modo chaqueta; cerrada si CICLO la inhibe, D-CHQ, o
-        con el corte por consigna A14-M2)."""
-        if self._modo_chaqueta():
-            if self._inhibir_chaqueta() or self._corte_consigna_chaqueta():
-                self.set_do.vapor_chaqueta_off()
-            else:
-                self.set_do.vapor_chaqueta_on()
-        else:
-            self.set_do.vapor_camara_on()
+        """Modo cámara: abre vapor_camara (en modo chaqueta la válvula
+        actuadora la decide _aplicar_cascada)."""
+        self.set_do.vapor_camara_on()
 
     def _vapor_off(self):
-        """Cierra la válvula actuadora del modo."""
-        if self._modo_chaqueta():
-            self.set_do.vapor_chaqueta_off()
-        else:
-            self.set_do.vapor_camara_off()
+        """Modo cámara: cierra vapor_camara."""
+        self.set_do.vapor_camara_off()
 
     @staticmethod
     def consigna_pwm(t_est, brecha_seg) -> float:
@@ -655,10 +633,11 @@ class EsterilizacionFase(BaseFase):
         return p_saturacion_kpa(t_est + brecha_seg + _HIST_RECUP_TEMP_K)
 
     def _control_vapor_pwm(self, pres, factor_pct, intervalo, p_control_max, now):
+        """PWM_ACTIVO, solo modo cámara (CAS-02: en modo chaqueta no se usa;
+        factor_esterilizacion e intervalo_segmentos_ester solo rigen aquí)."""
         # Techo de control independiente: corta el vapor sin importar la
-        # banda. En modo chaqueta el techo es el aislamiento VCH-AIS (un solo
-        # mecanismo, evaluado antes en update()).
-        if not self._modo_chaqueta() and pres >= p_control_max:
+        # banda.
+        if pres >= p_control_max:
             self._vapor_off()
             self._pwm_abierto = False
             self._t_pulso_pwm = None
@@ -767,6 +746,9 @@ class EsterilizacionFase(BaseFase):
                 tiempo_seg, t_est, self.p_sp, self.p_sp - _BANDA_PWM_BAJA,
                 self.p_sp + _BANDA_PWM_ALTA, p_control_max,
             )
+            if self._modo_chaqueta():
+                logger.info("Esterilización: vapor_chaqueta por control en cascada (CAS-02); "
+                            "factor_esterilizacion e intervalo_segmentos_ester no se usan")
 
         # ── 1b. D8-2.8: tope de pausas sin datos en esta exposición ─────────
         # Antes de la lectura de sensores: falla aunque no haya lectura.
@@ -796,8 +778,6 @@ class EsterilizacionFase(BaseFase):
                 # VCH: sin medición la chaqueta no se controla a ciegas; la
                 # cámara queda abierta salvo un aislamiento en curso, que no se
                 # reabre sin saber la presión (DECISIÓN SIN CONFIRMAR)
-                self.set_do.vapor_chaqueta_off()
-                self._actualizar_exencion_m2(None, pres)
                 ais = self._aislamiento()
                 # R (tanda 16, V16-s1-03): con la presión válida (solo falta el
                 # Principal) el aislamiento se sigue evaluando
@@ -806,6 +786,9 @@ class EsterilizacionFase(BaseFase):
                     self.set_do.vapor_camara_off()
                 else:
                     self.set_do.vapor_camara_on()
+                # CAS-02: la cascada se evalúa (log y publicación) pero sin
+                # lectura la chaqueta queda OFF
+                self._aplicar_cascada(pres, p_control_max, permitido=False)
             else:
                 # V12 (SAF-03): sin medición no se controla a ciegas
                 self.set_do.vapor_camara_off()
@@ -862,6 +845,8 @@ class EsterilizacionFase(BaseFase):
         # ── 3. Transición RECUPERACION↔PWM_ACTIVO (C-08) ───────────────────
         # Entrada inmediata (reacción ante pérdida de reserva térmica o de
         # presión); salida con histéresis para no conmutar en cada tick.
+        # CAS-02: en modo chaqueta se calcula igual (log y publicación) pero
+        # no decide la válvula.
         if self._en_recuperacion:
             self._en_recuperacion = not (
                 temp >= t_est + brecha_seg + _HIST_RECUP_TEMP_K
@@ -874,36 +859,17 @@ class EsterilizacionFase(BaseFase):
             )
 
         # ── 4. Control de vapor ────────────────────────────────────────────
-        # Modo cámara: actúa vapor_camara (como antes). Modo chaqueta: misma
-        # decisión, actúa vapor_chaqueta; vapor_camara abierta salvo el
-        # aislamiento, que fuerza las dos OFF y prevalece sobre todo.
-        if chaqueta and self._aislamiento().aislado:
-            # M2-REC-01: el aislamiento prevalece; sin exención
-            self._actualizar_exencion_m2(None, pres)
-            self.set_do.vapor_camara_off()
-            self.set_do.vapor_chaqueta_off()
-            self._pwm_abierto = False
-            self._t_pulso_pwm = None
-        elif chaqueta:
-            # M2-REC-01: el corte A14-M2 no aplica mientras la cámara está bajo
-            # la banda PWM (en RECUPERACION o en PWM); D-CHQ, la falta de
-            # lectura de pres_chaqueta y el corte duro de CICLO siguen
-            self._actualizar_exencion_m2(
-                ccc.motivo_exencion(pres, self.p_sp, _BANDA_PWM_BAJA), pres)
-            self.set_do.vapor_camara_on()
-            if self._en_recuperacion:
-                # D12: sin el techo con histéresis de C-08.3 (lo reemplaza el
-                # aislamiento)
-                self._vapor_on()
+        # Modo cámara: actúa vapor_camara (como antes). Modo chaqueta (CAS-02):
+        # la cascada decide vapor_chaqueta en cada tick, sin PWM ni
+        # RECUPERACION; vapor_camara abierta salvo el aislamiento, que fuerza
+        # las dos OFF y prevalece sobre todo (D-CHQ también, en _aplicar_cascada).
+        if chaqueta:
+            aislado = self._aislamiento().aislado
+            if aislado:
+                self.set_do.vapor_camara_off()
             else:
-                self._control_vapor_pwm(pres, factor_pct, intervalo, p_control_max, now)
-                # H1 (revisión A14-M2): _tick_dos_estados solo llama a on_fn en
-                # la transición a ON; durante el tramo ON el corte D-CHQ y el de
-                # consigna se reevalúan en cada tick (como CALENTAMIENTO), así
-                # que vapor_chaqueta queda OFF en el mismo tick en que aparece
-                # el corte (también sin lectura o sin consigna: falla cerrada)
-                if self._pwm_abierto:
-                    self._vapor_on()
+                self.set_do.vapor_camara_on()
+            self._aplicar_cascada(pres, p_control_max, permitido=not aislado)
         elif self._en_recuperacion:
             # C-08.3: el techo de control también rige en RECUPERACION, con
             # histéresis (DECISIÓN SIN CONFIRMAR de la sesión principal): OFF

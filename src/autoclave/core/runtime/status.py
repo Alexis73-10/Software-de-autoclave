@@ -160,6 +160,10 @@ class EstadoAutoclave:
         # Nada de control los lee.
         self.exposicion_restante_s = None
         self.exposicion_total_s = None
+        # CAS-02/CAS-03 (tanda 33): {nivel, consigna, valvula} del control en
+        # cascada de vapor_chaqueta (modo chaqueta, ESTERILIZACION y
+        # ESTABLE_PREESTERILIZACION). Solo publicación; None fuera de esas fases.
+        self.cascada_chaqueta = None
         # T30-02: datos de progreso de la fase activa que publican
         # CALENTAMIENTO (ventana de estabilización), DESCOMPRESION (modos 4/5
         # enfriando) y SECADO (conteo de la fase) para la pantalla de ciclo en
