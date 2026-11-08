@@ -150,12 +150,13 @@ def test_m1_texto_i18n_de_la_advertencia():
 
 # ── M2: corte de vapor_chaqueta sobre la consigna + margen ─────────────────
 
-def _ester_chaqueta(monkeypatch, pres_chaqueta, temp=134.0, pres=None, margen=None):
+def _ester_chaqueta(monkeypatch, pres_chaqueta, temp=134.0, pres=None, margen=None, **kw):
     """ESTERILIZACION en modo chaqueta; con T = T_est entra en RECUPERACION
     (la fase pide vapor_chaqueta ON)."""
     f, estado, set_do, reloj = ap.fase(monkeypatch, t_est=T_EST, presion_add=15.0,
                                        brecha_seg=0.3, tiempo_min=30, temp=temp,
-                                       pres=p_saturacion_kpa(T_EST) if pres is None else pres)
+                                       pres=p_saturacion_kpa(T_EST) if pres is None else pres,
+                                       **kw)
     estado.modo_vapor = "chaqueta"
     estado.inhibir_vapor_chaqueta = False
     estado.sensores_pres["pres_chaqueta"] = pres_chaqueta
@@ -166,11 +167,18 @@ def _ester_chaqueta(monkeypatch, pres_chaqueta, temp=134.0, pres=None, margen=No
     return f, estado, set_do, reloj
 
 
+def _ester_chaqueta_pwm_on(monkeypatch, pres_chaqueta, margen=None):
+    """M2-REC-01: el corte M2 ya no rige en RECUPERACION ni bajo la banda; se
+    prueba en PWM_ACTIVO dentro de la banda, en el tramo ON (t_on ≈ 29,7 s)."""
+    return _ester_chaqueta(monkeypatch, pres_chaqueta, temp=134.7, pres=P_SP,
+                           margen=margen, intervalo=30, factor=1.0)
+
+
 def test_m2_ester_corta_sobre_p_sp_mas_margen_y_reabre_debajo(monkeypatch):
     umbral = P_SP + 8.0                                   # ≈ 317,6 kPa
-    f, estado, set_do, reloj = _ester_chaqueta(monkeypatch, umbral + 0.1)
+    f, estado, set_do, reloj = _ester_chaqueta_pwm_on(monkeypatch, umbral + 0.1)
     f.update()
-    assert f._en_recuperacion is True                    # la fase pide ON
+    assert f._en_recuperacion is False and f._pwm_abierto is True   # la fase pide ON
     set_do.vapor_chaqueta_on.assert_not_called()
     set_do.vapor_chaqueta_off.assert_called()
     set_do.vapor_camara_on.assert_called()               # la cámara no se toca
@@ -190,10 +198,10 @@ def test_m2_ester_corta_sobre_p_sp_mas_margen_y_reabre_debajo(monkeypatch):
 
 
 def test_m2_ester_usa_el_margen_del_programa(monkeypatch):
-    f, _, set_do, _ = _ester_chaqueta(monkeypatch, P_SP + 4.0, margen=3.0)
+    f, _, set_do, _ = _ester_chaqueta_pwm_on(monkeypatch, P_SP + 4.0, margen=3.0)
     f.update()
     set_do.vapor_chaqueta_on.assert_not_called()
-    f2, _, set_do2, _ = _ester_chaqueta(monkeypatch, P_SP + 4.0, margen=5.0)
+    f2, _, set_do2, _ = _ester_chaqueta_pwm_on(monkeypatch, P_SP + 4.0, margen=5.0)
     f2.update()
     set_do2.vapor_chaqueta_on.assert_called()
 
@@ -425,9 +433,10 @@ def test_h1_aislamiento_a_mitad_del_tramo_on_con_el_corte_activo(monkeypatch):
 
 
 def test_h1_bajo_p_low_con_el_corte_activo(monkeypatch):
-    """(e) Rama P < p_low (ON forzado) con el corte activo: vapor_chaqueta OFF,
-    vapor_camara abierta; al despejarse el corte vuelve a ON (sin regresión de
-    la rama, que también hace la doble llamada)."""
+    """(e) Rama P < p_low (ON forzado) con pres_chaqueta sobre el umbral M2.
+    Ajustada por M2-REC-01 (7-nov): bajo la banda la cámara necesita vapor y el
+    corte M2 no aplica, así que vapor_chaqueta queda ON (antes OFF); al volver
+    dentro de la banda con el tramo ON el corte rige otra vez."""
     f, estado, set_do, reloj = _pwm_chaqueta_t_on_largo(monkeypatch)
     reloj.avanzar(1.0)
     ap.poner(estado, 134.7, P_SP - est._BANDA_PWM_BAJA - 0.5)
@@ -435,15 +444,17 @@ def test_h1_bajo_p_low_con_el_corte_activo(monkeypatch):
     f.update()
     assert f._en_recuperacion is False
     assert f._pwm_abierto is True and f._t_pulso_pwm is None   # rama ON forzado
-    set_do.vapor_chaqueta_off.assert_called()
-    set_do.vapor_chaqueta_on.assert_not_called()
+    assert f._exencion_m2 == ccc.MOTIVO_BAJO_BANDA
+    set_do.vapor_chaqueta_on.assert_called()
+    set_do.vapor_chaqueta_off.assert_not_called()
     set_do.vapor_camara_on.assert_called()
     set_do.reset_mock()
     reloj.avanzar(1.0)
-    estado.sensores_pres["pres_chaqueta"] = UMBRAL_EST - 0.5
+    ap.poner(estado, 134.7, P_SP)
     f.update()
-    set_do.vapor_chaqueta_on.assert_called()
-    set_do.vapor_chaqueta_off.assert_not_called()
+    assert f._exencion_m2 is None
+    set_do.vapor_chaqueta_off.assert_called()
+    set_do.vapor_chaqueta_on.assert_not_called()
 
 
 def _ordenes_chaqueta(set_do):

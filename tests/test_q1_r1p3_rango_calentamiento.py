@@ -55,8 +55,11 @@ def test_migracion_copia_el_valor_a_los_dos_y_conserva_el_orden():
     params = _viejo(3.5)
     assert migrar_parametros(params) is True
     cal = params["calentamiento"]
+    # presion_add_liquido_calentamiento: la agrega al final la migración del
+    # ajuste 7-nov de líquidos (cycle_manager._agregar_clave_liquido_cal)
     assert list(cal) == ["factor_calentamiento", "rango_calentamiento_temp",
-                         "rango_calentamiento_pres", "tasa_calentamiento"]
+                         "rango_calentamiento_pres", "tasa_calentamiento",
+                         "presion_add_liquido_calentamiento"]
     assert cal["rango_calentamiento_temp"]["value"] == 3.5
     assert cal["rango_calentamiento_temp"]["unit"] == "°C"
     assert cal["rango_calentamiento_temp"]["clase"] == "diferencia"

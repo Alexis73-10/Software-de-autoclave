@@ -112,7 +112,7 @@ def test_set_output_pasa_el_plazo_al_enlace():
 def _calentamiento_vencido(pausada):
     f = CalentamientoFase(MagicMock(), MagicMock(), MagicMock(), MagicMock(), MagicMock(), MagicMock())
     f.reset()
-    f.cycle.get_param.side_effect = lambda s, n: None
+    f.cycle.get_param.side_effect = lambda s, n, default=None: None
     f._inicializado = True
     f._timer_timeout_fin = -1.0
     f._timer_sostenido_desde = 0.0
