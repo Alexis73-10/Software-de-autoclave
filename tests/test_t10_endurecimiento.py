@@ -129,15 +129,15 @@ def test_set_param_usa_el_catalogo_y_tipos_estrictos(tmp_path):
 
 
 def test_liquidos_reglas_de_coherencia():
-    """1.2 + SAF-05/06 de T11: modo 4/5, sin prevacío ni secado, sin apertura
-    automática y contrapresión >= P_sat(t_est) + 30 kPa."""
+    """1.2 + SAF-05/06 de T11: modo 4/5, sin secado, sin apertura automática y
+    contrapresión >= P_sat(t_est) + 30 kPa. Los pulsos de prevacío con carga
+    líquida se permiten desde el 7-nov (decisión de Cristian, 1f23a230)."""
     from autoclave.core.managers.cycle_manager import Cycle
     ruta = next(r for r in PROGRAMAS if r.endswith("liquidos.json"))
     datos = json.loads(Path(ruta).read_text(encoding="utf-8"))
     c = Cycle("liq", "Líquidos", datos["parameters"], 4)
     for fase, path, valor in (
             ("descompresion", ["modo"], 1),
-            ("prevacio", ["conteo_pulso_a"], 2),
             ("secado", ["tiempo_secado"], 5.0),
             ("finalizacion", ["apertura_automatica"], True),
             ("descompresion", ["modo_4", "presion_camara_enfriamiento"], 200)):
