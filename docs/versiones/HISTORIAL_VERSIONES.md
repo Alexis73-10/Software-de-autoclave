@@ -9,6 +9,21 @@ Una entrada por **entrega** (compilación con Setup que se instala en el equipo)
 
 <!-- entradas: las agrega compilar_entrega.py debajo de esta línea, la más nueva primero -->
 
+## 1.0.0-alpha.24 — 2026-11-07
+
+- Etiqueta: `v1.0.0-alpha.24` (commit `chore(ver): 1.0.0-alpha.24`, sobre `94ed7ba`)
+- AppVerNum: `1.0.0.1024`
+- SHA-256 del Setup y del zip: en el mensaje de la etiqueta y en `entrega/v1.0.0-alpha.24_2026-11-07/SHA256SUMS.txt` (solo existen después de compilar)
+- Commits desde `v1.0.0-alpha.23`:
+  - f5ffd656 docs(m2-rec): CLAUDE.md, HAZ-M2-REC-01, REQ-86, banco M2-REC-01 e informe
+  - abad2554 fix(m2-rec): exencion del corte A14-M2 solo bajo la banda (opcion 1 de Cristian)
+  - a761ff1b test: lista de migracion con presion_add_liquido_calentamiento (ajuste 7-nov)
+  - c243153e test: pruebas desactualizadas por el ajuste de liquidos del 7-nov
+  - 7409303e feat(m2-rec): exencion del corte A14-M2 en RECUPERACION y bajo la banda (M2-REC-01)
+  - a7867506 test: pruebas del ajuste 7-nov de liquidos
+  - 4af3e9f8 fix: presion_add_liquido_calentamiento en calentamiento (bowe_dick e instrumental_134 de fabrica)
+
+
 ## 1.0.0-alpha.23 — 2026-11-07
 
 - Etiqueta: `v1.0.0-alpha.23` (commit `chore(ver): 1.0.0-alpha.23`, sobre `d5703d8`)
