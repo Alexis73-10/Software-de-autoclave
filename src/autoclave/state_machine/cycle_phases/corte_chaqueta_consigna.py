@@ -19,6 +19,12 @@
 # enclavar el corte por tramo es DECISIÓN PENDIENTE de Cristian y debe medirse
 # en banco (hoja de pruebas, bloque T28).
 #
+# M2-REC-01 (7-nov, decisión de Cristian): en ESTERILIZACION el corte no
+# aplica mientras la cámara necesita vapor (RECUPERACION o pres_camara bajo la
+# banda PWM), porque con la chaqueta cargada sobre el umbral bloqueaba la única
+# fuente de vapor y la cámara caía hasta CIC-04 (ciclos 21 y 23 de SN260001).
+# CALENTAMIENTO no cambia (hallazgo en docs/informes/m2_recuperacion/).
+#
 # El componente es puro: las fases lo consultan en cada tick.
 
 import math
@@ -58,10 +64,34 @@ def texto_lectura(pres) -> str:
     return f"{float(pres):.1f}" if _numero(pres) else f"sin lectura ({pres!r})"
 
 
-def debe_cortar(pres_chaqueta, consigna, margen) -> bool:
+MOTIVO_RECUPERACION = "recuperacion"
+MOTIVO_BAJO_BANDA = "bajo_banda"
+
+
+def motivo_exencion(en_recuperacion, pres_camara, consigna, banda_baja) -> str | None:
+    """M2-REC-01 (7-nov, decisión de Cristian; solo ESTERILIZACION): motivo
+    por el que la cámara necesita vapor y el corte por consigna no aplica en
+    este tick, o None. "recuperacion" si la fase está en RECUPERACION;
+    "bajo_banda" si pres_camara < consigna - banda_baja (solo con lectura y
+    consigna numéricas). Sin histéresis."""
+    if en_recuperacion is True:
+        return MOTIVO_RECUPERACION
+    if (_numero(pres_camara) and _numero(consigna) and _numero(banda_baja)
+            and float(pres_camara) < float(consigna) - float(banda_baja)):
+        return MOTIVO_BAJO_BANDA
+    return None
+
+
+def debe_cortar(pres_chaqueta, consigna, margen, camara_necesita_vapor=False) -> bool:
     """True si vapor_chaqueta debe quedar OFF: sin lectura válida de
-    pres_chaqueta, sin umbral calculable, o pres_chaqueta > consigna + margen."""
+    pres_chaqueta, sin umbral calculable, o pres_chaqueta > consigna + margen.
+    M2-REC-01: con camara_necesita_vapor True el umbral no corta, pero sin
+    lectura válida o sin umbral se sigue cortando (falla cerrada). La exención
+    nunca anula el aislamiento VCH-AIS ni el corte D-CHQ: los evalúa la fase y
+    CICLO aparte."""
     umbral = umbral_kpa(consigna, margen)
     if umbral is None or not _numero(pres_chaqueta):
         return True
+    if camara_necesita_vapor is True:
+        return False
     return float(pres_chaqueta) > umbral

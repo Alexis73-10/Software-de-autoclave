@@ -90,6 +90,10 @@
 #   - A14-M2 (tanda 28): vapor_chaqueta OFF también con pres_chaqueta >
 #     P_sp + margen_chaqueta_est o sin lectura de pres_chaqueta
 #     (corte_chaqueta_consigna.py). AND con la decisión y con D-CHQ.
+#   - M2-REC-01 (7-nov): el corte por umbral de A14-M2 no aplica en el tick
+#     en que la fase está en RECUPERACION o pres_camara < P_sp - 2 (la cámara
+#     necesita vapor). Sin lectura de pres_chaqueta sigue cortando; el
+#     aislamiento, D-CHQ y el corte duro de CICLO prevalecen.
 
 import math
 import time
@@ -163,6 +167,10 @@ class EsterilizacionFase(BaseFase):
         self.p_sp = None
         # A14-M2: estado del corte por consigna (solo para el log)
         self._corte_m2_previo = False
+        # M2-REC-01: motivo de la exención del corte M2 en este tick
+        # ("recuperacion", "bajo_banda" o None); se fija en update() antes del
+        # control de vapor
+        self._exencion_m2 = None
 
         # P6 / D-14.6: debounce acumulado de cada condición de falla
         self._debounce: dict[str, DebounceAcumulado] = {
@@ -583,7 +591,10 @@ class EsterilizacionFase(BaseFase):
         cerrada). Registra en el log el inicio y el fin del corte."""
         pres = self._pres_chaqueta()
         margen = ccc.margen_kpa(self.cycle)
-        cortar = ccc.debe_cortar(pres, self.p_sp, margen)
+        # M2-REC-01: con la cámara pidiendo vapor el umbral no corta (sin
+        # lectura de pres_chaqueta sigue cortando)
+        cortar = ccc.debe_cortar(pres, self.p_sp, margen,
+                                 camara_necesita_vapor=self._exencion_m2 is not None)
         if cortar != self._corte_m2_previo:
             umbral = ccc.umbral_kpa(self.p_sp, margen)
             if cortar:
@@ -596,6 +607,27 @@ class EsterilizacionFase(BaseFase):
                             "(pres_chaqueta %.1f kPa)", pres)
             self._corte_m2_previo = cortar
         return cortar
+
+    def _actualizar_exencion_m2(self, motivo, pres_camara) -> None:
+        """M2-REC-01: fija el motivo de la exención del tick y registra en el
+        log (sin bitácora) el inicio y el fin de cada tramo, o el cambio de
+        motivo, sin repetirlo en cada tick."""
+        previo = self._exencion_m2
+        self._exencion_m2 = motivo
+        if motivo == previo:
+            return
+        pres_chq = self._pres_chaqueta()
+        umbral = ccc.umbral_kpa(self.p_sp, ccc.margen_kpa(self.cycle))
+        texto_umbral = "?" if umbral is None else f"{umbral:.1f}"
+        texto_camara = ccc.texto_lectura(pres_camara)
+        if motivo is not None:
+            logger.warning("Esterilización: exención del corte A14-M2 (M2-REC-01, motivo %s): "
+                           "pres_camara %s kPa, pres_chaqueta %s kPa, umbral M2 %s kPa",
+                           motivo, texto_camara, ccc.texto_lectura(pres_chq), texto_umbral)
+        else:
+            logger.info("Esterilización: fin de la exención del corte A14-M2 (motivo %s): "
+                        "pres_camara %s kPa, pres_chaqueta %s kPa, umbral M2 %s kPa",
+                        previo, texto_camara, ccc.texto_lectura(pres_chq), texto_umbral)
 
     def _vapor_on(self):
         """Abre la válvula actuadora del modo: vapor_camara (modo cámara) o
@@ -765,6 +797,7 @@ class EsterilizacionFase(BaseFase):
                 # cámara queda abierta salvo un aislamiento en curso, que no se
                 # reabre sin saber la presión (DECISIÓN SIN CONFIRMAR)
                 self.set_do.vapor_chaqueta_off()
+                self._actualizar_exencion_m2(None, pres)
                 ais = self._aislamiento()
                 # R (tanda 16, V16-s1-03): con la presión válida (solo falta el
                 # Principal) el aislamiento se sigue evaluando
@@ -845,11 +878,19 @@ class EsterilizacionFase(BaseFase):
         # decisión, actúa vapor_chaqueta; vapor_camara abierta salvo el
         # aislamiento, que fuerza las dos OFF y prevalece sobre todo.
         if chaqueta and self._aislamiento().aislado:
+            # M2-REC-01: el aislamiento prevalece; sin exención
+            self._actualizar_exencion_m2(None, pres)
             self.set_do.vapor_camara_off()
             self.set_do.vapor_chaqueta_off()
             self._pwm_abierto = False
             self._t_pulso_pwm = None
         elif chaqueta:
+            # M2-REC-01: el corte A14-M2 no aplica mientras la cámara necesita
+            # vapor (RECUPERACION o bajo la banda PWM); D-CHQ, la falta de
+            # lectura de pres_chaqueta y el corte duro de CICLO siguen
+            self._actualizar_exencion_m2(
+                ccc.motivo_exencion(self._en_recuperacion, pres, self.p_sp, _BANDA_PWM_BAJA),
+                pres)
             self.set_do.vapor_camara_on()
             if self._en_recuperacion:
                 # D12: sin el techo con histéresis de C-08.3 (lo reemplaza el

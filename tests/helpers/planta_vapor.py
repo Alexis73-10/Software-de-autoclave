@@ -41,6 +41,7 @@ DT = 0.5
 T_AMB = 25.0
 RAIZ = Path(__file__).resolve().parents[2]
 PROGRAMA_134 = RAIZ / "src" / "autoclave" / "cycles" / "factory" / "instrumental_134.json"
+PROGRAMA_LIQUIDOS = RAIZ / "src" / "autoclave" / "cycles" / "factory" / "liquidos.json"
 
 
 def psat(t: float) -> float:
@@ -98,15 +99,27 @@ class PlantaVapor:
     CALOR = 0.15           # 1/s, T de la carga hacia Tsat(P_v)
     PERDIDA_TERMICA = 0.0003  # 1/s hacia T_AMB
     TAU_SONDA = 15.0       # s
+    # M2-REC (7-nov): pérdida fija de vapor de la cámara (kPa/s; escape lento
+    # enclavado, carga líquida y paredes). 0 = modelo de A14 sin cambio.
+    PERDIDA_CAMARA = 0.0
 
     def __init__(self, modulo_es, p_atm: float, chaqueta: bool,
-                 t_inicial: float = 60.0, p_chaqueta_inicial: float = 328.0):
+                 t_inicial: float = 60.0, p_chaqueta_inicial: float = 328.0,
+                 p_camara_inicial: float | None = None, t_sonda_inicial: float | None = None,
+                 ajustes: dict | None = None):
+        """`ajustes`: {atributo de clase: valor} para esta instancia (p. ej.
+        PASO_CAMARA, PERDIDA_CAMARA). `p_camara_inicial`: presión de vapor
+        inicial (si no, Psat(t_inicial))."""
+        for nombre, valor in (ajustes or {}).items():
+            if not hasattr(type(self), nombre):
+                raise AttributeError(nombre)
+            setattr(self, nombre, valor)
         self.modulo_es = modulo_es
         self.p_atm = p_atm
         self.chaqueta = chaqueta
         self.t = t_inicial
-        self.t_sonda = t_inicial
-        self.p_v = psat(t_inicial)
+        self.t_sonda = t_inicial if t_sonda_inicial is None else t_sonda_inicial
+        self.p_v = psat(t_inicial) if p_camara_inicial is None else p_camara_inicial
         self.p_aire = 0.1          # después del prevacío
         self.p_chaqueta = p_chaqueta_inicial if chaqueta else 300.0
 
@@ -139,6 +152,8 @@ class PlantaVapor:
                 self._ventear(0.6 * DT * sobre)
             if on("descompresion_lenta"):
                 self._ventear(0.001 * DT * sobre)
+        if self.PERDIDA_CAMARA and self.p > self.p_atm:
+            self.p_v -= self.PERDIDA_CAMARA * DT
         self.p_v += (psat(self.t) - self.p_v) * self.CONDENSACION * DT
         self.p_v = max(self.p_v, 0.5)
         self.t += (tsat(self.p_v) - self.t) * self.CALOR * DT
@@ -156,7 +171,16 @@ class PlantaVapor:
 def programa_134(**valores) -> Cycle:
     """Programa de fábrica 134 °C (sin migraciones de carga) con los valores
     dados como `seccion__parametro=valor`."""
-    datos = json.loads(PROGRAMA_134.read_text(encoding="utf-8"))
+    return _programa(PROGRAMA_134, **valores)
+
+
+def programa_liquidos(**valores) -> Cycle:
+    """M2-REC: programa de fábrica Líquidos 121 °C (sin migraciones de carga)."""
+    return _programa(PROGRAMA_LIQUIDOS, **valores)
+
+
+def _programa(ruta, **valores) -> Cycle:
+    datos = json.loads(ruta.read_text(encoding="utf-8"))
     parametros = copy.deepcopy(datos["parameters"])
     for ruta, valor in valores.items():
         seccion, clave = ruta.split("__")
@@ -176,6 +200,15 @@ class Resultado:
     inicio_ester_s: float | None = None
     t_est: float = 134.0
     p_control_max: float = 0.0
+    exencion_s: float = 0.0      # M2-REC: s con la exención del corte M2 activa
+
+    @property
+    def p_min_ester(self):
+        return min((m[3] for m in self.ester()), default=None)
+
+    @property
+    def p_chaqueta_max_ester(self):
+        return max((m[4] for m in self.ester()), default=None)
 
     def ester(self):
         return [m for m in self.serie if m[1] == "ESTERILIZACION"]
@@ -207,10 +240,13 @@ class Resultado:
 
 
 def simular(modo: str, programa: Cycle, limite_s: float = 3600.0,
-            monkeypatch=None) -> Resultado:
+            monkeypatch=None, planta_kw: dict | None = None,
+            desde_esterilizacion: bool = False) -> Resultado:
     """Corre CALENTAMIENTO y ESTERILIZACION sobre la planta. `modo`:
     "camara" o "chaqueta". Con `monkeypatch` (pytest) parchea time.monotonic;
-    sin él lo parchea y lo restaura aquí (script de diagnóstico)."""
+    sin él lo parchea y lo restaura aquí (script de diagnóstico).
+    M2-REC: `planta_kw` va al constructor de PlantaVapor y
+    `desde_esterilizacion` empieza en ESTERILIZACION con ese estado inicial."""
     reloj = [1000.0]
     original = time.monotonic
     if monkeypatch is not None:
@@ -218,13 +254,14 @@ def simular(modo: str, programa: Cycle, limite_s: float = 3600.0,
     else:
         time.monotonic = lambda: reloj[0]
     try:
-        return _simular(modo, programa, limite_s, reloj)
+        return _simular(modo, programa, limite_s, reloj, planta_kw or {},
+                        desde_esterilizacion)
     finally:
         if monkeypatch is None:
             time.monotonic = original
 
 
-def _simular(modo, programa, limite_s, reloj) -> Resultado:
+def _simular(modo, programa, limite_s, reloj, planta_kw, desde_esterilizacion) -> Resultado:
     chaqueta = modo == "chaqueta"
     estado = EstadoAutoclave()
     estado.modo_vapor = MODO_CHAQUETA if chaqueta else "camara"
@@ -235,7 +272,7 @@ def _simular(modo, programa, limite_s, reloj) -> Resultado:
     p_atm = float(config.get("presion_admosferica") or 101.3)
     corte_chq = float(config.get("presion_max_chaqueta_control") or 375)
     modulo_es = ModuloEsDoble(estado)
-    planta = PlantaVapor(modulo_es, p_atm, chaqueta)
+    planta = PlantaVapor(modulo_es, p_atm, chaqueta, **planta_kw)
     set_do = SetOutput(modulo_es, estado, profile=None)
     alarmas = MagicMock()
     fases = [CalentamientoFase(estado, set_do, programa, config, alarmas, None),
@@ -246,7 +283,9 @@ def _simular(modo, programa, limite_s, reloj) -> Resultado:
     res = Resultado(modo=modo, t_est=t_est,
                     p_control_max=p_saturacion_kpa(t_est)
                     + programa.get_param("esterilizacion", "presion_add_esterilizacion"))
-    idx = 0
+    idx = 1 if desde_esterilizacion else 0
+    if desde_esterilizacion:
+        res.inicio_ester_s = 0.0
     aislado_antes = False
     if chaqueta:
         set_do.vapor_camara_on()
@@ -270,6 +309,8 @@ def _simular(modo, programa, limite_s, reloj) -> Resultado:
         if aislado and not aislado_antes:
             res.aislamientos += 1
         aislado_antes = aislado
+        if getattr(fase, "_exencion_m2", None) is not None:
+            res.exencion_s += DT
         actuador = "vapor_chaqueta" if chaqueta else "vapor_camara"
         tramo = ("ESTABLE" if getattr(fase, "_en_sostenimiento", False) else "RAMPA") \
             if idx == 0 else ("RECUPERACION" if getattr(fase, "_en_recuperacion", False)
