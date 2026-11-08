@@ -61,6 +61,7 @@
         "calentamiento": {
             "temperatura_calentamiento": { "value": 134.0, "type": "float", "unit": "°C", "clase": "absoluto", "min": 100, "max": 140 },
             "presion_add_calentamiento": { "value": 11.0, "type": "float", "unit": "kPa", "clase": "diferencia", "min": 0, "max": 100 },
+            "presion_add_liquido_calentamiento": { "value": 15.0, "type": "float", "unit": "kPa", "clase": "diferencia", "min": 0, "max": 30 },
             "histeresis_cierre_camara": { "value": 3.0, "type": "float", "unit": "kPa", "clase": "diferencia", "min": 1, "max": 10 },
             "timeout_calentamiento": { "value": 60, "type":"int", "unit": "min", "min": 1, "max": 999 },
             "factor_calentamiento": { "value": 50, "type": "int", "unit": "%", "min": 0, "max": 100 },
@@ -111,14 +112,6 @@
         "descompresion": {
             "modo": {
                 "value": 1, "type": "int", "unit": "", "min": 0, "max": 5
-            },
-            "presion_add_liquido_calentamiento": {
-                "value": 15.0,
-                "type": "float",
-                "unit": "kPa",
-                "clase": "diferencia",
-                "min": 0,
-                "max": 30
             },
             "tiempo_pre_despresurizacion": {
                 "value": 0, "type": "int", "unit": "sec", "min": 0, "max": 3600
