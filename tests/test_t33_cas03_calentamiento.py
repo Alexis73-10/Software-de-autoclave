@@ -263,6 +263,24 @@ def test_fallo_limpia_la_publicacion():
     assert fase._cascada.valvula is False
 
 
+def test_cas04_valvula_publicada_es_la_orden_aplicada(monkeypatch):
+    """CAS-04: como ESTERILIZACION, `valvula` publicada = orden aplicada a
+    vapor_chaqueta, también cuando la cascada pide ON y prevalece otra regla."""
+    fase, estado, set_do = _fase()
+    _a_sostenimiento(fase, estado)
+    casos = [(250.0, False, False), (CONSIGNA_BANDA + 0.5, False, False),
+             (250.0, True, False), (250.0, False, True), (250.0, False, False)]
+    for pch, inhibir, aislado in casos:
+        estado.inhibir_vapor_chaqueta = inhibir
+        monkeypatch.setattr(fase, "_vigilar_aislamiento",
+                            (lambda *a: (True, None)) if aislado
+                            else cal_mod.CalentamientoFase._vigilar_aislamiento.__get__(fase))
+        set_do.reset_mock()
+        _tick(fase, estado, T_OBJ, P_OBJ, pres_chaqueta=pch)
+        assert estado.cascada_chaqueta["valvula"] is (_ultima_chaqueta(set_do) == "on")
+        assert estado.cascada_chaqueta["valvula"] is fase._cascada.valvula
+
+
 def test_log_sin_repeticion(caplog):
     fase, estado, _ = _fase()
     _a_sostenimiento(fase, estado)

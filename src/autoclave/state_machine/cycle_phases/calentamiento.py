@@ -630,7 +630,9 @@ class CalentamientoFase(BaseFase):
                 # (no reabre por histéresis al volver la lectura)
                 if self._cascada_decide(add_liq):
                     self._cascada.valvula = False
-                    self.estado.cascada_chaqueta = self._cascada.publicar()
+                    publicado = self._cascada.publicar()
+                    publicado["valvula"] = False
+                    self.estado.cascada_chaqueta = publicado
             return FaseResult.EN_CURSO
 
         now = time.monotonic()
@@ -772,7 +774,11 @@ class CalentamientoFase(BaseFase):
             # la válvula de la cascada sigue a la salida real (DECISIÓN SIN
             # CONFIRMAR): forzada a OFF no reabre por histéresis al liberarse
             self._cascada.valvula = encender
-            self.estado.cascada_chaqueta = self._cascada.publicar()
+            # CAS-04 (tanda 33): valvula publicada = orden aplicada, como
+            # ESTERILIZACION (_aplicar_cascada)
+            publicado = self._cascada.publicar()
+            publicado["valvula"] = encender
+            self.estado.cascada_chaqueta = publicado
             if encender:
                 self.set_do.vapor_chaqueta_on()
             else:

@@ -16,7 +16,22 @@ comparar el control antes y después de A14 con la misma planta):
 El arnés hace lo que CicloState hace alrededor de las fases y que ellas leen:
 el corte D-CHQ (estado.inhibir_vapor_chaqueta con pres_chaqueta >=
 presion_max_chaqueta_control o sin lectura en modo chaqueta) antes de update()
-y el OFF forzado después; nada más."""
+y el OFF forzado después; nada más.
+
+CAS-04 (tanda 33), extensiones con valores PROVISIONALES (sin ellas el
+comportamiento es el de antes):
+  - GANANCIA_CHAQUETA (k, defecto 1,00): error de ganancia del transmisor de
+    chaqueta. Se publica pres_chaqueta = p_atm + (real − p_atm) · k; el
+    control y el D-CHQ del arnés ven la lectura, la planta y la serie la
+    presión real. k = 1,07 lee alto (como los ciclos 21/23 de SN260001,
+    12–13 kPa de más a ~208 kPa) y k = 0,95 lee bajo.
+  - VARIANTES_CAUDAL: paso chaqueta → cámara (PASO_CAMARA, 1/s). «restrictivo»
+    0,015/s (el del escenario M2-REC); «abierto» 0,1/s: válvula de asiento sin
+    otra restricción, cámara y chaqueta casi un solo volumen (dato de
+    Cristian, 7-nov: es la configuración REAL). El defecto de la clase (0,06/s)
+    es el de A14 y no cambia.
+  - escenario_t33(): Líquidos 121 °C y 134 °C sólidos de ciclo completo
+    (CALENTAMIENTO → ESTERILIZACION) para CAS-04."""
 
 from __future__ import annotations
 
@@ -102,6 +117,8 @@ class PlantaVapor:
     # M2-REC (7-nov): pérdida fija de vapor de la cámara (kPa/s; escape lento
     # enclavado, carga líquida y paredes). 0 = modelo de A14 sin cambio.
     PERDIDA_CAMARA = 0.0
+    # CAS-04 (tanda 33): ganancia del transmisor de chaqueta (1,0 = exacto)
+    GANANCIA_CHAQUETA = 1.0
 
     def __init__(self, modulo_es, p_atm: float, chaqueta: bool,
                  t_inicial: float = 60.0, p_chaqueta_inicial: float = 328.0,
@@ -164,8 +181,52 @@ class PlantaVapor:
         t = self.t_sonda
         estado.sensores_temp.update({"temp_camara": t, "temp_2_camara": t,
                                      "temp_ref": t - 0.2, "temp_drenaje": 40.0})
-        estado.sensores_pres.update({"pres_camara": self.p, "pres_chaqueta": self.p_chaqueta,
+        estado.sensores_pres.update({"pres_camara": self.p,
+                                     "pres_chaqueta": self.lectura_chaqueta(self.p_chaqueta),
                                      "pres_empaque_1": 350.0, "pres_empaque_2": 350.0})
+
+    def lectura_chaqueta(self, real: float) -> float:
+        """CAS-04: lectura del transmisor de chaqueta con error de ganancia."""
+        if self.GANANCIA_CHAQUETA == 1.0:
+            return real
+        return self.p_atm + (real - self.p_atm) * self.GANANCIA_CHAQUETA
+
+
+# CAS-04 (tanda 33): variantes de caudal chaqueta → cámara (PROVISIONALES).
+VARIANTES_CAUDAL = {
+    "restrictivo": {"PASO_CAMARA": 0.015},
+    "abierto": {"PASO_CAMARA": 0.1},     # válvula de asiento sin restricción (real)
+}
+
+# Líquidos: carga de inercia alta y pérdida fija de cámara (escape lento
+# enclavado + carga líquida), las del escenario M2-REC; 1 s de vapor_chaqueta
+# sube la chaqueta hasta 12 kPa.
+AJUSTES_LIQUIDOS = dict(LLENADO_CHAQUETA=12.0, PERDIDA_CAMARA=0.35,
+                        CONDENSACION=0.005, CALOR=0.003, PERDIDA_TERMICA=0.0)
+
+
+def escenario_t33(carga: str, caudal: str | None, k: float = 1.0, **valores):
+    """CAS-04: (programa, planta_kw, limite_s) para un ciclo completo
+    CALENTAMIENTO → ESTERILIZACION en modo chaqueta. `carga`: "liquidos"
+    (121 °C) o "134" (sólidos). `caudal`: clave de VARIANTES_CAUDAL o None
+    (defecto de la clase, el de A14). `valores`: `seccion__parametro=valor`.
+    La chaqueta arranca en la consigna de CICLO (C-05) del programa, como la
+    deja PRECALENTAMIENTO; la cámara tras el prevacío (60 °C)."""
+    from autoclave.core.managers.catalogo_parametros import consigna_chaqueta
+    programa = (programa_liquidos if carga == "liquidos" else programa_134)(**valores)
+    ajustes = dict(AJUSTES_LIQUIDOS) if carga == "liquidos" else {}
+    if caudal is not None:
+        ajustes.update(VARIANTES_CAUDAL[caudal])
+    ajustes["GANANCIA_CHAQUETA"] = k
+    planta_kw = dict(ajustes=ajustes)
+    if carga == "liquidos":
+        # 134 °C conserva la chaqueta inicial de A14 (328 kPa) para comparar
+        planta_kw["p_chaqueta_inicial"] = consigna_chaqueta(
+            programa.get_param("esterilizacion", "temperatura_esterilizacion"),
+            programa.get_param("esterilizacion", "presion_add_esterilizacion"))
+    # límites sobre timeout_calentamiento (60 min) + exposición, para ver el
+    # resultado final y no un EN_CURSO
+    return programa, planta_kw, 7200.0 if carga == "liquidos" else 4200.0
 
 
 def programa_134(**valores) -> Cycle:
@@ -229,6 +290,20 @@ class Resultado:
     def sobreimpulso_k(self):
         t = self.t_max_ester
         return None if t is None else t - self.t_est
+
+    @property
+    def p_chaqueta_max(self):
+        """CAS-04: chaqueta real máxima en todo el ciclo simulado."""
+        return max((m[4] for m in self.serie), default=None)
+
+    def conmutaciones_por_min_ester(self) -> float | None:
+        """CAS-04: cambios de estado (ON→OFF y OFF→ON) de la válvula actuadora
+        (vapor_chaqueta en modo chaqueta) por minuto de ESTERILIZACION."""
+        datos = self.ester()
+        if len(datos) < 2:
+            return None
+        cambios = sum(1 for a, b in zip(datos, datos[1:]) if a[5] != b[5])
+        return cambios / (len(datos) * DT / 60.0)
 
     def fraccion_en_banda(self, ancho_k: float = 1.0) -> float | None:
         """Fracción del tiempo de ESTERILIZACION con T en [T_est, T_est + ancho]."""
