@@ -19,9 +19,9 @@
 # enclavar el corte por tramo es DECISIÓN PENDIENTE de Cristian y debe medirse
 # en banco (hoja de pruebas, bloque T28).
 #
-# M2-REC-01 (7-nov, decisión de Cristian): en ESTERILIZACION el corte no
-# aplica mientras la cámara necesita vapor (RECUPERACION o pres_camara bajo la
-# banda PWM), porque con la chaqueta cargada sobre el umbral bloqueaba la única
+# M2-REC-01 (7-nov, decisión de Cristian, opción 1): en ESTERILIZACION el
+# corte no aplica mientras pres_camara está bajo la banda PWM (P_sp - 2),
+# porque con la chaqueta cargada sobre el umbral bloqueaba la única
 # fuente de vapor y la cámara caía hasta CIC-04 (ciclos 21 y 23 de SN260001).
 # CALENTAMIENTO no cambia (hallazgo en docs/informes/m2_recuperacion/).
 #
@@ -64,18 +64,18 @@ def texto_lectura(pres) -> str:
     return f"{float(pres):.1f}" if _numero(pres) else f"sin lectura ({pres!r})"
 
 
-MOTIVO_RECUPERACION = "recuperacion"
 MOTIVO_BAJO_BANDA = "bajo_banda"
 
 
-def motivo_exencion(en_recuperacion, pres_camara, consigna, banda_baja) -> str | None:
-    """M2-REC-01 (7-nov, decisión de Cristian; solo ESTERILIZACION): motivo
-    por el que la cámara necesita vapor y el corte por consigna no aplica en
-    este tick, o None. "recuperacion" si la fase está en RECUPERACION;
+def motivo_exencion(pres_camara, consigna, banda_baja) -> str | None:
+    """M2-REC-01 (7-nov, decisión de Cristian, opción 1; solo ESTERILIZACION):
     "bajo_banda" si pres_camara < consigna - banda_baja (solo con lectura y
-    consigna numéricas). Sin histéresis."""
-    if en_recuperacion is True:
-        return MOTIVO_RECUPERACION
+    consigna numéricas): la cámara necesita vapor y el corte por consigna no
+    aplica en este tick; si no, None. Estar en RECUPERACION NO exime: con
+    carga líquida la fase sigue en RECUPERACION por la temperatura lenta de la
+    sonda aunque la cámara esté sobre la banda, y eximir ahí llevaba la
+    chaqueta al suministro y la cámara a aislamientos repetidos (CIC-16) en la
+    planta simulada. Sin histéresis."""
     if (_numero(pres_camara) and _numero(consigna) and _numero(banda_baja)
             and float(pres_camara) < float(consigna) - float(banda_baja)):
         return MOTIVO_BAJO_BANDA
