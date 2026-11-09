@@ -9,6 +9,29 @@ Una entrada por **entrega** (compilación con Setup que se instala en el equipo)
 
 <!-- entradas: las agrega compilar_entrega.py debajo de esta línea, la más nueva primero -->
 
+## 1.0.0-beta.1 — 2026-11-09
+
+- Etiqueta: `v1.0.0-beta.1` (commit `chore(ver): 1.0.0-beta.1`, sobre `c73a9ce`)
+- AppVerNum: `1.0.0.2001`
+- SHA-256 del Setup y del zip: en el mensaje de la etiqueta y en `entrega/v1.0.0-beta.1_2026-11-09/SHA256SUMS.txt` (solo existen después de compilar)
+- Commits desde `v1.0.0-alpha.26`:
+  - c73a9ce4 docs(pri): CERRADO del programa Prion
+  - 12f4bbc6 feat(ver): entrega con --etapa alpha|beta|rc|final y --base
+  - 89415f03 refactor(params): retirar parámetros sin efecto (timeout_chaqueta, estabilizacion, enfriar_chaqueta_secado)
+  - 05c58fe3 fix(pri): programa de fabrica nuevo sin copia de usuario queda sin numero (PRI-07)
+  - f0c08dff feat(pri): Prion se siembra deshabilitado (decision de Cristian, MEDIA-3); nombre confirmado
+  - d78a9aed fix(pri): el programa de usuario conserva su numero frente a fabrica, siembra respeta numeros usados y JSON ilegibles, fsync
+  - 23027d8c feat(pri): siembra al cargar de programas de fabrica faltantes, pruebas, planta y documentacion de Prion
+  - 0f1b5240 feat(pri): programa Prion 134 C / 30 min (pasos 1 a 3; detenido por DECISION PENDIENTE de llegada a equipos instalados)
+  - 1d722620 docs(cri): CERRADO de la tanda 35
+  - 408497be docs(cri): CLAUDE.md, riesgos HAZ-CRI-01/02, REQ-102..105, bloque de banco e informe de la tanda 35
+  - 2f35ba33 fix(cri): antiembalamiento por saturación del actuador y piso de p_baja (revisión, MEDIA-A, MEDIA-B)
+  - 9b758b3d fix(cri): antiembalamiento condicional y dp heredado nunca bajo el margen (revisión ALTA-1, MEDIA-2)
+  - 275d3191 test(cri): planta antes/después de CRI (16 combinaciones)
+  - 536f0b56 feat(cri): cascada integral, recuperación sobre Psat, regla de coherencia y migración (CRI-01..04)
+  - 6b17cb6b test(cri): línea base de planta y barrido de 16 combinaciones (tanda 35)
+
+
 ## 1.0.0-alpha.26 — 2026-11-09
 
 - Etiqueta: `v1.0.0-alpha.26` (commit `chore(ver): 1.0.0-alpha.26`, sobre `7e2a2d2`)

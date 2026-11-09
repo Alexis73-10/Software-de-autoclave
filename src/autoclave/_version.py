@@ -14,8 +14,8 @@ en `_build_info.py`, que genera cada `.spec` al compilar (VER-04, no versionado)
 import re
 import sys
 
-__version__ = "1.0.0a26"
-VERSION_SEMVER = "1.0.0-alpha.26"
+__version__ = "1.0.0b1"
+VERSION_SEMVER = "1.0.0-beta.1"
 
 ETAPAS = ("alpha", "beta", "rc")
 _PEP440_ETAPA = {"alpha": "a", "beta": "b", "rc": "rc"}
