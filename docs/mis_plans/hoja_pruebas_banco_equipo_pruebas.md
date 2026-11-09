@@ -3457,3 +3457,42 @@ Precondiciones: T33-01 (calibración de `pres_chaqueta`, HAZ-CAS-02) y PAM-00. P
 - **Criterio:** Aprobado si el guardado se rechaza, la carga solo avisa y tras corregir el aviso no vuelve.
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+## Bloque CRI. Cascada integral y recuperación sobre Psat (tanda 35, 9-nov)
+
+Precondiciones: T33-01 (calibración de `pres_chaqueta`, HAZ-CAS-02) y PAM-00. Plan: `docs/mis_plans/planeacion_cascada_integral.md`; riesgos HAZ-CRI-01 y HAZ-CRI-02.
+
+### CRI-00 — Mediciones de capacidad física (CRI-H1, PRIMER PASO)
+- **Modo:** Con vapor  ·  **Origen:** CRI-H1; HAZ-CRI-01
+- **Pasos:** con carga de líquidos y la cámara en ≈203 kPa: (a) con `vapor_chaqueta` abierta y `vapor_camara` cerrada, medir la subida de `pres_chaqueta` en kPa/s; (b) con `vapor_camara` cerrada y el escape lento abierto, medir la caída de `pres_camara` en kPa/s; (c) con `vapor_camara` abierta y la chaqueta a 300–350 kPa, medir el paso chaqueta → cámara. Anotar la temperatura de la carga y el tiempo de cada medición.
+- **Criterio:** Aprobado si la capacidad medida (a, c) supera la pérdida (b) con holgura. Si no, es un límite físico (paso o llenado) para Cristian; ningún ajuste de control lo resuelve.
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### CRI-01 — Líquidos 121 °C: reposición continua en esterilización
+- **Modo:** Con vapor  ·  **Origen:** CRI-01, CRI-02; HAZ-CRI-01
+- **Pasos:** con CRI-00 hecho, correr Líquidos a 121 °C completo. Anotar `dp` de la cascada (log y `estado.cascada_chaqueta`) al entrar y al salir de ESTERILIZACION, la presión mínima de cámara, la Principal mínima, los aislamientos VCH-AIS y si aparece CIC-04.
+- **Criterio:** Aprobado si completa sin CIC-04 ni CIC-16, con la cámara sobre 203,0 kPa y sin aislamientos.
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### CRI-02 — Sólidos 134 °C: sin CIC-16 ni sobreimpulso
+- **Modo:** Con vapor  ·  **Origen:** CRI-01; HAZ-CRI-01 (CRI-H2)
+- **Pasos:** correr un ciclo de sólidos a 134 °C. Anotar `dp`, la chaqueta máxima, la cámara máxima, la temperatura máxima de la Principal y el número de aislamientos.
+- **Criterio:** Aprobado si no hay CIC-16, hay a lo sumo 1 aislamiento, la cámara no llega al techo de aislamiento de forma repetida y no hay falla de temperatura o presión alta.
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### CRI-03 — Confirmar KI_CRI, DP_MIN y DT_MAX
+- **Modo:** Con vapor  ·  **Origen:** CRI-01 (`DECISIÓN SIN CONFIRMAR`)
+- **Pasos:** con los ciclos de CRI-01 y CRI-02, revisar la curva de `dp` y de la chaqueta: velocidad de subida con la cámara bajo `p_ref`, ausencia de oscilación y descenso tras un ascenso de cámara.
+- **Criterio:** Aprobado si `dp` sigue la necesidad sin oscilar ni embalarse; si no, registrar los valores propuestos para `KI_CRI` (0,15 kPa/(kPa·s)), `DP_MIN_KPA` (3) y `DT_MAX_S` (2) para decisión de Cristian.
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### CRI-04 — Significado de brecha_segura_presion y regla de coherencia
+- **Modo:** En seco  ·  **Origen:** CRI-02, CRI-03, CRI-04; HAZ-CRI-02
+- **Pasos:** reiniciar con un programa instalado (p. ej. Líquidos de SN260001): verificar una sola fila `param_ciclo_cambio` («migración CRI…») y el rótulo «Margen de recuperación sobre Psat» en es/en. Intentar guardar `brecha_segura_presion` ≥ `presion_add_esterilizacion` − 3 (rechazo con texto es/en). Reiniciar de nuevo: en programas de usuario la fila no se repite (en los de fábrica se repite por diseño).
+- **Criterio:** Aprobado si la fila aparece una vez por programa de usuario, el rótulo es el nuevo y el guardado incoherente se rechaza.
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
