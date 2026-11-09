@@ -243,6 +243,42 @@ def _migrar_t32(parameters: dict, agregadas) -> bool:
     return cambio
 
 
+def _retirar_sin_efecto(parameters: dict, agregadas) -> bool:
+    """9-nov: quita de un programa viejo la sección «estabilizacion» (la
+    estabilización se fusionó en CALENTAMIENTO) y globals.enfriar_chaqueta_secado,
+    que ningún módulo del control lee. Cada parámetro retirado va a `agregadas`
+    (auditoría param_ciclo_cambio con valor anterior y nuevo None, sin SIS-06) y
+    el JSON de usuario se reescribe con .bak. Nunca toca otro parámetro;
+    idempotente."""
+    origen = catalogo_parametros.ORIGEN_RETIRO_SIN_EFECTO
+    registros = []
+
+    def _anotar(fase, clave, hoja):
+        anterior = hoja.get("value") if isinstance(hoja, dict) else hoja
+        registros.append({"fase": fase, "parametro": clave, "anterior": anterior, "nuevo": None,
+                          "unidad": (hoja.get("unit") if isinstance(hoja, dict) else "") or "",
+                          "origen": origen})
+        logger.warning("Programa con %s.%s = %r: parámetro retirado (%s)",
+                       fase, clave, anterior, origen)
+
+    for fase in catalogo_parametros.SECCIONES_RETIRADAS_SIN_EFECTO:
+        seccion = parameters.get(fase)
+        if not isinstance(seccion, dict):
+            continue
+        for clave, hoja in seccion.items():
+            _anotar(fase, clave, hoja)
+        del parameters[fase]
+    for fase, clave in catalogo_parametros.PARAMETROS_RETIRADOS_SIN_EFECTO:
+        seccion = parameters.get(fase)
+        if isinstance(seccion, dict) and clave in seccion:
+            _anotar(fase, clave, seccion.pop(clave))
+    if not registros:
+        return False
+    if agregadas is not None:
+        agregadas.extend(registros)
+    return True
+
+
 # Ajuste 7-nov: presion_add_liquido_calentamiento, mismo patrón que T29-03
 # (auditoría con `agregadas` y .bak, sin SIS-06). Va después de
 # presion_add_calentamiento si el programa lo tiene. Existe en todos los
@@ -368,6 +404,7 @@ def migrar_parametros(parameters, correcciones: list | None = None,
     cambio = _agregar_claves_a12(parameters, agregadas) or cambio
     cambio = _agregar_clave_t29_03(parameters, agregadas) or cambio
     cambio = _migrar_t32(parameters, agregadas) or cambio
+    cambio = _retirar_sin_efecto(parameters, agregadas) or cambio
     cambio = _agregar_clave_liquido_cal(parameters, agregadas) or cambio
     for fase, clave in _PRESION_ADD:
         hoja = parameters.get(fase, {}).get(clave) if isinstance(parameters.get(fase), dict) else None

@@ -31,7 +31,6 @@ ESPERADO = {
     "rango_temp_drenaje": ("drenaje", 5, 1, 20),
     "presion_empaque": ("empaque", 300, 100, 400),
     "vacio_empaque": ("empaque", 30, 0, 100),
-    "timeout_chaqueta": ("chaqueta", 60, 10, 180),
     "tiempo_standby": ("sistema", 10, 0, 60),
     "tiempo_estable_alarma": ("sistema", 5, 1, 60),
     # D8-2.8 (tanda 8)
@@ -110,7 +109,7 @@ def test_siembra_persiste_y_recarga(cm, db):
     ("timeout_puerta", 0, "fuera_de_rango"), ("timeout_puerta", 601, "fuera_de_rango"),
     ("temp_max_apertura", 121, "fuera_de_rango"), ("presion_empaque", 99, "fuera_de_rango"),
     ("vacio_empaque", 101, "fuera_de_rango"), ("tiempo_standby", 61, "fuera_de_rango"),
-    ("timeout_chaqueta", 9, "fuera_de_rango"), ("timeout_puerta", 60.5, "tipo_invalido"),
+    ("timeout_puerta", 60.5, "tipo_invalido"),
     ("timeout_puerta", True, "tipo_invalido"), ("timeout_puerta", float("nan"), "tipo_invalido"),
     ("presion_atmosferica", 80, "solo_lectura"), ("no_existe", 1, "no_existe"),
 ])
@@ -269,7 +268,7 @@ def test_lectura_libre(api):
     lista = client.get("/system_params").json()["parametros"]
     assert {p["clave"] for p in lista} == set(FABRICA)
     assert client.get("/global_params/temp_max_apertura").json()["max"] == 120
-    assert client.get("/global_params").json()["timeout_chaqueta"]["value"] == 60
+    assert client.get("/global_params").json()["timeout_puerta"]["value"] == 60
 
 
 @pytest.mark.parametrize("rol,esperado", [("operador", 403), ("admin", 200), ("tecnico", 403),

@@ -81,6 +81,13 @@ DESCOMPRESION_LENTA_RAPIDA_DEFECTO = False
 PRESION_CAMBIO_MODO_5_DEFECTO = 150                # kPa absolutos (1–400, como modo_3)
 PARAMETROS_RETIRADOS_T32 = ("tiempo_apertura_chaqueta", "tiempo_cierre_chaqueta")
 ORIGEN_MIGRACION_T32 = "migración tanda 32"
+# 9-nov: retiro de parámetros de programa que ningún módulo del control leía
+# (la sección «estabilizacion» entera, fusionada en CALENTAMIENTO, y
+# globals.enfriar_chaqueta_secado). ciclos_multiples NO se retira: es una
+# función por conectar (docs/mis_plans/planeacion_ciclos_multiples.md).
+SECCIONES_RETIRADAS_SIN_EFECTO = ("estabilizacion",)
+PARAMETROS_RETIRADOS_SIN_EFECTO = (("globals", "enfriar_chaqueta_secado"),)
+ORIGEN_RETIRO_SIN_EFECTO = "retiro de parámetros sin sentido (9-nov)"
 CODIGO_COHERENCIA_DESCOMPRESION = "COHERENCIA_DESCOMPRESION"
 # Ajuste 7-nov (pedido de Cristian): presión adicional de calentamiento para
 # líquidos. Con carga líquida y valor > 0, la rampa de CALENTAMIENTO apunta a
@@ -200,7 +207,6 @@ for _fase, _ruta in (
 for _fase, _ruta in (
     ("calentamiento", "temperatura_calentamiento"),
     ("esterilizacion", "temperatura_esterilizacion"),
-    ("estabilizacion", "temperatura_estabilizacion"),
     ("finalizacion", "temp_max_apertura"),
     *[("descompresion", f"{m}.temperatura_enfriamiento") for m in _MODOS_ENFRIAMIENTO],
 ):
@@ -216,7 +222,6 @@ for _fase, _ruta in (
     ("esterilizacion", "tiempo_esterilizacion"),
     ("secado", "timeout_pulso"),
     ("finalizacion", "timeout_temperatura"),
-    ("estabilizacion", "timeout_recuperacion"),
     *[("descompresion", f"modo_{n}.timeout") for n in range(1, 6)],
 ):
     _poner(_fase, _ruta, 1, None, "tiempo: mínimo 1 en su unidad")

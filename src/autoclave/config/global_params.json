@@ -10,7 +10,6 @@
     "rango_temp_drenaje": {"value": 5, "type": "int", "unit": "°C", "clase": "diferencia", "min": 1, "max": 20, "grupo": "drenaje"},
     "presion_empaque": {"value": 300, "type": "int", "unit": "kPa", "clase": "absoluto", "min": 100, "max": 400, "grupo": "empaque"},
     "vacio_empaque": {"value": 30, "type": "int", "unit": "kPa", "clase": "absoluto", "min": 0, "max": 100, "grupo": "empaque"},
-    "timeout_chaqueta": {"value": 60, "type": "int", "unit": "min", "min": 10, "max": 180, "grupo": "chaqueta"},
     "presion_max_chaqueta_control": {"value": 375, "type": "int", "unit": "kPa", "clase": "absoluto", "min": 300, "max": 990, "grupo": "chaqueta"},
     "timeout_aislamiento_camara": {"value": 3, "type": "int", "unit": "min", "min": 1, "max": 10, "grupo": "chaqueta"},
     "max_aislamientos_camara": {"value": 6, "type": "int", "unit": "", "min": 2, "max": 20, "grupo": "chaqueta"},

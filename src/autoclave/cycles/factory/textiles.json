@@ -26,10 +26,6 @@
                 "value": true,
                 "type": "bool"
             },
-            "enfriar_chaqueta_secado": {
-                "value": false,
-                "type": "bool"
-            },
             "presion_chaqueta": {
                 "value": 300,
                 "type": "int",

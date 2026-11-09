@@ -15,7 +15,6 @@
             "F0": {"value":false, "type": "bool"},
             "F0_objetivo": {"value":12, "type": "float", "unit":"min", "min":0, "max":60},
             "ciclos_multiples": {"value":true, "type":"bool"},
-            "enfriar_chaqueta_secado": {"value":false, "type":"bool"},
             "presion_chaqueta": {"value":300, "type":"int", "unit":"kPa", "clase": "absoluto", "min":0, "max":400},
             "rango_presion_chaqueta": {"value":50, "type":"int", "unit":"kPa", "clase": "diferencia", "min":0, "max":100},
             "delta_temp_chaqueta": {"value":1.5, "type":"float", "unit":"°C", "clase": "diferencia", "min":0, "max":5},

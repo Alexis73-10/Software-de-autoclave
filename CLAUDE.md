@@ -162,6 +162,13 @@ Ver `docs/mis_plans/planeacion_control_cascada_chaqueta.md` (CAS-01..05) e infor
 - **Transición (revisión MEDIA-1, reemplaza lo dicho arriba sobre CIC-15/16):** VCH-AIS y A14-M2 siguen con el techo ampliado también mientras `bajando_a_psat` (enclave hecho, fuera de sostenimiento, `P > Psat(T_obj) + 2`, incluido el tick del enclave) y vuelven al normal al terminar la bajada; sin lectura del Principal o de presión, techo normal.
 - **Enclave y objetivo (MEDIA-2, `DECISIÓN SIN CONFIRMAR`):** `_t_obj_alcanzada` exige `T >= T_obj` sostenida `_ENCLAVE_T_OBJ_SOSTENIDO_S` (5 s, monotonic; se reinicia bajo `T_obj`, sin lectura y en `reset()`); tras el enclave la rampa apunta a `Psat(T_obj) + _OBJETIVO_POST_EMPUJE_KPA` (1 kPa) en lugar de `Psat(T_obj)`; techo, banda y entrada sin cambio.
 
+## Ajustes 9-nov: aviso de puerta de descarga, barra inferior y parámetros sin efecto
+
+- **Aviso «abrir la puerta de descarga»:** con `/status.vaciado_chaqueta == "PENDIENTE"` (ciclo de líquidos 4/5 confirmado, a la espera de la primera puerta abierta) la tarjeta de alarmas y la campana muestran la fila `abrir_puerta_descarga` (grupo aviso, `UiBridge.vaciadoChaquetaPendiente`, `detalle_aviso`, `SeccionEstadoSeguro.qml`, textos es/en `sistema.abrir_puerta_descarga` y `aviso_detalle.abrir_puerta_descarga`). Desaparece al abrir la puerta. Sin cambio en el control.
+- **Barra inferior de Ciclo en curso:** el indicador de espera de la entrega y el botón «Confirmar sin condiciones seguras» quedan dentro de la celda derecha (entre el divisor de x 800 y el borde), con margen de 12 px; el texto del botón parte en dos líneas o baja de tamaño.
+- **Parámetros retirados (sin efecto):** sección `estabilizacion` entera (fusionada en CALENTAMIENTO), `globals.enfriar_chaqueta_secado` y el parámetro de equipo `timeout_chaqueta`. Se quitaron de los JSON de fábrica y de usuario, del catálogo, de `global_params.json` y de i18n; un programa instalado con esas claves se migra al cargar (`cycle_manager._retirar_sin_efecto`, auditoría `param_ciclo_cambio` con origen «retiro de parámetros sin sentido (9-nov)», `.bak`, sin SIS-06). Prueba: `tests/test_retiro_parametros_sin_efecto.py`.
+- **`ciclos_multiples` se conserva** (bool, `true` en los 6 programas de fábrica, sin efecto todavía): plan en `docs/mis_plans/planeacion_ciclos_multiples.md`, con las decisiones pendientes de Cristian.
+
 ## PAM: presión añadida como margen de trabajo (9-nov)
 
 Ver `docs/mis_plans/planeacion_presion_add_margen.md` (PAM-01..06); riesgos HAZ-PAM-01..03; trazabilidad REQ-96..REQ-101; banco: bloque PAM (PAM-00, comparar la Principal contra patrón, es el primer paso). Rama `pam-presion-add-margen`, sin unir a `dev`; entrega no compilada. Decisiones sin confirmar en `AJUSTES.md` (9-nov).
