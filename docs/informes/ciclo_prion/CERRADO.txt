@@ -1,0 +1,2 @@
+BLOQUEADO: DECISIÓN PENDIENTE de Cristian, el programa de fábrica nuevo no llega operativo a equipos ya instalados (ver inventario.md). Pasos 1 a 3 hechos en la rama ciclo-prion; sin merge a dev, sin pruebas dedicadas ni planta.
+Fecha: 2026-11-09. No se corrió la suite completa.

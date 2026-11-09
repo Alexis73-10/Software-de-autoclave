@@ -1823,6 +1823,9 @@
     },
     "textiles": {
       "nombre": "Textiles"
+    },
+    "prion": {
+      "nombre": "Prion 134°C"
     }
   },
   "gestion_usuarios": {
