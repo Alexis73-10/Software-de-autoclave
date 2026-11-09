@@ -264,3 +264,42 @@ Decidió en todos: el director con el revisor de seguridad (aprobado con condici
 ## 2026-11-06 — AJ28B-10: test_p9 relajado a las claves que le importan
 - **Qué falló:** `test_p9_opciones_puertas_nc::test_parametros_grupo_es_propiedad_que_cambia_al_guardar` fijaba la lista exacta de claves de Cámara segura; A13 añadió `secado_tras_fallo_s` y `secado_tras_fallo_vacio_s`.
 - **Quién decidió:** director. **Qué se cambió:** el test exige las dos claves de puertas en primer lugar y la presencia de las dos nuevas (no se relajó ninguna comprobación de seguridad).
+
+## 2026-11-06 — Hotfix ES, revisión de seguridad (ALTA): paro soltado sin confirmar
+- **Paso del plan:** Paso 2 (retiro del protocolo; confirmación del paro real).
+- **Qué falló:** el revisor halló que, sin protocolo, `ConfirmacionParo.activo` vale siempre False: tras soltar un paro real y antes de «Confirmar», `ServicioPuertas` aceptaba abrir con la cámara segura y `SetOutput._paro_bloquea` dejaba pasar encendidos; `AdvancedDoor.update()` re-afirmaba `cerrar_on`/`bloquear_on` en cada tick entre dos ALL_OFF.
+- **Quién decidió:** revisor y director (corrección obligatoria de ALTA).
+- **Qué se cambia:** `ServicioPuertas` rechaza abrir y cerrar con el paro sin confirmar (`paro_sin_confirmar`, es/en); `SetOutput` no enciende nada salvo el buzzer durante la espera (fuera del modo prueba). Archivos: `services/domain/puertas/ser_puertas.py`, `devices/io/set_io.py`, `services/domain/loop/control_loop.py`, `backend/context.py`, `core/runtime/motivos.py`, `i18n/es.json`, `i18n/en.json`, `tests/test_hotfix_es_revision.py`.
+
+## 2026-11-06 — Hotfix ES, revisión de seguridad (MEDIA): presión congelada en FALLA/PREPARACION
+- **Paso del plan:** Paso 2 (FALLA nivela la presión de cámara como PREPARACION).
+- **Qué falló:** `igualar_presion_camara` solo miraba `lectura_valida`, no la vigencia de la trama AI: con la AI vencida FALLA y PREPARACION abrían aire o venteo con una presión congelada.
+- **Quién decidió:** revisor y director.
+- **Qué se cambia:** trama AI no vigente (`core/runtime/vigencia_ai`) = sin dato, no se ordena nada. Archivos: `state_machine/states/preparacion.py`, `tests/test_hotfix_es_revision.py`.
+
+## 2026-11-06 — Hotfix ES, revisión de seguridad (MEDIA): válvulas de reposo al pasar a PREPARADO
+- **Paso del plan:** Paso 2 (COMPLETADO sin protocolo).
+- **Qué falló:** COMPLETADO → PREPARADO dejaba abiertas las válvulas de descompresión de la válvula de reposo (modo 4/5 sólido: `descompresion_chaqueta` abierta con `vapor_chaqueta` encendida).
+- **Quién decidió:** revisor y director.
+- **Qué se cambia:** la StateMachine cierra las válvulas de descompresión en esa transición; PREPARADO retoma la presión. Archivos: `state_machine/state_machine.py`, `tests/test_hotfix_es_revision.py`.
+
+## 2026-11-06 — Hotfix ES, revisión de seguridad (BAJA): texto del botón del paro
+- **Paso del plan:** Paso 2.
+- **Qué falló:** el botón decía «Confirmar y llevar a estado seguro» aunque ya no corre ningún protocolo.
+- **Quién decidió:** director (BAJA, solo texto).
+- **Qué se cambia:** «Confirmar paro» / «Confirm stop» en el botón, el título del modal y las indicaciones que lo nombran; nota del modal sin «la cámara se lleva a estado seguro». Archivos: `i18n/es.json`, `i18n/en.json`.
+
+## 2026-11-06 — T30-01: barrido de rutas del cliente ignora la cadena de consulta
+- **Paso del plan:** T30-01 (cierre, suite completa).
+- **Qué falló:** `test_b1_secado_pyside::test_barrido_...` comparaba `GET /operadores?activos=true` literal con las rutas del backend; la ruta existe.
+- **Quién decidió:** director. **Qué se cambió:** el barrido descarta la cadena de consulta antes de comparar (`tests/test_b1_secado_pyside.py`); no se relajó ninguna otra comprobación.
+
+## 2026-11-09 — Tanda 34: revisión de seguridad de CAN (MEDIA de proceso): HAZ-CAN-01 figuraba como aceptado
+- **Paso del plan:** revisión de seguridad de CAN.
+- **Qué falló:** el registro de riesgos y el informe daban por aceptado un residual que Cristian no ha decidido (rearme del deslizador a los 250 ms; pérdida de la advertencia «NO ESTÉRIL»).
+- **Quién decidió:** revisor (opus) y director. **Qué se cambió:** estado a «pendiente de aceptación de Cristian» (`docs/riesgos/registro_riesgos.md`, `docs/informes/tanda34/R_informe.md`) y comentario obsoleto de `ui_qml/bridge/comandos_ciclo_en_curso.py`.
+
+## 2026-11-09 — Tanda 34: test_q1rev desactualizado por el ajuste 7-nov
+- **Paso del plan:** suite completa (cierre).
+- **Qué falló:** `test_q1rev_migracion_rango_no_dict` no esperaba `presion_add_liquido_calentamiento`, que agrega la migración del ajuste del 7-nov; fallaba igual en `dev`.
+- **Quién decidió:** director. **Qué se cambió:** la lista esperada incluye esa clave (`tests/test_q1rev_migracion_rango_no_dict.py`); no se relajó ninguna otra comprobación.
