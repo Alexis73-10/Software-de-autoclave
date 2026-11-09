@@ -1,0 +1,155 @@
+{
+ "nota": "dos corridas de dev contra sí mismo a 1200x1920 en los escenarios que difieren entre la rama y dev: también difieren entre sí (animaciones y relojes), así que esa diferencia no viene de la rama",
+ "resultado": {
+  "b_ciclo_sin_conexion": {
+   "igual": false,
+   "pixeles": 569,
+   "caja": [
+    868,
+    263,
+    1091,
+    1819
+   ]
+  },
+  "b_ciclo_tiempos": {
+   "igual": false,
+   "pixeles": 2220,
+   "caja": [
+    472,
+    266,
+    1074,
+    1831
+   ]
+  },
+  "b_ciclo_zoom_lupa": {
+   "igual": false,
+   "pixeles": 2208,
+   "caja": [
+    472,
+    266,
+    1045,
+    1832
+   ]
+  },
+  "b_preciclo_programa_largo": {
+   "igual": false,
+   "pixeles": 191,
+   "caja": [
+    842,
+    1667,
+    1137,
+    1678
+   ]
+  },
+  "b_preciclo_puerta2_manual": {
+   "igual": false,
+   "pixeles": 155,
+   "caja": [
+    843,
+    1664,
+    1142,
+    1679
+   ]
+  },
+  "b_preciclo_selector": {
+   "igual": false,
+   "pixeles": 6,
+   "caja": [
+    962,
+    1675,
+    1128,
+    1676
+   ]
+  },
+  "ciclo_demo": {
+   "igual": false,
+   "pixeles": 803,
+   "caja": [
+    98,
+    259,
+    1044,
+    1826
+   ]
+  },
+  "ciclo_grafica": {
+   "igual": false,
+   "pixeles": 1415,
+   "caja": [
+    477,
+    263,
+    1043,
+    1802
+   ]
+  },
+  "d_fecha_hora": {
+   "igual": false,
+   "pixeles": 28285,
+   "caja": [
+    371,
+    427,
+    951,
+    535
+   ]
+  },
+  "intro": {
+   "igual": false,
+   "pixeles": 1310226,
+   "caja": [
+    0,
+    190,
+    1199,
+    1584
+   ]
+  },
+  "OpcionesFechaHora": {
+   "igual": false,
+   "pixeles": 4208,
+   "caja": [
+    324,
+    190,
+    893,
+    204
+   ]
+  },
+  "preciclo_alarma": {
+   "igual": false,
+   "pixeles": 268,
+   "caja": [
+    842,
+    1663,
+    1142,
+    1692
+   ]
+  },
+  "preciclo_preparado": {
+   "igual": false,
+   "pixeles": 6,
+   "caja": [
+    967,
+    1675,
+    1133,
+    1676
+   ]
+  },
+  "reposo": {
+   "igual": false,
+   "pixeles": 1436,
+   "caja": [
+    720,
+    938,
+    794,
+    1059
+   ]
+  },
+  "reposo_aviso": {
+   "igual": false,
+   "pixeles": 1440,
+   "caja": [
+    720,
+    874,
+    794,
+    995
+   ]
+  }
+ }
+}
