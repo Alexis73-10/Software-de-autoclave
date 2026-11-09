@@ -9,6 +9,31 @@ Una entrada por **entrega** (compilación con Setup que se instala en el equipo)
 
 <!-- entradas: las agrega compilar_entrega.py debajo de esta línea, la más nueva primero -->
 
+## 1.0.0-alpha.25 — 2026-11-09
+
+- Etiqueta: `v1.0.0-alpha.25` (commit `chore(ver): 1.0.0-alpha.25`, sobre `f054e2d`)
+- AppVerNum: `1.0.0.1025`
+- SHA-256 del Setup y del zip: en el mensaje de la etiqueta y en `entrega/v1.0.0-alpha.25_2026-11-09/SHA256SUMS.txt` (solo existen después de compilar)
+- Commits desde `v1.0.0-alpha.24`:
+  - f054e2d4 docs: bitacora de ajustes (hotfix ES, T30, T34)
+  - f934c637 test: q1rev espera presion_add_liquido_calentamiento tras la migracion del ajuste 7-nov
+  - 0c084518 chore(t34): CERRADO.txt, tanda liberada y unida a dev
+  - 61d248a3 docs(t34): cierre, revision de seguridad CAN y estado de HAZ-CAN-01
+  - 37989b8e docs(t34): CLAUDE.md, riesgos, trazabilidad REQ-92..95, banco T34 e informe
+  - 0d4be25d test(t34): lista por defecto sin modal_cancelar
+  - 12ceb800 test(t34): retira escenarios de captura del modal de cancelar
+  - 818a23b4 feat(t34): zoom de la grafica del ciclo con lupa indicadora (ZOM-01..08)
+  - ffc59d33 feat(t34): deslizador rojo de cancelar sin modal y barra de espera sin motivo (CAN-01..04, ESP-01..02)
+  - 0bfc94dc feat(t34): vapor en la fase activa y burbujas en la ultima completada (VAP-01..06)
+  - fe7fd559 feat(t34): colores de vapor, burbujas, lupa de zoom y deslizador de cancelar
+  - b05080f4 chore(t33): CERRADO.txt, tanda liberada y unida a dev
+  - 593ffdac docs(cas): HAZ-CAS-01 recoge los hallazgos MEDIA de la revision de seguridad
+  - dc3c5b65 docs(cas): tanda 33 en CLAUDE.md, riesgos HAZ-CAS-01/02, REQ-87..91, banco T33 y decision de Cristian
+  - a4064e26 feat(cas): tope del nivel baja a min(D-CHQ - 10, suministro) y criterio CAS-04 k=1,00 abierto y restrictivo
+  - 868940b9 test(cas): planta simulada CAS-04, informe R33 y cierre BLOQUEADO
+  - 978a7c6e feat(cas): cascada de chaqueta (CAS-01..03) y liquidos presion_add_esterilizacion 15 (CAS-05)
+
+
 ## 1.0.0-alpha.24 — 2026-11-07
 
 - Etiqueta: `v1.0.0-alpha.24` (commit `chore(ver): 1.0.0-alpha.24`, sobre `94ed7ba`)
