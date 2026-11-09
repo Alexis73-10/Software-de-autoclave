@@ -323,10 +323,14 @@ Item {
         Column {
             anchors.left: parent.left; anchors.leftMargin: Escala.px(12)
             anchors.verticalCenter: parent.verticalCenter
-            width: parent.width * 0.6
+            // horizontal (dos columnas): el título pasa a dos líneas antes de
+            // achicar la letra, con algo más de ancho que el valor
+            width: parent.width * (Escala.horizontal ? 0.64 : 0.6)
             Text {
                 width: parent.width
-                fontSizeMode: Text.HorizontalFit; minimumPixelSize: Escala.fuenteMinima
+                wrapMode: Escala.horizontal ? Text.WordWrap : Text.NoWrap
+                fontSizeMode: Escala.horizontal ? Text.FixedSize : Text.HorizontalFit
+                minimumPixelSize: Escala.fuenteMinima
                 text: fila.titulo
                 color: Colores.textoPrimario
                 font.family: Tipografia.familia
@@ -346,7 +350,7 @@ Item {
             anchors.right: parent.right; anchors.rightMargin: Escala.px(fila.chevron ? 52 : 12)
             anchors.verticalCenter: parent.verticalCenter
             horizontalAlignment: Text.AlignRight
-            width: parent.width * 0.36
+            width: parent.width * (Escala.horizontal ? 0.3 : 0.36)
             // D8-5.4: sin recorte; dos líneas o letra menor dentro de la fila
             height: parent.height; verticalAlignment: Text.AlignVCenter
             wrapMode: Text.Wrap

@@ -137,6 +137,11 @@ def _d_rutas():
                                    "configuracion": {"idioma": "es", "unidades": {"temperatura": "C", "presion": "kPa"},
                                                      "impresora": "conectada", "red": "conectada"}}),
     }
+    # Configuración de la máquina: idioma, tema, unidades e impresora vigentes
+    rutas["GET /language"] = (200, {"idioma": cfg.get("idioma", "es")})
+    rutas["GET /theme"] = (200, {"tema": cfg["tema"]})
+    rutas["GET /units"] = (200, {"temperatura": "C", "presion": "kPa"})
+    rutas["GET /printer/config"] = (200, {"habilitada": True})
     try:
         from autoclave.core.runtime import sensores_ciclo as sc
         roles = {"temp_camara": "principal", "temp_2_camara": "referencia", "temp_ref": "no_en_uso"}

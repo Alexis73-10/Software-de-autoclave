@@ -129,7 +129,11 @@ Item {
         Text {
             anchors.centerIn: parent
             text: boton.texto
-            color: Colores.textoSobreAccion
+            // horizontal: sobre un relleno que no es el de acción primaria, el
+            // tono de la tarjeta (blanco en claro, como antes; oscuro en el
+            // tema oscuro, donde el blanco no contrasta con naranja, verde o rojo)
+            color: Escala.horizontal && !Qt.colorEqual(boton.relleno, Colores.accionPrimario)
+                   ? Colores.fondoTarjeta : Colores.textoSobreAccion
             font.family: Tipografia.familia
             font.weight: Tipografia.pesoSemiBold
             font.pixelSize: Escala.fuente(22)

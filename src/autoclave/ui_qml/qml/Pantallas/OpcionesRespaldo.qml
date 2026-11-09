@@ -271,7 +271,11 @@ Item {
                             anchors.centerIn: parent
                             text: fila.modelData.valido ? I18n.t("respaldo.valido", I18n.lang)
                                                         : I18n.t("respaldo.rechazado", I18n.lang)
-                            color: fila.modelData.valido ? Colores.textoSobreAccion : Colores.peligroTexto
+                            // horizontal: sobre el verde, el tono de la tarjeta (blanco
+                            // en claro, como antes; oscuro en el tema oscuro)
+                            color: fila.modelData.valido ? (Escala.horizontal ? Colores.fondoTarjeta
+                                                                              : Colores.textoSobreAccion)
+                                                         : Colores.peligroTexto
                             font.family: Tipografia.familia
                             font.weight: Tipografia.pesoSemiBold
                             font.pixelSize: Escala.fuente(20)

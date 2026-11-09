@@ -155,7 +155,11 @@ Item {
             spacing: Escala.px(4)
             Text {
                 width: parent.width
-                fontSizeMode: Text.HorizontalFit; minimumPixelSize: Escala.fuenteMinima
+                // horizontal (tres por fila): el nombre pasa a dos líneas antes
+                // de achicar la letra
+                wrapMode: Escala.horizontal ? Text.WordWrap : Text.NoWrap
+                fontSizeMode: Escala.horizontal ? Text.FixedSize : Text.HorizontalFit
+                minimumPixelSize: Escala.fuenteMinima
                 text: tarjeta.nombre
                 color: Colores.textoPrimario
                 font.family: Tipografia.familia
@@ -192,7 +196,11 @@ Item {
         Text {
             anchors.centerIn: parent
             text: boton.texto
-            color: Colores.textoSobreAccion
+            // horizontal: sobre un relleno que no es el de acción primaria, el
+            // tono de la tarjeta (blanco en claro, como antes; oscuro en el
+            // tema oscuro, donde el blanco no contrasta con naranja, verde o rojo)
+            color: Escala.horizontal && !Qt.colorEqual(boton.relleno, Colores.accionPrimario)
+                   ? Colores.fondoTarjeta : Colores.textoSobreAccion
             font.family: Tipografia.familia
             font.weight: Tipografia.pesoSemiBold
             font.pixelSize: Escala.fuente(22)
