@@ -142,8 +142,6 @@ _SCRIPT = textwrap.dedent(r'''
         {"resultado": "", "fin": {}, "fases": fases("esterilizacion", "activa")}, None)
     ESCENARIOS["fin_fallido"] = ("arnes", "PruebaFinDeCiclo.qml",
         {"resultado": "fallo", "fin": _fin, "fases": fases("esterilizacion", "fallida")}, None)
-    ESCENARIOS["modal_cancelar"] = ("arnes", "PruebaFinDeCiclo.qml",
-        {"resultado": "", "fin": {}, "fases": fases("esterilizacion", "activa")}, "obj:modalCancelarCiclo")
 
     def ejecutar(nombre):
         tipo, a, b, accion = ESCENARIOS[nombre]

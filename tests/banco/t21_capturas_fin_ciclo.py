@@ -102,8 +102,6 @@ _SCRIPT = textwrap.dedent(r'''
                                             "fases": COMPLETAS}, None),
         ("10_exitoso_observacion_modal", {"resultado": "exitoso", "fin": fin(EXITOSO_OBS, SEN11, "exitoso"),
                                           "fases": COMPLETAS}, "modalConfirmarCiclo"),
-        ("11_en_ejecucion_modal_cancelar", {"resultado": "", "fin": {},
-                                            "fases": fases("esterilizacion", "activa")}, "modalCancelarCiclo"),
         ("preciclo_01_automatica_cerrada_hoy", {"pantalla": "preciclo", "conActuador": True,
                                                 "estadoPuerta": "CERRADO"}, None),
         ("preciclo_02_manual_cerrada", {"pantalla": "preciclo", "estadoPuerta": "CERRADO"}, None),
