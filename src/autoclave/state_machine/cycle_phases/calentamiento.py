@@ -451,13 +451,23 @@ class CalentamientoFase(BaseFase):
                                        else max(0.0, self._p_trabajo - self._p_obj_trabajo))
 
     def _fijar_presion_trabajo(self, pres, p_obj, tope) -> None:
-        """PAM-02: al enclavar t_obj, P_trabajo = clamp(P, Psat(t_obj), tope)."""
+        """PAM-02: al enclavar t_obj, P_trabajo = clamp(P, Psat(t_obj), tope).
+        Revisión M2: con una presión o un límite no finitos no fija nada (sin
+        P_trabajo no se entra a ESTABLE_PREESTERILIZACION: falla cerrada)."""
+        if not all(_numero_finito(v) for v in (pres, p_obj, tope)):
+            logger.error("Calentamiento: presión de trabajo no fijada, valores no finitos "
+                         "(P=%r, Psat=%r, tope=%r) (PAM-02)", pres, p_obj, tope)
+            return
         self._p_trabajo = presion_trabajo_kpa(pres, p_obj, tope)
         self._p_obj_trabajo = float(p_obj)
         self._publicar_trabajo()
+        # revisión M1: con el empuje de líquidos d incluye la presión que dejó
+        # el empuje (clamp al tope), no mide solo el desfase de la sonda
         logger.info("Calentamiento: presión de trabajo fijada en %.1f kPa = Psat(t_obj) %.1f + "
-                    "desfase %.1f kPa (P medida %.1f kPa, tope %.1f kPa) (PAM-02)",
-                    self._p_trabajo, p_obj, self.estado.desfase_trabajo, pres, tope)
+                    "d %.1f kPa (P medida %.1f kPa, tope %.1f kPa)%s (PAM-02)",
+                    self._p_trabajo, p_obj, self.estado.desfase_trabajo, pres, tope,
+                    "; con empuje de líquidos d incluye el empuje, no solo el desfase de sonda"
+                    if self._add_liquido() > 0.0 else "")
 
     def _subir_presion_trabajo(self, tope, temp) -> None:
         """PAM-02: reinicio de la ventana con la Principal bajo t_obj: P_trabajo
@@ -473,7 +483,7 @@ class CalentamientoFase(BaseFase):
         anterior = self._p_trabajo
         self._p_trabajo = nueva
         self._publicar_trabajo()
-        logger.info("Calentamiento: presión de trabajo sube de %.1f a %.1f kPa (desfase %.1f kPa; "
+        logger.info("Calentamiento: presión de trabajo sube de %.1f a %.1f kPa (d %.1f kPa; "
                     "Principal %.1f °C bajo t_obj, tope %.1f kPa) (PAM-02)",
                     anterior, nueva, self.estado.desfase_trabajo, temp, tope)
 
@@ -698,7 +708,8 @@ class CalentamientoFase(BaseFase):
         # (MEDIA-2); bajo t_obj o sin lectura, la cuenta se reinicia.
         # PAM-01/02: para toda carga; al enclavar se fija P_trabajo
         if not self._t_obj_alcanzada:
-            if temp is not None and pres is not None and temp >= t_obj:
+            # revisión M2 (9-nov): lecturas finitas (NaN/inf no enclavan)
+            if _numero_finito(temp) and _numero_finito(pres) and temp >= t_obj:
                 ahora_enc = time.monotonic()
                 if self._t_obj_sostenida_desde is None:
                     self._t_obj_sostenida_desde = ahora_enc

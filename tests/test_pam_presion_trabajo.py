@@ -145,6 +145,28 @@ def test_sin_enclave_no_hay_presion_de_trabajo_ni_entrada(reloj):
     assert estado.presion_trabajo is None
 
 
+@pytest.mark.parametrize("temp,pres", [(T_OBJ, float("nan")), (T_OBJ, float("inf"))])
+def test_lectura_no_finita_no_enclava(reloj, temp, pres):
+    # revisión M2 (9-nov): una presión NaN/inf no cuenta para el enclave ni fija
+    # P_trabajo. (Una temperatura NaN no llega a la fase: EstadoAutoclave.update
+    # la publica como None, P7 de la tanda 16; la rampa con NaN lanza en
+    # p_saturacion_kpa, comportamiento anterior a PAM.)
+    fase, estado, _ = _fase("solido")
+    _tick(fase, estado, temp, pres)
+    reloj[0] += 6.0
+    _tick(fase, estado, temp, pres)
+    assert fase._t_obj_alcanzada is False
+    assert fase._p_trabajo is None and estado.presion_trabajo is None
+
+
+def test_fijar_presion_trabajo_no_finita_no_fija(caplog):
+    caplog.set_level(logging.ERROR)
+    fase, estado, _ = _fase("solido")
+    fase._fijar_presion_trabajo(float("nan"), P_OBJ, TOPE)
+    assert fase._p_trabajo is None and estado.desfase_trabajo is None
+    assert "no finitos" in caplog.text
+
+
 def test_enclave_fija_p_trabajo_y_publica_el_desfase(reloj, caplog):
     caplog.set_level(logging.INFO)
     fase, estado, _ = _fase("solido")

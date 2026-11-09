@@ -780,7 +780,8 @@ class EsterilizacionFase(BaseFase):
             desfase = getattr(self.estado, "desfase_trabajo", None)
             self.p_sp, origen = self.consigna_heredada(self.p_sp, p_sat_est, desfase,
                                                        p_control_max)
-            logger.info("Esterilización: P_sp=%.1f kPa (%s), desfase d=%s kPa (PAM-04)",
+            logger.info("Esterilización: P_sp=%.1f kPa (%s), d=%s kPa (P_trabajo − Psat; con "
+                        "empuje de líquidos incluye el empuje) (PAM-04)",
                         self.p_sp, origen,
                         f"{float(desfase):.1f}" if _numero(desfase) else "sin dato")
             self._anotar_presion_trabajo(desfase)

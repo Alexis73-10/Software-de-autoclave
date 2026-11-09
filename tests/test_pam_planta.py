@@ -24,9 +24,10 @@ from tests.helpers import planta_vapor as pv
 pytestmark = pytest.mark.req("PAM")
 
 DESFASE_SONDA_K = 0.6
+_FABRICA = pv.RAIZ / "src" / "autoclave" / "cycles" / "factory"
 PROGRAMAS = {"liquidos": pv.PROGRAMA_LIQUIDOS,
-             "instrumental_121": pv.RAIZ / "src" / "autoclave" / "cycles" / "factory"
-             / "instrumental_121.json"}
+             "instrumental_121": _FABRICA / "instrumental_121.json",
+             "textiles": _FABRICA / "textiles.json"}
 
 
 @pytest.fixture(autouse=True)
@@ -36,16 +37,18 @@ def _sin_log():
     logging.disable(logging.NOTSET)
 
 
-class _PlantaDesfase(pv.PlantaVapor):
-    """La Principal (temp_camara) lee DESFASE_SONDA_K bajo la sonda real; las
-    demás sondas sin cambio (temp_2_camara ≈ Tsat, como en el ciclo 27)."""
+def _planta_desfase(desfase_k):
+    class _PlantaDesfase(pv.PlantaVapor):
+        """La Principal (temp_camara) lee `desfase_k` bajo la sonda real; las
+        demás sondas sin cambio (temp_2_camara ≈ Tsat, como en el ciclo 27)."""
 
-    def publicar(self, estado):
-        super().publicar(estado)
-        estado.sensores_temp["temp_camara"] = self.t_sonda - DESFASE_SONDA_K
+        def publicar(self, estado):
+            super().publicar(estado)
+            estado.sensores_temp["temp_camara"] = self.t_sonda - desfase_k
+    return _PlantaDesfase
 
 
-def _correr(monkeypatch, programa, caudal, modo):
+def _correr(monkeypatch, programa, caudal, modo, desfase_k=DESFASE_SONDA_K):
     registro = {"nivel_entrada": None, "p_trabajo": [], "tope": None}
 
     class _Ester(pv.EsterilizacionFase):
@@ -63,7 +66,7 @@ def _correr(monkeypatch, programa, caudal, modo):
                 registro["p_trabajo"].append(self.estado.presion_trabajo)
             return r
 
-    monkeypatch.setattr(pv, "PlantaVapor", _PlantaDesfase)
+    monkeypatch.setattr(pv, "PlantaVapor", _planta_desfase(desfase_k))
     monkeypatch.setattr(pv, "EsterilizacionFase", _Ester)
     monkeypatch.setattr(pv, "CalentamientoFase", _Cal)
     prog = pv._programa(PROGRAMAS[programa])
@@ -92,7 +95,7 @@ _NO_CUMPLE = {
         "salía de CALENTAMIENTO)",
 }
 
-_CASOS = [(p, c, m) for p in PROGRAMAS for c in ("abierto", "restrictivo")
+_CASOS = [(p, c, m) for p in ("liquidos", "instrumental_121") for c in ("abierto", "restrictivo")
           for m in ("chaqueta", "camara")]
 
 
@@ -110,4 +113,31 @@ def test_desfase_de_sonda_0_6_k_llega_a_esterilizar(monkeypatch, programa, cauda
     assert r.p_min_ester > reg["p_cic04"]
     assert r.aislamientos == 0
     if modo == "chaqueta":
+        assert reg["nivel_entrada"] != "baja"
+
+
+# ── Revisión de seguridad A1 (9-nov): Principal bien calibrada ──────────────
+# Con desfase 0 el empuje sólido lleva P_trabajo hasta el tope (Psat(121) +
+# 11 − 4 = 212,0 kPa, Tsat ≈ 122,1 °C), sobre t_obj + rango_temp_estabilizacion
+# (122,0). Se verifica que la ventana de ESTABLE no se reinicia en bucle (sin
+# cal_no_sostuvo) y que el ciclo completa sin aislamientos.
+
+_CASOS_CALIBRADA = [(p, c, m) for p in ("instrumental_121", "textiles")
+                    for c in ("abierto", "restrictivo") for m in ("chaqueta", "camara")]
+
+
+@pytest.mark.parametrize("programa,caudal,modo", _CASOS_CALIBRADA,
+                         ids=[f"{p}|{c}|{m}" for p, c, m in _CASOS_CALIBRADA])
+def test_principal_calibrada_solido_completa(monkeypatch, programa, caudal, modo):
+    r, reg = _correr(monkeypatch, programa, caudal, modo, desfase_k=0.0)
+    assert r.resultado == "COMPLETADO", (r.resultado, r.motivo, r.alarma)
+    assert "sostener" not in str(r.motivo or "")
+    assert reg["p_trabajo"] and max(reg["p_trabajo"]) <= reg["tope"] + 1e-9
+    assert r.p_min_ester > reg["p_cic04"]
+    assert r.aislamientos == 0
+    # Con caudal restrictivo la rampa no pasa de ≈207 kPa (corte A14-M2 de la
+    # rampa, fuera de PAM): P_trabajo ≈ 206,6 (d ≈ 1,6), gana la consigna
+    # calculada de A14-M1 (208,9) y la cascada entra en «baja», como antes de
+    # PAM; el ciclo completa sobre el umbral de CIC-04.
+    if modo == "chaqueta" and caudal == "abierto":
         assert reg["nivel_entrada"] != "baja"
