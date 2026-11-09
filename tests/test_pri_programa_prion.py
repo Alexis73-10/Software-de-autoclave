@@ -26,6 +26,7 @@ def _json(carpeta, nombre):
 def test_valores_pri02_pri03(carpeta):
     d = _json(carpeta, "prion.json")
     assert (d["cycle_id"], d["cycle_number"], d["display_name"]) == ("prion", 6, "Prion 134°C")
+    assert d["habilitado"] is False          # MEDIA-3: se habilita tras validar el proceso
     p = d["parameters"]
     assert p["esterilizacion"]["temperatura_esterilizacion"]["value"] == 134
     assert p["esterilizacion"]["tiempo_esterilizacion"]["value"] == 30
@@ -44,13 +45,13 @@ def test_nombre_clave_solo_en_fabrica():
 def test_igual_a_instrumental_134_salvo_lo_listado(carpeta):
     base, prion = _json(carpeta, "instrumental_134.json"), _json(carpeta, "prion.json")
     esperado = copy.deepcopy(base)
-    for k in ("cycle_id", "cycle_number", "display_name", "nombre_clave"):
+    for k in ("cycle_id", "cycle_number", "display_name", "nombre_clave", "habilitado"):
         esperado.pop(k, None)
         prion = {a: b for a, b in prion.items()}
     for (sec, clave), v in CAMBIOS.items():
         esperado["parameters"][sec][clave]["value"] = v
     obtenido = {k: v for k, v in prion.items()
-                if k not in ("cycle_id", "cycle_number", "display_name", "nombre_clave")}
+                if k not in ("cycle_id", "cycle_number", "display_name", "nombre_clave", "habilitado")}
     assert obtenido == esperado
 
 
@@ -64,6 +65,7 @@ def test_carga_limpia_numero_6_de_fabrica_sin_migraciones():
     cm.load_all_cycles()
     c = cm.cycles["prion"]
     assert c.number == 6 and not getattr(c, "danado", None)
+    assert c.habilitado is False
     assert cp.errores_programa(c.parameters) == []
     assert cp.errores_brecha_recuperacion(c.parameters) == []
     assert not c.migraciones_correctivas and not c.migraciones_no_aplicadas

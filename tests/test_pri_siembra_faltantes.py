@@ -68,8 +68,20 @@ def test_sale_en_seleccionables(raiz, monkeypatch):
     ctx.control_loop = loop
     srv, _ = cargar_servidor(ctx)
     r = TestClient(srv.app).get("/programas/seleccionables")
+    # sembrado DESHABILITADO: no se ofrece en Preciclo ni se puede iniciar
+    assert [p["numero"] for p in r.json()["programas"]] == [1, 2, 3, 4, 5]
+    assert cm.cycles["prion"].habilitado is False
+    rs = TestClient(srv.app).post("/cycle/select", json={"cycle_id": "prion", "origen": "puerta_1"})
+    assert rs.status_code == 409 and "programa_deshabilitado" in rs.text
+    # un técnico lo habilita tras validar el proceso: ya sale y se puede elegir
+    from autoclave.core.managers import gestion_programas as gp
+    assert gp.fijar_habilitado(cm, 6, True, None) == (False, True)
+    r = TestClient(srv.app).get("/programas/seleccionables")
     assert [p["numero"] for p in r.json()["programas"]] == [1, 2, 3, 4, 5, 6]
     assert next(p for p in r.json()["programas"] if p["numero"] == 6)["cycle_id"] == "prion"
+    rs = TestClient(srv.app, raise_server_exceptions=False).post(
+        "/cycle/select", json={"cycle_id": "prion", "origen": "puerta_1"})
+    assert "programa_deshabilitado" not in rs.text
 
 
 def test_no_pisa_un_prion_editado(raiz):
@@ -228,3 +240,26 @@ def test_fsync_antes_de_reemplazar(raiz, monkeypatch):
     monkeypatch.setattr(resources.os, "fsync", lambda fd: (llamadas.append(fd), real(fd))[1])
     assert resources.sembrar_faltantes_usuario(str(raiz)) == ["prion.json"]
     assert len(llamadas) == 2       # el programa sembrado y la marca
+
+
+def test_se_siembra_deshabilitado_tal_cual_y_habilitado_no_se_pisa(raiz):
+    assert resources.sembrar_faltantes_usuario(str(raiz)) == ["prion.json"]
+    destino = raiz / "user" / "prion.json"
+    assert json.loads(destino.read_text(encoding="utf-8"))["habilitado"] is False
+    cm = _cargar(raiz)
+    from autoclave.core.managers import gestion_programas as gp
+    gp.fijar_habilitado(cm, 6, True, None)               # el técnico lo habilita
+    assert json.loads(destino.read_text(encoding="utf-8"))["habilitado"] is True
+    assert resources.sembrar_faltantes_usuario(str(raiz)) == []
+    assert _cargar(raiz).cycles["prion"].habilitado is True
+
+
+def test_equipo_nuevo_siembra_prion_deshabilitado(tmp_path, monkeypatch):
+    paquete, datos = tmp_path / "paquete", tmp_path / "datos"
+    shutil.copytree(REPO / "factory", paquete / "autoclave" / "cycles" / "factory")
+    monkeypatch.setattr(resources.sys, "_MEIPASS", str(paquete), raising=False)
+    monkeypatch.setattr(resources, "_carpeta_persistente", lambda: str(datos))
+    monkeypatch.setattr(resources, "_sembradas", set())
+    resources._sembrar("autoclave/cycles")
+    d = json.loads((datos / "autoclave" / "cycles" / "user" / "prion.json").read_text(encoding="utf-8"))
+    assert d["habilitado"] is False

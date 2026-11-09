@@ -2,6 +2,7 @@
     "cycle_id": "prion",
     "cycle_number": 6,
     "display_name": "Prion 134°C",
+    "habilitado": false,
     "nombre_clave": "ciclos_fabrica.prion.nombre",
     "cycle_icon":"BigPackages",
     "cycle_temperature_sensors": {

@@ -32,12 +32,16 @@ Sin alarma ni motivo en ningún modo (el resultado de la planta no expone los av
 - Regla PRI-06: un programa de usuario conserva su número frente a uno de fábrica con el mismo número; el de fábrica cede (queda sin número y fuera de la lista, con aviso en el log y sin `fabrica[6]`/`defecto(6)`). Aplica a cualquier número, también a futuros programas de fábrica y a programas Tuttnauer con el 6.
 - La siembra no usa un número ocupado (programa de usuario o `numeros_usados.json`) y no siembra mientras haya un JSON de usuario o `numeros_usados.json` ilegible (aviso, reintento en el arranque siguiente).
 - Prion se escribe y la marca se guarda con flush+fsync antes de `os.replace`.
-- Nombre «Prion 134°C».
 - Marca de «vistos» y el conjunto de 5 legados fijados en código; un equipo sin marca donde el hospital reasignó el número 6 no recibe Prion (aviso en el log).
 - Los programas de fábrica nuevos futuros se sembrarán igual (comportamiento general de la siembra).
 
+## Decisiones de Cristian tomadas (9-nov)
+- Opción (a): siembra al cargar de los programas de fábrica faltantes.
+- MEDIA-3: Prion se siembra DESHABILITADO (`"habilitado": false` en `factory/` y `user/prion.json`; la siembra lo copia tal cual, también la de equipo nuevo; un Prion habilitado después no se vuelve a pisar). El mecanismo ya existía (`PUT /programas/{n}/habilitado`, técnico/ingeniero, fuera de ciclo, bitácora `programa_habilitado`; Preciclo lo oculta y `/cycle/select` responde 409).
+- Nombre «Prion 134°C» se mantiene (cierra BAJA-7).
+- MEDIA-4 aceptada: Prion lleva los valores de fábrica, no los ajustados en sitio; documentado en HAZ-PRI-02 y banco PRI-02, sin implementar.
+
 ## DECISIÓN PENDIENTE
-- MEDIA-3 (`habilitado` false de Prion en equipos actualizados), MEDIA-4 y el cambio de nombre: decisiones de Cristian, no implementadas.
 - Revisión de seguridad de la siembra (toca `src/`).
 - Banco PRI-01/02 y validación del proceso/rotulado (HAZ-PRI-01).
 - Ajeno: `src/autoclave/ui_qml/qml/Pantallas/PantallaCicloEnCurso.qml` aparece modificado en el árbol por otra sesión; no es de esta rama y no se comiteó.
