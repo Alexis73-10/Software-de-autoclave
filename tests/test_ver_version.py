@@ -259,3 +259,56 @@ def test_escribir_version_sin_arrancar_nada(tmp_path):
     datos = json.loads(salida.read_text(encoding="utf-8"))
     assert datos["version_semver"] == ver.VERSION_SEMVER
     assert datos["mostrada"] == f"{ver.VERSION_SEMVER}+fuente" and datos["congelado"] is False
+
+
+# ── A-08: entregas beta, rc y final ──────────────────────────────────────────
+
+@pytest.mark.parametrize("etiquetas, etapa, base, esperado", [
+    ([], "alpha", "1.0.0", "1.0.0-alpha.1"),
+    (["v1.0.0-alpha.25"], "beta", "1.0.0", "1.0.0-beta.1"),              # primera beta
+    (["v1.0.0-alpha.25", "v1.0.0-beta.1", "v1.0.0-beta.2"], "beta", "1.0.0", "1.0.0-beta.3"),
+    (["v1.0.0-alpha.25", "v1.0.0-beta.9"], "rc", "1.0.0", "1.0.0-rc.1"),
+    (["v1.0.0-rc.2"], "rc", "1.0.0", "1.0.0-rc.3"),
+    (["v1.0.0-rc.2"], "final", "1.0.0", "1.0.0"),
+    (["v1.0.0"], "alpha", "1.1.0", "1.1.0-alpha.1"),                     # la 1.1 empieza en alpha.1
+    (["v1.0.0", "v1.1.0-alpha.4"], "alpha", "1.1.0", "1.1.0-alpha.5"),
+])
+def test_calcular_semver(etiquetas, etapa, base, esperado):
+    assert ce.calcular_semver(etiquetas, etapa, base) == esperado
+    assert ce.planificar(etiquetas, etapa, base)[0] == esperado
+
+
+@pytest.mark.parametrize("etiquetas, etapa, base", [
+    (["v1.0.0-alpha.25", "v1.0.0-beta.1"], "alpha", "1.0.0"),     # alpha después de beta
+    (["v1.0.0-rc.1"], "beta", "1.0.0"),                           # beta después de rc
+    (["v1.0.0-rc.1", "v1.0.0"], "rc", "1.0.0"),                   # rc después de la final
+    (["v1.0.0"], "final", "1.0.0"),                               # la final ya existe
+    (["v1.1.0-alpha.1"], "rc", "1.0.0"),                          # base menor que una ya entregada
+])
+def test_planificar_rechaza_una_version_que_no_supera_a_las_existentes(etiquetas, etapa, base):
+    with pytest.raises(ValueError):
+        ce.planificar(etiquetas, etapa, base)
+
+
+@pytest.mark.parametrize("etapa, base", [("gamma", "1.0.0"), ("alpha", "1.0"), ("beta", "v1.0.0"), ("alpha", "")])
+def test_calcular_semver_rechaza_etapa_o_base_invalidas(etapa, base):
+    with pytest.raises(ValueError):
+        ce.calcular_semver([], etapa, base)
+
+
+def test_ultima_entrega_ordena_por_etapa_y_numero():
+    assert ce.ultima_entrega(["v1.0.0-alpha.30", "v1.0.0-beta.2", "inst-2026-10-24-i"]) == "v1.0.0-beta.2"
+    assert ce.ultima_entrega(["v1.0.0-rc.1", "v1.0.0", "v1.0.0-beta.9"]) == "v1.0.0"
+    assert ce.ultima_entrega(["v1.0.0-alpha.9", "v1.0.0-alpha.10"]) == "v1.0.0-alpha.10"   # numérico
+    assert ce.ultima_entrega(["inst-2026-10-24-i", "archivo/x"]) is None
+
+
+def test_el_setup_actualiza_en_toda_la_secuencia_de_la_1_0():
+    """AppVerNum debe crecer siempre: alpha < beta < rc < final < 1.1.0-alpha."""
+    secuencia = ["1.0.0-alpha.25", "1.0.0-alpha.999", "1.0.0-beta.1", "1.0.0-beta.999",
+                 "1.0.0-rc.1", "1.0.0-rc.999", "1.0.0", "1.1.0-alpha.1"]
+    nums = [tuple(int(x) for x in ce.app_ver_num(v).split(".")) for v in secuencia]
+    assert nums == sorted(nums) and len(set(nums)) == len(nums)
+    assert ce.app_ver_num("1.0.0-beta.1") == "1.0.0.2001"
+    assert ce.app_ver_num("1.0.0-rc.1") == "1.0.0.3001"
+    assert ce.app_ver_num("1.1.0-alpha.1") == "1.1.0.1001"

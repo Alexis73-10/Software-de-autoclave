@@ -1,21 +1,28 @@
 # tools/entrega/compilar_entrega.py
-"""Entrega 1.0.0-alpha.N en un solo comando (etapa VER, §2).
+"""Entrega de una versión (alpha, beta, rc o final) en un solo comando (etapa VER, §2).
 
-    python tools/entrega/compilar_entrega.py [--con-generador]
-        [--python-compilacion RUTA] [--iscc RUTA] [--sin-suite-serie] [--sin-suite]
+    python tools/entrega/compilar_entrega.py [--etapa alpha|beta|rc|final] [--base X.Y.Z]
+        [--con-generador] [--python-compilacion RUTA] [--iscc RUTA]
+        [--sin-suite-serie] [--sin-suite]
+
+`--etapa` (defecto alpha) y `--base` (defecto 1.0.0, A-08): alpha, beta y rc dan
+`<base>-<etapa>.N`; `final` da `<base>` (etiqueta `v<base>`, AppVerNum <base>.9000).
+La versión nueva debe ser MAYOR que toda entrega ya etiquetada (no se puede
+entregar una alpha después de una beta: el Setup no actualizaría).
 
 Desde `dev` con el árbol limpio:
-  1. N = mayor etiqueta v1.0.0-alpha.K + 1 (D-VER-3) y se escribe `_version.py`;
-  2. commit `chore(ver): 1.0.0-alpha.N` (con la entrada de HISTORIAL_VERSIONES.md);
+  1. N = mayor etiqueta v<base>-<etapa>.K + 1 (D-VER-3; la versión final no lleva
+     N) y se escribe `_version.py`;
+  2. commit `chore(ver): <versión>` (con la entrada de HISTORIAL_VERSIONES.md);
   3. compila Autoclave, AutoclaveBackend y AutoclaveSettings.spec (y el
      generador con --con-generador), con `_build_info.py` de entrega;
   4. tools/verificar_entrega_neutra.py dist/Autoclave;
-  5. el .exe compilado reporta 1.0.0-alpha.N (`--escribir-version`: escribe la
+  5. el .exe compilado reporta la versión (`--escribir-version`: escribe la
      versión en un JSON y sale sin abrir el enlace de E/S ni ninguna ventana);
-  6. Inno Setup -> Autoclave_Setup_1.0.0-alpha.N.exe (AppVerNum, §2.3);
-  7. carpeta entrega/v1.0.0-alpha.N_<AAAA-MM-DD>/ (zip, Setup, LEEME,
+  6. Inno Setup -> Autoclave_Setup_<versión>.exe (AppVerNum, §2.3);
+  7. carpeta entrega/v<versión>_<AAAA-MM-DD>/ (zip, Setup, LEEME,
      SHA256SUMS.txt, manifiesto, entorno_build.txt, usb/);
-  8. etiqueta anotada v1.0.0-alpha.N sobre el commit del paso 2.
+  8. etiqueta anotada v<versión> sobre el commit del paso 2.
 Si falla un paso de 3 a 8, el commit del paso 2 se deshace (`git reset --keep`),
 no queda etiqueta y N no se consume. No hace push: imprime el comando.
 
@@ -51,8 +58,12 @@ LEEME = Path("docs") / "instalacion" / "LEEME_INSTALACION.md"
 ISS = Path("tools") / "instalador" / "autoclave.iss"
 # Entrega anterior a este esquema: la compilación I (K13)
 ETIQUETA_PREVIA_AL_ESQUEMA = "inst-2026-10-24-i"
-_ALPHA = re.compile(r"^v1\.0\.0-alpha\.(\d+)$")
 _NUM_ETAPA = {"alpha": 1, "beta": 2, "rc": 3}
+ETAPAS_ENTREGA = ("alpha", "beta", "rc", "final")
+BASE_DEFECTO = "1.0.0"
+_BASE = re.compile(r"^\d+\.\d+\.\d+$")
+_ETIQUETA_VERSION = re.compile(r"^v(\d+)\.(\d+)\.(\d+)(?:-(alpha|beta|rc)\.(\d+))?$")
+_RANGO_ETAPA = {"alpha": 1, "beta": 2, "rc": 3, None: 9}   # la final va después de rc
 N_MAXIMO = 999
 
 
@@ -62,11 +73,61 @@ class FalloPaso(Exception):
 
 # ── cálculos puros ──────────────────────────────────────────────────────────
 
-def calcular_n(etiquetas) -> int:
-    """D-VER-3: mayor v1.0.0-alpha.K + 1 en orden numérico; 1 si no hay.
-    Las demás (inst-*, archivo/*, v1.0.0-beta.*...) no cuentan."""
-    numeros = [int(m.group(1)) for e in etiquetas if (m := _ALPHA.match(str(e).strip()))]
+def _clave_etiqueta(etiqueta):
+    """`v1.0.0-beta.2` -> (1, 0, 0, 2, 2); None si no es una etiqueta de versión.
+    Orden: base, luego alpha < beta < rc < final, luego N."""
+    m = _ETIQUETA_VERSION.match(str(etiqueta).strip())
+    if not m:
+        return None
+    mayor, menor, parche, etapa, n = m.groups()
+    return (int(mayor), int(menor), int(parche), _RANGO_ETAPA[etapa], int(n or 0))
+
+
+def calcular_n(etiquetas, etapa: str = "alpha", base: str = BASE_DEFECTO) -> int:
+    """D-VER-3: mayor v<base>-<etapa>.K + 1 en orden numérico; 1 si no hay.
+    Las demás (inst-*, archivo/*, otras etapas u otras bases) no cuentan."""
+    if etapa not in _NUM_ETAPA:
+        raise ValueError(f"Etapa sin N: {etapa!r} (alpha, beta o rc)")
+    patron = re.compile(rf"^v{re.escape(base)}-{etapa}\.(\d+)$")
+    numeros = [int(m.group(1)) for e in etiquetas if (m := patron.match(str(e).strip()))]
     return max(numeros, default=0) + 1
+
+
+def calcular_semver(etiquetas, etapa: str = "alpha", base: str = BASE_DEFECTO) -> str:
+    """Versión que sigue: `<base>-<etapa>.N`, o `<base>` con la etapa final (A-08)."""
+    if etapa not in ETAPAS_ENTREGA:
+        raise ValueError(f"Etapa fuera de {ETAPAS_ENTREGA}: {etapa!r}")
+    if not _BASE.match(base or ""):
+        raise ValueError(f"Base fuera del esquema X.Y.Z: {base!r}")
+    if etapa == "final":
+        return base
+    return f"{base}-{etapa}.{calcular_n(etiquetas, etapa, base)}"
+
+
+def ultima_entrega(etiquetas) -> str | None:
+    """La etiqueta de versión más alta ya existente (la entrega anterior), o None."""
+    claves = [(c, str(e).strip()) for e in etiquetas if (c := _clave_etiqueta(e))]
+    return max(claves)[1] if claves else None
+
+
+def validar_orden(etiquetas, semver: str) -> None:
+    """A-08: la versión nueva debe superar a toda etiqueta de versión existente
+    (si no, el Setup no actualizaría un equipo ya instalado, o la etiqueta ya existe)."""
+    nueva = _clave_etiqueta(f"v{semver}")
+    if nueva is None:
+        raise ValueError(f"Versión fuera del esquema: {semver!r}")
+    ultima = ultima_entrega(etiquetas)
+    if ultima is not None and _clave_etiqueta(ultima) >= nueva:
+        raise ValueError(f"No se puede entregar {semver}: ya existe {ultima}, que es igual o "
+                         "posterior (cada entrega debe ser mayor que la anterior)")
+
+
+def planificar(etiquetas, etapa: str = "alpha", base: str = BASE_DEFECTO) -> tuple[str, str]:
+    """(semver, AppVerNum) de la próxima entrega; ValueError si no es válida.
+    No toca nada: se usa antes de las verificaciones previas y de la secuencia."""
+    semver = calcular_semver(etiquetas, etapa, base)
+    validar_orden(etiquetas, semver)
+    return semver, app_ver_num(semver)
 
 
 def app_ver_num(semver: str) -> str:
@@ -332,22 +393,20 @@ def mensaje_etiqueta(ctx: Contexto, commits: list[str]) -> str:
 # ── secuencia completa (§2.2) ───────────────────────────────────────────────
 
 def entregar(raiz: Path, python_compilacion: str, iscc: str, con_generador=False, pasos=None,
-             git=None, ahora=None) -> int:
+             git=None, ahora=None, etapa: str = "alpha", base: str = BASE_DEFECTO) -> int:
     """Pasos 1 a 10, ya superadas las verificaciones previas."""
     raiz = Path(raiz)
     git = git or (lambda *a: ic.git(raiz, *a))
     pasos = PASOS if pasos is None else pasos
     etiquetas = git("tag", "--list").split()
-    n = calcular_n(etiquetas)
-    semver = f"1.0.0-alpha.{n}"
-    num = app_ver_num(semver)   # ValueError si N > 999, antes de tocar nada
+    semver, num = planificar(etiquetas, etapa, base)   # ValueError (N > 999, orden), antes de tocar nada
     fecha = (ahora or datetime.now()).strftime("%Y-%m-%d")
-    base = git("rev-parse", "HEAD").strip()
-    anterior = f"v1.0.0-alpha.{n - 1}" if n > 1 else (
+    base_commit = git("rev-parse", "HEAD").strip()
+    anterior = ultima_entrega(etiquetas) or (
         ETIQUETA_PREVIA_AL_ESQUEMA if ETIQUETA_PREVIA_AL_ESQUEMA in etiquetas else None)
     commits = (git("log", "--oneline", "--no-merges", f"{anterior}..HEAD").splitlines()
                if anterior else [])
-    print(f"1. N = {n}: {semver} (AppVerNum {num}); base {base[:7]}")
+    print(f"1. versión {semver} (AppVerNum {num}); base {base_commit[:7]}")
 
     build_info = raiz / ic.ARCHIVO
     build_info_previo = build_info.read_bytes() if build_info.exists() else None
@@ -361,12 +420,12 @@ def entregar(raiz: Path, python_compilacion: str, iscc: str, con_generador=False
         historial = raiz / HISTORIAL
         historial.write_text(agregar_al_historial(
             historial.read_text(encoding="utf-8"),
-            entrada_historial(semver, fecha, base[:7], num, anterior, commits)), encoding="utf-8")
+            entrada_historial(semver, fecha, base_commit[:7], num, anterior, commits)), encoding="utf-8")
         git("add", ARCHIVO_VERSION.as_posix(), HISTORIAL.as_posix())
         git("commit", "-q", "-m", f"chore(ver): {semver}")
     except BaseException:
-        git("reset", "-q", "--keep", base)
-        git("checkout", "-q", base, "--", ARCHIVO_VERSION.as_posix(), HISTORIAL.as_posix())
+        git("reset", "-q", "--keep", base_commit)
+        git("checkout", "-q", base_commit, "--", ARCHIVO_VERSION.as_posix(), HISTORIAL.as_posix())
         raise
     ctx = Contexto(raiz, semver, num, fecha, python_compilacion, iscc, con_generador,
                    commit=git("rev-parse", "HEAD").strip())
@@ -382,7 +441,7 @@ def entregar(raiz: Path, python_compilacion: str, iscc: str, con_generador=False
         git("tag", "-a", ctx.etiqueta, ctx.commit, "-m", mensaje_etiqueta(ctx, commits))
     except BaseException as e:   # 9: deshacer, N no se consume (también con Ctrl+C)
         print(f"\nFALLÓ el paso {paso_actual}: {e}", file=sys.stderr)
-        git("reset", "-q", "--keep", base)
+        git("reset", "-q", "--keep", base_commit)
         if build_info_previo is None:
             build_info.unlink(missing_ok=True)
         else:
@@ -392,8 +451,8 @@ def entregar(raiz: Path, python_compilacion: str, iscc: str, con_generador=False
                 f"{ctx.carpeta.name}.fallida-{datetime.now().strftime('%H%M%S')}")
             ctx.carpeta.rename(apartada)
             print(f"La carpeta incompleta quedó en {apartada}", file=sys.stderr)
-        print(f"Deshecho: HEAD vuelve a {base[:7]}, sin etiqueta {ctx.etiqueta}; "
-              f"N = {n} sigue libre.", file=sys.stderr)
+        print(f"Deshecho: HEAD vuelve a {base_commit[:7]}, sin etiqueta {ctx.etiqueta}; "
+              f"la versión {semver} sigue libre.", file=sys.stderr)
         if isinstance(e, KeyboardInterrupt):
             raise
         return 1
@@ -416,7 +475,11 @@ def _iscc_defecto() -> str:
 
 
 def main(argv=None) -> int:
-    ap = argparse.ArgumentParser(description="Entrega 1.0.0-alpha.N (etapa VER)")
+    ap = argparse.ArgumentParser(description="Entrega de una versión alpha, beta, rc o final (etapa VER)")
+    ap.add_argument("--etapa", choices=ETAPAS_ENTREGA, default="alpha",
+                    help="etapa de la entrega (defecto alpha); final = la versión sin sufijo")
+    ap.add_argument("--base", default=BASE_DEFECTO,
+                    help="versión base X.Y.Z (defecto 1.0.0; p. ej. 1.1.0 para 1.1.0-alpha.1)")
     ap.add_argument("--con-generador", action="store_true",
                     help="compila también GeneradorCodigos.spec y lo deja en la carpeta (fuera de usb/)")
     ap.add_argument("--python-compilacion", default=_python_compilacion_defecto(),
@@ -432,6 +495,13 @@ def main(argv=None) -> int:
     args = ap.parse_args(argv)
 
     git = lambda *a: ic.git(RAIZ, *a)  # noqa: E731
+    try:   # antes de la suite (tarda): una versión inválida no debe esperar a ella
+        semver, num = planificar(git("tag", "--list").split(), args.etapa, args.base)
+    except ValueError as e:
+        print(f"BLOQUEA: {e}", file=sys.stderr)
+        print("Entrega no iniciada: no se tocó nada.", file=sys.stderr)
+        return 2
+    print(f"Entrega {semver} (AppVerNum {num})")
     print("Verificaciones previas ...")
     if args.sin_suite:
         print("AVISO: --sin-suite: la suite de pruebas NO se corre en esta entrega")
@@ -447,7 +517,8 @@ def main(argv=None) -> int:
             print(f"BLOQUEA: {e}", file=sys.stderr)
         print("Entrega no iniciada: no se tocó nada.", file=sys.stderr)
         return 2
-    return entregar(RAIZ, args.python_compilacion, args.iscc, args.con_generador)
+    return entregar(RAIZ, args.python_compilacion, args.iscc, args.con_generador,
+                    etapa=args.etapa, base=args.base)
 
 
 if __name__ == "__main__":

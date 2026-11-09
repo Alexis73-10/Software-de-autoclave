@@ -162,6 +162,13 @@ Ver `docs/mis_plans/planeacion_control_cascada_chaqueta.md` (CAS-01..05) e infor
 - **Transición (revisión MEDIA-1, reemplaza lo dicho arriba sobre CIC-15/16):** VCH-AIS y A14-M2 siguen con el techo ampliado también mientras `bajando_a_psat` (enclave hecho, fuera de sostenimiento, `P > Psat(T_obj) + 2`, incluido el tick del enclave) y vuelven al normal al terminar la bajada; sin lectura del Principal o de presión, techo normal.
 - **Enclave y objetivo (MEDIA-2, `DECISIÓN SIN CONFIRMAR`):** `_t_obj_alcanzada` exige `T >= T_obj` sostenida `_ENCLAVE_T_OBJ_SOSTENIDO_S` (5 s, monotonic; se reinicia bajo `T_obj`, sin lectura y en `reset()`); tras el enclave la rampa apunta a `Psat(T_obj) + _OBJETIVO_POST_EMPUJE_KPA` (1 kPa) en lugar de `Psat(T_obj)`; techo, banda y entrada sin cambio.
 
+## Ajustes 9-nov: aviso de puerta de descarga, barra inferior y parámetros sin efecto
+
+- **Aviso «abrir la puerta de descarga»:** con `/status.vaciado_chaqueta == "PENDIENTE"` (ciclo de líquidos 4/5 confirmado, a la espera de la primera puerta abierta) la tarjeta de alarmas y la campana muestran la fila `abrir_puerta_descarga` (grupo aviso, `UiBridge.vaciadoChaquetaPendiente`, `detalle_aviso`, `SeccionEstadoSeguro.qml`, textos es/en `sistema.abrir_puerta_descarga` y `aviso_detalle.abrir_puerta_descarga`). Desaparece al abrir la puerta. Sin cambio en el control.
+- **Barra inferior de Ciclo en curso:** el indicador de espera de la entrega y el botón «Confirmar sin condiciones seguras» quedan dentro de la celda derecha (entre el divisor de x 800 y el borde), con margen de 12 px; el texto del botón parte en dos líneas o baja de tamaño.
+- **Parámetros retirados (sin efecto):** sección `estabilizacion` entera (fusionada en CALENTAMIENTO), `globals.enfriar_chaqueta_secado` y el parámetro de equipo `timeout_chaqueta`. Se quitaron de los JSON de fábrica y de usuario, del catálogo, de `global_params.json` y de i18n; un programa instalado con esas claves se migra al cargar (`cycle_manager._retirar_sin_efecto`, auditoría `param_ciclo_cambio` con origen «retiro de parámetros sin sentido (9-nov)», `.bak`, sin SIS-06). Prueba: `tests/test_retiro_parametros_sin_efecto.py`.
+- **`ciclos_multiples` se conserva** (bool, `true` en los 6 programas de fábrica, sin efecto todavía): plan en `docs/mis_plans/planeacion_ciclos_multiples.md`, con las decisiones pendientes de Cristian.
+
 ## PAM: presión añadida como margen de trabajo (9-nov)
 
 Ver `docs/mis_plans/planeacion_presion_add_margen.md` (PAM-01..06); riesgos HAZ-PAM-01..03; trazabilidad REQ-96..REQ-101; banco: bloque PAM (PAM-00, comparar la Principal contra patrón, es el primer paso). Rama `pam-presion-add-margen`, sin unir a `dev`; entrega no compilada. Decisiones sin confirmar en `AJUSTES.md` (9-nov).
@@ -184,6 +191,14 @@ Ver `docs/mis_plans/planeacion_cascada_integral.md` (CRI-01..04) e informe `docs
 - **CRI-04:** migración al cargar `migrado_cri` con una fila de auditoría `param_ciclo_cambio` («migración CRI: brecha_segura_presion medida sobre Psat»), sin SIS-06 (canal `agregadas`); rótulo «Margen de recuperación sobre Psat» (es/en).
 - **Revisión (MEDIA-A, MEDIA-B):** antiembalamiento por saturación del actuador (`actuador_saturado(pj)`: válvula ON en el tick anterior en «banda» y `pj <= consigna_anterior − HISTERESIS`: solo integra hacia abajo; cuenta solo la consigna de «banda», no la de «baja»). Piso de `p_baja`: `PISO_P_BAJA_KPA` 1,5, `p_baja = max(min(Psat + brecha, P_sp − 1), Psat + 1,5)` (log una vez por fase; brecha ilegible = 1,5 kPa con aviso).
 - **Pruebas:** `tests/test_cri_cascada.py`, `test_cri_recuperacion.py`, `test_cri_coherencia.py`, `test_cri_migracion.py`, `test_cri_planta.py`; barrido `python tests/banco/cri_barrido_planta.py`. En la planta provisional 6 de 16 combinaciones siguen fallando, igual que en la alpha.26 (límite físico, CRI-H1). Pendiente: banco CRI y segunda revisión de seguridad.
+
+## Programa Prion (9-nov)
+
+Ver `docs/mis_plans/prompt_claude_code_ciclo_prion.md` e informe `docs/informes/ciclo_prion/R_informe.md`; riesgos HAZ-PRI-01/02; trazabilidad REQ-106; banco: bloque PRI. Rama `ciclo-prion`, entrega no compilada.
+
+- **PRI-01..04:** programa de fábrica **número 6** «Prion 134°C» (`prion.json` en `cycles/factory` y `cycles/user`, `nombre_clave` `ciclos_fabrica.prion.nombre`, es y en iguales; nombre «Prion 134°C» confirmado por Cristian): copia de Instrumental 134 con `tiempo_esterilizacion` 30 min y `tiempo_secado` 30 min; F0 off, sólido, sin apertura automática. Se siembra y se entrega **deshabilitado** (`"habilitado": false`; lo habilita un técnico en Opciones › Programas tras validar el proceso; Prion lleva valores de fábrica, no los ajustados en sitio). Ya hay **6 programas de fábrica** (rompe a propósito la regla de máximo 5); 1–10 sigue reservado a fábrica.
+- **PRI-05 (siembra al cargar):** `CycleManager.load_all_cycles` llama a `utils/resources.sembrar_faltantes_usuario`, que copia a `cycles/user` los programas de fábrica aún no vistos (sin `nombre_clave`), porque `cycles/factory` se refresca siempre pero `cycles/user` solo se sembraba en la primera instalación y un programa de fábrica sin copia de usuario no se puede seleccionar ni editar. No pisa por id, número ni archivo; la marca `cycles/user/fabrica_vistos.lst` (no `.json`; la escribe también la siembra inicial; ignorada por git) evita recrear lo que el hospital borre; sin marca los 5 programas anteriores cuentan como vistos. Nunca lanza.
+- Planta simulada (caudal abierto, 134 °C): COMPLETADO sin aislamientos en modo cámara y chaqueta, exposición de 30 min; el secado no se modela.
 
 ## Dashboard de Reportes (tanda 25, 2-nov)
 

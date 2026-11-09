@@ -25,10 +25,6 @@
                 "value": true,
                 "type": "bool"
             },
-            "enfriar_chaqueta_secado": {
-                "value": false,
-                "type": "bool"
-            },
             "presion_chaqueta": {
                 "value": 250,
                 "type": "int",
@@ -389,46 +385,6 @@
                 "unit": "min",
                 "min": 1,
                 "max": 60
-            }
-        },
-        "estabilizacion": {
-            "tiempo_estabilizacion": {
-                "value": 60,
-                "type": "int",
-                "unit": "seg",
-                "min": 0,
-                "max": 3600
-            },
-            "temperatura_estabilizacion": {
-                "value": 134.0,
-                "type": "float",
-                "unit": "°C",
-                "clase": "absoluto",
-                "min": 0,
-                "max": 200
-            },
-            "rango_temperatura_estabilizacion": {
-                "value": 0.5,
-                "type": "float",
-                "unit": "°C",
-                "clase": "diferencia",
-                "min": 0,
-                "max": 50
-            },
-            "rango_presion_estabilizacion": {
-                "value": 15,
-                "type": "int",
-                "unit": "kPa",
-                "clase": "diferencia",
-                "min": 0,
-                "max": 1000
-            },
-            "timeout_recuperacion": {
-                "value": 5,
-                "type": "int",
-                "unit": "seg",
-                "min": 0,
-                "max": 3600
             }
         },
         "esterilizacion": {

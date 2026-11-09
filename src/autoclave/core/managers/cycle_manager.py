@@ -5,7 +5,7 @@ import math
 import os
 import sys
 import logging
-from autoclave.utils.resources import resource_path
+from autoclave.utils.resources import resource_path, sembrar_faltantes_usuario, _FABRICA_LEGADA
 from autoclave.core.runtime.sensores_ciclo import asignacion_por_omision, interpretar_asignacion
 from autoclave.core.managers import catalogo_parametros
 
@@ -243,6 +243,42 @@ def _migrar_t32(parameters: dict, agregadas) -> bool:
     return cambio
 
 
+def _retirar_sin_efecto(parameters: dict, agregadas) -> bool:
+    """9-nov: quita de un programa viejo la sección «estabilizacion» (la
+    estabilización se fusionó en CALENTAMIENTO) y globals.enfriar_chaqueta_secado,
+    que ningún módulo del control lee. Cada parámetro retirado va a `agregadas`
+    (auditoría param_ciclo_cambio con valor anterior y nuevo None, sin SIS-06) y
+    el JSON de usuario se reescribe con .bak. Nunca toca otro parámetro;
+    idempotente."""
+    origen = catalogo_parametros.ORIGEN_RETIRO_SIN_EFECTO
+    registros = []
+
+    def _anotar(fase, clave, hoja):
+        anterior = hoja.get("value") if isinstance(hoja, dict) else hoja
+        registros.append({"fase": fase, "parametro": clave, "anterior": anterior, "nuevo": None,
+                          "unidad": (hoja.get("unit") if isinstance(hoja, dict) else "") or "",
+                          "origen": origen})
+        logger.warning("Programa con %s.%s = %r: parámetro retirado (%s)",
+                       fase, clave, anterior, origen)
+
+    for fase in catalogo_parametros.SECCIONES_RETIRADAS_SIN_EFECTO:
+        seccion = parameters.get(fase)
+        if not isinstance(seccion, dict):
+            continue
+        for clave, hoja in seccion.items():
+            _anotar(fase, clave, hoja)
+        del parameters[fase]
+    for fase, clave in catalogo_parametros.PARAMETROS_RETIRADOS_SIN_EFECTO:
+        seccion = parameters.get(fase)
+        if isinstance(seccion, dict) and clave in seccion:
+            _anotar(fase, clave, seccion.pop(clave))
+    if not registros:
+        return False
+    if agregadas is not None:
+        agregadas.extend(registros)
+    return True
+
+
 # Ajuste 7-nov: presion_add_liquido_calentamiento, mismo patrón que T29-03
 # (auditoría con `agregadas` y .bak, sin SIS-06). Va después de
 # presion_add_calentamiento si el programa lo tiene. Existe en todos los
@@ -368,6 +404,7 @@ def migrar_parametros(parameters, correcciones: list | None = None,
     cambio = _agregar_claves_a12(parameters, agregadas) or cambio
     cambio = _agregar_clave_t29_03(parameters, agregadas) or cambio
     cambio = _migrar_t32(parameters, agregadas) or cambio
+    cambio = _retirar_sin_efecto(parameters, agregadas) or cambio
     cambio = _agregar_clave_liquido_cal(parameters, agregadas) or cambio
     for fase, clave in _PRESION_ADD:
         hoja = parameters.get(fase, {}).get(clave) if isinstance(parameters.get(fase), dict) else None
@@ -830,7 +867,10 @@ class CycleManager:
         self.errores_carga = []
 
         self._load_from_folder("cycles/factory", source="factory")
+        # PRI-05: programas de fábrica nuevos llegan también a equipos ya instalados
+        sembrar_faltantes_usuario(self.carpeta("cycles"))
         self._load_from_folder("cycles/user", source="user")
+        self._soltar_fabrica_sin_copia_de_usuario()
         self._descartar_numeros_repetidos()
         self._cargar_defectos()
 
@@ -907,6 +947,22 @@ class CycleManager:
         (cycles/defecto) o, si no hay, el de fábrica. None si ninguno."""
         return self.defectos.get(numero) or self.fabrica.get(numero)
 
+    def _soltar_fabrica_sin_copia_de_usuario(self):
+        """PRI-07: un programa de fábrica NUEVO (fuera de los 5 anteriores) que
+        no tiene copia de usuario (su número está ocupado o retirado en
+        numeros_usados.json, o la siembra se omitió) queda sin número y sin
+        `fabrica[n]`: no se muestra un «n» que no se puede habilitar ni se
+        reutiliza un número retirado en Reportes. Los 5 anteriores no cambian."""
+        for c in list(self.cycles.values()):
+            if (getattr(c, "source", None) != "factory" or c.number is None
+                    or c.id in _FABRICA_LEGADA):
+                continue
+            logger.warning("Programa de fábrica %s sin copia de usuario: queda sin número %d "
+                           "(número ocupado o retirado, o siembra omitida)", c.id, c.number)
+            if getattr(self.fabrica.get(c.number), "id", None) == c.id:
+                del self.fabrica[c.number]
+            c.number = None
+
     def _descartar_numeros_repetidos(self):
         """Un mismo cycle_number en dos ciclos distintos es un error de
         configuración: ninguno de los dos lo conserva (se muestra sin número)
@@ -917,6 +973,20 @@ class CycleManager:
                 por_numero.setdefault(cycle.number, []).append(cycle)
         for numero, ciclos in por_numero.items():
             if len(ciclos) > 1:
+                # PRI-06: un programa de usuario conserva su número frente a uno de
+                # fábrica con el mismo número (el de fábrica cede, con aviso)
+                usuario = [c for c in ciclos if getattr(c, "source", None) == "user"]
+                fabrica = [c for c in ciclos if getattr(c, "source", None) == "factory"]
+                if usuario and fabrica:
+                    for c in fabrica:
+                        logger.warning("Programa de fábrica %s cede el número %d al programa de "
+                                       "usuario del equipo (queda sin número)", c.id, numero)
+                        if getattr(self.fabrica.get(numero), "id", None) == c.id:
+                            del self.fabrica[numero]
+                        c.number = None
+                    ciclos = usuario
+                    if len(ciclos) == 1:
+                        continue
                 logger.error("cycle_number %d repetido en %s — se descarta en todos",
                              numero, ", ".join(sorted(c.id for c in ciclos)))
                 for c in ciclos:

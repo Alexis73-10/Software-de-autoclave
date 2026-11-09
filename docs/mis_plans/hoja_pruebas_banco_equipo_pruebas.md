@@ -3496,3 +3496,22 @@ Precondiciones: T33-01 (calibración de `pres_chaqueta`, HAZ-CAS-02) y PAM-00. P
 - **Criterio:** Aprobado si la fila aparece una vez por programa de usuario, el rótulo es el nuevo y el guardado incoherente se rechaza.
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+## Bloque PRI. Programa Prion 134 °C / 30 min (9-nov)
+
+Precondiciones: PAM-00 y T33-01 (calibración de la Principal y de `pres_chaqueta`). Riesgos HAZ-PRI-01 y HAZ-PRI-02.
+
+### PRI-01 — Ciclo Prion completo en el equipo de pruebas
+- **Nota:** Prion llega DESHABILITADO. Antes del ciclo, y solo tras validar el proceso, un técnico lo habilita en Opciones › Programas (bitácora `programa_habilitado`).
+- **Modo:** Con vapor  ·  **Origen:** PRI-01..04; HAZ-PRI-01
+- **Pasos:** actualizar un equipo ya instalado y comprobar que Prion (6) sale en el selector de Preciclo y en Opciones › Programas. Correr un ciclo Prion completo con carga sólida. Anotar duración de la exposición, temperatura mínima y máxima del Principal en ESTERILIZACION, duración del secado, y el ticket (nombre «Prion 134°C» y número 6).
+- **Criterio:** Aprobado si completa sin alarmas, con exposición de 30 min, la Principal en 134,0 °C o más sin llegar a la falla de temperatura alta, secado de 30 min y el ticket con nombre y número 6.
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### PRI-02 — Siembra en un equipo actualizado
+- **Modo:** Sin vapor  ·  **Origen:** PRI-05; HAZ-PRI-02
+- **Pasos:** actualizar un equipo con los 5 programas de usuario, incluso con alguno editado. Verificar que aparece `programa/autoclave/cycles/user/prion.json` con `habilitado` false (no sale en Preciclo, selección rechazada con 409), que habilitarlo lo hace aparecer, que habilitado no se vuelve a pisar al reiniciar, y que los 5 anteriores no cambiaron. Reajustar los parámetros de Prion a los de Instrumental 134 ajustados en sitio (Prion lleva valores de fábrica, MEDIA-4). Borrar Prion, reiniciar y comprobar que no vuelve.
+- **Criterio:** Aprobado si Prion aparece una sola vez, sin tocar los demás, y no reaparece tras borrarlo.
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________

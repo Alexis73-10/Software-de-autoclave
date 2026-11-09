@@ -14,7 +14,6 @@
             "F0": {"value":false, "type": "bool"},
             "F0_objetivo": {"value":12, "type": "float", "unit":"min", "min":0, "max":60},
             "ciclos_multiples": {"value":true, "type":"bool"},
-            "enfriar_chaqueta_secado": {"value":false, "type":"bool"},
             "presion_chaqueta": {"value":300, "type":"int", "unit":"kPa", "clase": "absoluto", "min":0, "max":400},
             "rango_presion_chaqueta": {"value":50, "type":"int", "unit":"kPa", "clase": "diferencia", "min":0, "max":100},
             "delta_temp_chaqueta": {"value":1.5, "type":"float", "unit":"°C", "clase": "diferencia", "min":0, "max":5},
@@ -79,13 +78,6 @@
             "timeout_recuperacion_estabilizacion": { "value": 5, "type": "int", "unit": "min", "min": 1, "max": 60 }
         },
 
-        "estabilizacion":{
-            "tiempo_estabilizacion": { "value": 0, "type":"int", "unit": "seg", "min": 0, "max": 3600 },
-            "temperatura_estabilizacion": { "value": 134.0, "type": "float", "unit": "°C", "clase": "absoluto", "min": 0, "max": 200 },
-            "rango_temperatura_estabilizacion": { "value": 0.5, "type": "float", "unit": "°C", "clase": "diferencia", "min": 0, "max": 50 },
-            "rango_presion_estabilizacion": { "value": 9, "type":"int", "unit": "kPa", "clase": "diferencia", "min": 0, "max": 1000 },
-            "timeout_recuperacion": { "value": 10, "type":"int", "unit": "seg", "min": 0, "max": 3600 }
-        },
 
         "esterilizacion": {
             "escape_lento_on_ester": { "value": 1, "type": "int", "unit": "seg", "min": 0, "max": 1000 },

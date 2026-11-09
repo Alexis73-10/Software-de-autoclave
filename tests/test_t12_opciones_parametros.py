@@ -37,7 +37,7 @@ def cliente():
 def test_programas_con_secciones_y_no_se_ejecuta(cliente):
     client, _ = cliente
     programas = client.get("/programas").json()["programas"]
-    assert [p["numero"] for p in programas] == [1, 2, 3, 4, 5]
+    assert [p["numero"] for p in programas] == [1, 2, 3, 4, 5, 6]
     liq = next(p for p in programas if p["numero"] == 4)
     assert liq["editable"] is True and liq["danado"] is False
     secciones = {s["clave"]: s["no_se_ejecuta"] for s in liq["secciones"]}

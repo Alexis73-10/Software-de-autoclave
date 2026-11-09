@@ -239,3 +239,70 @@ def test_entrada_y_mensaje_sin_commits_dicen_ninguno():
                                                    "v1.0.0-alpha.1", [])
     ctx = ce.Contexto(RAIZ, "1.0.0-alpha.2", "1.0.0.1002", "2026-10-26", "python", "iscc", commit="1" * 40)
     assert "- (ninguno)" in ce.mensaje_etiqueta(ctx, [])
+
+
+# ── A-08: la secuencia completa con otras etapas ─────────────────────────────
+
+def _commit_nuevo(repo, nombre):
+    (repo / nombre).write_text("z", encoding="utf-8")
+    _git(repo, "add", nombre)
+    _git(repo, "commit", "-q", "-m", f"fix: {nombre}")
+
+
+def test_alpha_beta_rc_final_en_secuencia(repo, capsys):
+    def entrega(**kw):
+        return ce.entregar(repo, "python", "ISCC.exe", pasos=[("3", _bien)],
+                           git=lambda *a: _git(repo, *a), **kw)
+
+    assert entrega() == 0                                            # alpha.1
+    _commit_nuevo(repo, "a.txt")
+    assert entrega(etapa="beta") == 0
+    version = (repo / "src" / "autoclave" / "_version.py").read_text(encoding="utf-8")
+    assert '__version__ = "1.0.0b1"' in version and 'VERSION_SEMVER = "1.0.0-beta.1"' in version
+    assert _git(repo, "cat-file", "-t", "v1.0.0-beta.1").strip() == "tag"
+    historial = (repo / "docs" / "versiones" / "HISTORIAL_VERSIONES.md").read_text(encoding="utf-8")
+    entrada = historial.split("## 1.0.0-beta.1")[1].split("## 1.0.0-alpha.1")[0]
+    assert "1.0.0.2001" in entrada and "Commits desde `v1.0.0-alpha.1`" in entrada
+    assert "fix: a.txt" in entrada
+    _commit_nuevo(repo, "b.txt")
+    assert entrega(etapa="rc") == 0
+    _commit_nuevo(repo, "c.txt")
+    assert entrega(etapa="final") == 0
+    version = (repo / "src" / "autoclave" / "_version.py").read_text(encoding="utf-8")
+    assert '__version__ = "1.0.0"' in version and 'VERSION_SEMVER = "1.0.0"' in version
+    assert _git(repo, "cat-file", "-t", "v1.0.0").strip() == "tag"
+    assert _git(repo, "log", "-1", "--format=%s").strip() == "chore(ver): 1.0.0"
+    mensaje = _git(repo, "tag", "-l", "--format=%(contents)", "v1.0.0")
+    assert "AppVerNum: 1.0.0.9000" in mensaje
+    assert "git push origin dev v1.0.0" in capsys.readouterr().out
+    # con la final entregada ya no se puede volver atrás
+    _commit_nuevo(repo, "d.txt")
+    foto = _foto(repo)
+    with pytest.raises(ValueError):
+        entrega(etapa="rc")
+    assert _foto(repo) == foto
+
+
+def test_una_alpha_despues_de_una_beta_se_rechaza_sin_tocar_nada(repo):
+    _git(repo, "tag", "v1.0.0-beta.1")
+    foto = _foto(repo)
+    with pytest.raises(ValueError):
+        _entregar(repo, [("3", _bien)])
+    assert _foto(repo) == foto
+
+
+def test_fallo_en_una_beta_deja_la_version_libre(repo):
+    foto = _foto(repo)
+    assert ce.entregar(repo, "python", "ISCC.exe", pasos=[("5", _falla)], etapa="beta",
+                       git=lambda *a: _git(repo, *a)) == 1
+    assert _foto(repo) == foto
+    assert ce.calcular_semver(_git(repo, "tag", "--list").split(), "beta") == "1.0.0-beta.1"
+
+
+def test_main_rechaza_la_version_invalida_antes_de_la_suite(monkeypatch, capsys):
+    monkeypatch.setattr(ce.ic, "git", lambda raiz, *a: "v1.0.0-beta.1\n" if a[:1] == ("tag",) else "")
+    llamadas = []
+    monkeypatch.setattr(ce, "verificaciones_previas", lambda *a, **k: llamadas.append(1))
+    assert ce.main(["--etapa", "alpha"]) == 2
+    assert not llamadas
+    assert "ya existe v1.0.0-beta.1" in capsys.readouterr().err
