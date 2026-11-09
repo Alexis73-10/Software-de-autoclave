@@ -21,6 +21,10 @@ Window {
         teclado.abrir(I18n.t("prueba_teclado.campo_alfanumerico", I18n.lang), "", 30)
     }
 
+    // Orientación del lienzo (tanda horizontal): la del tamaño de esta ventana
+
+    Binding { target: Escala; property: "horizontal"; value: Escala.esHorizontal(ventana.width, ventana.height) }
+
     Binding {
         target: Escala
         property: "factor"

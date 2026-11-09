@@ -29,6 +29,10 @@ Window {
     // REP-13: el arnés simula una sesión abierta (con «Otro correo…»), como antes
     property bool sesionActiva: true
 
+    // Orientación del lienzo (tanda horizontal): la del tamaño de esta ventana
+
+    Binding { target: Escala; property: "horizontal"; value: Escala.esHorizontal(ventana.width, ventana.height) }
+
     Binding {
         target: Escala
         property: "factor"

@@ -14,6 +14,9 @@ Rectangle {
     // la usan no cambian. Las señales solo avisan; quien no las conecta deja
     // los iconos inertes. Medidas del reloj grande y de los iconos: las de Ciclo.qml.
     property bool mostrarIconos: false
+    // Tanda horizontal: campana y engranaje conservan su margen derecho en el
+    // lienzo horizontal (0 en vertical, donde anchoDiseno = 1200)
+    readonly property real _dxDerecha: Escala.anchoDiseno - Escala.anchoVertical
     property int conteoNotificaciones: 0
     signal campanaPulsada()
     signal engranajePulsado()
@@ -72,7 +75,7 @@ Rectangle {
     Item {
         id: campana
         visible: raiz.mostrarIconos
-        x: Escala.px(888); y: Escala.px(64)
+        x: Escala.px(888 + raiz._dxDerecha); y: Escala.px(64)
         width: Escala.px(51); height: Escala.px(57)
         Image {
             anchors.fill: parent
@@ -101,7 +104,7 @@ Rectangle {
     }
     Item {
         visible: raiz.mostrarIconos
-        x: Escala.px(1043); y: Escala.px(64)
+        x: Escala.px(1043 + raiz._dxDerecha); y: Escala.px(64)
         width: Escala.px(57); height: Escala.px(58)
         Image {
             anchors.fill: parent
