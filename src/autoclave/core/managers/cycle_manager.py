@@ -5,7 +5,7 @@ import math
 import os
 import sys
 import logging
-from autoclave.utils.resources import resource_path
+from autoclave.utils.resources import resource_path, sembrar_faltantes_usuario
 from autoclave.core.runtime.sensores_ciclo import asignacion_por_omision, interpretar_asignacion
 from autoclave.core.managers import catalogo_parametros
 
@@ -830,6 +830,8 @@ class CycleManager:
         self.errores_carga = []
 
         self._load_from_folder("cycles/factory", source="factory")
+        # PRI-05: programas de fábrica nuevos llegan también a equipos ya instalados
+        sembrar_faltantes_usuario(self.carpeta("cycles"))
         self._load_from_folder("cycles/user", source="user")
         self._descartar_numeros_repetidos()
         self._cargar_defectos()

@@ -171,7 +171,7 @@ def programas():
 def test_numeracion_con_todos_los_programas():
     cm = CycleManager()
     cm.load_all_cycles()
-    assert sorted(c.number for c in cm.cycles.values()) == [1, 2, 3, 4, 5]
+    assert sorted(c.number for c in cm.cycles.values()) == [1, 2, 3, 4, 5, 6]
 
 
 def _correr(programa, monkeypatch, limite_s=4 * 3600, sonda_cero_en=None):
@@ -228,7 +228,7 @@ def _correr(programa, monkeypatch, limite_s=4 * 3600, sonda_cero_en=None):
 
 def test_numeracion_de_los_programas(programas):
     assert {n: c.id for n, c in programas.items()} == {
-        1: "bowe_dick", 2: "134_instrumental", 3: "instrumental_121", 4: "liquidos", 5: "textiles"}
+        1: "bowe_dick", 2: "134_instrumental", 3: "instrumental_121", 4: "liquidos", 5: "textiles", 6: "prion"}
 
 
 @pytest.mark.parametrize("numero, fases_esperadas", [

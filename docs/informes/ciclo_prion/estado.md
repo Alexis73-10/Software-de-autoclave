@@ -1,5 +1,6 @@
 # Estado ciclo_prion
-- Paso 1 inventario: Hecho
-- Paso 2 JSON + i18n: Hecho
-- Paso 3 verificación de carga: Hecho (6 programas; errores vacíos; sin escrituras)
-- DETENIDO: el programa nuevo no llega operativo a equipos instalados (DECISIÓN PENDIENTE). Pasos 4 y cierre pendientes.
+- Pasos 1, 2, 3: Hecho
+- Siembra al cargar (opción a de Cristian): Hecho
+- Paso 4 (pruebas dedicadas, planta): Hecho
+- Cierre (CLAUDE.md, HAZ-PRI-01/02, REQ-106, banco PRI, R_informe): Hecho
+- Pendiente: revisor de seguridad de la siembra, merge a dev y CERRADO.txt (no se escribe aún).

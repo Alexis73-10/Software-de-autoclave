@@ -135,6 +135,96 @@ def _refrescar_con_respaldo(origen: str, destino: str, relativa: str, marca: str
                    relativa, respaldo)
 
 
+# PRI-05 (ciclo Prion): programas de fábrica que ya existían antes de la siembra
+# de faltantes; se dan por «vistos» en un equipo sin marca (no se recrean si el
+# hospital los borró).
+_FABRICA_LEGADA = frozenset({"bowe_dick", "134_instrumental", "instrumental_121",
+                             "liquidos", "textiles"})
+MARCA_FABRICA_VISTOS = "fabrica_vistos.lst"   # en cycles/user; no es .json a propósito
+
+
+def _datos_programa(ruta: str):
+    with open(ruta, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def _escribir_marca_vistos(usuario: str, ids) -> None:
+    ruta = os.path.join(usuario, MARCA_FABRICA_VISTOS)
+    temporal = f"{ruta}.{os.getpid()}.tmp"
+    with open(temporal, "w", encoding="utf-8") as f:
+        f.write("\n".join(sorted(ids)) + "\n")
+    os.replace(temporal, ruta)
+
+
+def sembrar_faltantes_usuario(raiz_ciclos: str) -> list:
+    """PRI-05: copia a <raiz>/user los programas de <raiz>/factory que el equipo
+    aún no conocía (id fuera de la marca `fabrica_vistos.lst`; sin marca rigen
+    los cinco de fábrica anteriores). No pisa un programa existente (mismo id,
+    mismo número o mismo archivo), quita `nombre_clave` (como la siembra
+    inicial) y recuerda lo visto para no recrear lo que el hospital borre.
+    Idempotente. Nunca lanza: ante un error deja un aviso y reintenta en el
+    próximo arranque. Devuelve los archivos sembrados."""
+    sembrados = []
+    try:
+        fabrica = os.path.join(raiz_ciclos, "factory")
+        usuario = os.path.join(raiz_ciclos, "user")
+        if not os.path.isdir(fabrica) or not os.path.isdir(usuario):
+            return sembrados
+        marca = os.path.join(usuario, MARCA_FABRICA_VISTOS)
+        if os.path.exists(marca):
+            with open(marca, "r", encoding="utf-8") as f:
+                vistos = {l.strip() for l in f if l.strip()}
+        else:
+            vistos = set(_FABRICA_LEGADA)
+        ids_usuario, numeros_usuario = set(), set()
+        for nombre in os.listdir(usuario):
+            if nombre.endswith(".json"):
+                try:
+                    d = _datos_programa(os.path.join(usuario, nombre))
+                    ids_usuario.add(d.get("cycle_id"))
+                    numeros_usuario.add(d.get("cycle_number"))
+                except Exception:
+                    pass
+        procesados = set()
+        for nombre in sorted(os.listdir(fabrica)):
+            if not nombre.endswith(".json"):
+                continue
+            try:
+                datos = _datos_programa(os.path.join(fabrica, nombre))
+                cid, numero = datos["cycle_id"], datos.get("cycle_number")
+                if cid in vistos:
+                    continue
+                destino = os.path.join(usuario, nombre)
+                if cid in ids_usuario or numero in numeros_usuario or os.path.exists(destino):
+                    logger.warning("Programa de fábrica %s no se siembra: ya hay un programa de "
+                                   "usuario con ese id, número o archivo", cid)
+                    procesados.add(cid)
+                    continue
+                datos.pop("nombre_clave", None)
+                temporal = f"{destino}.{os.getpid()}.tmp"
+                try:
+                    with open(temporal, "w", encoding="utf-8") as f:
+                        json.dump(datos, f, ensure_ascii=False, indent=4)
+                    os.replace(temporal, destino)
+                finally:
+                    if os.path.exists(temporal):
+                        os.remove(temporal)
+                procesados.add(cid)
+                sembrados.append(nombre)
+                logger.info("Programa de fábrica %s sembrado en %s", cid, usuario)
+            except Exception:
+                logger.warning("No se pudo sembrar el programa de fábrica %s", nombre, exc_info=True)
+        if procesados:
+            try:
+                _escribir_marca_vistos(usuario, vistos | procesados)
+            except OSError:
+                logger.warning("No se pudo guardar la marca de programas de fábrica vistos",
+                               exc_info=True)
+    except Exception:
+        logger.warning("Siembra de programas de fábrica faltantes omitida", exc_info=True)
+    return sembrados
+
+
 def _sembrar_usuario_desde_fabrica() -> None:
     """D9-7: primera instalación sin cycles/user. Copia cada programa de fábrica
     (sin `nombre_clave`, que es solo de fábrica: un nombre cambiado en el
@@ -159,6 +249,12 @@ def _sembrar_usuario_desde_fabrica() -> None:
             with open(os.path.join(temporal, nombre), "w", encoding="utf-8") as f:
                 json.dump(datos, f, ensure_ascii=False, indent=4)
         os.rename(temporal, usuario)
+        try:
+            _escribir_marca_vistos(usuario, [d["cycle_id"] for d in
+                                             (_datos_programa(os.path.join(fabrica, n))
+                                              for n in os.listdir(fabrica) if n.endswith(".json"))])
+        except Exception:
+            logger.warning("No se pudo guardar la marca de programas de fábrica vistos", exc_info=True)
         logger.info("Primera instalación: programas de usuario sembrados desde fábrica en %s", usuario)
     except (OSError, ValueError):
         # otro proceso ya la creó, o un programa de fábrica ilegible: el

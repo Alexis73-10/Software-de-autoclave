@@ -185,6 +185,14 @@ Ver `docs/mis_plans/planeacion_cascada_integral.md` (CRI-01..04) e informe `docs
 - **Revisión (MEDIA-A, MEDIA-B):** antiembalamiento por saturación del actuador (`actuador_saturado(pj)`: válvula ON en el tick anterior en «banda» y `pj <= consigna_anterior − HISTERESIS`: solo integra hacia abajo; cuenta solo la consigna de «banda», no la de «baja»). Piso de `p_baja`: `PISO_P_BAJA_KPA` 1,5, `p_baja = max(min(Psat + brecha, P_sp − 1), Psat + 1,5)` (log una vez por fase; brecha ilegible = 1,5 kPa con aviso).
 - **Pruebas:** `tests/test_cri_cascada.py`, `test_cri_recuperacion.py`, `test_cri_coherencia.py`, `test_cri_migracion.py`, `test_cri_planta.py`; barrido `python tests/banco/cri_barrido_planta.py`. En la planta provisional 6 de 16 combinaciones siguen fallando, igual que en la alpha.26 (límite físico, CRI-H1). Pendiente: banco CRI y segunda revisión de seguridad.
 
+## Programa Prion (9-nov)
+
+Ver `docs/mis_plans/prompt_claude_code_ciclo_prion.md` e informe `docs/informes/ciclo_prion/R_informe.md`; riesgos HAZ-PRI-01/02; trazabilidad REQ-106; banco: bloque PRI. Rama `ciclo-prion`, entrega no compilada.
+
+- **PRI-01..04:** programa de fábrica **número 6** «Prion 134°C» (`prion.json` en `cycles/factory` y `cycles/user`, `nombre_clave` `ciclos_fabrica.prion.nombre`, es y en iguales; nombre `DECISIÓN SIN CONFIRMAR`): copia de Instrumental 134 con `tiempo_esterilizacion` 30 min y `tiempo_secado` 30 min; F0 off, sólido, sin apertura automática. Ya hay **6 programas de fábrica** (rompe a propósito la regla de máximo 5); 1–10 sigue reservado a fábrica.
+- **PRI-05 (siembra al cargar):** `CycleManager.load_all_cycles` llama a `utils/resources.sembrar_faltantes_usuario`, que copia a `cycles/user` los programas de fábrica aún no vistos (sin `nombre_clave`), porque `cycles/factory` se refresca siempre pero `cycles/user` solo se sembraba en la primera instalación y un programa de fábrica sin copia de usuario no se puede seleccionar ni editar. No pisa por id, número ni archivo; la marca `cycles/user/fabrica_vistos.lst` (no `.json`; la escribe también la siembra inicial; ignorada por git) evita recrear lo que el hospital borre; sin marca los 5 programas anteriores cuentan como vistos. Nunca lanza.
+- Planta simulada (caudal abierto, 134 °C): COMPLETADO sin aislamientos en modo cámara y chaqueta, exposición de 30 min; el secado no se modela.
+
 ## Dashboard de Reportes (tanda 25, 2-nov)
 
 Ver `docs/mis_plans/planeacion_dashboard_reportes.md` (REP-01..14, DR-H01..H09, AJ-01) e informe `docs/informes/dashboard_reportes/R_informe.md`. Pantalla completa `Pantallas/Reportes.qml` (reemplaza a `ventanaReportes` de `MenuPrincipal.qml`), solo lectura y visible sin sesión; QML solo dibuja, los textos y la geometría salen de `ui_qml/domain/reporte_dashboard.py` y el puente `bridge/reporte_dashboard.py`.
