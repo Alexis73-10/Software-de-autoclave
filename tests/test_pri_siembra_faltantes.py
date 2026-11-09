@@ -156,3 +156,75 @@ def test_equipo_nuevo_igual_que_antes(tmp_path, monkeypatch):
     # y si el hospital borra Prion, no vuelve
     (usuario / "prion.json").unlink()
     assert resources.sembrar_faltantes_usuario(str(datos / "autoclave" / "cycles")) == []
+
+
+# ── revisión de seguridad: ALTA-1, MEDIA-2, BAJA-5, BAJA-6 ────────────────
+
+def _programa_usuario_con_6(raiz, nombre="mio"):
+    otro = json.loads((REPO / "user" / "textiles.json").read_text(encoding="utf-8"))
+    otro["cycle_id"], otro["cycle_number"] = nombre, 6
+    (raiz / "user" / f"{nombre}.json").write_text(json.dumps(otro), encoding="utf-8")
+
+
+def test_programa_del_hospital_con_el_6_conserva_numero_y_defecto(raiz):
+    """ALTA-1: con Prion de fábrica (6) y un programa de usuario con el 6, el
+    del hospital conserva número y defecto; el de fábrica cede."""
+    _programa_usuario_con_6(raiz)
+    (raiz / "defecto").mkdir()
+    d = json.loads((raiz / "user" / "mio.json").read_text(encoding="utf-8"))
+    d["display_name"] = "defecto del hospital"
+    (raiz / "defecto" / "mio.json").write_text(json.dumps(d), encoding="utf-8")
+    cm = _cargar(raiz)
+    assert cm.cycles["mio"].number == 6 and cm.cycles["mio"].source == "user"
+    assert cm.cycles["prion"].number is None
+    assert cm.fabrica.get(6) is None
+    assert cm.defecto(6).name == "defecto del hospital"
+    assert not (raiz / "user" / "prion.json").exists()
+
+
+def test_programa_del_hospital_con_el_6_sin_defecto_no_devuelve_prion(raiz):
+    _programa_usuario_con_6(raiz)
+    cm = _cargar(raiz)
+    assert cm.cycles["mio"].number == 6
+    assert cm.defecto(6) is None
+
+
+def test_dos_programas_de_usuario_repetidos_siguen_perdiendo_el_numero(raiz):
+    _programa_usuario_con_6(raiz, "a")
+    _programa_usuario_con_6(raiz, "b")
+    cm = _cargar(raiz)
+    assert cm.cycles["a"].number is None and cm.cycles["b"].number is None
+    assert cm.cycles["prion"].number is None      # sin número: no hay conflicto que ganar
+
+
+def test_fabrica_sin_conflicto_conserva_su_numero_y_su_defecto(raiz):
+    cm = _cargar(raiz)
+    assert cm.fabrica[6].id == "prion" and cm.cycles["prion"].number == 6
+
+
+def test_numero_usado_y_borrado_no_se_reutiliza(raiz):
+    (raiz / "user" / "numeros_usados.json").write_text("[6]", encoding="utf-8")
+    assert resources.sembrar_faltantes_usuario(str(raiz)) == []
+    assert not (raiz / "user" / "prion.json").exists()
+
+
+def test_numeros_usados_ilegible_no_siembra(raiz):
+    (raiz / "user" / "numeros_usados.json").write_text("{roto", encoding="utf-8")
+    assert resources.sembrar_faltantes_usuario(str(raiz)) == []
+
+
+def test_json_de_usuario_ilegible_no_siembra_y_reintenta(raiz):
+    (raiz / "user" / "roto.json").write_text("{no es json", encoding="utf-8")
+    assert resources.sembrar_faltantes_usuario(str(raiz)) == []
+    assert not (raiz / "user" / "prion.json").exists()
+    assert not (raiz / "user" / resources.MARCA_FABRICA_VISTOS).exists()
+    (raiz / "user" / "roto.json").unlink()
+    assert resources.sembrar_faltantes_usuario(str(raiz)) == ["prion.json"]
+
+
+def test_fsync_antes_de_reemplazar(raiz, monkeypatch):
+    llamadas = []
+    real = os.fsync
+    monkeypatch.setattr(resources.os, "fsync", lambda fd: (llamadas.append(fd), real(fd))[1])
+    assert resources.sembrar_faltantes_usuario(str(raiz)) == ["prion.json"]
+    assert len(llamadas) == 2       # el programa sembrado y la marca

@@ -140,6 +140,7 @@ def _refrescar_con_respaldo(origen: str, destino: str, relativa: str, marca: str
 # hospital los borró).
 _FABRICA_LEGADA = frozenset({"bowe_dick", "134_instrumental", "instrumental_121",
                              "liquidos", "textiles"})
+NUMEROS_USADOS = "numeros_usados.json"   # igual que gestion_programas.NUMEROS_USADOS
 MARCA_FABRICA_VISTOS = "fabrica_vistos.lst"   # en cycles/user; no es .json a propósito
 
 
@@ -153,6 +154,8 @@ def _escribir_marca_vistos(usuario: str, ids) -> None:
     temporal = f"{ruta}.{os.getpid()}.tmp"
     with open(temporal, "w", encoding="utf-8") as f:
         f.write("\n".join(sorted(ids)) + "\n")
+        f.flush()
+        os.fsync(f.fileno())
     os.replace(temporal, ruta)
 
 
@@ -178,13 +181,27 @@ def sembrar_faltantes_usuario(raiz_ciclos: str) -> list:
             vistos = set(_FABRICA_LEGADA)
         ids_usuario, numeros_usuario = set(), set()
         for nombre in os.listdir(usuario):
-            if nombre.endswith(".json"):
+            if not nombre.endswith(".json"):
+                continue
+            if nombre == NUMEROS_USADOS:
+                # un número usado (aunque su programa se haya borrado) no se reutiliza
                 try:
-                    d = _datos_programa(os.path.join(usuario, nombre))
-                    ids_usuario.add(d.get("cycle_id"))
-                    numeros_usuario.add(d.get("cycle_number"))
+                    numeros_usuario |= {n for n in _datos_programa(os.path.join(usuario, nombre))
+                                        if isinstance(n, int) and not isinstance(n, bool)}
                 except Exception:
-                    pass
+                    logger.warning("numeros_usados.json ilegible: no se siembra en este "
+                                   "arranque (se reintentará)", exc_info=True)
+                    return sembrados
+                continue
+            try:
+                d = _datos_programa(os.path.join(usuario, nombre))
+                ids_usuario.add(d.get("cycle_id"))
+                numeros_usuario.add(d.get("cycle_number"))
+            except Exception:
+                # su número es desconocido: sembrar podría duplicarlo
+                logger.warning("Programa de usuario %s ilegible: no se siembran programas de "
+                               "fábrica en este arranque (se reintentará)", nombre, exc_info=True)
+                return sembrados
         procesados = set()
         for nombre in sorted(os.listdir(fabrica)):
             if not nombre.endswith(".json"):
@@ -205,6 +222,8 @@ def sembrar_faltantes_usuario(raiz_ciclos: str) -> list:
                 try:
                     with open(temporal, "w", encoding="utf-8") as f:
                         json.dump(datos, f, ensure_ascii=False, indent=4)
+                        f.flush()
+                        os.fsync(f.fileno())
                     os.replace(temporal, destino)
                 finally:
                     if os.path.exists(temporal):

@@ -919,6 +919,20 @@ class CycleManager:
                 por_numero.setdefault(cycle.number, []).append(cycle)
         for numero, ciclos in por_numero.items():
             if len(ciclos) > 1:
+                # PRI-06: un programa de usuario conserva su número frente a uno de
+                # fábrica con el mismo número (el de fábrica cede, con aviso)
+                usuario = [c for c in ciclos if getattr(c, "source", None) == "user"]
+                fabrica = [c for c in ciclos if getattr(c, "source", None) == "factory"]
+                if usuario and fabrica:
+                    for c in fabrica:
+                        logger.warning("Programa de fábrica %s cede el número %d al programa de "
+                                       "usuario del equipo (queda sin número)", c.id, numero)
+                        if getattr(self.fabrica.get(numero), "id", None) == c.id:
+                            del self.fabrica[numero]
+                        c.number = None
+                    ciclos = usuario
+                    if len(ciclos) == 1:
+                        continue
                 logger.error("cycle_number %d repetido en %s — se descarta en todos",
                              numero, ", ".join(sorted(c.id for c in ciclos)))
                 for c in ciclos:
