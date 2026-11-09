@@ -161,7 +161,7 @@
     "err_rol_sonda_no_activa": "Cannot save: a role is assigned to a probe that is not active in the installation profile.",
     "err_coherencia_recuperacion": "Cannot save: with this temperature and safe gap, the sterilization pressure ceiling does not allow leaving RECOVERY. The additional sterilization pressure must be at least {valor} kPa.",
     "err_coherencia_descompresion": "Cannot save: with slow then fast depressurization enabled in mode 5, the switch-to-fast-exhaust pressure must be lower than the cooling chamber pressure.",
-    "err_coherencia_brecha_presion": "Cannot save: the safe pressure gap must be lower than the error pressure gap; otherwise pressure recovery starts after the low-pressure failure.",
+    "err_coherencia_brecha_recuperacion": "Cannot save: the \"Recovery margin over Psat\" must be lower than the sterilization added pressure minus 3 kPa; otherwise recovery stays pinned to the chamber isolation ceiling.",
     "equipo_err_empaque": "The value is not consistent with atmospheric pressure and the gasket pressure and vacuum.",
     "equipo_err_empaque_sin_referencia": "Consistency cannot be checked: a valid gasket pressure, gasket vacuum or atmospheric pressure value is missing.",
     "equipo_err_empaque_sobre_atm": "Gasket pressure ({presion_empaque}) must stay at least {margen_empaque} above atmospheric pressure ({presion_atmosferica}).",
@@ -1569,7 +1569,7 @@
       "brecha_segura_temperatura": "Margin above the target temperature to switch from recovery to fine control.",
       "brecha_error_temperatura": "Temperature drop below the target considered a failure.",
       "brecha_error_presion": "Pressure drop below saturation considered a failure.",
-      "brecha_segura_presion": "Pressure drop that triggers recovery; must be smaller than the failure drop.",
+      "brecha_segura_presion": "Margin over Psat(T_est) below which recovery (continuous open steam) is triggered even if temperature is in range; must be smaller than the sterilization added pressure minus 3 kPa.",
       "timeout_excursion_referencia": "Maximum time, in minutes, a Reference probe may stay outside its band during sterilization. While it is outside, the exposure count stops and restarts from zero when it returns; if it does not return within this time, the cycle fails."
     },
     "secado": {
@@ -2146,7 +2146,7 @@
       "max_reinicios_exposicion": "Maximum exposure restarts",
       "brecha_error_presion": "Low pressure failure margin",
       "brecha_error_temperatura": "Low temperature failure margin",
-      "brecha_segura_presion": "Pressure recovery margin",
+      "brecha_segura_presion": "Recovery margin over Psat",
       "timeout_excursion_referencia": "Reference excursion time limit",
       "brecha_segura_temperatura": "Temperature recovery margin",
       "escape_lento_on_ester": "Slow exhaust open time",

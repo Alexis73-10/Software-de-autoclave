@@ -239,7 +239,8 @@ def test_programas_del_repo_con_los_parametros(ruta):
     assert cp.errores_programa(p) == []
     agregadas = []
     migrar_parametros(p, [], [], recuperacion=True, agregadas=agregadas)
-    assert agregadas == []
+    # CRI-04 (tanda 35): la marca de significado de la brecha es la unica agregada
+    assert [a for a in agregadas if a["parametro"] != "brecha_segura_presion"] == []
 
 
 def test_catalogo_rangos():
@@ -326,7 +327,7 @@ def test_migracion_al_cargar_con_auditoria_sin_sis06_y_bak(tmp_path):
     assert c.get_param("prevacio", "presion_inicio_vacio") == 10.0
     assert c.get_param("prevacio", "timeout_descompresion") == 5
     assert {m["parametro"] for _, m in ctx.cycle_manager.migraciones_agregadas()} == {
-        "presion_inicio_vacio", "timeout_descompresion"}
+        "presion_inicio_vacio", "timeout_descompresion", "brecha_segura_presion"}   # + CRI-04
     assert ctx.cycle_manager.migraciones_correctivas() == []
     # sin aviso SIS-06
     ctx._avisar_migraciones_correctivas()
@@ -349,7 +350,10 @@ def test_migracion_al_cargar_con_auditoria_sin_sis06_y_bak(tmp_path):
     ctx.auditar_migraciones_correctivas()
     assert len([f for f in ctx.db.get_auditoria(evento="param_ciclo_cambio")
                 if f["entidad"].startswith("134_instrumental/prevacio/")]) == 2
-    assert cargar().cycle_manager.migraciones_agregadas() == []
+    # CRI-04: los programas de fabrica no se reescriben y repiten su fila de brecha;
+    # el programa de usuario migrado ya no
+    assert [m for c, m in cargar().cycle_manager.migraciones_agregadas()
+            if c.source == "user" or m["parametro"] != "brecha_segura_presion"] == []
 
 
 @pytest.mark.parametrize("idioma", ["es", "en"])

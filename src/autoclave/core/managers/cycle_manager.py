@@ -389,6 +389,7 @@ def migrar_parametros(parameters, correcciones: list | None = None,
     if recuperacion:
         # A14-M3 antes que P2: el mínimo de P1 se calcula con la brecha final
         cambio = _migrar_brecha_t28(parameters, correcciones) or cambio
+        cambio = _migrar_significado_cri(parameters, agregadas) or cambio
         cambio = _migrar_recuperacion(parameters, correcciones, no_migradas) or cambio
         cambio = _migrar_modo_solido(parameters, correcciones, modo_fabrica) or cambio
     return cambio
@@ -422,6 +423,29 @@ def _migrar_brecha_t28(parameters: dict, correcciones) -> bool:
         correcciones.append({"fase": "esterilizacion", "parametro": "brecha_segura_temperatura",
                              "anterior": brecha, "nuevo": nuevo,
                              "origen": cp.ORIGEN_MIGRACION_T28_M3, "unidad": "°C"})
+    return True
+
+
+def _migrar_significado_cri(parameters: dict, agregadas) -> bool:
+    """CRI-04 (tanda 35): brecha_segura_presion pasa de medirse «bajo Psat» a
+    «sobre Psat». El valor NO cambia: una fila de auditoría por programa, una
+    sola vez (marca MARCA_MIGRACION_CRI en la hoja, que llega al archivo cuando
+    se reescribe), por el canal de `agregadas` (auditoría `param_ciclo_cambio`,
+    sin SIS-06). Valor ausente o no numérico: ni auditoría ni marca."""
+    cp = catalogo_parametros
+    est = parameters.get("esterilizacion")
+    if not isinstance(est, dict):
+        return False
+    hoja, valor = _hoja_valor(est, "brecha_segura_presion")
+    if hoja is None or not _es_numero(valor) or hoja.get(cp.MARCA_MIGRACION_CRI) is True:
+        return False
+    hoja[cp.MARCA_MIGRACION_CRI] = True
+    logger.warning("Programa con esterilizacion.brecha_segura_presion = %g kPa: el valor se "
+                   "conserva, ahora se mide sobre Psat (%s)", valor, cp.ORIGEN_MIGRACION_CRI)
+    if agregadas is not None:
+        agregadas.append({"fase": "esterilizacion", "parametro": "brecha_segura_presion",
+                          "anterior": valor, "nuevo": valor, "unidad": "kPa",
+                          "origen": cp.ORIGEN_MIGRACION_CRI})
     return True
 
 
@@ -718,19 +742,20 @@ class Cycle:
         cambios += [(self._hoja(f, p), catalogo_parametros.coercionar(self._hoja(f, p), f, p, v))
                     for f, p, v in (arrastres or [])]
         previos = [(hoja, hoja["value"]) for hoja, _ in cambios]
-        # PAM-06: brecha_segura_presion < brecha_error_presion, solo al guardar.
-        # Un programa ya incoherente (cargado con aviso SIS-06) no bloquea los
-        # cambios de otros parámetros; sí los de las dos brechas mientras no
-        # queden coherentes (DECISIÓN SIN CONFIRMAR)
-        brecha_antes = catalogo_parametros.errores_brecha_presion(self.parameters)
+        # CRI-03: brecha_segura_presion < presion_add_esterilizacion - 3, solo
+        # al guardar. Un programa ya incoherente (cargado con aviso SIS-06) no
+        # bloquea los cambios de otros parámetros; sí los de los dos
+        # parámetros de la regla mientras no queden coherentes (DECISIÓN SIN
+        # CONFIRMAR)
+        brecha_antes = catalogo_parametros.errores_brecha_recuperacion(self.parameters)
         editados = self.vinculados(fase, path) + [(f, p) for f, p, _ in (arrastres or [])]
-        toca_brechas = any((f, ".".join(p)) in catalogo_parametros.RUTAS_BRECHA_PRESION
+        toca_brechas = any((f, ".".join(p)) in catalogo_parametros.RUTAS_BRECHA_RECUPERACION
                            for f, p in editados)
         for hoja, valor in cambios:
             hoja["value"] = valor
         # Reglas entre parámetros (T10, decisión 1.2): si no se cumplen, nada cambia
         errores = catalogo_parametros.errores_coherencia(self.parameters)
-        brecha_despues = catalogo_parametros.errores_brecha_presion(self.parameters)
+        brecha_despues = catalogo_parametros.errores_brecha_recuperacion(self.parameters)
         if brecha_despues and (toca_brechas or not brecha_antes):
             errores = errores + brecha_despues
         if errores:
@@ -985,12 +1010,12 @@ class CycleManager:
                 logger.warning("Programa %s: advertencia %s: %s", cycle.id, clave, mensaje)
         except Exception:
             logger.exception("Programa %s: no se pudieron evaluar las advertencias", cycle.id)
-        # PAM-06: al cargar, la regla de brechas no rechaza ni migra; queda en
-        # el log y el backend activa SIS-06 (incoherencias_brecha_presion)
+        # CRI-03: al cargar, la regla de la brecha no rechaza ni migra; queda en
+        # el log y el backend activa SIS-06 (incoherencias_brecha_recuperacion)
         try:
-            for mensaje in catalogo_parametros.errores_brecha_presion(cycle.parameters):
+            for mensaje in catalogo_parametros.errores_brecha_recuperacion(cycle.parameters):
                 logger.warning("Programa %s: %s (no se migra; corregir en Parámetros del "
-                               "ciclo) (PAM-06)", cycle.id, mensaje)
+                               "ciclo) (CRI-03)", cycle.id, mensaje)
         except Exception:
             logger.exception("Programa %s: no se pudo evaluar la regla de brechas", cycle.id)
 
@@ -1041,21 +1066,21 @@ class CycleManager:
         return [(c, m) for c in self.cycles.values()
                 for m in (getattr(c, "migraciones_no_aplicadas", None) or [])]
 
-    def incoherencias_brecha_presion(self) -> list[tuple["Cycle", dict]]:
-        """PAM-06: [(programa, {"segura", "error"})] de los programas cargados
-        (no dañados) con brecha_segura_presion >= brecha_error_presion. Se
-        evalúa en el momento (no se migra nada). Nunca lanza."""
+    def incoherencias_brecha_recuperacion(self) -> list[tuple["Cycle", dict]]:
+        """CRI-03: [(programa, {"segura", "add"})] de los programas cargados
+        (no dañados) con brecha_segura_presion >= presion_add_esterilizacion
+        - 3. Se evalúa en el momento (no se migra nada). Nunca lanza."""
         salida = []
         for cycle in list(self.cycles.values()):
             if getattr(cycle, "danado", None):
                 continue
             try:
-                if catalogo_parametros.errores_brecha_presion(cycle.parameters):
+                if catalogo_parametros.errores_brecha_recuperacion(cycle.parameters):
                     salida.append((cycle, {
                         "segura": cycle.get_param("esterilizacion", "brecha_segura_presion"),
-                        "error": cycle.get_param("esterilizacion", "brecha_error_presion")}))
+                        "add": cycle.get_param("esterilizacion", "presion_add_esterilizacion")}))
             except Exception:
-                logger.exception("Programa %s: no se pudo evaluar la regla de brechas", cycle.id)
+                logger.exception("Programa %s: no se pudo evaluar la regla de la brecha", cycle.id)
         return salida
 
     def revalidar_programas(self) -> list[str]:

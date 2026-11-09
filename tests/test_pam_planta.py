@@ -89,10 +89,9 @@ _NO_CUMPLE = {
     ("instrumental_121", "restrictivo", "chaqueta"):
         "fuera de alcance: la rampa no supera ≈207,7 kPa por el corte A14-M2 de la chaqueta "
         "(≈224 kPa) con caudal restrictivo (como el 134 °C excluido de CAS-04)",
-    ("liquidos", "restrictivo", "chaqueta"):
-        "caracterización: con caudal restrictivo la chaqueta no repone la pérdida de la cámara "
-        "y la Principal (−0,6 K) cae bajo T_est − 0,1 en la exposición (antes de PAM no "
-        "salía de CALENTAMIENTO)",
+    # CRI (tanda 35): ("liquidos", "restrictivo", "chaqueta") salió de esta
+    # lista; con la consigna integral (CRI-01) la chaqueta repone la pérdida y
+    # el caso completa (antes: la Principal −0,6 K caía bajo T_est − 0,1).
 }
 
 _CASOS = [(p, c, m) for p in ("liquidos", "instrumental_121") for c in ("abierto", "restrictivo")

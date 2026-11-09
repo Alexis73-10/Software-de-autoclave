@@ -76,7 +76,8 @@ def test_fila_de_auditoria_y_archivo_reescrito(tmp_path):
     ctx = _contexto(tmp_path)
     ctx.db = DbManager(db_path=tmp_path / "t.db")
     ctx.auditar_migraciones_correctivas()
-    filas = ctx.db.get_auditoria(evento="param_ciclo_cambio")
+    filas = [f for f in ctx.db.get_auditoria(evento="param_ciclo_cambio")
+             if not f["entidad"].endswith("/brecha_segura_presion")]     # CRI-04 aparte
     assert len(filas) == 1
     f = filas[0]
     assert f["entidad"] == "bowe_dick/calentamiento/presion_add_calentamiento"

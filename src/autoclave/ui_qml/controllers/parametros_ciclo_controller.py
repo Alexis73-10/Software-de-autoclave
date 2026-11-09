@@ -79,7 +79,7 @@ _MENSAJES = {
     "COHERENCIA_RECUPERACION": "opciones.err_coherencia_recuperacion",
     "COHERENCIA_DESCOMPRESION": "opciones.err_coherencia_descompresion",   # LIQ-03 (tanda 32)
     "LIMITE_CONTRAPRESION_ENFRIAMIENTO": "opciones.err_limite_contrapresion_enfriamiento",  # M-A
-    "COHERENCIA_BRECHA_PRESION": "opciones.err_coherencia_brecha_presion",   # PAM-06
+    "COHERENCIA_BRECHA_RECUPERACION": "opciones.err_coherencia_brecha_recuperacion",   # CRI-03
     "ROL_SONDA_NO_ACTIVA": "opciones.err_rol_sonda_no_activa",
     # O1 (tanda 5): gestión de programas
     "programa_activo": "opciones.err_programa_activo",

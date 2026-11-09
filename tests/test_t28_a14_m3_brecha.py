@@ -142,7 +142,7 @@ def test_0_3_se_conserva_tras_varias_cargas(tmp_path):
         _auditar(ctx, tmp_path)
     assert json.loads(ruta.read_text(encoding="utf-8"))["parameters"]["esterilizacion"][
         CLAVE]["value"] == 0.3
-    assert not (ruta.parent / (ruta.name + ".bak")).exists()
+    # CRI-04 (tanda 35) reescribe el archivo una vez (marca migrado_cri) y deja .bak
 
 
 def test_1_0_pasa_a_0_3_una_sola_vez(tmp_path):
@@ -199,8 +199,7 @@ def test_otro_valor_no_se_toca(tmp_path, valor):
     _auditar(ctx, tmp_path)
     assert json.loads(ruta.read_text(encoding="utf-8"))["parameters"]["esterilizacion"][
         CLAVE]["value"] == valor
-    if not corr:          # con 2,0, P2 sube presion_add y el archivo se reescribe
-        assert ruta.read_text(encoding="utf-8") == antes
+    # con CRI-04 el archivo se reescribe siempre (marca migrado_cri); el valor no cambia
 
 
 def test_m3_no_pasa_por_la_salvaguarda_del_alivio(tmp_path):

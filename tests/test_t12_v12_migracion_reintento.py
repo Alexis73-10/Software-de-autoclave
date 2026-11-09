@@ -8,13 +8,18 @@ from autoclave.services.domain.logging.db_manager import DbManager
 from tests.test_t12_c04_migracion_aviso import _contexto, _ids, _instalar
 
 
+def _sin_cri(filas):
+    """CRI-04 (tanda 35): la fila de significado de brecha_segura_presion no cuenta aqui."""
+    return [f for f in filas if not f["entidad"].endswith("/brecha_segura_presion")]
+
+
 def test_reintento_no_duplica_ni_pisa_el_bak(tmp_path):
     ruta = _instalar(tmp_path)
     ctx = _contexto(tmp_path)
     ctx.db = DbManager(db_path=tmp_path / "t.db")
     ctx.auditar_migraciones_correctivas()
     ctx.auditar_migraciones_correctivas()        # reintento del bucle de arranque
-    assert len(ctx.db.get_auditoria(evento="param_ciclo_cambio")) == 1
+    assert len(_sin_cri(ctx.db.get_auditoria(evento="param_ciclo_cambio"))) == 1
     bak = json.loads((ruta.parent / "bowe_dick.json.bak").read_text(encoding="utf-8"))
     assert bak["parameters"]["calentamiento"]["presion_add_calentamiento"]["value"] == 99.0
 
@@ -27,6 +32,7 @@ def test_programa_danado_no_se_audita_ni_se_avisa(tmp_path):
     assert _ids(ctx) == []
     ctx.db = DbManager(db_path=tmp_path / "t.db")
     ctx.auditar_migraciones_correctivas()
-    assert ctx.db.get_auditoria(evento="param_ciclo_cambio") == []
+    assert [f for f in _sin_cri(ctx.db.get_auditoria(evento="param_ciclo_cambio"))
+            if f["entidad"].startswith("bowe_dick/")] == []
     datos = json.loads(ruta.read_text(encoding="utf-8"))
     assert datos["parameters"]["calentamiento"]["presion_add_calentamiento"]["value"] == 99.0

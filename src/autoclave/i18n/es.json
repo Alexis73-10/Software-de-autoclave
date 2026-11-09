@@ -161,7 +161,7 @@
     "err_rol_sonda_no_activa": "No se puede guardar: hay un rol asignado a una sonda que no está activa en el perfil de instalación.",
     "err_coherencia_recuperacion": "No se puede guardar: con esta temperatura y brecha segura, el techo de presión de esterilización no permite salir de RECUPERACIÓN. La presión adicional de esterilización debe ser al menos {valor} kPa.",
     "err_coherencia_descompresion": "No se puede guardar: con «Descompresión lenta y luego rápida» activa en el modo 5, la «Presión de cambio al escape rápido» debe ser menor que la «Presión de cámara durante el enfriamiento».",
-    "err_coherencia_brecha_presion": "No se puede guardar: la «Brecha segura de presión» debe ser menor que la «Brecha de error de presión»; si no, la recuperación por presión llega después de la falla por presión baja.",
+    "err_coherencia_brecha_recuperacion": "No se puede guardar: el «Margen de recuperación sobre Psat» debe ser menor que la «Presión adicional de esterilización» menos 3 kPa; si no, la recuperación queda pegada al techo de aislamiento de la cámara.",
     "equipo_err_empaque": "El valor no es coherente con la presión atmosférica y la presión y el vacío de empaque.",
     "equipo_err_empaque_sin_referencia": "No se puede comprobar la coherencia: falta un valor válido de presión de empaque, vacío de empaque o presión atmosférica.",
     "equipo_err_empaque_sobre_atm": "La presión de empaque ({presion_empaque}) debe quedar al menos {margen_empaque} sobre la presión atmosférica ({presion_atmosferica}).",
@@ -1569,7 +1569,7 @@
       "brecha_segura_temperatura": "Margen sobre T_est que separa la recuperación del control fino. Con T Principal < T_est + este valor (o presión bajo el umbral de «Margen de recuperación por presión») el vapor abre continuo; por encima pasa a PWM. Un valor mayor da más reserva térmica y más sobretemperatura media.",
       "brecha_error_temperatura": "Caída admitida bajo T_est: si la sonda Principal baja de T_est − este valor durante 3 lecturas consecutivas, el ciclo falla. También es el límite inferior del aviso de uniformidad de las Referencias.",
       "brecha_error_presion": "Caída admitida bajo Psat(T_est): si la presión de cámara baja de Psat(T_est) − este valor durante 3 lecturas consecutivas, el ciclo falla.",
-      "brecha_segura_presion": "Caída bajo Psat(T_est) que activa la recuperación (vapor abierto continuo) aunque la temperatura esté en rango; compensa la pérdida de presión por el escape lento. Debe ser menor que «Margen de falla por presión baja».",
+      "brecha_segura_presion": "Margen sobre Psat(T_est) bajo el cual se activa la recuperación (vapor abierto continuo) aunque la temperatura esté en rango; compensa la pérdida de presión por el escape lento. Debe ser menor que «Presión adicional de esterilización» menos 3 kPa.",
       "timeout_excursion_referencia": "Tiempo máximo, en minutos, que una sonda de Referencia puede estar fuera de su banda durante la esterilización. Mientras está fuera, el conteo de exposición se detiene y, al volver, se reinicia desde cero; si no vuelve en este tiempo, el ciclo falla."
     },
     "secado": {
@@ -2146,7 +2146,7 @@
       "max_reinicios_exposicion": "Reinicios máximos de la exposición",
       "brecha_error_presion": "Margen de falla por presión baja",
       "brecha_error_temperatura": "Margen de falla por temperatura baja",
-      "brecha_segura_presion": "Margen de recuperación por presión",
+      "brecha_segura_presion": "Margen de recuperación sobre Psat",
       "timeout_excursion_referencia": "Tiempo límite de excursión de Referencia",
       "brecha_segura_temperatura": "Margen de recuperación por temperatura",
       "escape_lento_on_ester": "Tiempo abierto del escape lento",

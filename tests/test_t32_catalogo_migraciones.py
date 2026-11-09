@@ -76,7 +76,8 @@ def test_programas_del_repo_con_los_parametros(ruta):
     assert cp.errores_programa(p) == []
     agregadas = []
     migrar_parametros(p, [], [], recuperacion=True, agregadas=agregadas)
-    assert agregadas == []
+    # CRI-04 (tanda 35): la marca de significado de la brecha es la unica agregada
+    assert [a for a in agregadas if a["parametro"] != "brecha_segura_presion"] == []
 
 
 # ── Catálogo ────────────────────────────────────────────────────────────────
@@ -315,7 +316,9 @@ def test_migracion_al_cargar_con_auditoria_sin_sis06_y_bak(tmp_path):
     assert not c.danado
     assert c.get_param("descompresion", "modo_5", "presion_cambio") == 150
     assert c.get_param("descompresion", "modo_4", "tiempo_apertura_chaqueta") is None
-    assert len(ctx.cycle_manager.migraciones_agregadas()) == 12
+    # CRI-04: la fila de brecha_segura_presion es aparte (sin SIS-06)
+    assert len([m for _, m in ctx.cycle_manager.migraciones_agregadas()
+                if m["parametro"] != "brecha_segura_presion"]) == 12
     assert ctx.cycle_manager.migraciones_correctivas() == []
     ctx._avisar_migraciones_correctivas()
     assert not [i for i in ctx.alarm_manager.activas() if i.definicion.codigo == SIS_06]
@@ -335,7 +338,10 @@ def test_migracion_al_cargar_con_auditoria_sin_sis06_y_bak(tmp_path):
     ctx.auditar_migraciones_correctivas()
     assert len([f for f in ctx.db.get_auditoria(evento="param_ciclo_cambio")
                 if "/descompresion/modo_" in f["entidad"]]) == 12
-    assert cargar().cycle_manager.migraciones_agregadas() == []
+    # CRI-04: los programas de fabrica no se reescriben y repiten su fila de brecha;
+    # el programa de usuario migrado ya no
+    assert [m for c, m in cargar().cycle_manager.migraciones_agregadas()
+            if c.source == "user" or m["parametro"] != "brecha_segura_presion"] == []
 
 
 # ── Textos y pantalla ───────────────────────────────────────────────────────
