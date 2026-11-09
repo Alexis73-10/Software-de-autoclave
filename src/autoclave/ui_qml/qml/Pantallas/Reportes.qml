@@ -37,7 +37,16 @@ Item {
     signal campanaPulsada()
 
     readonly property real anchoMockup: 1196
-    readonly property real escala: width / anchoMockup
+    // Tanda horizontal: en el lienzo horizontal la escala es la del lienzo
+    // vertical (mismos px de diseño) y el contenido va de 54 al margen derecho
+    // de 54 (`anchoMarco` en px del mockup: 1196 en vertical, ≈1913,6 en
+    // horizontal). Indicadores, resultado, ciclos por día y por programa a la
+    // izquierda; calendario con su panel del día y causas a la derecha; las
+    // tres columnas (mantenimiento, alarmas, operadores) y las acciones debajo,
+    // a todo el ancho. Sigue desplazándose.
+    readonly property bool hz: Escala.horizontal
+    readonly property real escala: hz ? Escala.px(Escala.anchoVertical) / anchoMockup : width / anchoMockup
+    readonly property real anchoMarco: width / escala
     function m(v) { return v * escala }
     function fuente(v) { return Math.max(1, Math.round(m(v))) }
     readonly property string sinDato: "—"
@@ -185,7 +194,7 @@ Item {
         id: barra
         objectName: "barraInferiorReportes"
         x: raiz.m(54)
-        width: raiz.m(1139 - 54)
+        width: raiz.m(raiz.hz ? raiz.anchoMarco - 54 - 54 : 1139 - 54)
         y: parent.height - raiz.m(171)
         escala: raiz.escala
         personalizada: true
@@ -276,7 +285,7 @@ Item {
         id: desplazable
         objectName: "contenidoReportes"
         x: raiz.m(54); y: raiz.m(262)
-        width: raiz.m(1139 - 54)
+        width: raiz.m(raiz.hz ? raiz.anchoMarco - 54 - 54 : 1139 - 54)
         height: barra.y - y - raiz.m(16)
         contentWidth: width
         contentHeight: columna.height + raiz.m(24)
@@ -372,186 +381,213 @@ Item {
                 width: parent.width
                 spacing: raiz.m(24)
 
-                // Indicadores (REP-03)
-                Seccion {
-                    objectName: "seccionIndicadores"
-                    titulo: I18n.t("reportes.seccion_indicadores", I18n.lang)
-                    height: indicadores.height + raiz.m(100)
-                    Grid {
-                        id: indicadores
-                        width: parent.width
-                        columns: 2
-                        spacing: raiz.m(16)
-                        Repeater {
-                            model: raiz.datos.indicadores ?? []
-                            TarjetaIndicador {
-                                required property var modelData
-                                objectName: "indicador_" + (modelData.clave ?? "")
-                                width: (indicadores.width - indicadores.spacing) / 2
-                                height: raiz.m(200)
+                // Vertical: una sola columna (columnaIzq y luego columnaDer, con
+                // el mismo espaciado). Horizontal: las dos lado a lado.
+                Grid {
+                    id: dosColumnas
+                    width: parent.width
+                    columns: raiz.hz ? 2 : 1
+                    columnSpacing: raiz.m(24)
+                    rowSpacing: raiz.m(24)
+                    readonly property real anchoColumna: raiz.hz ? (width - columnSpacing) / 2 : width
+
+                    Column {
+                        id: columnaIzq
+                        width: dosColumnas.anchoColumna
+                        spacing: raiz.m(24)
+
+                        // Indicadores (REP-03)
+                        Seccion {
+                            objectName: "seccionIndicadores"
+                            titulo: I18n.t("reportes.seccion_indicadores", I18n.lang)
+                            height: indicadores.height + raiz.m(100)
+                            Grid {
+                                id: indicadores
+                                width: parent.width
+                                columns: 2
+                                spacing: raiz.m(16)
+                                Repeater {
+                                    model: raiz.datos.indicadores ?? []
+                                    TarjetaIndicador {
+                                        required property var modelData
+                                        objectName: "indicador_" + (modelData.clave ?? "")
+                                        width: (indicadores.width - indicadores.spacing) / 2
+                                        height: raiz.m(200)
+                                        escala: raiz.escala
+                                        dato: modelData
+                                    }
+                                }
+                            }
+                        }
+
+                        // Resultado (REP-04)
+                        Seccion {
+                            objectName: "seccionResultado"
+                            titulo: I18n.t("reportes.seccion_resultado", I18n.lang)
+                            height: dona.height + raiz.m(100)
+                            GraficaDona {
+                                id: dona
+                                width: parent.width
                                 escala: raiz.escala
-                                dato: modelData
+                                dona: raiz.datos.dona ?? ({})
                             }
                         }
-                    }
-                }
 
-                // Resultado (REP-04)
-                Seccion {
-                    objectName: "seccionResultado"
-                    titulo: I18n.t("reportes.seccion_resultado", I18n.lang)
-                    height: dona.height + raiz.m(100)
-                    GraficaDona {
-                        id: dona
-                        width: parent.width
-                        escala: raiz.escala
-                        dona: raiz.datos.dona ?? ({})
-                    }
-                }
+                        // Ciclos por día (REP-05)
+                        Seccion {
+                            objectName: "seccionCiclosDia"
+                            titulo: I18n.t("reportes.seccion_ciclos_dia", I18n.lang)
+                            height: grafica.height + raiz.m(100)
+                            GraficaArea {
+                                id: grafica
+                                objectName: "graficaCiclosDia"
+                                width: parent.width
+                                height: raiz.m(380)
+                                escala: raiz.escala
+                                serie: raiz.datos.serie ?? ({})
+                                rotuloTotal: I18n.t("reportes.graf_total", I18n.lang)
+                                rotuloFallos: I18n.t("reportes.graf_fallos", I18n.lang)
+                                textoVacio: I18n.t("reportes.graf_vacia", I18n.lang)
+                            }
+                        }
 
-                // Ciclos por día (REP-05)
-                Seccion {
-                    objectName: "seccionCiclosDia"
-                    titulo: I18n.t("reportes.seccion_ciclos_dia", I18n.lang)
-                    height: grafica.height + raiz.m(100)
-                    GraficaArea {
-                        id: grafica
-                        objectName: "graficaCiclosDia"
-                        width: parent.width
-                        height: raiz.m(380)
-                        escala: raiz.escala
-                        serie: raiz.datos.serie ?? ({})
-                        rotuloTotal: I18n.t("reportes.graf_total", I18n.lang)
-                        rotuloFallos: I18n.t("reportes.graf_fallos", I18n.lang)
-                        textoVacio: I18n.t("reportes.graf_vacia", I18n.lang)
-                    }
-                }
+                        // Por programa (REP-06)
+                        Seccion {
+                            objectName: "seccionProgramas"
+                            titulo: I18n.t("reportes.seccion_programas", I18n.lang)
+                            height: listaProgramas.height + raiz.m(100)
+                            ListaProgramasReporte {
+                                id: listaProgramas
+                                width: parent.width
+                                height: implicitHeight
+                                escala: raiz.escala
+                                programas: raiz.datos.programas ?? []
+                                textoVacio: I18n.t("reportes.prog_vacia", I18n.lang)
+                            }
+                        }
 
-                // Por programa (REP-06)
-                Seccion {
-                    objectName: "seccionProgramas"
-                    titulo: I18n.t("reportes.seccion_programas", I18n.lang)
-                    height: listaProgramas.height + raiz.m(100)
-                    ListaProgramasReporte {
-                        id: listaProgramas
-                        width: parent.width
-                        height: implicitHeight
-                        escala: raiz.escala
-                        programas: raiz.datos.programas ?? []
-                        textoVacio: I18n.t("reportes.prog_vacia", I18n.lang)
                     }
-                }
 
-                // Calendario de ejecución (REP-07)
-                Seccion {
-                    objectName: "seccionCalendario"
-                    height: calendario.height + (panelDia.visible ? panelDia.height + raiz.m(16) : 0) + raiz.m(56)
-                    CalendarioEjecucion {
-                        id: calendario
-                        objectName: "calendarioEjecucion"
-                        width: parent.width
-                        height: implicitHeight
-                        escala: raiz.escala
-                        calendario: raiz.datos.calendario ?? ({})
-                        diaElegido: raiz.rd ? raiz.rd.diaElegido : ""
-                        puedeVerAnio: raiz.rd ? raiz.rd.puedeVerAnio : false
-                        onDiaTocado: (fecha) => raiz.rd?.elegirDia(fecha)
-                        onMesElegido: (mes) => raiz.rd?.elegirMes(mes)
-                        onProgramaElegido: (n) => raiz.rd?.elegirPrograma(n)
-                        onVerAnioPedido: raiz.rd?.verAnio()
-                    }
-                    PanelDiaCalendario {
-                        id: panelDia
-                        objectName: "panelDiaCalendario"
-                        visible: (raiz.datos.calendario?.vista ?? "mes") === "mes"
-                                 && (raiz.datos.calendario?.sin_programas ?? false) !== true
-                        y: calendario.height + raiz.m(16)
-                        width: parent.width
-                        height: raiz.m(560)
-                        escala: raiz.escala
-                        panel: raiz.rd ? raiz.rd.panelDia : ({})
-                        ciclos: raiz.rd ? raiz.rd.ciclosDia : []
-                        cargando: raiz.rd ? raiz.rd.cargandoDia : false
-                        error: (raiz.rd && raiz.rd.errorDia) ? raiz.rd.textoError : ""
-                        textoToque: raiz.datos.calendario?.texto_toque_dia ?? ""
-                        textoResultado: raiz.textoDeResultado
-                        colorResultado: raiz.colorDeResultado
-                        onCicloElegido: (ciclo) => raiz.abrirCiclo(ciclo)
-                    }
-                }
+                    Column {
+                        id: columnaDer
+                        width: dosColumnas.anchoColumna
+                        spacing: raiz.m(24)
 
-                // Causas de fallo (REP-08)
-                Seccion {
-                    id: seccionCausas
-                    objectName: "seccionCausas"
-                    titulo: I18n.t("reportes.seccion_causas", I18n.lang)
-                    readonly property var causas: raiz.datos.causas ?? []
-                    height: (causas.length === 0 ? raiz.m(80) : Math.ceil(causas.length / 2) * raiz.m(76))
-                            + raiz.m(100)
-                    Text {
-                        objectName: "textoSinCausas"
-                        visible: seccionCausas.causas.length === 0
-                        width: parent.width; height: raiz.m(80)
-                        horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
-                        text: I18n.t("reportes.sin_fallos", I18n.lang)
-                        color: Colores.textoGuia
-                        font.family: Tipografia.familia
-                        font.weight: Tipografia.pesoSemiBold
-                        font.pixelSize: raiz.fuente(24)
-                    }
-                    Grid {
-                        width: parent.width
-                        columns: 2
-                        columnSpacing: raiz.m(16)
-                        Repeater {
-                            model: seccionCausas.causas
-                            Item {
-                                id: filaCausa
-                                required property var modelData
-                                objectName: "causa_" + modelData.causa
-                                width: (parent.width - raiz.m(16)) / 2
-                                height: raiz.m(76)
-                                Text {
-                                    x: 0
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    width: parent.width - raiz.m(150)
-                                    fontSizeMode: Text.HorizontalFit; minimumPixelSize: Escala.fuenteMinima
-                                    text: filaCausa.modelData.causa
-                                    color: Colores.textoPrimario
-                                    font.family: Tipografia.familia
-                                    font.weight: Tipografia.pesoSemiBold
-                                    font.pixelSize: raiz.fuente(24)
-                                }
-                                Text {
-                                    anchors.right: flecha.left; anchors.rightMargin: raiz.m(10)
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    text: String(filaCausa.modelData.cantidad)
-                                    color: Colores.peligroTexto
-                                    font.family: Tipografia.familia
-                                    font.weight: Tipografia.pesoBold
-                                    font.pixelSize: raiz.fuente(28)
-                                }
-                                Text {
-                                    id: flecha
-                                    anchors.right: parent.right; anchors.rightMargin: raiz.m(8)
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    text: "›"
-                                    color: Colores.textoGuia
-                                    font.family: Tipografia.familia
-                                    font.weight: Tipografia.pesoBold
-                                    font.pixelSize: raiz.fuente(36)
-                                }
-                                Rectangle {
-                                    anchors.bottom: parent.bottom
-                                    width: parent.width; height: raiz.m(2)
-                                    color: Colores.bordeDivisor
-                                }
-                                MouseArea {
-                                    anchors.fill: parent
-                                    onClicked: { raiz.mensaje = ""; raiz.rd?.abrirFallo(filaCausa.modelData.causa) }
+                        // Calendario de ejecución (REP-07)
+                        Seccion {
+                            objectName: "seccionCalendario"
+                            height: calendario.height + (panelDia.visible ? panelDia.height + raiz.m(16) : 0) + raiz.m(56)
+                            CalendarioEjecucion {
+                                id: calendario
+                                objectName: "calendarioEjecucion"
+                                width: parent.width
+                                height: implicitHeight
+                                escala: raiz.escala
+                                calendario: raiz.datos.calendario ?? ({})
+                                diaElegido: raiz.rd ? raiz.rd.diaElegido : ""
+                                puedeVerAnio: raiz.rd ? raiz.rd.puedeVerAnio : false
+                                onDiaTocado: (fecha) => raiz.rd?.elegirDia(fecha)
+                                onMesElegido: (mes) => raiz.rd?.elegirMes(mes)
+                                onProgramaElegido: (n) => raiz.rd?.elegirPrograma(n)
+                                onVerAnioPedido: raiz.rd?.verAnio()
+                            }
+                            PanelDiaCalendario {
+                                id: panelDia
+                                objectName: "panelDiaCalendario"
+                                visible: (raiz.datos.calendario?.vista ?? "mes") === "mes"
+                                         && (raiz.datos.calendario?.sin_programas ?? false) !== true
+                                y: calendario.height + raiz.m(16)
+                                width: parent.width
+                                height: raiz.m(560)
+                                escala: raiz.escala
+                                panel: raiz.rd ? raiz.rd.panelDia : ({})
+                                ciclos: raiz.rd ? raiz.rd.ciclosDia : []
+                                cargando: raiz.rd ? raiz.rd.cargandoDia : false
+                                error: (raiz.rd && raiz.rd.errorDia) ? raiz.rd.textoError : ""
+                                textoToque: raiz.datos.calendario?.texto_toque_dia ?? ""
+                                textoResultado: raiz.textoDeResultado
+                                colorResultado: raiz.colorDeResultado
+                                onCicloElegido: (ciclo) => raiz.abrirCiclo(ciclo)
+                            }
+                        }
+
+                        // Causas de fallo (REP-08)
+                        Seccion {
+                            id: seccionCausas
+                            objectName: "seccionCausas"
+                            titulo: I18n.t("reportes.seccion_causas", I18n.lang)
+                            readonly property var causas: raiz.datos.causas ?? []
+                            // horizontal: una causa por fila (la columna derecha es más angosta)
+                            readonly property int columnasCausas: raiz.hz ? 1 : 2
+                            height: (causas.length === 0 ? raiz.m(80) : Math.ceil(causas.length / columnasCausas) * raiz.m(76))
+                                    + raiz.m(100)
+                            Text {
+                                objectName: "textoSinCausas"
+                                visible: seccionCausas.causas.length === 0
+                                width: parent.width; height: raiz.m(80)
+                                horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
+                                text: I18n.t("reportes.sin_fallos", I18n.lang)
+                                color: Colores.textoGuia
+                                font.family: Tipografia.familia
+                                font.weight: Tipografia.pesoSemiBold
+                                font.pixelSize: raiz.fuente(24)
+                            }
+                            Grid {
+                                width: parent.width
+                                columns: seccionCausas.columnasCausas
+                                columnSpacing: raiz.m(16)
+                                Repeater {
+                                    model: seccionCausas.causas
+                                    Item {
+                                        id: filaCausa
+                                        required property var modelData
+                                        objectName: "causa_" + modelData.causa
+                                        width: raiz.hz ? parent.width : (parent.width - raiz.m(16)) / 2
+                                        height: raiz.m(76)
+                                        Text {
+                                            x: 0
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            width: parent.width - raiz.m(150)
+                                            fontSizeMode: Text.HorizontalFit; minimumPixelSize: Escala.fuenteMinima
+                                            text: filaCausa.modelData.causa
+                                            color: Colores.textoPrimario
+                                            font.family: Tipografia.familia
+                                            font.weight: Tipografia.pesoSemiBold
+                                            font.pixelSize: raiz.fuente(24)
+                                        }
+                                        Text {
+                                            anchors.right: flecha.left; anchors.rightMargin: raiz.m(10)
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            text: String(filaCausa.modelData.cantidad)
+                                            color: Colores.peligroTexto
+                                            font.family: Tipografia.familia
+                                            font.weight: Tipografia.pesoBold
+                                            font.pixelSize: raiz.fuente(28)
+                                        }
+                                        Text {
+                                            id: flecha
+                                            anchors.right: parent.right; anchors.rightMargin: raiz.m(8)
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            text: "›"
+                                            color: Colores.textoGuia
+                                            font.family: Tipografia.familia
+                                            font.weight: Tipografia.pesoBold
+                                            font.pixelSize: raiz.fuente(36)
+                                        }
+                                        Rectangle {
+                                            anchors.bottom: parent.bottom
+                                            width: parent.width; height: raiz.m(2)
+                                            color: Colores.bordeDivisor
+                                        }
+                                        MouseArea {
+                                            anchors.fill: parent
+                                            onClicked: { raiz.mensaje = ""; raiz.rd?.abrirFallo(filaCausa.modelData.causa) }
+                                        }
+                                    }
                                 }
                             }
                         }
+
                     }
                 }
 
@@ -840,9 +876,19 @@ Item {
             onPulsado: raiz.cerrarCiclo()
         }
         Row {
+            id: accionesCiclo
             anchors.right: parent.right; anchors.rightMargin: raiz.m(16)
             y: raiz.m(16)
             spacing: raiz.m(16)
+            // horizontal: debajo de Volver, en la columna de datos del detalle
+            states: State {
+                when: raiz.hz
+                AnchorChanges { target: accionesCiclo; anchors.right: undefined; anchors.left: parent.left }
+                PropertyChanges {
+                    accionesCiclo.anchors.leftMargin: raiz.m(16)
+                    accionesCiclo.y: volverCiclo.y + volverCiclo.height + raiz.m(16)
+                }
+            }
             BotonPildora {
                 objectName: "botonEnviarCiclo"
                 escala: raiz.escala
@@ -869,8 +915,13 @@ Item {
         DetalleCiclo {
             objectName: "detalleCicloReportes"
             x: raiz.m(16)
-            anchors.top: volverCiclo.bottom; anchors.topMargin: raiz.m(24)
+            // horizontal: los botones van arriba de la columna de datos y la
+            // gráfica ocupa todo el alto de la capa
+            anchors.top: raiz.hz ? parent.top : volverCiclo.bottom
+            anchors.topMargin: raiz.hz ? raiz.m(16) : raiz.m(24)
             anchors.bottom: parent.bottom
+            anchors.bottomMargin: raiz.hz ? raiz.m(16) : 0
+            reservaSuperiorHz: raiz.hz ? accionesCiclo.y + accionesCiclo.height + raiz.m(24) - raiz.m(16) : 0
             width: parent.width - raiz.m(32)
             escala: raiz.escala
             readonly property var c: raiz.cicloAbierto ?? ({})

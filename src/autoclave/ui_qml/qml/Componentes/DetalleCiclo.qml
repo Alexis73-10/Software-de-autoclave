@@ -34,6 +34,18 @@ Item {
     function fuente(v) { return Math.max(1, Math.round(m(v))) }
     readonly property string _sinDato: "—"
 
+    // Tanda horizontal: en el lienzo horizontal los datos van en una columna a
+    // la izquierda y la gráfica a la derecha, a todo el alto, con la misma
+    // escala que en vertical (1032 px del mockup de ancho, el de la ventana
+    // flotante vertical); si el alto no alcanza para sus 794, se achica solo lo
+    // necesario. `reservaSuperiorHz` (px reales) deja libre la parte de arriba
+    // de la columna de datos para los botones de quien la usa (Volver, Enviar,
+    // Imprimir).
+    readonly property bool hz: Escala.horizontal
+    property real reservaSuperiorHz: 0
+    readonly property real _escalaGraficaHz: Math.min(m(1032) / 1129, height / 794)
+    readonly property real _anchoDatosHz: width - grafica.width - m(32)
+
     component Campo: Column {
         property string rotulo: ""
         property string valor: ""
@@ -71,7 +83,8 @@ Item {
         id: franjaNoConforme
         objectName: "franjaNoConformeDetalle"
         visible: raiz.noConforme
-        width: parent.width
+        y: raiz.hz ? raiz.reservaSuperiorHz : 0
+        width: raiz.hz ? raiz._anchoDatosHz : parent.width
         height: visible ? textoNoConformeDetalle.implicitHeight + raiz.m(24) : 0
         radius: raiz.m(8)
         color: Colores.alarmaAlta
@@ -89,33 +102,38 @@ Item {
         }
     }
 
-    Row {
+    // Vertical: una fila de 4 columnas. Horizontal: una columna (un dato debajo de otro).
+    Grid {
         id: filaDatos
-        y: franjaNoConforme.visible ? franjaNoConforme.height + raiz.m(16) : 0
-        width: parent.width
-        spacing: raiz.m(24)
+        y: (raiz.hz ? raiz.reservaSuperiorHz : 0)
+           + (franjaNoConforme.visible ? franjaNoConforme.height + raiz.m(16) : 0)
+        width: raiz.hz ? raiz._anchoDatosHz : parent.width
+        columns: raiz.hz ? 1 : 4
+        columnSpacing: raiz.m(24)
+        rowSpacing: raiz.hz ? raiz.m(28) : 0
         // columnas: fecha 0.25, programa 0.37 (número y nombre), resultado 0.2, operador 0.18
-        readonly property real _util: width - 3 * spacing
+        readonly property real _util: width - 3 * columnSpacing
+        function ancho(f) { return raiz.hz ? width : _util * f }
         Campo {
-            width: filaDatos._util * 0.25
+            width: filaDatos.ancho(0.25)
             rotulo: I18n.t("menu.fecha_inicio", I18n.lang)
             valor: raiz.fecha !== raiz._sinDato ? raiz.fecha + "  " + raiz.hora : raiz._sinDato
         }
         Campo {
-            width: filaDatos._util * 0.37
+            width: filaDatos.ancho(0.37)
             rotulo: I18n.t("menu.programa_dato", I18n.lang)
             valor: raiz.programa + (raiz.programaNombre !== raiz._sinDato ? " · " + raiz.programaNombre : "")
             colorValor: Colores.menuNaranjaTexto
         }
         Campo {
-            width: filaDatos._util * 0.2
+            width: filaDatos.ancho(0.2)
             rotulo: I18n.t("menu.resultado_dato", I18n.lang)
             valor: raiz.resultadoTexto
             detalle: raiz.resultadoDetalle
             colorValor: raiz.colorResultado
         }
         Campo {
-            width: filaDatos._util * 0.18
+            width: filaDatos.ancho(0.18)
             rotulo: I18n.t("menu.operador", I18n.lang)
             valor: raiz.operador
         }
@@ -125,9 +143,11 @@ Item {
     // modo pantalla completa (sin Tiempos; su CERRAR emite cerrarPulsado).
     // Diseñada a 1129 de ancho: se escala para ocupar el ancho disponible.
     GraficaCiclo {
+        id: grafica
         objectName: "graficaDetalleCiclo"
-        y: filaDatos.y + filaDatos.height + raiz.m(28)
-        width: parent.width
+        x: raiz.hz ? parent.width - width : 0
+        y: raiz.hz ? 0 : filaDatos.y + filaDatos.height + raiz.m(28)
+        width: raiz.hz ? 1129 * raiz._escalaGraficaHz : parent.width
         height: parent.height - y
         escala: width / 1129
         modoPantallaCompleta: true
