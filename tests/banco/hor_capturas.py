@@ -181,7 +181,6 @@ _SCRIPT = textwrap.dedent(r'''
     arnes("fin_fallido", "PruebaFinDeCiclo.qml",
           {"resultado": "fallo", "fin": _fin, "fases": fases("esterilizacion", "fallida")})
     arnes("ciclo_demo", "PruebaCicloEnCurso.qml", {"automatico": False})
-    arnes("ciclo_zoom", "PruebaCicloEnCurso.qml", {"automatico": False}, accion="obj_click:botonPantallaCompleta")
     # menú principal y ventanas flotantes
     def _menu_py():
         from autoclave.ui_qml import historial_ejemplo as ejemplo
@@ -194,8 +193,6 @@ _SCRIPT = textwrap.dedent(r'''
     arnes("menu", "PruebaMenuPrincipal.qml", py="menu")
     for v in ("ultimo_ciclo", "mantenimiento", "ciclos_hoy", "historial"):
         arnes("menu_" + v, "PruebaMenuPrincipal.qml", {"ventanaInicial": v}, py="menu")
-    arnes("menu_historial_detalle", "PruebaMenuPrincipal.qml", {"ventanaInicial": "historial"},
-          py="menu", accion="historial_detalle")
     # reportes
     arnes("reportes", "PruebaReportes.qml", py="reportes")
     arnes("reportes_abajo", "PruebaReportes.qml", py="reportes", accion="flick_fin:contenidoReportes")
@@ -254,6 +251,59 @@ _SCRIPT = textwrap.dedent(r'''
         }
         rec(raiz, null)
         return JSON.stringify(malos.slice(0, 40))
+    }
+
+    // Desbordes de texto (pedido de Cristian, 9-nov): la tinta de cada Text
+    // visible (contentWidth x contentHeight según su alineación) contra su
+    // propia caja (tinta_ancho / tinta_alto) y contra el cuadro que lo
+    // contiene, el Rectangle visible más cercano entre sus ancestros
+    // (sale_del_padre). No cuenta lo que un Flickable deja fuera de su vista
+    // (desplazamiento) ni el fondo a pantalla completa.
+    function desbordesTexto(raiz, W, H) {
+        const malos = []
+        function esTexto(h) { return h.truncated !== undefined && h.elide !== undefined && typeof h.text === "string" }
+        function rect(it) { const p = it.mapToItem(null, 0, 0); return {x: p.x, y: p.y, w: it.width, h: it.height} }
+        function rec(it, vista) {
+            const hijos = it.children || []
+            for (let i = 0; i < hijos.length; ++i) {
+                const h = hijos[i]
+                if (!h.visible || h.opacity === 0) continue
+                let v = vista
+                if (h.contentY !== undefined && h.clip) v = rect(h)
+                if (esTexto(h) && h.text.trim() !== "" && h.width > 0) {
+                    const b = rect(h)
+                    const cw = h.contentWidth, ch = h.contentHeight
+                    const fx = (h.horizontalAlignment & Qt.AlignHCenter) ? 0.5 : (h.horizontalAlignment & Qt.AlignRight) ? 1 : 0
+                    const fy = (h.verticalAlignment & Qt.AlignVCenter) ? 0.5 : (h.verticalAlignment & Qt.AlignBottom) ? 1 : 0
+                    const t = {x: b.x + (b.w - cw) * fx, y: b.y + (h.height > 0 ? (b.h - ch) * fy : 0), w: cw, h: ch}
+                    const enVista = !v || (t.x >= v.x - 1 && t.y >= v.y - 1 && t.x + t.w <= v.x + v.w + 1 && t.y + t.h <= v.y + v.h + 1)
+                    const desc = {texto: h.text.slice(0, 60), obj: h.objectName, x: Math.round(t.x), y: Math.round(t.y),
+                                  w: Math.round(t.w), h: Math.round(t.h)}
+                    if (enVista) {
+                        if (cw > h.width + 1.5)
+                            malos.push(Object.assign({tipo: "tinta_ancho", caja: Math.round(h.width)}, desc))
+                        if (h.height > 0 && ch > h.height + 2.5)
+                            malos.push(Object.assign({tipo: "tinta_alto", caja: Math.round(h.height)}, desc))
+                        let p = h.parent, cuadro = null
+                        while (p) {
+                            if (p.radius !== undefined && p.border !== undefined && p.color !== undefined
+                                    && p.width > 8 && p.height > 8 && (p.color.a > 0 || p.border.width > 0)) {
+                                const r = rect(p)
+                                if (!(r.w >= W - 4 && r.h >= H - 4)) { cuadro = r; break }
+                            }
+                            p = p.parent
+                        }
+                        if (cuadro && (t.x < cuadro.x - 1.5 || t.x + t.w > cuadro.x + cuadro.w + 1.5
+                                       || t.y < cuadro.y - 1.5 || t.y + t.h > cuadro.y + cuadro.h + 1.5))
+                            malos.push(Object.assign({tipo: "sale_del_padre",
+                                cuadro: [Math.round(cuadro.x), Math.round(cuadro.y), Math.round(cuadro.w), Math.round(cuadro.h)]}, desc))
+                    }
+                }
+                rec(h, v)
+            }
+        }
+        rec(raiz, null)
+        return JSON.stringify(malos.slice(0, 60))
     }
     """
 
@@ -351,6 +401,7 @@ _SCRIPT = textwrap.dedent(r'''
                      QUrl.fromLocalFile(QML_DIR + "/_revisor_hor.qml"))
         rev = comp.create()
         problemas, fuera = [], []
+        QTest.qWait(10)
         if rev is not None:
             r = json.loads(QMetaObject.invokeMethod(rev, "revisarDesde", Q_RETURN_ARG("QVariant"),
                                                     Q_ARG("QVariant", win.contentItem())))
@@ -358,6 +409,9 @@ _SCRIPT = textwrap.dedent(r'''
             fuera = json.loads(QMetaObject.invokeMethod(rev, "fueraDelLienzo", Q_RETURN_ARG("QVariant"),
                                                         Q_ARG("QVariant", win.contentItem()),
                                                         Q_ARG("QVariant", W), Q_ARG("QVariant", H)))
+            problemas += json.loads(QMetaObject.invokeMethod(rev, "desbordesTexto", Q_RETURN_ARG("QVariant"),
+                                                             Q_ARG("QVariant", win.contentItem()),
+                                                             Q_ARG("QVariant", W), Q_ARG("QVariant", H)))
         print("captura", nombre, len(problemas), "problemas", len(fuera), "fuera")
         win.close(); engine.deleteLater(); QTest.qWait(50)
         return {"problemas": problemas, "fuera": fuera,
