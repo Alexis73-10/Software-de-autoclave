@@ -369,6 +369,11 @@ Item {
     ].filter(f => f.valor !== "")
 
     // ── Presentación ─────────────────────────────────────────────────────
+    // Tanda horizontal: en el lienzo 1920x1200 (Escala.horizontal) los pasos
+    // largos van en dos columnas y la página sube lo justo para que el campo
+    // activo quede sobre el teclado en pantalla; en vertical todo queda igual.
+    readonly property bool hz: Escala.horizontal
+
     FondoApp { anchors.fill: parent }
 
     BarraSuperior {
@@ -383,17 +388,50 @@ Item {
         height: parent.height - Escala.px(176) - Escala.px(24)
 
         contenido: [
+          Item {
+            id: marcoLienzo
+            anchors.fill: parent
+            clip: raiz.hz   // horizontal: la página desplazada no pasa sobre la barra superior
+
             Item {
                 id: lienzo
                 anchors.fill: parent
 
                 readonly property real margen: Escala.px(64)
                 readonly property real ancho: width - 2 * margen
+                // horizontal: dos columnas de la página, separadas por `hueco`
+                readonly property real hueco: Escala.px(48)
+                readonly property real medio: (ancho - hueco) / 2
+                readonly property real xDer: medio + hueco
+
+                // horizontal: el campo que se escribe queda sobre el teclado
+                // (como NuevoUsuario.qml); en vertical, siempre 0
+                function _campoPorNombre(nombre) {
+                    const i = raiz.camposContrasena.indexOf(nombre)
+                    if (i >= 0)
+                        return repContrasenas.itemAt(i)
+                    return ({ serie: campoSerie, codigo: campoCodigo, serie_original: campoSerieOriginal,
+                              modelo_original: campoModeloOriginal, capacidad: campoCapacidad })[nombre] ?? null
+                }
+                readonly property real desplazamientoHz: {
+                    if (!raiz.hz || !raiz.teclado || !raiz.teclado.abierto || raiz.campoActivo === "")
+                        return 0
+                    const campo = _campoPorNombre(raiz.campoActivo)
+                    if (!campo)
+                        return 0
+                    const fondo = tarjeta.y + yPagina + campo.y + campo.height + Escala.px(24)
+                    return Math.max(0, fondo - (raiz.height - raiz.teclado.alturaOcupada))
+                }
+                transform: Translate {
+                    y: -lienzo.desplazamientoHz
+                    Behavior on y { NumberAnimation { duration: 400; easing.type: Easing.OutCubic } }
+                }
 
                 // ---- encabezado ----
                 Text {
+                    id: tituloInstalacion
                     objectName: "tituloInstalacion"
-                    x: lienzo.margen; y: Escala.px(56)
+                    x: lienzo.margen; y: raiz.hz ? Escala.px(48) : Escala.px(56)
                     text: raiz.terminado ? I18n.t("instalacion.listo_titulo", I18n.lang).toUpperCase() : I18n.t("instalacion.titulo", I18n.lang)
                     color: Colores.textoPrimario
                     font.family: Tipografia.familia
@@ -405,7 +443,7 @@ Item {
                     id: indicador
                     objectName: "indicadorPasos"
                     visible: !raiz.terminado
-                    x: lienzo.margen; y: Escala.px(140)
+                    x: lienzo.margen; y: raiz.hz ? Escala.px(124) : Escala.px(140)
                     width: lienzo.ancho
                     total: raiz.pasos.length
                     actual: raiz.indice
@@ -413,7 +451,9 @@ Item {
                 Text {
                     objectName: "subtituloPaso"
                     visible: !raiz.terminado
-                    x: lienzo.margen; y: Escala.px(212)
+                    // horizontal: a la derecha, en la línea del título
+                    x: raiz.hz ? lienzo.margen + lienzo.ancho - width : lienzo.margen
+                    y: raiz.hz ? tituloInstalacion.y + (tituloInstalacion.height - height) / 2 : Escala.px(212)
                     text: I18n.t("instalacion.paso_de", I18n.lang, { n: raiz.indice + 1, total: raiz.pasos.length })
                           + "  ·  " + I18n.t("instalacion.paso_" + raiz.pasoActual, I18n.lang)
                     color: Colores.textoSecundario
@@ -423,7 +463,7 @@ Item {
                 }
 
                 // Zona de cada paso
-                readonly property real yPagina: Escala.px(276)
+                readonly property real yPagina: raiz.hz ? Escala.px(208) : Escala.px(276)
                 readonly property real altoPagina: height - yPagina - Escala.px(16)
 
                 component Titulo: Text {
@@ -457,7 +497,7 @@ Item {
 
                     CampoFormulario {
                         id: campoSerie
-                        width: parent.width
+                        width: raiz.hz ? lienzo.medio : parent.width
                         etiqueta: I18n.t("instalacion.serie", I18n.lang)
                         marcador: I18n.t("instalacion.serie_marcador", I18n.lang)
                         valor: raiz.textoCampo("serie")
@@ -469,8 +509,9 @@ Item {
                     }
                     CampoFormulario {
                         id: campoCodigo
-                        y: Escala.px(167)
-                        width: parent.width
+                        x: raiz.hz ? lienzo.xDer : 0
+                        y: raiz.hz ? 0 : Escala.px(167)
+                        width: raiz.hz ? lienzo.medio : parent.width
                         etiqueta: I18n.t("instalacion.codigo", I18n.lang)
                         marcador: I18n.t("instalacion.codigo_marcador", I18n.lang)
                         valor: raiz.textoCampo("codigo")
@@ -482,7 +523,7 @@ Item {
                     }
                     FilaInterruptor {
                         objectName: "interruptorAutomatizado"
-                        y: Escala.px(334)
+                        y: raiz.hz ? Escala.px(167) : Escala.px(334)
                         width: parent.width
                         etiqueta: I18n.t("instalacion.automatizado", I18n.lang)
                         marcado: raiz.automatizado
@@ -493,15 +534,15 @@ Item {
                         id: ayudaAutomatizado
                         objectName: "ayudaAutomatizado"
                         visible: raiz.automatizado
-                        y: Escala.px(334 + 88 + 8)
+                        y: raiz.hz ? Escala.px(167 + 88 + 8) : Escala.px(334 + 88 + 8)
                         width: parent.width
                         text: I18n.t("instalacion.automatizado_ayuda", I18n.lang)
                     }
                     CampoFormulario {
                         id: campoSerieOriginal
                         visible: raiz.automatizado
-                        y: Escala.px(440) + ayudaAutomatizado.height
-                        width: parent.width
+                        y: (raiz.hz ? Escala.px(273) : Escala.px(440)) + ayudaAutomatizado.height
+                        width: raiz.hz ? lienzo.medio : parent.width
                         etiqueta: I18n.t("instalacion.serie_original", I18n.lang)
                         marcador: I18n.t("instalacion.serie_original_marcador", I18n.lang)
                         valor: raiz.textoCampo("serie_original")
@@ -514,8 +555,9 @@ Item {
                     CampoFormulario {
                         id: campoModeloOriginal
                         visible: raiz.automatizado
-                        y: Escala.px(607) + ayudaAutomatizado.height
-                        width: parent.width
+                        x: raiz.hz ? lienzo.xDer : 0
+                        y: (raiz.hz ? Escala.px(273) : Escala.px(607)) + ayudaAutomatizado.height
+                        width: raiz.hz ? lienzo.medio : parent.width
                         etiqueta: I18n.t("instalacion.modelo_original", I18n.lang)
                         marcador: I18n.t("instalacion.modelo_original_marcador", I18n.lang)
                         valor: raiz.textoCampo("modelo_original")
@@ -526,7 +568,8 @@ Item {
                         onTocado: raiz.editar("modelo_original")
                     }
                     Ayuda {
-                        y: raiz.automatizado ? Escala.px(790) + ayudaAutomatizado.height : Escala.px(450)
+                        y: raiz.hz ? (raiz.automatizado ? Escala.px(456) + ayudaAutomatizado.height : Escala.px(283))
+                                   : (raiz.automatizado ? Escala.px(790) + ayudaAutomatizado.height : Escala.px(450))
                         width: parent.width
                         text: I18n.t("instalacion.activacion_ayuda", I18n.lang)
                     }
@@ -540,9 +583,12 @@ Item {
                     width: lienzo.ancho; height: lienzo.altoPagina
 
                     Titulo { id: tituloEquipo; width: parent.width; text: I18n.t("instalacion.equipo_titulo", I18n.lang) }
-                    Column {
+                    // horizontal: en dos columnas
+                    Grid {
+                        id: rejillaClases
                         y: Escala.px(64)
                         width: parent.width
+                        columns: raiz.hz ? 2 : 1
                         spacing: Escala.px(16)
                         Repeater {
                             model: raiz.clases
@@ -550,7 +596,7 @@ Item {
                                 id: opcionClase
                                 required property var modelData
                                 objectName: "clase_" + modelData.valor
-                                width: parent.width
+                                width: raiz.hz ? (rejillaClases.width - rejillaClases.spacing) / 2 : rejillaClases.width
                                 titulo: raiz.etiquetaClase(modelData.valor)
                                 chips: raiz.chipsClase(modelData)
                                 seleccionada: raiz.clase === modelData.valor
@@ -573,13 +619,14 @@ Item {
                     x: lienzo.margen; y: lienzo.yPagina
                     width: lienzo.ancho; height: lienzo.altoPagina
 
-                    Titulo { id: tituloCantidad; width: parent.width; text: I18n.t("instalacion.puertas_cantidad", I18n.lang) }
+                    // horizontal: cantidad y puerta de este PC a la izquierda; tipo a la derecha
+                    Titulo { id: tituloCantidad; width: raiz.hz ? lienzo.medio : parent.width; text: I18n.t("instalacion.puertas_cantidad", I18n.lang) }
                     SelectorSegmentos {
                         id: selectorPuertas
                         objectName: "selectorPuertas"
                         visible: raiz.maxPuertas > 1
                         y: Escala.px(52)
-                        width: parent.width
+                        width: raiz.hz ? lienzo.medio : parent.width
                         valor: raiz.numPuertas
                         opciones: [
                             { valor: 1, etiqueta: I18n.t("instalacion.puertas_una", I18n.lang) },
@@ -592,7 +639,7 @@ Item {
                         objectName: "puertaFija"
                         visible: raiz.maxPuertas === 1
                         y: Escala.px(52)
-                        width: parent.width; height: Escala.px(88)
+                        width: raiz.hz ? lienzo.medio : parent.width; height: Escala.px(88)
                         radius: Escala.px(8)
                         color: Colores.fondoSutil
                         border.width: 1; border.color: Colores.bordeDivisor
@@ -613,11 +660,13 @@ Item {
                             color: Colores.bordeCampo
                         }
                     }
-                    Titulo { id: tituloTipo; y: Escala.px(204); width: parent.width; text: I18n.t("instalacion.puertas_tipo", I18n.lang) }
+                    Titulo { id: tituloTipo; x: raiz.hz ? lienzo.xDer : 0; y: raiz.hz ? 0 : Escala.px(204)
+                             width: raiz.hz ? lienzo.medio : parent.width; text: I18n.t("instalacion.puertas_tipo", I18n.lang) }
                     Column {
                         id: columnaTipos
-                        y: Escala.px(256)
-                        width: parent.width
+                        x: raiz.hz ? lienzo.xDer : 0
+                        y: raiz.hz ? Escala.px(52) : Escala.px(256)
+                        width: raiz.hz ? lienzo.medio : parent.width
                         spacing: Escala.px(12)
                         Repeater {
                             model: raiz.clavesTipoPuerta
@@ -635,8 +684,10 @@ Item {
                     }
                     ErrorTexto {
                         objectName: "errorTipoPuerta"
-                        y: columnaTipos.y + columnaTipos.height + Escala.px(12)
-                        width: parent.width
+                        y: raiz.hz ? (raiz.numPuertas > 1 ? selectorPuertaPc.y + selectorPuertaPc.height
+                                                          : Escala.px(52 + 88)) + Escala.px(12)
+                                   : columnaTipos.y + columnaTipos.height + Escala.px(12)
+                        width: raiz.hz ? lienzo.medio : parent.width
                         text: raiz.errores.tipoPuerta ?? ""
                     }
 
@@ -644,8 +695,8 @@ Item {
                     Titulo {
                         id: tituloPuertaPc
                         visible: raiz.numPuertas > 1
-                        y: columnaTipos.y + columnaTipos.height + Escala.px(64)
-                        width: parent.width
+                        y: raiz.hz ? Escala.px(204) : columnaTipos.y + columnaTipos.height + Escala.px(64)
+                        width: raiz.hz ? lienzo.medio : parent.width
                         text: I18n.t("instalacion.puerta_pc", I18n.lang)
                     }
                     SelectorSegmentos {
@@ -653,7 +704,7 @@ Item {
                         objectName: "selectorPuertaPc"
                         visible: raiz.numPuertas > 1
                         y: tituloPuertaPc.y + Escala.px(52)
-                        width: parent.width
+                        width: raiz.hz ? lienzo.medio : parent.width
                         valor: raiz.puertaPc
                         opciones: [
                             { valor: 1, etiqueta: I18n.t("instalacion.puerta_pc_1", I18n.lang) },
@@ -670,8 +721,10 @@ Item {
                     x: lienzo.margen; y: lienzo.yPagina
                     width: lienzo.ancho; height: lienzo.altoPagina
 
+                    // horizontal: capacidad y carga a la izquierda; vista previa a la derecha
                     CampoFormulario {
-                        width: parent.width
+                        id: campoCapacidad
+                        width: raiz.hz ? lienzo.medio : parent.width
                         etiqueta: I18n.t("instalacion.camara_capacidad", I18n.lang)
                         marcador: I18n.t("instalacion.camara_capacidad_marcador", I18n.lang)
                         valor: raiz.campoActivo === "capacidad" && raiz.teclado ? raiz.teclado.textoEnEdicion
@@ -684,15 +737,15 @@ Item {
                     }
                     Ayuda {
                         y: Escala.px(136)
-                        width: parent.width
+                        width: raiz.hz ? lienzo.medio : parent.width
                         text: I18n.t("instalacion.camara_capacidad_ayuda", I18n.lang)
                     }
 
-                    Titulo { y: Escala.px(212); width: parent.width; text: I18n.t("instalacion.camara_carga", I18n.lang) }
+                    Titulo { y: Escala.px(212); width: raiz.hz ? lienzo.medio : parent.width; text: I18n.t("instalacion.camara_carga", I18n.lang) }
                     SelectorSegmentos {
                         objectName: "selectorCarga"
                         y: Escala.px(264)
-                        width: parent.width
+                        width: raiz.hz ? lienzo.medio : parent.width
                         valor: raiz.tipoCarga === "V" ? 1 : raiz.tipoCarga === "H" ? 2 : 0
                         opciones: [
                             { valor: 1, etiqueta: I18n.t("instalacion.carga_V", I18n.lang) },
@@ -703,14 +756,15 @@ Item {
                     ErrorTexto {
                         objectName: "errorTipoCarga"
                         y: Escala.px(364)
-                        width: parent.width
+                        width: raiz.hz ? lienzo.medio : parent.width
                         text: raiz.errores.tipoCarga ?? ""
                     }
 
                     // Vista previa del nombre calculado (se actualiza en vivo; "—" si falta un dato)
                     Rectangle {
-                        y: Escala.px(440)
-                        width: parent.width
+                        x: raiz.hz ? lienzo.xDer : 0
+                        y: raiz.hz ? 0 : Escala.px(440)
+                        width: raiz.hz ? lienzo.medio : parent.width
                         height: Escala.px(232)
                         radius: Escala.px(14)
                         color: Colores.fondoSutil
@@ -737,8 +791,9 @@ Item {
                         }
                     }
                     Ayuda {
-                        y: Escala.px(696)
-                        width: parent.width
+                        x: raiz.hz ? lienzo.xDer : 0
+                        y: raiz.hz ? Escala.px(256) : Escala.px(696)
+                        width: raiz.hz ? lienzo.medio : parent.width
                         text: I18n.t("instalacion.camara_vista_previa_ayuda", I18n.lang)
                     }
                 }
@@ -813,11 +868,12 @@ Item {
                     width: lienzo.ancho; height: lienzo.altoPagina
 
                     // M1: sin campo libre "Modelo" (el nombre se calcula en el paso Cámara)
-                    Titulo { width: parent.width; text: I18n.t("instalacion.suministros_titulo", I18n.lang) }
-                    Ayuda { y: Escala.px(44); width: parent.width; text: I18n.t("instalacion.suministros_ayuda", I18n.lang) }
+                    // horizontal: suministros a la izquierda y sondas a la derecha
+                    Titulo { width: raiz.hz ? lienzo.medio : parent.width; text: I18n.t("instalacion.suministros_titulo", I18n.lang) }
+                    Ayuda { y: Escala.px(44); width: raiz.hz ? lienzo.medio : parent.width; text: I18n.t("instalacion.suministros_ayuda", I18n.lang) }
                     Column {
                         y: Escala.px(122)
-                        width: parent.width
+                        width: raiz.hz ? lienzo.medio : parent.width
                         Repeater {
                             model: raiz.clavesSuministro
                             delegate: FilaInterruptor {
@@ -833,11 +889,14 @@ Item {
                         }
                     }
 
-                    Titulo { y: Escala.px(590); width: parent.width; text: I18n.t("instalacion.sondas_titulo", I18n.lang) }
-                    Ayuda { y: Escala.px(634); width: parent.width; text: I18n.t("instalacion.sondas_ayuda", I18n.lang) }
+                    Titulo { x: raiz.hz ? lienzo.xDer : 0; y: raiz.hz ? 0 : Escala.px(590)
+                             width: raiz.hz ? lienzo.medio : parent.width; text: I18n.t("instalacion.sondas_titulo", I18n.lang) }
+                    Ayuda { x: raiz.hz ? lienzo.xDer : 0; y: raiz.hz ? Escala.px(44) : Escala.px(634)
+                            width: raiz.hz ? lienzo.medio : parent.width; text: I18n.t("instalacion.sondas_ayuda", I18n.lang) }
                     Column {
-                        y: Escala.px(684)
-                        width: parent.width
+                        x: raiz.hz ? lienzo.xDer : 0
+                        y: raiz.hz ? Escala.px(122) : Escala.px(684)
+                        width: raiz.hz ? lienzo.medio : parent.width
                         Repeater {
                             model: raiz.clavesSonda
                             delegate: FilaInterruptor {
@@ -864,13 +923,16 @@ Item {
 
                     Titulo { width: parent.width; text: I18n.t("instalacion.contrasenas_titulo", I18n.lang) }
                     Ayuda { y: Escala.px(44); width: parent.width; text: I18n.t("instalacion.contrasenas_ayuda", I18n.lang) }
+                    // horizontal: Admin a la izquierda e Ingeniero a la derecha
                     Repeater {
+                        id: repContrasenas
                         model: raiz.camposContrasena
                         delegate: CampoFormulario {
                             required property string modelData
                             required property int index
-                            y: Escala.px(150) + index * Escala.px(167)
-                            width: parent.width
+                            x: raiz.hz && index >= 2 ? lienzo.xDer : 0
+                            y: Escala.px(150) + (raiz.hz ? index % 2 : index) * Escala.px(167)
+                            width: raiz.hz ? lienzo.medio : parent.width
                             etiqueta: I18n.t("instalacion." + modelData, I18n.lang)
                             marcador: I18n.t("instalacion.clave_marcador", I18n.lang)
                             valor: raiz.textoCampo(modelData)
@@ -887,18 +949,21 @@ Item {
 
                 // ============ 9. Resumen ============
                 Item {
+                    id: pasoResumen
                     objectName: "pasoResumen"
                     visible: !raiz.terminado && raiz.pasoActual === "resumen"
                     x: lienzo.margen; y: lienzo.yPagina
                     width: lienzo.ancho; height: lienzo.altoPagina
 
-                    Titulo { width: parent.width; text: I18n.t("instalacion.resumen_titulo", I18n.lang) }
+                    // horizontal: modelo y avisos a la izquierda; filas en dos columnas a la derecha
+                    readonly property real anchoIzq: raiz.hz ? Escala.px(520) : width
+                    Titulo { id: tituloResumen; width: pasoResumen.anchoIzq; text: I18n.t("instalacion.resumen_titulo", I18n.lang) }
 
                     // M1 (INS-03): el nombre del modelo, arriba y en grande
                     Item {
                         id: bloqueModelo
-                        y: Escala.px(56)
-                        width: parent.width
+                        y: raiz.hz ? tituloResumen.height + Escala.px(16) : Escala.px(56)
+                        width: pasoResumen.anchoIzq
                         height: Escala.px(132)
                         Text {
                             text: I18n.t("instalacion.resumen_modelo", I18n.lang)
@@ -922,26 +987,40 @@ Item {
                     }
 
                     Rectangle {
-                        y: bloqueModelo.y + bloqueModelo.height + Escala.px(8)
-                        width: parent.width
+                        x: raiz.hz ? pasoResumen.anchoIzq + lienzo.hueco : 0
+                        y: raiz.hz ? 0 : bloqueModelo.y + bloqueModelo.height + Escala.px(8)
+                        width: raiz.hz ? parent.width - x : parent.width
                         height: filas.implicitHeight + Escala.px(16)
                         radius: Escala.px(14)
                         color: Colores.fondoSutil
                         border.width: 1; border.color: Colores.bordeDivisor
-                        Column {
+                        Grid {
                             id: filas
                             x: Escala.px(28); y: Escala.px(8)
                             width: parent.width - Escala.px(56)
+                            // horizontal: dos columnas, de arriba abajo
+                            readonly property int porColumna: raiz.hz ? Math.ceil(raiz.filasResumen.length / 2)
+                                                                      : raiz.filasResumen.length
+                            columns: raiz.hz ? 2 : 1
+                            rows: Math.max(1, porColumna)
+                            flow: raiz.hz ? Grid.TopToBottom : Grid.LeftToRight
+                            columnSpacing: Escala.px(56)
                             Repeater {
                                 model: raiz.filasResumen
                                 delegate: Item {
                                     id: fila
                                     required property var modelData
                                     required property int index
-                                    width: parent.width
-                                    height: Math.max(Escala.px(64), valorFila.implicitHeight + Escala.px(24))
+                                    width: raiz.hz ? (filas.width - filas.columnSpacing) / 2 : filas.width
+                                    height: raiz.hz ? Math.max(Escala.px(64), valorFila.implicitHeight + Escala.px(24),
+                                                               etiquetaFila.implicitHeight + Escala.px(24))
+                                                    : Math.max(Escala.px(64), valorFila.implicitHeight + Escala.px(24))
                                     Text {
+                                        id: etiquetaFila
                                         anchors.verticalCenter: parent.verticalCenter
+                                        // horizontal: columna angosta, la etiqueta parte en líneas
+                                        width: raiz.hz ? parent.width - valorFila.width - Escala.px(16) : implicitWidth
+                                        wrapMode: raiz.hz ? Text.WordWrap : Text.NoWrap
                                         text: I18n.t("instalacion." + fila.modelData.clave, I18n.lang)
                                         color: Colores.textoSecundario
                                         font.family: Tipografia.familia
@@ -952,7 +1031,7 @@ Item {
                                         id: valorFila
                                         anchors.right: parent.right
                                         anchors.verticalCenter: parent.verticalCenter
-                                        width: parent.width * 0.6
+                                        width: parent.width * (raiz.hz ? 0.55 : 0.6)
                                         horizontalAlignment: Text.AlignRight
                                         wrapMode: Text.WordWrap
                                         text: fila.modelData.valor
@@ -963,6 +1042,7 @@ Item {
                                     }
                                     Rectangle {
                                         visible: fila.index < raiz.filasResumen.length - 1
+                                                 && (!raiz.hz || (fila.index + 1) % filas.porColumna !== 0)
                                         anchors.bottom: parent.bottom
                                         width: parent.width; height: 1
                                         color: Colores.bordeDivisor
@@ -976,7 +1056,7 @@ Item {
                     Rectangle {
                         objectName: "avisoBloqueo"
                         anchors.bottom: parent.bottom
-                        width: parent.width
+                        width: pasoResumen.anchoIzq
                         height: Escala.px(104)
                         radius: Escala.px(14)
                         color: Colores.advertenciaFondo
@@ -998,7 +1078,7 @@ Item {
                         visible: raiz.errorGeneral !== ""
                         anchors.bottom: parent.bottom
                         anchors.bottomMargin: Escala.px(120)
-                        width: parent.width
+                        width: pasoResumen.anchoIzq
                         height: Escala.px(88)
                         radius: Escala.px(14)
                         color: Colores.peligroFondo
@@ -1026,7 +1106,7 @@ Item {
                     Rectangle {
                         id: sello
                         anchors.horizontalCenter: parent.horizontalCenter
-                        y: Escala.px(200)
+                        y: raiz.hz ? Escala.px(60) : Escala.px(200)
                         width: Escala.px(220); height: width; radius: width / 2
                         color: Colores.accionFondoTenue
                         IconoColor {
@@ -1065,6 +1145,7 @@ Item {
                     }
                 }
             }
+          }
         ]
 
         // Barra de acciones (en lugar de la barra de navegación: aún no hay sesión)

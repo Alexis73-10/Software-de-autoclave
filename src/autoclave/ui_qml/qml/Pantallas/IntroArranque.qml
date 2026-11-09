@@ -62,11 +62,22 @@ Item {
     readonly property real visibleSalida: 1 - inOutQuad(Math.max(0, Math.min(1, (s - 0.4) / 0.6)))
 
     // ── geometría (fracciones de W/H; tamaños en px de diseño con Escala.px) ──
+    // Tanda horizontal (Escala.horizontal, lienzo 1920x1200): los anchos
+    // relativos (línea, riel, volutas) se toman del ancho del lienzo vertical y
+    // las alturas se fijan en px de diseño desde el logo (las mismas distancias
+    // que en vertical), para que nada crezca ni se encime; en vertical, igual.
+    readonly property bool hz: Escala.horizontal
+    readonly property real anchoRef: hz ? Escala.px(Escala.anchoVertical) : width
+    readonly property real altoRef: hz ? Escala.px(Escala.altoVertical) : height
     readonly property real anchoLogo: Escala.px(480)
     readonly property real altoLogo: anchoLogo * 446 / 1666   // proporción del viewBox del SVG
-    readonly property real centroLogoY: 0.38 * height
+    readonly property real centroLogoY: hz ? height / 2 - Escala.px(270) : 0.38 * height
+    // posición vertical de una fracción del alto vertical (0,38 = el logo)
+    function yDesdeLogo(fraccion) {
+        return hz ? centroLogoY + (fraccion - 0.38) * altoRef : fraccion * height
+    }
     readonly property real yLineaInicial: centroLogoY + altoLogo / 2 + Escala.px(30)
-    readonly property real yBarra: 0.665 * height                // centro vertical del riel
+    readonly property real yBarra: hz ? yDesdeLogo(0.665) : 0.665 * height   // centro vertical del riel
     readonly property real altoBarra: Escala.px(14)
 
     // ── animaciones ────────────────────────────────────────────────────────
@@ -202,9 +213,10 @@ Item {
             required property var modelData
             readonly property real p: raiz.inOutQuad(raiz.tramo(modelData.a, modelData.a + 0.6))
             source: "../../assets/fondos/voluta_vapor.png"
-            width: raiz.width * 0.14; height: width * 2
-            x: raiz.width * modelData.x - width / 2
-            y: raiz.centroLogoY - height * 0.2 - raiz.height * 0.07 * p
+            width: raiz.anchoRef * 0.14; height: width * 2
+            x: raiz.hz ? raiz.width / 2 + raiz.anchoRef * (modelData.x - 0.5) - width / 2
+                       : raiz.width * modelData.x - width / 2
+            y: raiz.centroLogoY - height * 0.2 - raiz.altoRef * 0.07 * p
             opacity: 0.06 * Math.sin(Math.PI * p)
             visible: opacity > 0
             smooth: true
@@ -235,8 +247,8 @@ Item {
         id: linea
         objectName: "rielArranque"
         readonly property real centroY: raiz.lerp(raiz.yLineaInicial, raiz.yBarra, raiz.pBaja)
-        width: raiz.pBaja > 0 ? raiz.lerp(0.56, 0.72, raiz.pBaja) * raiz.width
-                              : 0.56 * raiz.width * raiz.pDibujo
+        width: raiz.pBaja > 0 ? raiz.lerp(0.56, 0.72, raiz.pBaja) * raiz.anchoRef
+                              : 0.56 * raiz.anchoRef * raiz.pDibujo
         height: raiz.lerp(Escala.px(3), raiz.altoBarra, raiz.pBaja)
         radius: height / 2
         x: (raiz.width - width) / 2
@@ -257,7 +269,7 @@ Item {
         objectName: "rellenoArranque"
         x: linea.x
         y: raiz.yBarra - height / 2
-        width: 0.72 * raiz.width * raiz.fraccionMostrada
+        width: 0.72 * raiz.anchoRef * raiz.fraccionMostrada
         height: raiz.altoBarra
         radius: height / 2
         color: Colores.textoSobreAccion
@@ -273,7 +285,7 @@ Item {
             required property var modelData
             readonly property real p: raiz[modelData.p]
             anchors.horizontalCenter: parent.horizontalCenter
-            y: raiz.height * modelData.y - height / 2 + Escala.px(10) * (1 - p)
+            y: raiz.yDesdeLogo(modelData.y) - height / 2 + Escala.px(10) * (1 - p)
             text: modelData.texto
             color: Colores.textoSobreAccion
             opacity: 0.95 * p * raiz.visibleSalida
