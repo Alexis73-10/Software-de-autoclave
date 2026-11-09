@@ -89,6 +89,18 @@ Item {
         _sincronizar()
     }
 
+    // VAP-03: índice de la última fase completada anterior a la activa (-1 si no hay
+    // activa, p. ej. ciclo terminado, fallido, interrumpido o sin datos)
+    readonly property int _indiceBurbujas: {
+        let a = -1
+        for (let i = 0; i < fases.length; i++)
+            if (fases[i].estado === "activa") { a = i; break }
+        if (a < 0) return -1
+        for (let j = a - 1; j >= 0; j--)
+            if (fases[j].estado === "completada") return j
+        return -1
+    }
+
     function _clavesDe(fs) { return (fs || []).map(f => f.fase).join("|") }
     function _instantanea(fs) {
         return (fs || []).map(f => ({ fase: f.fase, estado: f.estado,
@@ -200,7 +212,8 @@ Item {
                 tope: raiz.topeFraccion
                 nivelIndeterminado: raiz.nivelIndeterminado
                 datosVigentes: raiz.datosVigentes
-                chorroHabilitado: fase.index > 0 && con.progreso >= 1
+                vaporTuboHabilitado: fase.index > 0 && con.progreso >= 1
+                burbujasHabilitadas: fase.index === raiz._indiceBurbujas
                 tiempos: raiz.tiempos
                 instantaneo: raiz.instantaneo
                 x: raiz.m(fase.cx - raiz.diametro / 2); y: raiz.m(480 - raiz.diametro / 2)

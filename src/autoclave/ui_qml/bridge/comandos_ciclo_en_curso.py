@@ -5,7 +5,7 @@
 #                  token de la sesión de la ventana si la hay, FC-12 de la tanda 21)
 #   confirmar() -> UIServiceBackend.acknowledge_cycle() (POST /cycle/acknowledge)
 # (El reconocimiento de NO CONFORME de la tanda 16 se retiró en la tanda 21, FC-08.)
-# La confirmación previa a cancelar la pide el modal de la pantalla; aquí
+# La cancelación ya no pide confirmación previa (la pide el deslizador de la pantalla); aquí
 # solo se envía. Acción de seguridad (Clase C): sin atajos ni reintentos
 # automáticos. Mientras hay un envío en curso no se acepta otro (anti doble
 # toque). Si falla o no hay conexión, `error` queda con la acción fallida y la

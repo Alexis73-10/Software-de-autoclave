@@ -63,8 +63,14 @@ Regla: en modo claro todo queda idéntico a hoy. Ningún valor de este archivo s
 - `bordeTarjeta` — oscuro #263445
 - `estadoEjecucion` — oscuro #2BD3A8 (texto «En ejecución»); círculo #1B9C7E
 - Fases (BarraFases / CirculoFaseLiquido / ConectorFase): completada gradiente #1E5FD9 → #0E7A9A; activa llenado #1E5FD9 con aro #33B4F5 al 35 %; pendiente fondo #222E3C, borde #33445A, ícono #6B7889, etiqueta #7F8B99; etiqueta activa #6EC8FF; conector completado #1E5FD9 → #33B4F5.
+- Vapor y burbuja de las fases (tanda 34, VAP-01/VAP-04; reemplazan a `faseChorro`, retirada; DECISIÓN SIN CONFIRMAR):
+- `faseVapor` — #42FFFFFF → #42DCF0FF
+- `faseVaporFondo` — #8CF6FBFF → #42DCF0FF
+- `faseBurbujaBorde` — #8CFFFFFF → #8CDCF0FF
+- `faseBurbujaRelleno` — #24FFFFFF → #24DCF0FF
 - Barra de avance del ciclo: #1E5FD9 → #33B4F5 sobre `fondoPista`.
 - Gráfica: cámara #5B9BFF, referencia #B06BF0, presión #22D3B0; rejilla #2A3746; ejes y líneas de fase #3A4A5E; texto de ejes #8C98A7; recuadro del cursor #0F1721 borde #33445A.
+- `graficaZoomIcono` — #3A6FD8 → #5B9BFF (ícono de zoom de la gráfica, ZOM-07, tanda 34; DECISIÓN SIN CONFIRMAR; contraste ≥ 3:1 sobre `fondoTarjeta`)
 - Valores de sensores en oscuro (tira de 6): temperatura de cámara #8AB6FF, referencia #CFA2F7, presión #5EE3C2; parámetros del programa en `textoPrimario`; unidades en `textoSecundario`.
 
 ## 7. Deslizador de inicio (AJ-01) y éxito
@@ -81,6 +87,22 @@ Regla: en modo claro todo queda idéntico a hoy. Ningún valor de este archivo s
 - `deslizadorManija` — #009933 → #12301F (fondo de la manija; oscuro = la pista, como en el tema oscuro previo a la unión)
 - `deslizadorManijaListo` — #009933 → #18402A
 - `exitoFondo` — #E9F8EE → #12301F
+
+### Deslizador de CANCELAR (CAN-01, tanda 34; DECISIÓN SIN CONFIRMAR)
+
+Rojo paralelo al verde; comparte las magnitudes `deslizadorBordeAlfa`, `deslizadorSombraOpacidad` y `deslizadorTextoAcento`.
+
+- `deslizadorCancelarPista` — #FBEAEA → #301212
+- `deslizadorCancelarPistaListo` — #F5D0D0 → #401818
+- `deslizadorCancelarAcento` — #E03A3A → #E04848
+- `deslizadorCancelarAcentoListo` — #F26060 → #FF6B6B
+- `deslizadorCancelarBrillo` — #F2BFBF → #E04848 al 45 % (sombra/halo)
+- `deslizadorCancelarBrilloListo` — #F9DADA → #FF6B6B al 45 %
+- `deslizadorCancelarTexto` — #B00010 → #FF8A8A
+- `deslizadorCancelarSombraInterior` — #B00010 → #000000 (al 12 %)
+- `deslizadorCancelarNucleo` — #D10A0A → #D94040
+- `deslizadorCancelarManija` — #D10A0A → #301212 (oscuro = la pista, como el verde)
+- `deslizadorCancelarManijaListo` — #D10A0A → #401818
 
 ## 8. Contraste mínimo (verificar con script)
 

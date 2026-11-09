@@ -26,7 +26,10 @@ CASOS = [
      [("botonEquipoPreciclo", "equipoPulsado"), ("avatarPreciclo", "avatarPulsado")]),
     ("PantallaCicloEnCurso", "barraInferiorCicloEnCurso", "tarjetaCicloEnCurso",
      [("botonEquipoCiclo", "equipoPulsado"), ("avatarCiclo", "avatarPulsado"),
-      ("botonCancelarCiclo", "dialogo:modalCancelarCiclo")]),
+      # CAN-02 (tanda 34): CANCELAR es un deslizador (un toque no hace nada; el
+      # arrastre lo cubre test_cancelacion_ciclo_en_curso_qml.py): solo se
+      # comprueba que esté visible dentro de la barra
+      ("deslizadorCancelarCiclo", "presente")]),
 ]
 
 _SCRIPT = textwrap.dedent(r"""
@@ -122,6 +125,9 @@ _SCRIPT = textwrap.dedent(r"""
             if not es_descendiente(b, barra):
                 fuera.append(nombre)
             punto = b.mapToScene(b.boundingRect().center()).toPoint()
+            if senal == "presente":
+                senales.append(senal if b.isVisible() else None)
+                continue
             if senal.startswith("dialogo:"):
                 QTest.mouseClick(w, Qt.LeftButton, Qt.NoModifier, punto)
                 QTest.qWait(50)

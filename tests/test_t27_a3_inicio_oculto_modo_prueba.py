@@ -219,7 +219,13 @@ def test_fuente_el_unico_deslizador_de_inicio_depende_del_puente():
         codigo = "\n".join(l.split("//", 1)[0] for l in f.read_text(encoding="utf-8").splitlines())
         if re.search(r"\bDeslizadorInicio\s*\{", codigo):
             usos.append(f.relative_to(RAIZ_QML).as_posix())
-    assert usos == ["Pantallas/PantallaPreciclo.qml"], usos
+    # CAN-02 (tanda 34): Ciclo en curso lo usa para CANCELAR (variante "cancelar"),
+    # que no inicia ciclos; el único deslizador de inicio sigue en Preciclo
+    assert sorted(usos) == ["Pantallas/PantallaCicloEnCurso.qml", "Pantallas/PantallaPreciclo.qml"], usos
+    ciclo = (RAIZ_QML / "Pantallas" / "PantallaCicloEnCurso.qml").read_text(encoding="utf-8")
+    m_c = re.search(r"DeslizadorInicio\s*\{(.*?)\n        \}", ciclo, re.S)
+    assert m_c and 'variante: "cancelar"' in m_c.group(1)
+    assert "iniciarCiclo" not in m_c.group(1)
     codigo = (RAIZ_QML / "Pantallas" / "PantallaPreciclo.qml").read_text(encoding="utf-8")
     m = re.search(r"DeslizadorInicio\s*\{(.*?)\n    \}", codigo, re.S)
     assert m

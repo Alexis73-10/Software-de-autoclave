@@ -16,7 +16,7 @@ Item {
     property bool instantaneo: false
 
     property real _p: 0.0
-    // 0..1; lo lee el chorro del círculo siguiente
+    // 0..1; lo lee el vapor del círculo siguiente
     readonly property real progreso: _p
 
     readonly property int _cierreMs: tiempos ? tiempos.cierreMs : 300

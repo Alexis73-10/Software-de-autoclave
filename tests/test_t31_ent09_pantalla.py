@@ -296,8 +296,11 @@ _SCRIPT = textwrap.dedent(r"""
             o.setProperty(k, v)
         QTest.qWait(60)
 
+    deslizador = obj("deslizadorCancelarCiclo")
+
     def estado():
-        return {"boton": boton.isVisible(), "indicador": indicador.isVisible(),
+        return {"boton": boton.isVisible(), "deslizador": deslizador.isVisible(),
+                "indicador": indicador.isVisible(),
                 "forzado": forzado.isVisible(), "texto": obj("textoEntrega").property("text")}
 
     def aceptar(modal):
@@ -364,13 +367,17 @@ def test_sin_avisos_qml(r):
 
 
 def test_mientras_corre_hay_cancelar_y_no_indicador(r):
-    assert r["en_curso"]["boton"] is True and r["en_curso"]["indicador"] is False
+    # CAN-02 (tanda 34): mientras corre, CANCELAR es el deslizador rojo
+    e = r["en_curso"]
+    assert e["deslizador"] is True and e["boton"] is False and e["indicador"] is False
 
 
 def test_con_resultado_sin_entrega_indicador_en_lugar_de_confirmar(r):
     e = r["esperando"]
     assert e["indicador"] is True and e["boton"] is False and e["forzado"] is False
-    assert e["texto"] == "Esperando cámara segura: Temperatura 92 °C, máximo 80 °C"
+    assert e["deslizador"] is False
+    # ESP-01 (tanda 34): la barra inferior no lleva el motivo
+    assert e["texto"] == "Esperando cámara segura"
     assert r["toque_indicador"] is False   # no es botón
 
 
@@ -383,6 +390,8 @@ def test_forzado_solo_para_ingeniero_y_si_es_forzable(r):
 def test_forzado_pide_advertencia_y_contrasena_por_el_teclado_de_accion(r):
     assert r["modal_forzar"] is True
     assert "Esperando cámara segura" in r["nota_modal"]
+    # ESP-01: el modal forzado conserva el motivo completo
+    assert "Temperatura 92 °C, máximo 80 °C" in r["nota_modal"]
     assert r["teclado"] == [1, True]
     assert r["claves_antes"] == 0
     assert r["claves"] == [1, "mi-clave"]

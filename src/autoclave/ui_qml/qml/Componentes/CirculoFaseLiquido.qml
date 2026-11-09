@@ -22,13 +22,13 @@ Rectangle {
     readonly property real _topeEfectivo: Math.min(tope, 0.90)
     property real nivelIndeterminado: 0.25
     property bool datosVigentes: true
-    property bool chorroHabilitado: false
+    property bool vaporTuboHabilitado: false      // el conector anterior está lleno (VAP-02a)
+    property bool burbujasHabilitadas: false      // última completada mientras hay una activa (VAP-03)
     property QtObject tiempos: null
     property bool instantaneo: false
 
     readonly property color _liquidoInicio: estado === "activa" ? Colores.faseActiva : Colores.faseCompletadaInicio
     readonly property color _liquidoFin: estado === "activa" ? Colores.faseActivaFin : Colores.faseCompletadaFin
-    readonly property color _chorro: Colores.faseChorro
 
     // ---- nivel ----
     readonly property bool _fraccionValida: typeof fraccion === "number" && isFinite(fraccion)
@@ -54,10 +54,6 @@ Rectangle {
         loops: Animation.Infinite
         running: raiz.amplitudOnda > 0 && !raiz.instantaneo && raiz.visible
     }
-
-    // ---- chorro ----
-    readonly property bool chorroVisible: chorroHabilitado && estado === "activa"
-                                          && nivelVisual < 0.5 && datosVigentes
 
     // ---- aspecto base ----
     readonly property color colorTerminacion: estado === "fallida" ? Colores.alarmaAlta
@@ -89,16 +85,15 @@ Rectangle {
         sourceSize.width: width; sourceSize.height: height
     }
 
+
     // altura de la superficie en la columna x (coordenadas del círculo)
     function _ySuperficie(x) {
         const w = width
         const lam = w * 0.85
-        const A = amplitudOnda + _chapoteo
         const ph = faseOnda
         const onda = (Math.sin(2 * Math.PI * x / lam + ph)
                       + 0.35 * Math.sin(2 * Math.PI * 1.7 * x / lam - 1.3 * ph)) / 1.35
-        // la inclinación (chapoteo) es un plano que gira alrededor del centro
-        return w * (1 - nivelVisual) + A * onda + _inclin * (x - w / 2) / (w / 2)
+        return w * (1 - nivelVisual) + amplitudOnda * onda
     }
 
     function _puntosLiquido() {
@@ -118,159 +113,163 @@ Rectangle {
         return sup.concat(inf.reverse())
     }
 
-    // ---- física del chorro ----
-    // El chorro sale de la boca del conector (borde izquierdo, a la altura del
-    // centro) con velocidad horizontal hacia dentro del círculo: la primera
-    // parte vuela separada de la pared por inercia y la gravedad lo curva. La
-    // velocidad de salida pulsa (borbotones: más rápido y más grueso, luego más
-    // lento y fino). Si toca la pared se desliza por ella; si llega al líquido
-    // lo golpea: gotas, olas e inclinación (resorte amortiguado) contra las
-    // paredes. Se simula como una cadena de parcelas emitidas a ritmo fijo.
-    readonly property real _boca: 7 * escala                 // alto de la boca (= conector)
-    property var _parcelas: []       // [{x, y, vx, vy, w}] de la más vieja a la más nueva
-    property var _gotas: []          // [{x, y, vx, vy}] salpicaduras
-    property real _tChorro: 0.0      // tiempo desde que empezó a salir (fase del borbotón)
-    property real _acumEmision: 0.0
-    property real _inclin: 0.0       // px: la superficie sube en un lado y baja en el otro
-    property real _velInclin: 0.0    // px/s
-    property real _chapoteo: 0.0     // px extra de amplitud de onda por el impacto
-    readonly property int _maxGotas: 14
-    readonly property int _maxParcelas: 70
+    // ---- vapor y burbujas (tanda 34, VAP-01..05) ----
+    // Solo decoración: no leen ni escriben nivel, nivelVisual, nivelObjetivo ni
+    // _lleno (HAZ-LLF-01). Partículas en arreglos JS, un FrameAnimation y un
+    // grupo fijo de Rectangle redondos por Repeater (sin Canvas ni Particles).
+    readonly property bool _condBase: datosVigentes && !instantaneo && visible
+    readonly property bool _vaporActivo: estado === "activa" && _condBase
+    readonly property bool vaporTuboActivo: _vaporActivo && vaporTuboHabilitado
+    readonly property bool bocanadasActivas: _vaporActivo
+    readonly property bool burbujasActivas: burbujasHabilitadas && estado === "completada" && _condBase
+    // sin datos, instantáneo, oculto o en pendiente/fallida/interrumpida: se vacía en el acto
+    readonly property bool _vaciarYa: !_condBase || estado === "pendiente"
+                                      || estado === "fallida" || estado === "interrumpida"
+    on_VaciarYaChanged: if (_vaciarYa) _vaciar()
 
-    readonly property real _velSalida: 68        // px/s medios (× escala)
-    readonly property real _gravedadChorro: 480  // px/s² (× escala)
-    readonly property real _gravedadGota: 420    // px/s² (× escala)
-    readonly property real _periodoEmision: 1 / 70
+    property var _vTubo: []
+    property var _vBoc: []
+    property var _vBurb: []
+    property int _nVivas: 0
+    property real _acTubo: 0.0
+    property real _acBoc: 0.0
+    property real _acBurb: 0.0
+    readonly property int _maxTubo: 90
+    readonly property int _maxBoc: 12
+    readonly property int _maxBurb: 20
+    readonly property bool _hayAnimacion: visible && !instantaneo
+        && (vaporTuboActivo || bocanadasActivas || burbujasActivas || _nVivas > 0)
 
-    // pulso 0..~1.6 de la velocidad: dos armónicos incommensurables = irregular
-    function _pulso(t) {
-        const v = 1 + 0.45 * Math.sin(2 * Math.PI * 1.15 * t)
-                    + 0.15 * Math.sin(2 * Math.PI * 2.9 * t + 1.1)
-        return Math.max(0.3, v)
+    function _vaciar() {
+        if (_vTubo.length > 0) _vTubo = []
+        if (_vBoc.length > 0) _vBoc = []
+        if (_vBurb.length > 0) _vBurb = []
+        _acTubo = 0; _acBoc = 0; _acBurb = 0; _nVivas = 0
+    }
+    function _rnd(a, b) { return a + (b - a) * Math.random() }
+    // opacidad: sube en el primer 15 % de la vida y baja hasta 0 al final
+    function _alfa(edad, vida, pico) {
+        const f = edad / vida
+        return pico * (f < 0.15 ? f / 0.15 : Math.max(0, (1 - f) / 0.85))
     }
 
-    function _emitir() {
-        const rel = _pulso(_tChorro)
-        const hw = _boca / 2 * Math.min(1, 0.35 + 0.5 * rel)      // el borbotón rápido es más grueso
-        _parcelas.push({ x: hw, y: width / 2, vx: _velSalida * escala * rel,
-                         vy: 4 * escala * (Math.random() - 0.3), w: hw })
+    function _emitirTubo() {
+        const e = escala, R = width / 2
+        const ang = _rnd(-13, 13) * Math.PI / 180
+        const v = 60 * e * _rnd(0.85, 1.15)
+        _vTubo.push({ x: 1 * e, y: R + _rnd(-0.25, 0.25) * 7 * e,
+                      vx: v * Math.cos(ang), vy: v * Math.sin(ang),
+                      rt0: R - _rnd(5, 10) * e, edad: 0, vida: _rnd(2.2, 2.8),
+                      rv: 0, a: 0, fondo: false })
+    }
+    function _emitirBocanada() {
+        const e = escala
+        const x = width * _rnd(0.15, 0.85)
+        _vBoc.push({ x: x, y: _ySuperficie(x), vx: _rnd(-3, 3) * e, vy: -_rnd(14, 24) * e,
+                     edad: 0, vida: _rnd(1.3, 1.8), rv: 0, a: 0, fondo: true })
+    }
+    function _emitirBurbuja() {
+        const e = escala, R = width / 2
+        const x = width * _rnd(0.125, 0.875)
+        const dx = x - R
+        const yb = R + Math.sqrt(Math.max(0, R * R - dx * dx))
+        _vBurb.push({ x: x, y: yb - 5 * e, vy: _rnd(18, 34) * e, r0: _rnd(1.8, 3.6) * e,
+                      edad: 0, rv: 0, a: 1 })
     }
 
-    function _salpicarEn(x, y, vxp, vyp) {
-        if (_gotas.length >= _maxGotas) return
-        const n = 2
-        for (let i = 0; i < n && _gotas.length < _maxGotas; i++)
-            _gotas.push({ x: x, y: y - 1 * escala,
-                          vx: 0.35 * vxp + (Math.random() - 0.5) * 70 * escala,
-                          vy: -(0.25 + Math.random() * 0.35) * Math.abs(vyp) - 20 * escala })
+    // radio visible dentro del círculo: min(r, R - 1 - d)
+    function _radioVisible(x, y, r) {
+        const R = width / 2, dx = x - R, dy = y - R
+        return Math.min(r, R - 1 - Math.sqrt(dx * dx + dy * dy))
     }
 
-    function _pasoParcelas(dt) {
-        const R = width / 2, g = _gravedadChorro * escala
+    function _pasoTubo(dt) {
+        const e = escala, R = width / 2
         const vivas = []
-        for (let i = 0; i < _parcelas.length; i++) {
-            const o = _parcelas[i]
-            let vx = o.vx, vy = o.vy + g * dt
-            let x = o.x + vx * dt, y = o.y + vy * dt
-            const lim = R - o.w
-            const dx = x - R, dy = y - R, d = Math.sqrt(dx * dx + dy * dy)
-            if (d > lim && d > 0) {                  // toca la pared: se desliza (sin rebote)
-                const nx = dx / d, ny = dy / d
-                x = R + nx * lim; y = R + ny * lim
-                const vn = vx * nx + vy * ny
-                if (vn > 0) { vx -= vn * nx; vy -= vn * ny }
-                const roce = Math.max(0, 1 - 1.2 * dt)
-                vx *= roce; vy *= roce
-            }
-            if (vy > 0 && y >= _ySuperficie(x)) {    // llega al líquido: golpe
-                const v = Math.sqrt(vx * vx + vy * vy)
-                _chapoteo = Math.min(3 * escala, _chapoteo + 0.025 * (v / (100 * escala)) * escala)
-                _velInclin -= 0.018 * vx             // empuja el líquido hacia la derecha
-                if (Math.random() < 0.12) _salpicarEn(x, y, vx, vy)
-                continue
-            }
-            vivas.push({ x: x, y: y, vx: vx, vy: vy, w: o.w })
+        const damp = Math.max(0, 1 - 2.4 * dt)
+        for (let i = 0; i < _vTubo.length; i++) {
+            const o = _vTubo[i]
+            const edad = o.edad + dt
+            if (edad >= o.vida) continue
+            const vx = o.vx * damp, vy = o.vy * damp
+            const dx = o.x - R, dy = o.y - R
+            const d = Math.sqrt(dx * dx + dy * dy) || 1
+            const w = Math.min(1, edad * 1.6) * 48 * e       // sentido horario en pantalla
+            let x = o.x + (vx + (-dy / d) * w) * dt
+            let y = o.y + (vy + (dx / d) * w) * dt
+            const d2 = Math.sqrt((x - R) * (x - R) + (y - R) * (y - R)) || 1
+            const corr = (Math.max(0, o.rt0 - 3 * e * edad) - d2) * Math.min(1, 3 * dt)
+            x += (x - R) / d2 * corr; y += (y - R) / d2 * corr
+            const r = (2 + 5.5 * edad) * e
+            const rv = _radioVisible(x, y, r)
+            vivas.push({ x: x, y: y, vx: vx, vy: vy, rt0: o.rt0, edad: edad, vida: o.vida,
+                         rv: rv, a: _alfa(edad, o.vida, 0.77), fondo: y < _ySuperficie(x) })
         }
-        _parcelas = vivas
+        _vTubo = vivas
     }
-
-    function _pasoGotas(dt) {
-        if (_gotas.length === 0) return
-        const R = width / 2, lim = R - 2.5 * escala, g = _gravedadGota * escala
+    function _pasoBocanadas(dt) {
+        const e = escala
         const vivas = []
-        for (let i = 0; i < _gotas.length; i++) {
-            const o = _gotas[i]
-            let vx = o.vx, vy = o.vy + g * dt
-            let x = o.x + vx * dt, y = o.y + vy * dt
-            const dx = x - R, dy = y - R, d = Math.sqrt(dx * dx + dy * dy)
-            if (d > lim && d > 0) {                  // rebote en la pared
-                const nx = dx / d, ny = dy / d
-                x = R + nx * lim; y = R + ny * lim
-                const vn = vx * nx + vy * ny
-                if (vn > 0) { vx -= 1.45 * vn * nx; vy -= 1.45 * vn * ny }
-            }
-            if (vy > 0 && y >= _ySuperficie(x)) {    // cae al líquido: onda local
-                _chapoteo = Math.min(3 * escala, _chapoteo + 0.35 * escala)
-                _velInclin += (x < R ? -1 : 1) * 2 * escala
-                continue
-            }
-            vivas.push({ x: x, y: y, vx: vx, vy: vy })
+        for (let i = 0; i < _vBoc.length; i++) {
+            const o = _vBoc[i]
+            const edad = o.edad + dt
+            if (edad >= o.vida) continue
+            const vy = o.vy - 16 * e * dt
+            const x = o.x + o.vx * dt, y = o.y + vy * dt
+            const rv = _radioVisible(x, y, (3 + 4 * edad) * e)
+            vivas.push({ x: x, y: y, vx: o.vx, vy: vy, edad: edad, vida: o.vida,
+                         rv: rv, a: _alfa(edad, o.vida, 1.0), fondo: y < _ySuperficie(x) })
         }
-        _gotas = vivas
+        _vBoc = vivas
+    }
+    function _pasoBurbujas(dt) {
+        const e = escala
+        const vivas = []
+        for (let i = 0; i < _vBurb.length; i++) {
+            const o = _vBurb[i]
+            const edad = o.edad + dt
+            const x = o.x + _rnd(-0.25, 0.25) * e, y = o.y - o.vy * dt
+            const rv = _radioVisible(x, y, o.r0 + 0.6 * e * edad)
+            if (rv < 1 && edad > 0.15) continue          // salió del círculo
+            vivas.push({ x: x, y: y, vy: o.vy, r0: o.r0, edad: edad, rv: rv, a: 1 })
+        }
+        _vBurb = vivas
     }
 
     function _paso(dt) {
-        if (instantaneo || !chorroVisible) {
-            _tChorro = 0; _acumEmision = 0
-            if (_parcelas.length > 0) _parcelas = []
-            if (_gotas.length > 0) _gotas = []
-        } else {
-            _tChorro += dt
-            _acumEmision += dt
-            while (_acumEmision >= _periodoEmision && _parcelas.length < _maxParcelas) {
-                _acumEmision -= _periodoEmision
-                _emitir()
-            }
-            if (_acumEmision > _periodoEmision) _acumEmision = 0
-            _pasoParcelas(dt)
-        }
-        _pasoGotas(dt)
-        // resorte amortiguado del chapoteo (rebota en las dos paredes)
-        const k = 48, c = 2.4
-        _velInclin += (-k * _inclin - c * _velInclin) * dt
-        _inclin = Math.max(-9 * escala, Math.min(9 * escala, _inclin + _velInclin * dt))
-        _chapoteo = Math.max(0, _chapoteo - _chapoteo * 2.2 * dt)
-        if (Math.abs(_inclin) < 0.01 && Math.abs(_velInclin) < 0.05) { _inclin = 0; _velInclin = 0 }
-        if (_chapoteo < 0.01) _chapoteo = 0
+        if (_vaciarYa) { _vaciar(); return }
+        if (vaporTuboActivo) {
+            _acTubo += dt
+            while (_acTubo >= 0.03) { _acTubo -= 0.03; if (_vTubo.length < _maxTubo) _emitirTubo() }
+        } else _acTubo = 0
+        if (bocanadasActivas) {
+            _acBoc += dt
+            while (_acBoc >= 0.2) { _acBoc -= 0.2; if (_vBoc.length < _maxBoc) _emitirBocanada() }
+        } else _acBoc = 0
+        if (burbujasActivas) {
+            _acBurb += dt
+            while (_acBurb >= 0.12) { _acBurb -= 0.12; if (_vBurb.length < _maxBurb) _emitirBurbuja() }
+        } else _acBurb = 0
+        _pasoTubo(dt); _pasoBocanadas(dt); _pasoBurbujas(dt)
+        _nVivas = _vTubo.length + _vBoc.length + _vBurb.length
     }
 
-    readonly property bool _hayFisica: !instantaneo && visible
-        && (chorroVisible || _parcelas.length > 0 || _gotas.length > 0
-            || _inclin !== 0 || _velInclin !== 0 || _chapoteo > 0)
     FrameAnimation {
-        running: raiz._hayFisica
+        running: raiz._hayAnimacion
         onTriggered: raiz._paso(Math.min(frameTime, 0.05))
     }
 
-    // cinta del chorro: borde a cada lado de la cadena de parcelas (de la boca a la punta)
-    function _puntosChorro() {
-        // la cinta arranca dentro del tubo (fuera del círculo) para que no se vea separada
-        const ps = _parcelas.concat([{ x: -3 * escala, y: width / 2, w: _parcelas.length ? _parcelas[_parcelas.length - 1].w : 0 }])
-        const n = ps.length
-        if (n < 3) return []
-        const izq = [], der = []
-        for (let k = 0; k < n; k++) {
-            const i = n - 1 - k                      // de la más nueva (boca) a la más vieja (punta)
-            const a = ps[Math.min(n - 1, i + 1)], b = ps[Math.max(0, i - 1)]
-            let tx = b.x - a.x, ty = b.y - a.y
-            const l = Math.sqrt(tx * tx + ty * ty) || 1
-            tx /= l; ty /= l
-            const w = ps[i].w * (k === n - 1 ? 0.5 : 1)   // la punta se afina
-            izq.push(Qt.point(ps[i].x - ty * w, ps[i].y + tx * w))
-            der.push(Qt.point(ps[i].x + ty * w, ps[i].y - tx * w))
-        }
-        return izq.concat(der.reverse())
+    component Particula: Rectangle {
+        required property int index
+        property var lista: []
+        readonly property var o: index < lista.length ? lista[index] : null
+        visible: o !== null && o.rv >= 1
+        width: o ? 2 * Math.max(0, o.rv) : 0; height: width; radius: width / 2
+        x: o ? o.x - width / 2 : 0
+        y: o ? o.y - height / 2 : 0
+        opacity: o ? o.a : 0
     }
+
 
     // (2) líquido
     Shape {
@@ -289,21 +288,6 @@ Rectangle {
                 GradientStop { position: 1.0; color: raiz._liquidoFin }
             }
             PathPolyline { path: raiz._puntosLiquido() }
-        }
-    }
-
-    // (3) chorro que cae desde la boca del conector
-    Shape {
-        objectName: "chorroFase_" + raiz.fase
-        z: 2
-        anchors.fill: parent
-        visible: raiz.chorroVisible
-        preferredRendererType: Shape.CurveRenderer
-        ShapePath {
-            fillColor: raiz._chorro
-            strokeWidth: -1
-            strokeColor: "transparent"
-            PathPolyline { path: raiz._puntosChorro() }
         }
     }
 
@@ -356,18 +340,42 @@ Rectangle {
         }
     }
 
-    // gotas de la salpicadura
-    Repeater {
-        model: raiz._maxGotas
-        delegate: Rectangle {
-            required property int index
-            readonly property var o: index < raiz._gotas.length ? raiz._gotas[index] : null
-            z: 2
-            visible: o !== null
-            width: Math.max(2, 3.2 * raiz.escala); height: width; radius: width / 2
-            color: raiz._chorro
-            x: o ? o.x - width / 2 : 0
-            y: o ? o.y - height / 2 : 0
+    // (3) vapor del tubo y bocanadas desde la superficie
+    Item {
+        objectName: "vaporFase_" + raiz.fase
+        z: 2
+        anchors.fill: parent
+        visible: raiz._nVivas > 0
+        Repeater {
+            model: raiz._maxTubo
+            delegate: Particula {
+                lista: raiz._vTubo
+                color: o && o.fondo ? Colores.faseVaporFondo : Colores.faseVapor
+            }
+        }
+        Repeater {
+            model: raiz._maxBoc
+            delegate: Particula {
+                lista: raiz._vBoc
+                color: o && o.fondo ? Colores.faseVaporFondo : Colores.faseVapor
+            }
+        }
+    }
+
+    // (4) burbujas de la última fase completada
+    Item {
+        objectName: "burbujasFase_" + raiz.fase
+        z: 2
+        anchors.fill: parent
+        visible: raiz._vBurb.length > 0
+        Repeater {
+            model: raiz._maxBurb
+            delegate: Particula {
+                lista: raiz._vBurb
+                color: Colores.faseBurbujaRelleno
+                border.width: 1.1 * raiz.escala
+                border.color: Colores.faseBurbujaBorde
+            }
         }
     }
 }
