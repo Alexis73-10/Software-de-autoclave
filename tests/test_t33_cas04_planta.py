@@ -2,24 +2,24 @@
 planta simulada (valores PROVISIONALES, tests/helpers/planta_vapor.py; tabla y
 comparación con la alpha.24 en docs/informes/tanda33/CAS04_tabla.md).
 
-Criterio: COMPLETADO; presión mínima de cámara en ESTERILIZACION >=
+Umbrales: COMPLETADO; presión mínima de cámara en ESTERILIZACION >=
 Psat(T_est) − brecha_error_presion + 1,5 (204,5 kPa a 121 °C, 303,7 a 134 °C);
 aislamientos VCH-AIS <= 1; chaqueta real máxima < presion_max_chaqueta_control
 (375); a 134 °C sobreimpulso <= 0,59 + 0,2 K.
 
-Lo que cumple se exige; lo que no cumple queda marcado xfail(strict=True) con
-el motivo, para que un cambio de comportamiento (en cualquier sentido) se vea:
-  - caudal «abierto» (válvula de asiento sin restricción, la configuración
-    REAL confirmada por Cristian) con k = 1,00 y 0,95: cumple;
-  - caudal «abierto» con k = 1,07 (transmisor de chaqueta que lee alto): NO
-    cumple en Líquidos (CIC-04 o temperatura baja, sin aislamientos: falla
-    segura, dependencia de calibración HAZ-CAS-02) ni a 134 °C (tiempo límite
-    de CALENTAMIENTO en la rampa A14-M2, igual en la alpha.24);
-  - caudal «restrictivo» (0,015/s): NO cumple con ningún k. Líquidos: CIC-04
-    sin aislamientos (con el paso restrictivo sostener la cámara exige la
-    chaqueta ~23 kPa sobre ella, por encima del tope techo − 2 de la cascada;
-    ningún ajuste de HISTERESIS_KPA 2–5 ni MARGEN_TECHO_KPA 1–4 lo corrige);
-    134 °C: tiempo límite de CALENTAMIENTO en la rampa, igual en la alpha.24.
+Criterio de liberación (Cristian, 8-nov, con el ajuste del tope de la baja):
+k = 1,00 con caudal abierto Y con caudal restrictivo. Regla: si el abierto
+k = 1,00 deja de cumplir se revierte el ajuste; si solo falla el restrictivo se
+libera con el ajuste y el restrictivo queda como caracterización. Lo que no
+cumple queda xfail(strict=True) con su motivo, para que un cambio de
+comportamiento (en cualquier sentido) se vea:
+  - excluido: 134 °C con timeout de CALENTAMIENTO (rampa con A14-M2, que CAS no
+    toca; igual en la alpha.24);
+  - caracterización: caudal restrictivo k = 1,00 en Líquidos con
+    add_liq 20 (presión mínima 204,2–204,3 kPa, bajo 204,5 por 0,2–0,3 kPa;
+    sobre el umbral de falla 203,0; COMPLETADO);
+  - informativos: k = 1,07 y k = 0,95 (dependencia de calibración,
+    HAZ-CAS-02).
 """
 import logging
 
@@ -66,14 +66,21 @@ def test_error_de_ganancia_de_la_lectura_de_chaqueta(k):
 # ── Criterio de liberación ────────────────────────────────────────────────
 
 def _esperado(esc):
-    nombre, carga, caudal, k, _ = esc
-    if caudal is None or (caudal == "abierto" and k in (1.00, 0.95)):
+    """None si el escenario cumple; si no, el motivo del xfail."""
+    nombre, carga, caudal, k, valores = esc
+    if caudal is None:
         return None
-    if caudal == "abierto":
-        return ("HAZ-CAS-02: transmisor que lee alto (k=1,07)"
-                + ("; 134 °C: rampa A14-M2, igual en alpha.24" if carga == "134" else ""))
-    return ("caudal restrictivo: tope de la cascada bajo la chaqueta necesaria"
-            if carga == "liquidos" else "caudal restrictivo: rampa A14-M2, igual en alpha.24")
+    if carga == "134" and (caudal == "restrictivo" or k == 1.07):
+        return "excluido: timeout de CALENTAMIENTO en la rampa A14-M2, igual en alpha.24"
+    if k == 1.07:
+        return "informativo, HAZ-CAS-02: transmisor que lee alto (k=1,07)"
+    if caudal == "restrictivo" and k == 0.95:
+        return "informativo, HAZ-CAS-02: transmisor que lee bajo (k=0,95) con caudal restrictivo"
+    if (caudal == "restrictivo" and k == 1.00
+            and valores.get("calentamiento__presion_add_liquido_calentamiento") == 20.0):
+        return ("caracterización: caudal restrictivo, presión mínima 204,2–204,3 kPa "
+                "bajo 204,5 (COMPLETADO)")
+    return None
 
 
 _ESCENARIOS = list(tb.escenarios())
@@ -94,14 +101,17 @@ def test_criterio_cas04(esc):
         assert f["sobreimpulso_k"] <= 0.59 + 0.2, f
 
 
-@pytest.mark.parametrize("k", [1.00, 1.07])
-def test_liquidos_que_no_cumplen_fallan_seguro(k):
-    """Restrictivo k=1,00 y abierto k=1,07 (add_est 11): falla por presión o
-    temperatura baja, sin aislamientos y con la chaqueta lejos de D-CHQ."""
-    caudal = "restrictivo" if k == 1.00 else "abierto"
+@pytest.mark.parametrize("caudal,k,add_liq", [("restrictivo", 1.00, 20.0),
+                                               ("restrictivo", 0.95, 15.0),
+                                               ("abierto", 1.07, 15.0)])
+def test_liquidos_que_no_cumplen_quedan_lejos_de_la_falla(caudal, k, add_liq):
+    """Con el ajuste del 8-nov los Líquidos que no cumplen el criterio
+    completan igual: presión mínima sobre el umbral de falla (Psat − 2),
+    aislamientos <= 1 y la chaqueta bajo D-CHQ − 10."""
     f = tb.correr(pv, "LIQ", "liquidos", caudal, k,
-                  {"esterilizacion__presion_add_esterilizacion": 11.0})
-    assert not f["completado"]
-    assert "baja" in f["resultado"]
-    assert f["aislamientos"] == 0
-    assert f["p_chq_max"] < 300.0
+                  {"esterilizacion__presion_add_esterilizacion": 11.0,
+                   "calentamiento__presion_add_liquido_calentamiento": add_liq})
+    assert f["completado"], f["resultado"]
+    assert f["p_min_ester"] >= f["p_min_req"] - 1.5, f
+    assert f["aislamientos"] <= 1, f
+    assert f["p_chq_max"] < 375.0 - 10.0, f

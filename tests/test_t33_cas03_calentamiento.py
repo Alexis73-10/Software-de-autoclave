@@ -19,6 +19,7 @@ P_OBJ = p_saturacion_kpa(T_OBJ)          # p_ref
 P_TECHO = P_OBJ + P_ADD                  # techo normal
 MARGEN = 8.0                             # margen_chaqueta_est por defecto
 TOPE = P_TECHO - 2.0                     # min(techo - 2, 375 - 10, 350)
+TOPE_BAJA = 350.0                        # min(375 - 10, 350): nivel baja (ajuste 8-nov)
 CONSIGNA_BANDA = min(P_OBJ + MARGEN, TOPE)
 
 
@@ -88,13 +89,15 @@ def test_sostenimiento_banda_con_histeresis_bajo_la_consigna():
     assert _ultima_chaqueta(set_do) == "off"
 
 
-def test_sostenimiento_baja_usa_el_tope_del_techo_normal():
+def test_sostenimiento_baja_usa_el_tope_de_baja():
+    """Ajuste 8-nov: en baja la consigna es min(375 − 10, 350) = 350, aun
+    con la chaqueta sobre techo − 2."""
     fase, estado, set_do = _fase()
     _a_sostenimiento(fase, estado)
     set_do.reset_mock()
-    _tick(fase, estado, T_OBJ, P_OBJ - 3.0, pres_chaqueta=TOPE - 3.5)
+    _tick(fase, estado, T_OBJ, P_OBJ - 3.0, pres_chaqueta=TOPE + 5.0)
     assert estado.cascada_chaqueta["nivel"] == "baja"
-    assert estado.cascada_chaqueta["consigna"] == pytest.approx(TOPE)
+    assert estado.cascada_chaqueta["consigna"] == pytest.approx(TOPE_BAJA)
     assert _ultima_chaqueta(set_do) == "on"
 
 
@@ -151,11 +154,11 @@ def test_tras_el_enclave_decide_la_cascada_antes_del_sostenimiento(reloj):
     _enclavar(fase, estado, reloj, P_OBJ + 10)
     set_do.reset_mock()
     # P bajo Psat - 2: no entra a ESTABLE, pero la cascada (baja) decide
-    _tick(fase, estado, T_OBJ, P_OBJ - 3.0, pres_chaqueta=TOPE - 3.5)
+    _tick(fase, estado, T_OBJ, P_OBJ - 3.0, pres_chaqueta=TOPE + 5.0)
     assert fase._en_sostenimiento is False
     assert estado.cascada_chaqueta["nivel"] == "baja"
-    # consigna con el techo NORMAL, nunca el ampliado del empuje
-    assert estado.cascada_chaqueta["consigna"] == pytest.approx(TOPE)
+    # ajuste 8-nov: en baja el tope no depende del techo (normal ni ampliado)
+    assert estado.cascada_chaqueta["consigna"] == pytest.approx(TOPE_BAJA)
     assert _ultima_chaqueta(set_do) == "on"
 
 

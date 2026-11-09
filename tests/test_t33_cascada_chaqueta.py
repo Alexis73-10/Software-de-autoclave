@@ -11,7 +11,7 @@ from autoclave.state_machine.cycle_phases.cascada_chaqueta import CascadaChaquet
 LOGGER = "autoclave.state_machine.cycle_phases.cascada_chaqueta"
 
 # p_ref 200: baja < 198, alta > 201. tope = min(230-2, 375-10, 350) = 228.
-# banda: min(200 + 8, 228) = 208.
+# banda: min(200 + 8, 228) = 208. baja (ajuste 8-nov): min(375-10, 350) = 350.
 P_REF = 200.0
 P_TECHO = 230.0
 MARGEN = 8.0
@@ -31,7 +31,7 @@ def _ev(c, pc, pj, **kw):
 def test_nivel_baja_consigna_tope():
     r = _ev(CascadaChaqueta(), 197.9, 200.0)
     assert r.nivel == cc.NIVEL_BAJA
-    assert r.consigna == pytest.approx(228.0)
+    assert r.consigna == pytest.approx(350.0)
     assert r.decision is True
     assert r.motivo == cc.MOTIVO_BAJO_CONSIGNA
 
@@ -132,30 +132,81 @@ def test_alta_a_banda_vuelve_a_encender_bajo_consigna_menos_3():
 
 def test_tope_por_techo():
     assert CascadaChaqueta.tope(220.0, 375.0, 350.0) == pytest.approx(218.0)
-    r = _ev(CascadaChaqueta(), 190.0, 200.0, p_techo=220.0)
+    # el techo limita la banda (margen alto), no la baja (ajuste 8-nov)
+    r = _ev(CascadaChaqueta(), 199.0, 200.0, p_techo=220.0, margen_est=30.0)
     assert r.consigna == pytest.approx(218.0)
+    r = _ev(CascadaChaqueta(), 190.0, 200.0, p_techo=220.0)
+    assert r.consigna == pytest.approx(350.0)
 
 
 def test_tope_por_dchq_menos_10():
     assert CascadaChaqueta.tope(400.0, 300.0, 350.0) == pytest.approx(290.0)
+    assert CascadaChaqueta.tope_baja(300.0, 350.0) == pytest.approx(290.0)
     r = _ev(CascadaChaqueta(), 190.0, 200.0, p_techo=400.0, presion_max_chaqueta_control=300.0)
     assert r.consigna == pytest.approx(290.0)
 
 
 def test_tope_por_suministro():
     assert CascadaChaqueta.tope(400.0, 375.0, 250.0) == pytest.approx(250.0)
+    assert CascadaChaqueta.tope_baja(375.0, 250.0) == pytest.approx(250.0)
     r = _ev(CascadaChaqueta(), 190.0, 200.0, p_techo=400.0, presion_suministro_vapor=250.0)
     assert r.consigna == pytest.approx(250.0)
+
+
+# --- Ajuste 8-nov: tope del nivel baja ----------------------------------
+
+def test_tope_baja_no_depende_del_techo():
+    """Baja: min(presion_max_chaqueta_control - 10, suministro); con los
+    defectos del equipo (375, 350) vale 350 aunque el techo sea 218."""
+    for techo in (202.0, 220.0, 230.0, 400.0):
+        r = _ev(CascadaChaqueta(), 190.0, 150.0, p_techo=techo)
+        assert r.nivel == cc.NIVEL_BAJA
+        assert r.consigna == pytest.approx(350.0)
+    assert CascadaChaqueta.tope_baja(375.0, 350.0) == pytest.approx(350.0)
+    assert CascadaChaqueta.tope_baja(355.0, 350.0) == pytest.approx(345.0)
+
+
+def test_tope_baja_nunca_alcanza_dchq():
+    for pmax in (300.0, 340.0, 375.0, 400.0):
+        for sumi in (250.0, 350.0, 500.0):
+            assert CascadaChaqueta.tope_baja(pmax, sumi) <= pmax - cc.MARGEN_DCHQ_KPA
+
+
+def test_baja_histeresis_bajo_350():
+    c = CascadaChaqueta()
+    assert _ev(c, 190.0, 346.9).decision is True        # <= 350 - 3
+    assert _ev(c, 190.0, 349.0).decision is True        # histéresis, venía ON
+    assert _ev(c, 190.0, 350.0).decision is False       # consigna alcanzada
+    assert _ev(c, 190.0, 348.0).decision is False       # histéresis, venía OFF
+
+
+def test_paso_baja_a_banda_reevalua_en_el_mismo_tick():
+    c = CascadaChaqueta()
+    assert _ev(c, 190.0, 300.0).decision is True        # baja, consigna 350
+    r = _ev(c, 199.0, 300.0)                            # banda, consigna 208
+    assert r.consigna == pytest.approx(208.0)
+    assert r.decision is False
+
+
+def test_baja_parametros_invalidos_falla_cerrada():
+    for kw in ({"presion_max_chaqueta_control": float("nan")},
+               {"presion_suministro_vapor": None},
+               {"presion_suministro_vapor": float("inf")}):
+        r = _ev(CascadaChaqueta(), 190.0, 150.0, **kw)
+        assert r.decision is False
+        assert r.motivo == cc.MOTIVO_PARAMETROS_INVALIDOS
 
 
 def test_tope_bajo_p_ref_advierte_una_vez_y_no_supera_techo(caplog):
     c = CascadaChaqueta()
     caplog.set_level(logging.WARNING, logger=LOGGER)
     # techo 202 -> tope 200 < p_ref + 1 = 201.
-    for pc in (190.0, 199.0, 190.0, 199.5):
+    for pc in (199.0, 199.5, 198.5):
         r = _ev(c, pc, 150.0, p_techo=202.0)
         assert r.consigna == pytest.approx(200.0)
         assert r.consigna <= 202.0
+    # en baja la consigna ya no es el tope del techo (ajuste 8-nov)
+    assert _ev(c, 190.0, 150.0, p_techo=202.0).consigna == pytest.approx(350.0)
     avisos = [x for x in caplog.records if x.levelno == logging.WARNING]
     assert len(avisos) == 1
     assert "Cascada chaqueta" in avisos[0].getMessage()
@@ -253,9 +304,9 @@ def test_log_una_linea_por_cambio_de_nivel_o_consigna(caplog):
     _ev(c, 199.5, 200.0)                    # sin cambio
     _ev(c, 197.0, 200.0)                    # baja (2)
     _ev(c, 196.0, 201.0)                    # sin cambio
-    _ev(c, 196.0, 201.0, margen_est=8.0, p_techo=226.0)    # consigna 224 (3)
-    _ev(c, 202.0, 201.0, p_techo=226.0)     # alta (4)
-    _ev(c, 203.0, 150.0, p_techo=226.0)     # sin cambio
+    _ev(c, 196.0, 201.0, presion_suministro_vapor=340.0)   # consigna 340 (3)
+    _ev(c, 202.0, 201.0, presion_suministro_vapor=340.0)   # alta (4)
+    _ev(c, 203.0, 150.0, presion_suministro_vapor=340.0)   # sin cambio
     _ev(c, None, 150.0)                     # sin datos (5)
     _ev(c, None, None)                      # sin cambio
     lineas = _lineas_info(caplog)

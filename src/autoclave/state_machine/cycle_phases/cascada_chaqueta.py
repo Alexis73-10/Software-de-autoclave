@@ -11,14 +11,19 @@
 #     alta:  pres_camara > p_ref + UMBRAL_ALTO_KPA
 #     banda: el resto.
 #   Consigna:
-#     tope  = min(p_techo - MARGEN_TECHO_KPA,
-#                 presion_max_chaqueta_control - MARGEN_DCHQ_KPA,
-#                 presion_suministro_vapor)
-#     baja  -> tope
+#     tope       = min(p_techo - MARGEN_TECHO_KPA,
+#                      presion_max_chaqueta_control - MARGEN_DCHQ_KPA,
+#                      presion_suministro_vapor)
+#     tope_baja  = min(presion_max_chaqueta_control - MARGEN_DCHQ_KPA,
+#                      presion_suministro_vapor)
+#     baja  -> tope_baja (ajuste del 8-nov, autorizado por Cristian: con un
+#              paso cámara-chaqueta restrictivo el tope techo - 2 no alcanza
+#              para reponer la cámara; DECISIÓN SIN CONFIRMAR hasta el banco)
 #     banda -> min(p_ref + margen_est, tope)
 #     alta  -> sin consigna, vapor_chaqueta OFF forzado.
 #     Si tope < p_ref + 1 se usa tope igual (nunca se supera el techo) y se
 #     advierte en el log una sola vez (se rearma con reset(), una vez por fase).
+#     El techo de cámara lo sigue protegiendo VCH-AIS (lo evalúa el llamador).
 #   Válvula: ON si pres_chaqueta <= consigna - HISTERESIS_KPA; OFF si
 #     pres_chaqueta >= consigna; entre medio conserva el estado anterior. Al
 #     cambiar de nivel se reevalúa con la nueva consigna en el mismo tick.
@@ -121,7 +126,8 @@ class CascadaChaqueta:
         pc = float(pres_camara)
         pj = float(pres_chaqueta)
         if pc < p_ref - UMBRAL_BAJO_KPA:
-            nivel, consigna = NIVEL_BAJA, tope
+            nivel, consigna = NIVEL_BAJA, self.tope_baja(
+                presion_max_chaqueta_control, presion_suministro_vapor)
         elif pc > p_ref + UMBRAL_ALTO_KPA:
             nivel, consigna = NIVEL_ALTA, None
         else:
@@ -146,6 +152,13 @@ class CascadaChaqueta:
         """Consigna máxima de chaqueta (kPa abs)."""
         return min(float(p_techo) - MARGEN_TECHO_KPA,
                    float(presion_max_chaqueta_control) - MARGEN_DCHQ_KPA,
+                   float(presion_suministro_vapor))
+
+    @staticmethod
+    def tope_baja(presion_max_chaqueta_control, presion_suministro_vapor) -> float:
+        """Consigna del nivel «baja» (kPa abs): no depende del techo de cámara
+        (ajuste del 8-nov; DECISIÓN SIN CONFIRMAR hasta el banco)."""
+        return min(float(presion_max_chaqueta_control) - MARGEN_DCHQ_KPA,
                    float(presion_suministro_vapor))
 
     def publicar(self) -> dict:

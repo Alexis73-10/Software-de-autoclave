@@ -1,60 +1,85 @@
-# Tanda 33: control en cascada de la chaqueta (CAS) — informe (parcial, BLOQUEADA)
+# Tanda 33: control en cascada de la chaqueta (CAS) — informe
 
-Estado: **sin merge a `dev` y sin compilación**. El criterio de liberación de CAS-04 no se cumple (ver abajo). Rama `tanda33`.
+Estado: **liberada en la planta simulada con el ajuste del tope de la baja (8-nov)**. Sin merge a `dev` ni compilación todavía. Rama `tanda33`.
 
 ## Resumen para Cristian
 
-- En modo chaqueta, ESTERILIZACION (y CALENTAMIENTO en sostenimiento y tras el enclave de líquidos) ahora decide `vapor_chaqueta` con una cascada: según la presión de la cámara (baja / banda / alta) fija una consigna para la chaqueta, con histéresis de 3 kPa y tope atado al techo de aislamiento (techo − 2). Reemplaza el PWM, el corte A14-M2 y la exención M2-REC-01 solo en modo chaqueta; el modo cámara no cambia.
-- `liquidos.json` (fábrica y usuario): `presion_add_esterilizacion` 11 → 15.
-- Con **válvula de asiento sin restricción** (lo que Cristian confirmó) y `pres_chaqueta` bien calibrada (k = 1,00), en la planta simulada los 9 escenarios completan, sin aislamientos, con menos sobreimpulso y menos conmutaciones que la alpha.24.
-- **Pero** con el paso cámara–chaqueta restrictivo (0,015/s, el de la planta por defecto) la cascada termina en CIC-04 (falla segura) en los 8 escenarios de Líquidos, mientras que la alpha.24 completaba. Ningún ajuste de `HISTERESIS_KPA` (2–5) ni `MARGEN_TECHO_KPA` (1–4) lo corrige (8 intentos). Por la regla del prompt, no se hizo merge ni compilación.
-- Con k = 1,07 (el transmisor de chaqueta lee 7 % alto) la cascada falla de forma segura en Líquidos: dependencia de calibración (HAZ-CAS-02). Con k = 0,95 completa 9/9 (la alpha.24 solo 4/9).
+- En modo chaqueta, la cascada decide `vapor_chaqueta` en ESTERILIZACION y en CALENTAMIENTO (en sostenimiento y después del enclave de líquidos). Según la presión de la cámara (baja, banda o alta) fija una consigna para la chaqueta, con histéresis de 3 kPa. En el modo chaqueta reemplaza al PWM, al corte A14-M2 y a la exención M2-REC-01. El modo cámara no cambia.
+- `liquidos.json` (fábrica y usuario): `presion_add_esterilizacion` pasa de 11 a 15.
+- **Ajuste del 8-nov (lo autorizaste tú):** en el nivel «baja» la consigna es `min(presion_max_chaqueta_control − 10, presion_suministro_vapor)`, que con los defectos del equipo da **350 kPa**. Antes era techo − 2, unos 218 kPa a 121 °C. Los niveles «banda» (`min(P_sp + margen_est, techo − 2)`) y «alta» (OFF) no cambian, como tampoco `HISTERESIS_KPA` 3 ni `MARGEN_TECHO_KPA` 2. VCH-AIS, D-CHQ y el corte duro de CICLO siguen prevaleciendo. El nuevo tope es `DECISIÓN SIN CONFIRMAR` hasta el banco.
+- **Decisión tomada (regla 3):** el caudal abierto con k = 1,00 sigue cumpliendo 9/9 y el restrictivo con k = 1,00 cumple 4/8 (sin contar el 134 °C excluido). Por eso **se libera con el ajuste** y el restrictivo queda como caracterización. No hubo reversión.
+- Con el caudal restrictivo, los 8 escenarios de Líquidos dejaron de terminar en CIC-04 y ahora completan. Los 4 que no cumplen tienen `presion_add_liquido_calentamiento` 20 y su presión mínima queda en 204,2–204,3 kPa, 0,2–0,3 kPa bajo el umbral de 204,5. Siguen sobre el umbral de falla (203,0) y tienen ≤ 1 aislamiento. La chaqueta real llega como máximo a 297,7 kPa.
+
+## Veredicto CAS-04
+
+Criterio: k = 1,00 con caudal abierto **y** restrictivo. Umbrales: COMPLETADO, presión mínima ≥ 204,5 kPa a 121 °C y ≥ 303,7 a 134 °C, aislamientos ≤ 1, chaqueta real < 375 y sobreimpulso a 134 °C ≤ 0,79 K.
+
+**Exclusión:** el timeout de CALENTAMIENTO a 134 °C (caudal restrictivo con todos los k, y abierto con k = 1,07). La alpha.24 da el mismo resultado. Viene de la rampa con A14-M2, que CAS no toca.
+
+Escenarios que cumplen. Cada celda dice alpha.24 / tanda 33 anterior / tanda 33 con el ajuste.
+
+| Caudal | k = 1,00 | k = 1,07 (informativo) | k = 0,95 (informativo) |
+|---|---|---|---|
+| abierto (real) | 9/9 / 9/9 / **9/9** | 8/9 / 0/9 / 0/9 | 4/9 / 9/9 / 9/9 |
+| restrictivo 0,015/s | 8/9 / 0/9 / **4/9** (4/8 sin el 134 °C) | 0/9 / 0/9 / 0/9 | 8/9 / 0/9 / 0/9 |
+
+- **Abierto, k = 1,00.** Los resultados son los mismos que antes del ajuste:
+  - presión mínima 206,5–207,4 kPa a 121 °C y 306,2 a 134 °C;
+  - cero aislamientos y chaqueta máxima 247,8 kPa;
+  - sobreimpulso a 134 °C de 0,49 K (alpha.24: 0,69);
+  - con la planta de A14, 0,35 K y 15,7 conmutaciones por minuto (alpha.24: 0,59 K y 33,3).
+- **k = 1,07 (informativo).**
+  - Abierto: los Líquidos ahora completan (antes daban CIC-04 o temperatura baja), pero con presión mínima de 203,4–203,5 kPa, bajo 204,5.
+  - Restrictivo: timeout de CALENTAMIENTO en las tres versiones.
+  - Sigue la dependencia de calibración (HAZ-CAS-02).
+- **k = 0,95 (informativo).**
+  - Abierto: 9/9 (alpha.24: 4/9, con un CIC-16).
+  - Restrictivo: los Líquidos ahora completan (antes daban CIC-04), con presión mínima de 204,0–204,2 kPa.
+
+La tabla completa (55 escenarios, en tres columnas) está en `CAS04_tabla.md`.
 
 ## Qué decidir (Cristian)
 
-1. ¿Liberar con el criterio limitado al caudal abierto (el real), dejando el restrictivo como caracterización? Si el equipo tuviera restricción, la cámara no se repone y termina en CIC-04.
-2. ¿Basta la calibración con patrón de `pres_chaqueta` como precondición para k ≠ 1 (HAZ-CAS-02)?
-3. Si se libera: falta revisor de seguridad, documentación (CLAUDE.md, HAZ-CAS-01/02, REQ, bloque de banco T33), suite completa, merge y compilación (alpha.25).
+1. ¿Basta con calibrar `pres_chaqueta` contra un patrón como precondición para k ≠ 1 (HAZ-CAS-02)?
+2. Confirmar en el banco el tope de 350 kPa del nivel baja.
+3. Falta: revisor de seguridad sobre el diff de CAS (incluido el ajuste), `CLAUDE.md`, HAZ-CAS-01/02 y HAZ-M2-REC-01 superado, REQ, bloque T33 de la hoja de banco, suite completa, merge y compilación (alpha.25).
 
-## Qué mirar en el banco (si se libera)
+## Qué mirar en el banco
 
-Calibrar `pres_chaqueta` con patrón primero; ciclo Líquidos 121 °C; ciclo 134 °C sólidos; en `backend.log`: líneas «Cascada chaqueta», nº de «cámara AISLADA», presión mínima de cámara, chaqueta máxima.
-
-## Planta simulada
-
-Tabla completa (55 escenarios, alpha.24 contra tanda 33) y los 8 intentos de ajuste: `CAS04_tabla.md`. Resumen (escenarios que cumplen, alpha.24 entre paréntesis):
-
-| Caudal | k = 1,00 | k = 1,07 | k = 0,95 |
-|---|---|---|---|
-| abierto (real) | 9/9 (9/9) | 0/9 (8/9) | 9/9 (4/9) |
-| restrictivo 0,015/s | 0/9 (8/9) | 0/9 (0/9) | 0/9 (8/9) |
-
-Abierto, k = 1,00: presión mínima de cámara 206,5–207,4 kPa a 121 °C (criterio 204,5) y 306,2 a 134 °C (303,7); chaqueta máxima 247,8 kPa; sobreimpulso a 134 °C 0,49 K (alpha.24 0,69; con la planta de A14, 0,35 frente a 0,59); conmutaciones de `vapor_chaqueta` 33,3 → 16,8 por minuto. 134 °C restrictivo y abierto con k = 1,07 dan timeout de CALENTAMIENTO también en la alpha.24 (rampa con A14-M2, que CAS no cambia).
+- Calibrar primero `pres_chaqueta` con patrón.
+- Correr un ciclo de Líquidos a 121 °C y un ciclo de sólidos a 134 °C.
+- En `backend.log`, revisar:
+  - las líneas «Cascada chaqueta», en particular cuánto tiempo pasa en nivel baja con la consigna en 350;
+  - el número de «cámara AISLADA»;
+  - la presión mínima de cámara;
+  - la presión máxima de chaqueta.
 
 ## DECISIÓN SIN CONFIRMAR
 
-- `HISTERESIS_KPA` 3, `MARGEN_TECHO_KPA` 2, umbrales −2/+1, OFF en nivel `alta` (hasta el banco).
-- La cascada se evalúa también con aislamiento o sin lectura del Principal (log/publicación), pero la orden es ON solo sin aislamiento, con lectura y sin `inhibir_vapor_chaqueta`.
-- Tras VCH-AIS, D-CHQ o pérdida de lectura la válvula de la cascada sigue la salida real: no reabre por histéresis hasta `pres_chaqueta <= consigna − 3`.
-- `estado.cascada_chaqueta.valvula` = orden aplicada (unificado en las dos fases); None fuera de las fases; tras cancelar o paro queda el último valor hasta el siguiente ciclo.
+- El tope del nivel baja: `min(presion_max_chaqueta_control − 10, presion_suministro_vapor)` (ajuste del 8-nov).
+- `HISTERESIS_KPA` 3, `MARGEN_TECHO_KPA` 2, umbrales −2/+1 y OFF en el nivel `alta` (hasta el banco).
+- La cascada se evalúa también con aislamiento o sin lectura del Principal (para el log y la publicación). La orden ON solo sale sin aislamiento, con lectura y sin `inhibir_vapor_chaqueta`.
+- Tras VCH-AIS, D-CHQ o una pérdida de lectura, la válvula de la cascada sigue a la salida real: no reabre por histéresis hasta `pres_chaqueta <= consigna − 3`.
+- `estado.cascada_chaqueta.valvula` es la orden aplicada (igual en las dos fases). Vale None fuera de las fases. Tras cancelar o un paro queda el último valor hasta el ciclo siguiente.
 - En CALENTAMIENTO la cascada empieza a decidir un tick después de entrar a ESTABLE_PREESTERILIZACION; con empuje, en el tick del enclave. A14-M2 deja de evaluarse mientras decide la cascada.
-- La planta (ganancias k, variantes de caudal) es provisional.
+- La planta (ganancias k y variantes de caudal) es provisional.
 
 ## Pruebas cambiadas o retiradas
 
-- `test_m2_rec_esterilizacion.py`: retiradas 8 de `debe_cortar` con exención, `test_motivo_exencion`, 11 de la fase con `_exencion_m2` y 2 de planta (la «antes» parcheaba `motivo_exencion`); quedan `test_exencion_retirada` y `test_modo_camara_sin_cambio`.
-- `test_t28_a14_esterilizacion.py`: retiradas `test_m2_ester_corta_sobre_p_sp_mas_margen_y_reabre_debajo`, `test_m2_ester_usa_el_margen_del_programa`, las 7 `test_h1_*` del tramo ON en modo chaqueta, `test_h1_bajo_p_low_con_el_corte_activo`; `test_h1_integracion_cicloestate_*` reescrita como `test_integracion_cicloestate` en `test_t33_cas02_esterilizacion.py`.
-- `test_t16_s1_esterilizacion.py`: `test_modo_chaqueta_pwm_conmuta_solo_chaqueta` y `test_aislamiento_sale_con_histeresis_y_3_s` adaptadas.
-- `test_ajuste_7nov_liquidos.py`: tramo final de `test_chaqueta_m2_techo_ampliado_en_empuje_y_en_bajada_normal_despues` (ahora decide la cascada).
+- `test_m2_rec_esterilizacion.py`: se retiraron 8 pruebas de `debe_cortar` con exención, `test_motivo_exencion`, 11 de la fase con `_exencion_m2` y 2 de planta (la «antes» parcheaba `motivo_exencion`). Quedan `test_exencion_retirada` y `test_modo_camara_sin_cambio`.
+- `test_t28_a14_esterilizacion.py`:
+  - se retiraron `test_m2_ester_corta_sobre_p_sp_mas_margen_y_reabre_debajo`, `test_m2_ester_usa_el_margen_del_programa`, las 7 `test_h1_*` del tramo ON en modo chaqueta y `test_h1_bajo_p_low_con_el_corte_activo`;
+  - `test_h1_integracion_cicloestate_*` se reescribió como `test_integracion_cicloestate` en `test_t33_cas02_esterilizacion.py`.
+- `test_t16_s1_esterilizacion.py`: se adaptaron `test_modo_chaqueta_pwm_conmuta_solo_chaqueta` y `test_aislamiento_sale_con_histeresis_y_3_s`.
+- `test_ajuste_7nov_liquidos.py`: se cambió el tramo final de `test_chaqueta_m2_techo_ampliado_en_empuje_y_en_bajada_normal_despues` (ahora decide la cascada).
 - `test_t28_a14_m3_brecha.py`: Líquidos espera `presion_add_esterilizacion` 15 (CAS-05).
-- 36 escenarios de planta marcados `xfail(strict=True)` con su motivo (los que no cumplen).
-- Pruebas nuevas: `test_t33_cascada_chaqueta.py` (72), `test_t33_cas02_esterilizacion.py` (36), `test_t33_cas03_calentamiento.py` (19), `test_t33_cas04_planta.py`.
-- Pruebas T33 + `test_t28_a14_m3_brecha`: 176 pasan, 36 xfail. **No se corrió la suite completa** (la base, en el worktree `..\autoclave_base`, iba por ~17 % al cerrar; ver `suite_base.txt`).
+- Ajuste del 8-nov:
+  - `test_t33_cascada_chaqueta.py`: la baja usa 350. Pruebas nuevas: `test_tope_baja_*`, histéresis bajo 350, paso de baja a banda y parámetros inválidos.
+  - `test_t33_cas02_esterilizacion.py`: `test_nivel_baja_lleva_la_chaqueta_al_tope` usa 350. `test_planta_paso_restrictivo_falla_segura` pasa a ser `test_planta_paso_restrictivo_completa`.
+  - `test_t33_cas03_calentamiento.py`: la baja usa 350 en sostenimiento y después del enclave.
+  - `test_t33_cas04_planta.py`: el criterio es k = 1,00 con caudal abierto y restrictivo. Quedan 32 escenarios en `xfail(strict=True)` con su motivo: 4 excluidos (134 °C con timeout de CAL), 4 de caracterización (restrictivo k = 1,00 con add_liq 20) y 24 informativos (k = 1,07 y 0,95). La prueba de falla segura pasa a ser `test_liquidos_que_no_cumplen_quedan_lejos_de_la_falla`.
+- Las pruebas T33 más `test_t28_a14_m3_brecha`, `test_t16_s1_esterilizacion`, `test_ajuste_7nov_liquidos` y `test_m2_rec_esterilizacion` dan 260 pasan y 32 xfail. La selección `-k "a14 or t16 or t12 or calentamiento or esterilizacion or chaqueta or vch or liquido"` da 1445 pasan. **La suite completa no se corrió.**
 
 ## Hallazgo M3 (solo reportado)
 
-`backend/context.py:306` solo reescribe el archivo de los programas con `source == "user"`: un programa de fábrica con `brecha_segura_temperatura` 1,0 se migra en memoria (`_migrar_brecha_t28`) en cada arranque y nunca queda marcado ni reescrito. Los JSON de fábrica del repo ya traen 0,3, así que no se pudo confirmar cuál programa lo dispara (probable `textiles` en la copia instalada del equipo).
-
-## Pendiente por el bloqueo
-
-Revisor de seguridad sobre el diff de CAS, `CLAUDE.md`, HAZ-CAS-01/02 y HAZ-M2-REC-01 superado, REQ, bloque T33 de la hoja de banco, suite completa, merge y compilación.
+`backend/context.py:306` solo reescribe el archivo de los programas con `source == "user"`. Un programa de fábrica con `brecha_segura_temperatura` 1,0 se migra en memoria (`_migrar_brecha_t28`) en cada arranque y nunca queda marcado ni reescrito. Los JSON de fábrica del repo ya traen 0,3, así que no se pudo confirmar qué programa lo dispara (probablemente `textiles` en la copia instalada del equipo).

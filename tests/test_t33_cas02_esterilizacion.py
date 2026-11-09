@@ -27,6 +27,7 @@ PRESION_ADD = 15.0
 P_SP = p_saturacion_kpa(134.6)                 # brecha 0,3 + histéresis 0,3 ≈ 309,57
 TECHO = p_saturacion_kpa(T_EST) + PRESION_ADD  # P_control_max ≈ 319,2
 TOPE = TECHO - cc.MARGEN_TECHO_KPA             # < 375 - 10 y < suministro 350
+TOPE_BAJA = 350.0                              # min(375 - 10, 350): nivel baja (ajuste 8-nov)
 MARGEN = 4.0                                   # margen_chaqueta_est de las pruebas
 CONSIGNA_BANDA = P_SP + MARGEN                 # < TOPE
 BAJO = P_SP - cc.UMBRAL_BAJO_KPA - 0.5         # nivel baja
@@ -66,21 +67,28 @@ def _chaqueta(set_do):
 def test_consignas_de_las_pruebas():
     assert TOPE == pytest.approx(cc.CascadaChaqueta.tope(TECHO, 375.0, 350.0))
     assert P_SP + 1 < CONSIGNA_BANDA < TOPE
+    assert TOPE_BAJA == pytest.approx(cc.CascadaChaqueta.tope_baja(375.0, 350.0))
 
 
 # ── Niveles con la fase real ────────────────────────────────────────────────
 
 def test_nivel_baja_lleva_la_chaqueta_al_tope(monkeypatch):
-    f, estado, set_do, reloj = _fase(monkeypatch, TOPE - H - 0.1, pres=BAJO)
+    """Ajuste 8-nov: en baja la consigna es min(presion_max_chaqueta_control
+    − 10, presion_suministro_vapor) = 350, no techo − 2."""
+    f, estado, set_do, reloj = _fase(monkeypatch, TOPE_BAJA - H - 0.1, pres=BAJO)
     assert f.update() == FaseResult.EN_CURSO
     assert _chaqueta(set_do) == "vapor_chaqueta_on"
     set_do.vapor_camara_on.assert_called()
     set_do.vapor_camara_off.assert_not_called()
     pub = estado.cascada_chaqueta
     assert pub["nivel"] == cc.NIVEL_BAJA and pub["valvula"] is True
-    assert pub["consigna"] == pytest.approx(TOPE)
+    assert pub["consigna"] == pytest.approx(TOPE_BAJA)
+    # sobre techo − 2 sigue ON (la baja ya no se limita al techo)
+    estado.sensores_pres["pres_chaqueta"] = TOPE + 5.0
+    _tick(f, set_do, reloj)
+    assert _chaqueta(set_do) == "vapor_chaqueta_on"
     # llega al tope: OFF
-    estado.sensores_pres["pres_chaqueta"] = TOPE
+    estado.sensores_pres["pres_chaqueta"] = TOPE_BAJA
     _tick(f, set_do, reloj)
     assert _chaqueta(set_do) == "vapor_chaqueta_off"
     assert estado.cascada_chaqueta["valvula"] is False
@@ -435,13 +443,13 @@ def test_planta_paso_abierto_completa(monkeypatch):
     assert r.p_chaqueta_max_ester < 300.0
 
 
-def test_planta_paso_restrictivo_falla_segura(monkeypatch):
-    """Caracterización (DECISIÓN SIN CONFIRMAR, HAZ-CAS-02): con el paso
-    restrictivo del escenario M2-REC (0,015/s) y la chaqueta cargada a
-    240 kPa, sobre el tope de la cascada, vapor_chaqueta no se abre y la cámara
-    cae a CIC-04 sin aislamientos (falla segura, como los ciclos 21 y 23)."""
+def test_planta_paso_restrictivo_completa(monkeypatch):
+    """Ajuste 8-nov (tope de baja 350): con el paso restrictivo del escenario
+    M2-REC (0,015/s) y la chaqueta cargada a 240 kPa, la cascada sube la
+    chaqueta en nivel baja y repone la cámara: COMPLETA sin aislamientos ni
+    CIC-04 (antes, con tope techo − 2, caía a CIC-04)."""
     r = _simular(monkeypatch, 240.0, 0.015)
-    assert r.resultado == "FALLO"
-    assert r.alarma is None and "203.0" in r.motivo
+    assert r.resultado == "COMPLETADO", (r.resultado, r.motivo, r.alarma)
     assert r.aislamientos == 0
-    assert r.p_chaqueta_max_ester <= 240.5
+    assert r.p_min_ester > p_saturacion_kpa(121.0) - 2.0
+    assert r.p_chaqueta_max_ester < 375.0 - cc.MARGEN_DCHQ_KPA
