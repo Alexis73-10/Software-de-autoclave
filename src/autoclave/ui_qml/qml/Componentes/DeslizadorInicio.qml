@@ -17,11 +17,22 @@ import Tema
 // así que escala con el alto que le dé la pantalla. Paleta: verdeReposo (estado
 // "apagado" del original, azul) y verdeListo (estado "encendido") se mezclan según
 // el avance, para que el color cambie con el arrastre.
+//
+// CAN-01 (tanda 34): también sirve para CANCELAR CICLO (Ciclo en curso) con
+// `variante: "cancelar"`, que cambia solo la paleta (Colores.deslizadorCancelar*);
+// forma, animaciones, tiempos y comportamiento son los mismos. Por defecto
+// "inicio" (verdes de siempre).
 Item {
     id: desl
 
+    property string variante: "inicio"    // "inicio" (verde) | "cancelar" (rojo)
+    readonly property bool _rojo: variante === "cancelar"
     property string texto: ""             // texto de reposo (en el original, "apagado")
     property string textoCompletado: ""   // texto que aparece al deslizar (en el original, "encendido")
+    // CAN-02 (tanda 34): en un deslizador corto (Ciclo en curso, 235 × 88) los
+    // textos pueden partirse en dos líneas y la letra se ajusta al cuadro
+    // (Text.Fit); por defecto una línea con HorizontalFit, como siempre.
+    property bool textoEnDosLineas: false
     property alias contenidoCirculo: iconoManija.data
     signal completado()
 
@@ -36,11 +47,20 @@ Item {
     // sin movimiento en las pruebas con plataforma "offscreen" ni cuando está oculto
     readonly property bool animar: visible && !Movimiento.instantaneo
 
-    // ---- paleta de verdes (reposo → listo) ----
-    readonly property color verdeReposo: Colores.deslizadorAcento
-    readonly property color verdeListo: Colores.deslizadorAcentoListo
-    readonly property color brilloReposo: Colores.deslizadorBrillo
-    readonly property color brilloListo: Colores.deslizadorBrilloListo
+    // ---- colores de la variante (solo de Tema/Colores.qml) ----
+    readonly property color colorPista: _rojo ? Colores.deslizadorCancelarPista : Colores.deslizadorPista
+    readonly property color colorPistaListo: _rojo ? Colores.deslizadorCancelarPistaListo : Colores.deslizadorPistaListo
+    readonly property color colorTexto: _rojo ? Colores.deslizadorCancelarTexto : Colores.deslizadorTexto
+    readonly property color colorSombraInterior: _rojo ? Colores.deslizadorCancelarSombraInterior : Colores.deslizadorSombraInterior
+    readonly property color colorNucleo: _rojo ? Colores.deslizadorCancelarNucleo : Colores.deslizadorNucleo
+    readonly property color colorManija: _rojo ? Colores.deslizadorCancelarManija : Colores.deslizadorManija
+    readonly property color colorManijaListo: _rojo ? Colores.deslizadorCancelarManijaListo : Colores.deslizadorManijaListo
+
+    // ---- paleta de verdes (reposo → listo; rojos en la variante "cancelar") ----
+    readonly property color verdeReposo: _rojo ? Colores.deslizadorCancelarAcento : Colores.deslizadorAcento
+    readonly property color verdeListo: _rojo ? Colores.deslizadorCancelarAcentoListo : Colores.deslizadorAcentoListo
+    readonly property color brilloReposo: _rojo ? Colores.deslizadorCancelarBrillo : Colores.deslizadorBrillo
+    readonly property color brilloListo: _rojo ? Colores.deslizadorCancelarBrilloListo : Colores.deslizadorBrilloListo
     readonly property color acento: mezcla(verdeReposo, verdeListo, progreso)
     readonly property color brillo: mezcla(brilloReposo, brilloListo, progreso)
 
@@ -52,12 +72,12 @@ Item {
     function ac(alfa) { return Qt.rgba(acento.r, acento.g, acento.b, alfa) }
     function br(alfa) { return Qt.rgba(brillo.r, brillo.g, brillo.b, alfa) }
     // decoración del tema: verde de pista, núcleo, blanco y negro con alfa
-    readonly property color pistaMezcla: mezcla(Colores.deslizadorPista, Colores.deslizadorPistaListo, progreso)
+    readonly property color pistaMezcla: mezcla(colorPista, colorPistaListo, progreso)
     function pi(alfa) { return Qt.rgba(pistaMezcla.r, pistaMezcla.g, pistaMezcla.b, alfa) }
     // fondo de la manija: núcleo de éxito en claro, la pista en oscuro (Colores.deslizadorManija*)
-    readonly property color manijaMezcla: mezcla(Colores.deslizadorManija, Colores.deslizadorManijaListo, progreso)
+    readonly property color manijaMezcla: mezcla(colorManija, colorManijaListo, progreso)
     function ma(alfa) { return Qt.rgba(manijaMezcla.r, manijaMezcla.g, manijaMezcla.b, alfa) }
-    function nu(alfa) { const c = Colores.deslizadorNucleo; return Qt.rgba(c.r, c.g, c.b, alfa) }
+    function nu(alfa) { const c = colorNucleo; return Qt.rgba(c.r, c.g, c.b, alfa) }
     function bl(alfa) { const c = Colores.textoSobreAccion; return Qt.rgba(c.r, c.g, c.b, alfa) }
     function ne(alfa) { const c = Colores.sombra; return Qt.rgba(c.r, c.g, c.b, alfa) }
 
@@ -114,7 +134,7 @@ Item {
     component SombraInterior: Item {
         id: si
         property real radio: height / 2
-        property color color: Colores.deslizadorSombraInterior
+        property color color: desl.colorSombraInterior
         property real grosor: 8
         property real desenfoque: 0.6
         Item {
@@ -230,7 +250,7 @@ Item {
     // sombra interior de la pista (inset 0 0 10px verde oscuro suave)
     SombraInterior {
         anchors.fill: parent
-        color: Qt.alpha(Colores.deslizadorSombraInterior, 0.12)
+        color: Qt.alpha(desl.colorSombraInterior, 0.12)
         grosor: 10 * desl.u
         desenfoque: 0.55
     }
@@ -304,7 +324,7 @@ Item {
         anchors.verticalCenter: parent.verticalCenter
         horizontalAlignment: Text.AlignRight
         text: desl.texto
-        color: Colores.deslizadorTextoAcento > 0 ? desl.ac(Colores.deslizadorTextoAcento) : Colores.deslizadorTexto
+        color: Colores.deslizadorTextoAcento > 0 ? desl.ac(Colores.deslizadorTextoAcento) : desl.colorTexto
         layer.enabled: Colores.deslizadorTextoAcento > 0
         layer.effect: MultiEffect {
             shadowEnabled: true; shadowColor: desl.ac(1); shadowOpacity: 0.5; shadowBlur: 0.35
@@ -314,9 +334,12 @@ Item {
         font.family: Tipografia.familia
         font.weight: Tipografia.pesoMedium
         font.pixelSize: Math.max(1, Math.round(12 * desl.u))
-        font.letterSpacing: desl.u
-        fontSizeMode: Text.HorizontalFit
+        font.letterSpacing: desl.textoEnDosLineas ? 0 : desl.u
+        fontSizeMode: desl.textoEnDosLineas ? Text.Fit : Text.HorizontalFit
         minimumPixelSize: Math.min(font.pixelSize, Escala.fuenteMinima)
+        wrapMode: desl.textoEnDosLineas ? Text.WordWrap : Text.NoWrap
+        verticalAlignment: Text.AlignVCenter
+        Binding on height { when: desl.textoEnDosLineas; value: desl.height - 2 * desl.margen }
     }
     Item {
         id: puntoReposo
@@ -345,12 +368,13 @@ Item {
 
     // estado listo: texto a la izquierda + indicador (aparecen al deslizar)
     Text {
+        objectName: "textoCompletadoDeslizadorInicio"
         x: 15 * desl.u
         width: desl.width - x - desl.margen - desl.diametro - 12 * desl.u
         anchors.verticalCenter: parent.verticalCenter
         horizontalAlignment: Text.AlignLeft
         text: desl.textoCompletado
-        color: Colores.deslizadorTextoAcento > 0 ? desl.ac(Colores.deslizadorTextoAcento) : Colores.deslizadorTexto
+        color: Colores.deslizadorTextoAcento > 0 ? desl.ac(Colores.deslizadorTextoAcento) : desl.colorTexto
         layer.enabled: Colores.deslizadorTextoAcento > 0
         layer.effect: MultiEffect {
             shadowEnabled: true; shadowColor: desl.ac(1); shadowOpacity: 0.5; shadowBlur: 0.35
@@ -360,9 +384,12 @@ Item {
         font.family: Tipografia.familia
         font.weight: Tipografia.pesoMedium
         font.pixelSize: Math.max(1, Math.round(12 * desl.u))
-        font.letterSpacing: desl.u
-        fontSizeMode: Text.HorizontalFit
+        font.letterSpacing: desl.textoEnDosLineas ? 0 : desl.u
+        fontSizeMode: desl.textoEnDosLineas ? Text.Fit : Text.HorizontalFit
         minimumPixelSize: Math.min(font.pixelSize, Escala.fuenteMinima)
+        wrapMode: desl.textoEnDosLineas ? Text.WordWrap : Text.NoWrap
+        verticalAlignment: Text.AlignVCenter
+        Binding on height { when: desl.textoEnDosLineas; value: desl.height - 2 * desl.margen }
     }
     Item {
         width: 10 * desl.u; height: width

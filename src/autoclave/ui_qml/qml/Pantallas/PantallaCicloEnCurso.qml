@@ -98,6 +98,15 @@ Item {
     readonly property bool puedeForzar: esperandoEntrega && forzable && (comandos?.rolIngeniero ?? false)
     property string textoEntrega: (esperandoEntrega && progreso && progreso.textoEntrega && progreso.revisionFin >= 0)
                                   ? progreso.textoEntrega(I18n.lang) : ""
+    // ESP-01 (tanda 34): la barra inferior muestra solo «Esperando condiciones de
+    // apertura: m:ss» (espera fija tras COMPLETADO) o «Esperando cámara segura»,
+    // nunca el motivo (que sigue en textoEntrega para la nota del modal forzado).
+    // Falla cerrada: todo lo que no sea la espera fija da el mensaje sin motivo.
+    readonly property string textoIndicadorEntrega: {
+        const prefijoEspera = I18n.t("ciclo.entrega_espera", I18n.lang, { tiempo: "" })
+        return (prefijoEspera !== "" && textoEntrega.startsWith(prefijoEspera))
+               ? textoEntrega : I18n.t("ciclo.entrega_sin_motivo", I18n.lang)
+    }
     onVisibleChanged: if (visible) refrescarRol()
     onForzableChanged: refrescarRol()
     Component.onCompleted: refrescarRol()
@@ -128,14 +137,14 @@ Item {
     // se envía con el texto de otra situación
     onResultadoChanged: {
         vistaGrafica = false; verObservaciones = false
-        modalCancelar.cerrar(); modalConfirmar.cerrar(); modalEstadoSeguro.cerrar(); modalForzar.cerrar()
+        modalConfirmar.cerrar(); modalEstadoSeguro.cerrar(); modalForzar.cerrar()
     }
     readonly property bool ackEstadoSeguro: puente?.ackConfirmaEstadoSeguro ?? false
     onAckEstadoSeguroChanged: modalConfirmar.cerrar()
     // ENT-09: si la cámara deja de estar entregada, un modal de CONFIRMAR abierto se cierra
     onPuedeConfirmarChanged: if (!puedeConfirmar) { modalConfirmar.cerrar(); modalEstadoSeguro.cerrar() }
     onPuedeForzarChanged: if (!puedeForzar) modalForzar.cerrar()
-    readonly property bool modalAbierto: modalCancelar.abierto || modalConfirmar.abierto
+    readonly property bool modalAbierto: modalConfirmar.abierto
                                          || modalEstadoSeguro.abierto || modalForzar.abierto || avisoComando.visible
     property bool comandoOcupado: comandos?.ocupado ?? false
     property string errorComando: comandos?.error ?? ""
@@ -157,7 +166,7 @@ Item {
     signal ajustesPulsado()
     signal avatarPulsado()
     signal equipoPulsado()
-    signal cancelarPulsado()      // tras confirmar en el modal
+    signal cancelarPulsado()      // CAN-02 (tanda 34): al completar el arrastre del deslizador
     signal confirmarPulsado()
     signal tiemposPulsado()
     signal pantallaCompletaPulsado()
@@ -888,9 +897,10 @@ Item {
         }
 
         // ENT-09 (tanda 31): con el resultado y la cámara sin entregar, en lugar de CONFIRMAR
-        // va un indicador (no botón) con el motivo vigente o la espera fija; solo
-        // el ingeniero ve debajo «Confirmar sin condiciones seguras». El texto lo
-        // arma Python (domain/entrega_camara.py); la letra baja, nunca se recorta (D8-5.4).
+        // va un indicador (no botón); solo el ingeniero ve debajo «Confirmar sin
+        // condiciones seguras». ESP-01 (tanda 34): solo el mensaje de espera, sin
+        // motivos (el detalle está en la fila NO ABRIR del panel de alarmas y
+        // avisos); la letra baja, nunca se recorta (D8-5.4).
         Item {
             objectName: "indicadorEntrega"
             visible: raiz.esperandoEntrega
@@ -906,7 +916,7 @@ Item {
                 objectName: "textoEntrega"
                 anchors.fill: parent
                 anchors.margins: raiz.m(8)
-                text: raiz.textoEntrega !== "" ? raiz.textoEntrega : I18n.t("ciclo.entrega_sin_motivo", I18n.lang)
+                text: raiz.textoIndicadorEntrega
                 color: Colores.advertenciaTexto
                 font.family: Tipografia.familia
                 font.weight: Tipografia.pesoMedium
@@ -945,10 +955,46 @@ Item {
             MouseArea { anchors.fill: parent; onClicked: modalForzar.abrir() }
         }
 
-        // Botón CANCELAR CICLO (mockup: x 846..1081, y 1768..1856). Al terminar el
-        // ciclo el mismo lugar lo ocupa CONFIRMAR (PROVISIONAL: colores de INICIAR
-        // CICLO, ícono de check). Deshabilitado sin conexión y mientras hay un envío
-        // en curso (anti doble toque).
+        // CAN-02 (tanda 34): mientras el ciclo no termina, CANCELAR CICLO es un
+        // deslizador rojo (DeslizadorInicio, variante "cancelar") en el lugar del
+        // botón de antes (mockup: x 846..1081, y 1768..1856). Solo el arrastre
+        // completo cancela, sin modal (CAN-03): una cancelación por arrastre; si se
+        // suelta antes, vuelve solo y no envía nada. Deshabilitado sin conexión,
+        // con un envío en curso (anti doble envío) o con un modal abierto; un
+        // rechazo abre el aviso de siempre (ciclo.cancelar_error) y la manija
+        // vuelve al inicio. El token de la sesión abierta, si la hay, lo agrega
+        // ComandosCicloEnCurso (FC-12).
+        DeslizadorInicio {
+            id: deslizadorCancelar
+            objectName: "deslizadorCancelarCiclo"
+            variante: "cancelar"
+            x: barraInferior.mx(846 - 34); y: raiz.m(1768 - 1746)
+            width: raiz.m(235); height: raiz.m(88)
+            textoEnDosLineas: true
+            texto: raiz.textos.cancelar
+            textoCompletado: I18n.t("ciclo.cancelando", I18n.lang)
+            visible: !raiz.terminado
+            enabled: raiz.datosVigentes && !raiz.comandoOcupado && !raiz.modalAbierto
+            onCompletado: {
+                // defensa: el estado pudo cambiar durante el arrastre
+                if (!enabled || raiz.terminado)
+                    return
+                raiz.cancelarPulsado()
+                raiz.comandos?.cancelar()
+            }
+            // detener.svg (blanco) en la manija: anillo exterior 4..44 de 48
+            contenidoCirculo: Image {
+                anchors.centerIn: parent
+                width: deslizadorCancelar.diametro * 0.82; height: width
+                source: raiz.iconosColor + "detener.svg"
+                sourceSize.width: width; sourceSize.height: height
+            }
+        }
+
+        // CONFIRMAR al terminar el ciclo (PROVISIONAL: colores de INICIAR CICLO,
+        // ícono de check), en el mismo lugar que el deslizador de cancelar. El
+        // objectName se conserva («botonCancelarCiclo») por las pruebas y capturas
+        // existentes. Deshabilitado sin conexión y mientras hay un envío en curso.
         Item {
             id: botonCancelar
             objectName: "botonCancelarCiclo"
@@ -956,17 +1002,15 @@ Item {
             x: barraInferior.mx(846 - 34); y: raiz.m(1768 - 1746)
             width: raiz.m(235); height: raiz.m(88)
             // ENT-09: terminado y sin entrega, el lugar lo ocupa el indicador de espera
-            visible: !raiz.esperandoEntrega
+            visible: raiz.terminado && !raiz.esperandoEntrega
             enabled: raiz.datosVigentes && !raiz.comandoOcupado
             opacity: enabled ? 1.0 : 0.4
             Rectangle {
                 anchors.fill: parent
                 radius: raiz.m(14)
-                border.width: (!raiz.terminado && Colores.cancelarBorde.a > 0) ? raiz.m(2) : 0
-                border.color: Colores.cancelarBorde
                 gradient: Gradient {
-                    GradientStop { position: 0.0; color: raiz.terminado ? raiz.paleta.confirmarArriba : raiz.paleta.cancelarArriba }
-                    GradientStop { position: 1.0; color: raiz.terminado ? raiz.paleta.confirmarAbajo : raiz.paleta.cancelarAbajo }
+                    GradientStop { position: 0.0; color: raiz.paleta.confirmarArriba }
+                    GradientStop { position: 1.0; color: raiz.paleta.confirmarAbajo }
                 }
                 layer.enabled: true
                 layer.effect: MultiEffect {
@@ -976,18 +1020,8 @@ Item {
                     shadowBlur: 0.4
                 }
             }
-            // detener.svg (blanco): anillo exterior 4..44 de 48 -> 65 px en el mockup
-            Image {
-                visible: !raiz.terminado
-                x: raiz.m(894 - 846) - width / 2
-                y: raiz.m(1812 - 1768) - height / 2
-                width: raiz.m(65 * 48 / 40); height: width
-                source: raiz.iconosColor + "detener.svg"
-                sourceSize.width: width; sourceSize.height: height
-            }
-            // CONFIRMAR: anillo blanco con check (mismo tamaño que el de detener.svg)
+            // CONFIRMAR: anillo blanco con check (mismo tamaño que tenía el de detener.svg)
             Rectangle {
-                visible: raiz.terminado
                 x: raiz.m(894 - 846) - width / 2
                 y: raiz.m(1812 - 1768) - height / 2
                 width: raiz.m(65); height: width; radius: width / 2
@@ -1010,7 +1044,7 @@ Item {
             Text {
                 x: raiz.m(941 - 846)
                 y: raiz.m(1816 - 1768) - baselineOffset
-                text: raiz.terminado ? I18n.t("ciclo.confirmar", I18n.lang) : raiz.textos.cancelar
+                text: I18n.t("ciclo.confirmar", I18n.lang)
                 color: Colores.textoSobreAccion
                 font.family: Tipografia.familia
                 font.weight: Tipografia.pesoMedium
@@ -1019,14 +1053,14 @@ Item {
             MouseArea {
                 anchors.fill: parent
                 onClicked: {
-                    if (raiz.terminado && (raiz.puente?.ackConfirmaEstadoSeguro ?? false)) {
+                    if (!raiz.terminado)
+                        return
+                    if (raiz.puente?.ackConfirmaEstadoSeguro ?? false) {
                         // P-6 (tanda 6): §15.2, verificar fugas antes de confirmar
                         modalEstadoSeguro.abrir()
-                    } else if (raiz.terminado) {
+                    } else {
                         // FC-09 (tanda 21): CONFIRMAR también pasa por su modal
                         modalConfirmar.abrir()
-                    } else {
-                        modalCancelar.abrir()
                     }
                 }
             }
@@ -1079,20 +1113,8 @@ Item {
     }
 
     // FC-09 (tanda 21): confirmaciones en ModalConfirmacion (antes DialogoConfirmacion).
-    // Cancelación: solo confirmación, sin credencial ni rol (plan §10); el token
-    // de la sesión abierta, si la hay, lo agrega ComandosCicloEnCurso (FC-12)
-    ModalConfirmacion {
-        id: modalCancelar
-        objectName: "modalCancelarCiclo"
-        titulo: I18n.t("ciclo.modal_cancelar_titulo", I18n.lang)
-        cuerpo: I18n.t("ciclo.modal_cancelar_cuerpo", I18n.lang, { n: raiz.sinLectura(raiz.cicloActivo) })
-        textoAccion: I18n.t("ciclo.modal_cancelar_accion", I18n.lang)
-        colorAccion: Colores.peligroTexto
-        onAceptado: {
-            raiz.cancelarPulsado()
-            raiz.comandos?.cancelar()
-        }
-    }
+    // CAN-03 (tanda 34): la cancelación ya no tiene modal (la confirma el arrastre
+    // completo del deslizador rojo, sin credencial ni rol como antes, plan §10).
 
     // CONFIRMAR del resultado: exitoso (verde, con la nota de las observaciones
     // de Referencia, FC-07/FC-08) o fallo / cancelado (accionPrimario)
