@@ -115,7 +115,6 @@ _PALETA_LIBRE = {
     "fasePendienteIcono": r"pendiente fondo #\w{6}, borde #\w{6}, ícono (#\w{6})",
     "fasePendienteEtiqueta": r"ícono #\w{6}, etiqueta (#\w{6})",
     "faseEtiquetaActiva": r"etiqueta activa (#\w{6})",
-    "faseChorro": r"con aro (#\w{6})",                           # OSC-16
     "conectorInicio": r"conector completado (#\w{6})",
     "conectorFin": r"conector completado #\w{6} → (#\w{6})",
     "conectorPendiente": r"línea de fases pendiente (#\w{6})",
@@ -249,7 +248,10 @@ _ORIGEN_CLARO = {
     "fasePendienteEtiqueta": ("Componentes/BarraFases.qml", "etiqueta"),
     "faseEtiqueta": ("Componentes/BarraFases.qml", "etiqueta"),
     "faseEtiquetaActiva": ("Componentes/BarraFases.qml", "etiqueta"),
-    "faseChorro": (_LIQ, "_chorro"),
+    # Tanda 34: sin literal en dev (faseChorro se retiró); el claro es el de la paleta.
+    "faseVapor": ("paleta_claro",), "faseVaporFondo": ("paleta_claro",),
+    "faseBurbujaBorde": ("paleta_claro",), "faseBurbujaRelleno": ("paleta_claro",),
+    "graficaZoomIcono": ("paleta_claro",),
     "conectorInicio": (_CON, 71), "conectorFin": (_CON, 72), "conectorPendiente": (_CON, 59),
     "progresoInicio": (_CIC, "progresoInicio"), "progresoFin": (_CIC, "progresoFin"),
     "serieGrafica1": (_GRA, 56), "serieGrafica2": (_GRA, 59), "serieGrafica3": (_GRA, 62),
@@ -274,6 +276,17 @@ _ORIGEN_CLARO = {
     "deslizadorManija": ("paleta_claro",),
     "deslizadorManijaListo": ("paleta_claro",),
     "exitoFondo": ("paleta_claro",),
+    "deslizadorCancelarPista": ("paleta_claro",),
+    "deslizadorCancelarPistaListo": ("paleta_claro",),
+    "deslizadorCancelarAcento": ("paleta_claro",),
+    "deslizadorCancelarAcentoListo": ("paleta_claro",),
+    "deslizadorCancelarBrillo": ("paleta_claro",),
+    "deslizadorCancelarBrilloListo": ("paleta_claro",),
+    "deslizadorCancelarTexto": ("paleta_claro",),
+    "deslizadorCancelarSombraInterior": ("paleta_claro",),
+    "deslizadorCancelarNucleo": ("paleta_claro",),
+    "deslizadorCancelarManija": ("paleta_claro",),
+    "deslizadorCancelarManijaListo": ("paleta_claro",),
     "abrirPuertaArriba": (_PRE, 731), "abrirPuertaAbajo": (_PRE, 732),
     "abrirPuertaBorde": ("sin_color",), "abrirPuertaTexto": ("blanco",),
     "cancelarArriba": (_CIC, "cancelarArriba"), "cancelarAbajo": (_CIC, "cancelarAbajo"),
@@ -362,7 +375,8 @@ def _nombres_plan() -> set:
 
 def test_b_estan_todas_las_propiedades_de_la_seccion_3_del_plan():
     banderas = set(re.findall(r"property bool (\w+)", COLORES.read_text(encoding="utf-8")))
-    faltan = _nombres_plan() - set(_colores()) - banderas
+    retiradas = {"faseChorro"}      # tanda 34 (VAP-01): reemplazada por faseVapor*/faseBurbuja*; el plan histórico la cita
+    faltan = _nombres_plan() - set(_colores()) - banderas - retiradas
     assert not faltan, faltan
 
 
@@ -457,6 +471,28 @@ def test_e_contraste_de_la_seccion_8_en_oscuro(texto, fondo, minimo):
     props = _colores()
     c = _contraste(props[texto][1], props[fondo][1])
     assert c >= minimo, f"{texto} sobre {fondo}: {c:.2f} < {minimo}"
+
+
+_DESLIZADORES = ("deslizador", "deslizadorCancelar")
+
+
+@pytest.mark.parametrize("familia", _DESLIZADORES)
+def test_e_contraste_deslizador(familia):
+    """Texto de la pista ≥ 4,5:1 en los dos temas; triángulo blanco sobre el núcleo ≥ 3:1 (claro)."""
+    props = _colores()
+    for pista in ("Pista", "PistaListo"):
+        for i, tema in ((0, "claro"), (1, "oscuro")):
+            c = _contraste(props[f"{familia}Texto"][i], props[f"{familia}{pista}"][i])
+            assert c >= 4.5, f"{familia}Texto sobre {pista} ({tema}): {c:.2f}"
+    assert _contraste("#FFFFFFFF", props[f"{familia}Nucleo"][0]) >= 3.0
+    assert _contraste("#FFFFFFFF", props[f"{familia}Manija"][0]) >= 3.0
+
+
+def test_e_graficaZoomIcono_sobre_fondoTarjeta():
+    props = _colores()
+    for i, tema in ((0, "claro"), (1, "oscuro")):
+        c = _contraste(props["graficaZoomIcono"][i], props["fondoTarjeta"][i])
+        assert c >= 3.0, f"graficaZoomIcono ({tema}): {c:.2f}"
 
 
 def test_e_campos_de_formulario_y_puerta_cerrada_tienen_claro_y_oscuro_legibles():

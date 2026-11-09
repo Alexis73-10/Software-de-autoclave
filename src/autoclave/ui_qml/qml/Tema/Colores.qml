@@ -101,7 +101,11 @@ QtObject {
     readonly property color fasePendienteEtiqueta: oscuro ? "#7F8B99" : "#3C3C3C" // BarraFases paleta.etiqueta
     readonly property color faseEtiqueta:         oscuro ? "#C9D2DC" : "#3C3C3C" // oscuro del mockup 03 (OSC-16)
     readonly property color faseEtiquetaActiva:   oscuro ? "#6EC8FF" : "#3C3C3C" // OSC-12
-    readonly property color faseChorro:           oscuro ? "#33B4F5" : "#07BDFF" // CirculoFaseLiquido._chorro (OSC-16)
+    // Tanda 34 (VAP-01/VAP-04): vapor y burbuja de CirculoFaseLiquido; reemplazan a faseChorro. DECISIÓN SIN CONFIRMAR.
+    readonly property color faseVapor:            oscuro ? "#42DCF0FF" : "#42FFFFFF" // vapor sobre el llenado
+    readonly property color faseVaporFondo:       oscuro ? "#42DCF0FF" : "#8CF6FBFF" // vapor sobre el fondo de la fase
+    readonly property color faseBurbujaBorde:     oscuro ? "#8CDCF0FF" : "#8CFFFFFF"
+    readonly property color faseBurbujaRelleno:   oscuro ? "#24DCF0FF" : "#24FFFFFF"
     readonly property color conectorInicio:       oscuro ? "#1E5FD9" : "#003B9B" // ConectorFase
     readonly property color conectorFin:          oscuro ? "#33B4F5" : "#07BDFF"
     readonly property color conectorPendiente:    oscuro ? "#2A3746" : "#CCCCCC"
@@ -128,6 +132,7 @@ QtObject {
     readonly property color graficaIconoFase:   oscuro ? "#8C98A7" : "#505050" // OSC-16
     readonly property color graficaTituloEje:   oscuro ? "#A7B3C1" : "#333333" // = textoSecundario (OSC-04)
     readonly property color graficaBordeBoton:  oscuro ? "#33445A" : "#C8C8C8" // = bordeCampo
+    readonly property color graficaZoomIcono:   oscuro ? "#5B9BFF" : "#3A6FD8" // ZOM-07, tanda 34; DECISIÓN SIN CONFIRMAR
 
     // Valores de sensores (tira de Preciclo/Ciclo; hoy paleta.negro)
     // valorTempCamara/Referencia/Presion: por posición de Entradas mostradas (igual que la gráfica), no por tipo de sensor.
@@ -153,6 +158,19 @@ QtObject {
     readonly property real deslizadorBordeAlfa:       oscuro ? 0.3 : 0.45  // alfa del borde de la pista (acento)
     readonly property real deslizadorSombraOpacidad:  oscuro ? 0.4 : 0.2   // opacidad del brillo exterior de la pista
     readonly property real deslizadorTextoAcento:     oscuro ? 0.85 : 0    // >0: el texto es el acento con ese alfa y halo; 0: usa deslizadorTexto
+    // Deslizador de CANCELAR (CAN-01, tanda 34): rojo paralelo al verde de arriba; DECISIÓN SIN CONFIRMAR.
+    // Comparte las magnitudes deslizador* (BordeAlfa, SombraOpacidad, TextoAcento).
+    readonly property color deslizadorCancelarPista:          oscuro ? "#301212" : "#FBEAEA"
+    readonly property color deslizadorCancelarPistaListo:     oscuro ? "#401818" : "#F5D0D0"
+    readonly property color deslizadorCancelarAcento:         oscuro ? "#E04848" : "#E03A3A"
+    readonly property color deslizadorCancelarAcentoListo:    oscuro ? "#FF6B6B" : "#F26060"
+    readonly property color deslizadorCancelarBrillo:         oscuro ? "#73E04848" : "#F2BFBF" // oscuro al 45 %
+    readonly property color deslizadorCancelarBrilloListo:    oscuro ? "#73FF6B6B" : "#F9DADA" // oscuro al 45 %
+    readonly property color deslizadorCancelarTexto:          oscuro ? "#FF8A8A" : "#B00010" // ≥ 4,5:1 sobre la pista en claro
+    readonly property color deslizadorCancelarSombraInterior: oscuro ? "#1F000000" : "#B00010" // se usa al 12 % (Qt.alpha)
+    readonly property color deslizadorCancelarNucleo:         oscuro ? "#D94040" : "#D10A0A" // triángulo blanco ≥ 3:1
+    readonly property color deslizadorCancelarManija:         oscuro ? "#301212" : "#D10A0A"
+    readonly property color deslizadorCancelarManijaListo:    oscuro ? "#401818" : "#D10A0A"
     // Reportes (dashboard): relleno verde de éxito; oscuro = misma superficie verde oscura de la pista (paleta §7)
     readonly property color exitoFondo:               oscuro ? "#12301F" : "#E9F8EE"
 
