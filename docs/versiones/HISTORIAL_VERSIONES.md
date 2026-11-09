@@ -9,6 +9,18 @@ Una entrada por **entrega** (compilación con Setup que se instala en el equipo)
 
 <!-- entradas: las agrega compilar_entrega.py debajo de esta línea, la más nueva primero -->
 
+## 1.0.0-alpha.26 — 2026-11-09
+
+- Etiqueta: `v1.0.0-alpha.26` (commit `chore(ver): 1.0.0-alpha.26`, sobre `7e2a2d2`)
+- AppVerNum: `1.0.0.1026`
+- SHA-256 del Setup y del zip: en el mensaje de la etiqueta y en `entrega/v1.0.0-alpha.26_2026-11-09/SHA256SUMS.txt` (solo existen después de compilar)
+- Commits desde `v1.0.0-alpha.25`:
+  - 539fa871 fix(pam): correcciones de la revisión de seguridad (A1, M1, M2, B3)
+  - 3682d1ba docs(pam): riesgos HAZ-PAM-01..03, REQ-96..101, bloque de banco PAM y CLAUDE.md
+  - ca84c518 test(pam): pruebas de PAM-01..06 y planta con la Principal 0,6 K baja
+  - 29c8e936 feat(pam): presión añadida como margen de trabajo (PAM-01..06)
+
+
 ## 1.0.0-alpha.25 — 2026-11-09
 
 - Etiqueta: `v1.0.0-alpha.25` (commit `chore(ver): 1.0.0-alpha.25`, sobre `f054e2d`)
