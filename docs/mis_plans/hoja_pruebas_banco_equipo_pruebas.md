@@ -3374,3 +3374,33 @@
 - **Criterio:** Aprobado si completa, la cámara no baja de 303,7 kPa, a lo sumo 1 aislamiento, sobreimpulso ≤ 0,79 K y la chaqueta bajo 375 kPa.
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+## Bloque T34. Vapor en la barra de fases, zoom de la gráfica y cancelar con deslizador (tanda 34)
+
+### T34-01 — Vapor y burbujas de la barra de fases en la pantalla del equipo
+- **Modo:** Con vapor  ·  **Origen:** VAP-01..06; HAZ-T34-VAP-01
+- **Pasos:** correr un ciclo y mirar la barra de fases: vapor del tubo y bocanadas en la fase activa (la primera solo bocanadas), burbujas solo en la última fase completada, nada en las demás, y todo se apaga sin datos vigentes y al terminar el ciclo. Medir el tiempo de cuadro y la CPU en el PC de la estación (la medición de 7,0 ms a 1024 px es del PC de desarrollo, no del hardware destino). Comparar con las capturas `vap_*` de `docs/informes/tanda34/capturas/` y que Cristian las apruebe.
+- **Criterio:** Aprobado si se ve como las capturas aprobadas, sin tirones en la estación y el nivel de los círculos sigue igual que antes (tope 0,90 en la activa).
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### T34-02 — Zoom de la gráfica con los táctiles reales (dos monitores asociados con EST-06)
+- **Modo:** En seco  ·  **Origen:** ZOM-01..08; HAZ-ZOM-01
+- **Pasos:** en Ciclo en curso (vista normal y pantalla completa) y en el detalle de Historial: separar y juntar dos dedos en horizontal, vertical y diagonal; desplazar con dos dedos; comprobar que con dos dedos el cursor no se mueve y con uno sí; que aparece la lupa, que tocarla restablece, que a los 20 s sin tocar vuelve sola, y que no se pasa de la vista completa ni del mínimo (2 min, 10 %). Repetir en las dos pantallas táctiles.
+- **Criterio:** Aprobado si el gesto responde en las dos pantallas sin que otro control robe el toque y sin mover el cursor.
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### T34-03 — Deslizador rojo de cancelar
+- **Modo:** Con vapor  ·  **Origen:** CAN-01..04; HAZ-CAN-01
+- **Pasos:** con un ciclo en curso, soltar el deslizador antes del extremo (vuelve, no cancela); arrastrarlo completo (cancela sin modal, resultado CANCELADO con el usuario en ticket y bitácora); intentar con un comando en curso o un modal abierto (deshabilitado); al terminar el ciclo, aparece CONFIRMAR. Anotar si, tras cancelar, un segundo arrastre inmediato da el mensaje de error (residual BAJO de HAZ-CAN-01).
+- **Criterio:** Aprobado si solo el arrastre completo cancela, una sola vez, y el resto se comporta como se describe.
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### T34-04 — Mensaje de espera y fila NO ABRIR
+- **Modo:** Con vapor  ·  **Origen:** ESP-01/02
+- **Pasos:** al terminar un ciclo con la cámara aún no segura, mirar la barra inferior (solo «Esperando cámara segura» o «Esperando condiciones de apertura: m:ss», dentro de su cuadro) y la tarjeta de alarmas (fila NO ABRIR con motivo, valor y límite; el detalle se abre al tocarla). Repetir en inglés.
+- **Criterio:** Aprobado si la barra no contiene el motivo y la fila NO ABRIR sí.
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
