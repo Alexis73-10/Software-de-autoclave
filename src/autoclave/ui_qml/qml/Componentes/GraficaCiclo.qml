@@ -19,6 +19,15 @@ import Autoclave.PosicionCard
 // Dibujo propio con QtQuick Shapes (PathPolyline), sin QtCharts. Ejes y
 // decimación: grafica_ejes.mjs (probado en tests/test_grafica_ejes_js.py).
 // Solo presentación: no calcula tiempos de proceso; recibe t (min) del backend.
+//
+// Zoom (tanda 34, ZOM-01..ZOM-07): dos dedos sobre el área de trazado amplían
+// y desplazan una ventana guardada en valores absolutos (t0..t1, yIzq0..yIzq1,
+// yDer0..yDer1; null = vista completa, idéntica a la de antes). La matemática
+// vive en grafica_ejes.mjs (ventanaPorGesto, acotarVentana, marcasVentana...);
+// aquí solo se leen los puntos de contacto. Un dedo sigue moviendo el cursor.
+// La lupa de la esquina indica la vista ampliada y la restablece; también se
+// restablece a los restablecerZoomMs sin tocar el área, y en el acto si cambian
+// las unidades, el ciclo de `datos`, la visibilidad o quedan sin datos.
 Item {
     id: raiz
 
@@ -41,6 +50,9 @@ Item {
 
     // Decisión delegada (plan §14), a validar visualmente; configurable.
     property int ocultarCursorMs: 5000
+    // ZOM-06: restablecimiento de la vista contado desde el último toque en el
+    // área de trazado (gesto de dos dedos o cursor de un dedo)
+    property int restablecerZoomMs: 20000
 
     signal tiemposPulsado()
     signal pantallaCompletaPulsado()
@@ -141,15 +153,54 @@ Item {
     readonly property real xDato1: m(1035)
     readonly property real yArriba: m(279)
     readonly property real yAbajo: yb(709)
-    function xDe(tMin) { return xDato0 + (tMin / ejeX.maximo) * (xDato1 - xDato0) }
+    // ---- ventana visible (ZOM-02) ----
+    readonly property var vistaCompleta: Ejes.vistaCompleta(ejeX, ejeIzquierdo, ejeDerecho)
+    // null = sin zoom; si no, la ventana absoluta fijada por el gesto
+    property var ventanaZoom: null
+    // transición de restablecimiento (ZOM-06): ventana de partida y avance 0..1
+    property var _desdeTransicion: null
+    property real _avance: 0
+    readonly property bool zoomActivo: ventanaZoom !== null
+    readonly property bool _conVentana: ventanaZoom !== null || _desdeTransicion !== null
+    readonly property var ventana: _desdeTransicion !== null
+        ? Ejes.interpolarVentana(_desdeTransicion, vistaCompleta, _avance)
+        : (ventanaZoom !== null ? ventanaZoom : vistaCompleta)
+
+    function xDe(tMin) {
+        return xDato0 + (tMin - ventana.t0) / (ventana.t1 - ventana.t0) * (xDato1 - xDato0)
+    }
     function yDe(v, eje) {
-        const e = eje === "derecho" ? ejeDerecho : ejeIzquierdo
-        return yAbajo - (v / e.maximo) * (yAbajo - yArriba)
+        const a = eje === "derecho" ? ventana.yDer0 : ventana.yIzq0
+        const b = eje === "derecho" ? ventana.yDer1 : ventana.yIzq1
+        return yAbajo - (v - a) / (b - a) * (yAbajo - yArriba)
     }
 
+    // Marcas: sin zoom, exactamente las de antes (0, paso, 2·paso...); con zoom,
+    // paso redondo dentro de la ventana (marcasVentana)
+    function _marcasCompletas(paso, n) {
+        const out = []
+        for (let i = 0; i <= n; i++) out.push(i * paso)
+        return out
+    }
+    readonly property var marcasX: _conVentana
+        ? Ejes.marcasVentana(ventana.t0, ventana.t1, Ejes.DIVISIONES_X)
+        : _marcasCompletas(ejeX.paso, Math.round(ejeX.maximo / ejeX.paso))
+    readonly property var marcasIzquierda: _conVentana
+        ? Ejes.marcasVentana(ventana.yIzq0, ventana.yIzq1, Ejes.DIVISIONES_Y)
+        : _marcasCompletas(ejeIzquierdo.paso, ejeIzquierdo.divisiones)
+    readonly property var marcasDerecha: _conVentana
+        ? Ejes.marcasVentana(ventana.yDer0, ventana.yDer1, Ejes.DIVISIONES_Y)
+        : _marcasCompletas(ejeDerecho.paso, ejeDerecho.divisiones)
+    function _etiqueta(v) { return Math.round(v * 100) / 100 }
+
     function _puntos(serie) {
-        const r = Ejes.decimar(raiz.datos.t_min || [], raiz.datos[serie.clave] || [],
-                               0, ejeX.maximo, Math.max(1, xDato1 - xDato0))
+        const v = raiz.ventana
+        let xs = raiz.datos.t_min || [], ys = raiz.datos[serie.clave] || []
+        if (raiz._conVentana) {      // solo el tramo visible (con un vecino a cada lado)
+            const tr = Ejes.tramoVentana(xs, v.t0, v.t1)
+            xs = xs.slice(tr.desde, tr.hasta + 1); ys = ys.slice(tr.desde, tr.hasta + 1)
+        }
+        const r = Ejes.decimar(xs, ys, v.t0, v.t1, Math.max(1, xDato1 - xDato0))
         const pts = []
         for (let i = 0; i < r.x.length; i++)
             pts.push(Qt.point(xDe(r.x[i]), yDe(r.y[i], serie.eje)))
@@ -335,45 +386,62 @@ Item {
         color: raiz.paleta.etiquetaEje
     }
 
-    // ---- cuadrícula y etiquetas Y (mismas divisiones en ambos ejes) ----
+    // ---- cuadrícula y etiquetas Y ----
+    // Sin zoom las dos escalas tienen las mismas divisiones y las líneas
+    // coinciden; con zoom la cuadrícula sigue al eje izquierdo y las etiquetas
+    // del derecho van en sus propias marcas redondas (ZOM-02).
     Repeater {
-        model: raiz.ejeIzquierdo.divisiones + 1
+        model: raiz.marcasIzquierda
         delegate: Item {
             id: linea
+            required property var modelData
             required property int index
-            readonly property real yLinea: raiz.yAbajo - linea.index * (raiz.yAbajo - raiz.yArriba) / raiz.ejeIzquierdo.divisiones
+            readonly property real yLinea: raiz.yDe(linea.modelData, "izquierdo")
             anchors.fill: parent
             Rectangle {
                 x: raiz.m(68); y: linea.yLinea - height / 2
                 width: raiz.m(1059 - 68); height: Math.max(1, raiz.m(1.2))
-                color: linea.index === 0 ? raiz.paleta.eje : raiz.paleta.cuadricula
+                color: Math.abs(linea.yLinea - raiz.yAbajo) < 0.5 ? raiz.paleta.eje : raiz.paleta.cuadricula
             }
             Text {
                 x: raiz.m(55) - width
                 y: linea.yLinea - height / 2 - raiz.m(3)
-                text: Math.round(linea.index * raiz.ejeIzquierdo.paso * 100) / 100
-                color: raiz.paleta.etiquetaEje
-                font.family: Tipografia.familia
-                font.pixelSize: raiz.fuente(20)
-            }
-            Text {
-                x: raiz.m(1075)
-                y: linea.yLinea - height / 2 - raiz.m(3)
-                text: Math.round(linea.index * raiz.ejeDerecho.paso * 100) / 100
+                text: raiz._etiqueta(linea.modelData)
                 color: raiz.paleta.etiquetaEje
                 font.family: Tipografia.familia
                 font.pixelSize: raiz.fuente(20)
             }
         }
     }
+    Repeater {
+        model: raiz.marcasDerecha
+        delegate: Text {
+            id: etiquetaDer
+            required property var modelData
+            x: raiz.m(1075)
+            y: raiz.yDe(etiquetaDer.modelData, "derecho") - height / 2 - raiz.m(3)
+            text: raiz._etiqueta(etiquetaDer.modelData)
+            color: raiz.paleta.etiquetaEje
+            font.family: Tipografia.familia
+            font.pixelSize: raiz.fuente(20)
+        }
+    }
+    // con zoom la marca más baja puede no caer en el borde: línea del eje aparte
+    Rectangle {
+        visible: raiz._conVentana
+        x: raiz.m(68); y: raiz.yAbajo - height / 2
+        width: raiz.m(1059 - 68); height: Math.max(1, raiz.m(1.2))
+        color: raiz.paleta.eje
+    }
 
     // ---- eje X: marcas y etiquetas ----
     Repeater {
-        model: Math.round(raiz.ejeX.maximo / raiz.ejeX.paso) + 1
+        model: raiz.marcasX
         delegate: Item {
             id: marca
+            required property var modelData
             required property int index
-            readonly property real xMarca: raiz.xDe(marca.index * raiz.ejeX.paso)
+            readonly property real xMarca: raiz.xDe(marca.modelData)
             anchors.fill: parent
             Rectangle {
                 x: marca.xMarca - width / 2; y: raiz.yAbajo
@@ -383,7 +451,7 @@ Item {
             Text {
                 x: marca.xMarca - width / 2
                 y: raiz.yb(741) - baselineOffset
-                text: marca.index * raiz.ejeX.paso
+                text: raiz._etiqueta(marca.modelData)
                 color: raiz.paleta.etiquetaEje
                 font.family: Tipografia.familia
                 font.pixelSize: raiz.fuente(20)
@@ -411,10 +479,14 @@ Item {
             readonly property real inicio: tramo.modelData.inicioMin
             readonly property real fin: tramo.index + 1 < raiz.fases.length
                 ? raiz.fases[tramo.index + 1].inicioMin : raiz.tiempoActualMin
+            // ZOM-02: tramo recortado a la ventana (sin zoom, el tramo entero)
+            readonly property real inicioVisible: Math.max(tramo.inicio, raiz.ventana.t0)
+            readonly property real finVisible: Math.min(tramo.fin, raiz.ventana.t1)
             anchors.fill: parent
 
             Shape {
-                visible: tramo.inicio > 0
+                visible: tramo.inicio > 0 && tramo.inicio >= raiz.ventana.t0
+                         && tramo.inicio <= raiz.ventana.t1
                 anchors.fill: parent
                 ShapePath {
                     strokeColor: raiz.paleta.divisorFase
@@ -431,13 +503,13 @@ Item {
                 id: iconoFase
                 visible: false
                 width: raiz.m(52); height: width   // tinta ≈ 43 px
-                x: (raiz.xDe(tramo.inicio) + raiz.xDe(tramo.fin)) / 2 - width / 2
+                x: (raiz.xDe(tramo.inicioVisible) + raiz.xDe(tramo.finVisible)) / 2 - width / 2
                 y: raiz.m(205) - height / 2
                 source: raiz.iconosColor + "fase_" + tramo.modelData.clave + ".svg"
                 sourceSize.width: width; sourceSize.height: height
             }
             MultiEffect {
-                visible: raiz.xDe(tramo.fin) - raiz.xDe(tramo.inicio) > raiz.m(40)
+                visible: raiz.xDe(tramo.finVisible) - raiz.xDe(tramo.inicioVisible) > raiz.m(40)
                 x: iconoFase.x; y: iconoFase.y; width: iconoFase.width; height: iconoFase.height
                 source: iconoFase
                 colorization: 1.0
@@ -449,8 +521,12 @@ Item {
     // ---- series ----
     Item {
         id: areaTrazado
-        x: 0; y: raiz.yArriba - raiz.m(10)
-        width: raiz.width; height: raiz.yAbajo - y + raiz.m(2)
+        // ZOM-02: con zoom las curvas se recortan al área de trazado (sin zoom,
+        // el mismo recorte de antes)
+        x: raiz._conVentana ? raiz.xDato0 - raiz.m(3) : 0
+        y: raiz.yArriba - (raiz._conVentana ? raiz.m(3) : raiz.m(10))
+        width: raiz._conVentana ? raiz.xDato1 - raiz.xDato0 + raiz.m(6) : raiz.width
+        height: raiz.yAbajo - y + raiz.m(2)
         clip: true
         Repeater {
             model: raiz.series
@@ -458,7 +534,7 @@ Item {
                 id: trazo
                 required property var modelData
                 required property int index
-                x: 0; y: -areaTrazado.y
+                x: -areaTrazado.x; y: -areaTrazado.y
                 width: raiz.width; height: raiz.height
                 preferredRendererType: Shape.CurveRenderer
                 ShapePath {
@@ -477,25 +553,188 @@ Item {
     function _tDesdeX(px) {
         const ts = raiz.datos.t_min || []
         if (ts.length === 0) return NaN
-        const t = (px - xDato0) / (xDato1 - xDato0) * ejeX.maximo
+        const v = raiz.ventana
+        let t = v.t0 + (px - xDato0) / (xDato1 - xDato0) * (v.t1 - v.t0)
+        if (raiz._conVentana) t = Math.max(v.t0, Math.min(v.t1, t))
         return Math.max(ts[0], Math.min(ts[ts.length - 1], t))
     }
+    function _moverCursor(px) {
+        raiz.cursorMin = raiz._tDesdeX(px)
+        ocultarCursor.restart()
+    }
+
+    // ---- zoom: ventana, límites y restablecimiento (ZOM-03..ZOM-06) ----
+    readonly property var _areaPx: ({ x0: xDato0, x1: xDato1, y0: yArriba, y1: yAbajo })
+    // ventana de partida de un gesto: la vigente (si había una transición en
+    // curso, se interrumpe y se parte de donde iba)
+    function _ventanaParaGesto() {
+        const v = Ejes.interpolarVentana(raiz.ventana, raiz.ventana, 0)   // copia
+        if (raiz._desdeTransicion !== null) {
+            transicionZoom.stop()
+            raiz._desdeTransicion = null
+            raiz._fijarVentanaZoom(v)     // queda donde iba, sin saltar a la completa
+        }
+        return v
+    }
+    function _fijarVentanaZoom(v) {
+        const a = Ejes.acotarVentana(v, raiz.vistaCompleta)
+        raiz.ventanaZoom = Ejes.esVistaCompleta(a, raiz.vistaCompleta) ? null : a
+    }
+    // Para el arnés de pruebas y las capturas: fija la ventana en minutos y en
+    // unidades del eje izquierdo; el derecho toma la misma fracción de su escala.
+    function fijarVentana(t0, t1, yIzq0, yIzq1) {
+        raiz._ventanaParaGesto()          // interrumpe una transición en curso
+        const c = raiz.vistaCompleta
+        const r = (c.yDer1 - c.yDer0) / (c.yIzq1 - c.yIzq0)
+        raiz._fijarVentanaZoom({ t0: t0, t1: t1, yIzq0: yIzq0, yIzq1: yIzq1,
+                                 yDer0: c.yDer0 + (yIzq0 - c.yIzq0) * r,
+                                 yDer1: c.yDer0 + (yIzq1 - c.yIzq0) * r })
+    }
+    // ZOM-06: vuelve a la vista completa con la transición de 300 ms
+    function restablecerVista() {
+        restablecerZoom.stop()
+        if (raiz.ventanaZoom === null) return
+        raiz._desdeTransicion = raiz.ventanaZoom
+        raiz.ventanaZoom = null
+        raiz._avance = 0
+        transicionZoom.restart()
+    }
+    // ZOM-05: en el acto, sin transición
+    function restablecerAhora() {
+        restablecerZoom.stop()
+        transicionZoom.stop()
+        raiz._gesto = null
+        raiz._desdeTransicion = null
+        raiz.ventanaZoom = null
+    }
+    // toque en el área de trazado: reinicia la cuenta de ZOM-06
+    function _tocado() { restablecerZoom.restart() }
+
+    NumberAnimation {
+        id: transicionZoom
+        target: raiz; property: "_avance"
+        from: 0; to: 1; duration: 300
+        easing.type: Easing.InOutQuad
+        onFinished: raiz._desdeTransicion = null
+    }
+    Timer {
+        id: restablecerZoom
+        interval: raiz.restablecerZoomMs
+        onTriggered: raiz.restablecerVista()
+    }
+
+    // ZOM-05: unidades, otro ciclo, sin datos o fuera de la vista
+    readonly property string unidadesEjes: _unidadEje("izquierdo", "") + "|" + _unidadEje("derecho", "")
+    onUnidadesEjesChanged: restablecerAhora()
+    property var _huellaDatos: null
+    onDatosChanged: {
+        const t = raiz.datos ? raiz.datos.t_min : []
+        if (!Ejes.continuaDatos(raiz._huellaDatos, t)) raiz.restablecerAhora()
+        raiz._huellaDatos = Ejes.huellaDatos(t)
+    }
+    onVisibleChanged: if (!visible) restablecerAhora()
+
+    // Rueda (solo para probar sin táctil, DECISIÓN SIN CONFIRMAR): rueda = zoom
+    // en X, Ctrl + rueda = zoom en Y, centrados en el puntero.
+    function _rueda(px, py, delta, enY) {
+        if (!delta) return
+        const frac = enY ? (raiz.yAbajo - py) / (raiz.yAbajo - raiz.yArriba)
+                         : (px - raiz.xDato0) / (raiz.xDato1 - raiz.xDato0)
+        raiz._fijarVentanaZoom(Ejes.ventanaPorRueda(raiz._ventanaParaGesto(), enY ? "y" : "x",
+                                                    Math.pow(1.25, delta / 120),
+                                                    Math.max(0, Math.min(1, frac))))
+        raiz._tocado()
+    }
+
+    // Gesto de dos dedos: {inicio: {xa, ya, xb, yb}, ventana} mientras dura
+    property var _gesto: null
+    // true desde que se apoya el segundo dedo hasta soltar los dos: el cursor
+    // queda quieto (ZOM-03)
+    property bool _dosDedos: false
+
+    // Mouse (y toque en equipos sin manejo táctil): cursor y rueda.
     MouseArea {
         id: toqueGrafica
         x: raiz.m(68); y: raiz.yArriba - raiz.m(20)
         width: raiz.m(1059 - 68); height: raiz.yAbajo - y
         preventStealing: true
         function mover(mx) {
-            raiz.cursorMin = raiz._tDesdeX(x + mx)
-            ocultarCursor.restart()
+            raiz._moverCursor(x + mx)
+            raiz._tocado()
         }
         onPressed: (evento) => mover(evento.x)
         onPositionChanged: (evento) => mover(evento.x)
+        onWheel: (rueda) => raiz._rueda(x + rueda.x, y + rueda.y, rueda.angleDelta.y,
+                                        (rueda.modifiers & Qt.ControlModifier) !== 0)
+    }
+    // Táctil: encima del MouseArea y con mouseEnabled false, recibe todos los
+    // puntos de contacto (el mouse sigue yendo al MouseArea). Un dedo mueve el
+    // cursor como antes; dos dedos amplían y desplazan sin mover el cursor.
+    // grab() en gestureStarted es el equivalente de preventStealing.
+    MultiPointTouchArea {
+        id: toqueMultitactil
+        objectName: "toqueGraficaMultitactil"
+        anchors.fill: toqueGrafica
+        mouseEnabled: false
+        minimumTouchPoints: 1
+        maximumTouchPoints: 2
+        touchPoints: [ TouchPoint { id: dedo1 }, TouchPoint { id: dedo2 } ]
+        function actualizar() {
+            const ox = toqueGrafica.x, oy = toqueGrafica.y
+            const activos = [dedo1, dedo2].filter(p => p.pressed)
+            raiz._tocado()
+            if (activos.length === 2) {
+                const pts = { xa: ox + dedo1.x, ya: oy + dedo1.y, xb: ox + dedo2.x, yb: oy + dedo2.y }
+                raiz._dosDedos = true
+                if (raiz._gesto === null) {
+                    raiz._gesto = { inicio: pts, ventana: raiz._ventanaParaGesto() }
+                } else {
+                    raiz._fijarVentanaZoom(Ejes.ventanaPorGesto(raiz._gesto.ventana, raiz._gesto.inicio,
+                                                                pts, raiz._areaPx, raiz.m(40)))
+                }
+            } else if (activos.length === 1) {
+                raiz._gesto = null            // la ventana queda donde estaba
+                if (!raiz._dosDedos) raiz._moverCursor(ox + activos[0].x)
+            } else {
+                raiz._gesto = null
+                raiz._dosDedos = false
+            }
+        }
+        onPressed: actualizar()
+        onUpdated: actualizar()
+        onReleased: actualizar()
+        onCanceled: { raiz._gesto = null; raiz._dosDedos = false }
+        onGestureStarted: (gesto) => gesto.grab()
     }
     Timer {
         id: ocultarCursor
         interval: raiz.ocultarCursorMs
         onTriggered: raiz.cursorMin = NaN
+    }
+
+    // ---- lupa indicadora (ZOM-07) ----
+    // Única señal de vista ampliada; tocarla restablece con la transición.
+    // Zona táctil de 56 × 56 px del mockup en la esquina superior derecha de la
+    // cuadrícula; dibujo de 44 px. Orden: curvas < lupa < cursor y globo.
+    Item {
+        id: lupa
+        objectName: "lupaZoomGrafica"
+        visible: raiz.zoomActivo
+        x: raiz.m(1059 - 6 - 56); y: raiz.yArriba + raiz.m(6)
+        width: raiz.m(56); height: width
+        Rectangle {
+            anchors.centerIn: parent
+            width: raiz.m(44); height: width; radius: width / 2
+            color: Colores.fondoTarjeta
+            opacity: 0.85
+        }
+        IconoColor {
+            anchors.centerIn: parent
+            width: raiz.m(30); height: width
+            source: raiz.iconosColor + "lupa.svg"
+            color: Colores.graficaZoomIcono
+        }
+        MouseArea { anchors.fill: parent; onClicked: raiz.restablecerVista() }
     }
 
     // ---- cursor y globo de valores ----
@@ -504,7 +743,9 @@ Item {
         readonly property int indice: isNaN(raiz.cursorMin) ? -1 : raiz._indiceCercano(raiz.cursorMin)
         readonly property real tCursor: indice >= 0 ? raiz.datos.t_min[indice] : 0
         readonly property real xCursor: raiz.xDe(tCursor)
-        visible: indice >= 0
+        // con zoom, el cursor solo se ve si su lectura cae en la ventana
+        visible: indice >= 0 && (!raiz._conVentana
+                                 || (tCursor >= raiz.ventana.t0 && tCursor <= raiz.ventana.t1))
         anchors.fill: parent
 
         Rectangle {
@@ -519,7 +760,11 @@ Item {
                 required property var modelData
                 required property int index
                 readonly property var valor: cursor.indice >= 0 ? raiz._valor(punto.modelData.clave, cursor.indice) : null
+                // con zoom en Y, un punto fuera de la ventana no se dibuja
                 visible: punto.valor !== null && punto.valor !== undefined
+                         && (!raiz._conVentana
+                             || (raiz.yDe(punto.valor, punto.modelData.eje) >= raiz.yArriba - 0.5
+                                 && raiz.yDe(punto.valor, punto.modelData.eje) <= raiz.yAbajo + 0.5))
                 x: cursor.xCursor - width / 2
                 y: (punto.visible ? raiz.yDe(punto.valor, punto.modelData.eje) : 0) - height / 2
                 width: raiz.diametroPuntoCursor; height: width; radius: width / 2

@@ -11,7 +11,7 @@ import "../Pantallas"
 //
 // MODO DEMOSTRACION de la barra de fases con líquido (llenado de fases, paso
 // 4a): con la propiedad `demostracion` en true recorre escenarios (llenado,
-// cambio de fase con chorro, vaciado parcial, reinicio de exposición, salto de
+// cambio de fase con vapor, vaciado parcial, reinicio de exposición, salto de
 // fases, fallo, cancelación, sin referencia, sin datos vigentes) con rótulos.
 // Teclas: N siguiente, P anterior, R repetir, A automático sí/no, ESPACIO pausa.
 // Hay que lanzarlo con la plataforma real (no offscreen), desde la raíz del
@@ -27,6 +27,10 @@ Window {
     color: Colores.fondoMarinoOscuro
 
     property bool demostracion: false
+    // Zoom de la gráfica (tanda 34, ZOM-08): con true, la tarjeta abre ampliada
+    // en 15–25 min y 110–135 (eje izquierdo); el modo demostración lo trae
+    // también como escenario 11. Lo usa tests/banco/zom_capturas_grafica.py.
+    property bool zoomGrafica: false
 
 
     Binding {
@@ -78,7 +82,7 @@ Window {
                   [1000, ["c","a:0.4","p","p","p","p"], true], [1000, ["c","a:0.6","p","p","p","p"], true],
                   [1000, ["c","a:0.8","p","p","p","p"], true], [1000, ["c","a:0.9","p","p","p","p"], true],
                   [1000, ["c","a:0.9","p","p","p","p"], true]] },
-        { nombre: "2. Cambio de fase: conector y chorro (nivel siguiente < 0.5)",
+        { nombre: "2. Cambio de fase: conector y vapor (nivel siguiente < 0.5)",
           pasos: [[0, ["c","a:0.85","p","p","p","p"], true], [1500, ["c","c","a:0.1","p","p","p"], true],
                   [2800, ["c","c","a:0.25","p","p","p"], true], [1000, ["c","c","a:0.4","p","p","p"], true],
                   [1000, ["c","c","a:0.55","p","p","p"], true], [1000, ["c","c","a:0.7","p","p","p"], true]] },
@@ -104,7 +108,10 @@ Window {
                   [4000, ["c","c","c","a:0.55","p","p"], true], [2500, ["c","c","c","a:0.6","p","p"], true]] },
         { nombre: "10. Fin exitoso (último círculo sube a 1.0)",
           pasos: [[0, ["c","c","c","c","c","a:0.85"], true], [1500, ["c","c","c","c","c","c"], true],
-                  [2500, ["c","c","c","c","c","c"], true]] }
+                  [2500, ["c","c","c","c","c","c"], true]] },
+        // cuarto elemento del paso: zoom de la gráfica (true = 15–25 min, 110–135)
+        { nombre: "11. Zoom de la gráfica (15–25 min, 110–135) con lupa",
+          pasos: [[0, ["c","c","a:0.5","p","p","p"], true, true], [6000, ["c","c","a:0.6","p","p","p"], true, true]] }
     ]
     readonly property var escActual: escenarios[escenario]
 
@@ -114,6 +121,7 @@ Window {
         // vaciar y volver a poner las fases: la barra lo trata como primera carga
         fasesDemo = []
         vigentesDemo = true
+        aplicarZoom(false)
         temporizadorDemo.interval = 400
         temporizadorDemo.restart()
     }
@@ -122,6 +130,7 @@ Window {
         const p = escActual.pasos[k]
         vigentesDemo = p[2]
         fasesDemo = armarFases(p[1])
+        if (p.length > 3) aplicarZoom(p[3])
         if (k + 1 < escActual.pasos.length) {
             temporizadorDemo.interval = escActual.pasos[k + 1][0]
             temporizadorDemo.restart()
@@ -139,7 +148,26 @@ Window {
             else ventana.iniciarEscenario(ventana.escenario + 1)
         }
     }
-    Component.onCompleted: if (demostracion) iniciarEscenario(0)
+    Component.onCompleted: {
+        if (demostracion) iniciarEscenario(0)
+        if (zoomGrafica) Qt.callLater(ventana.aplicarZoom, true)
+    }
+    // tarjeta de la gráfica de la pantalla (objectName graficaCicloEnCurso)
+    function _buscar(item, nombre) {
+        if (!item) return null
+        if (item.objectName === nombre) return item
+        for (let i = 0; i < item.children.length; i++) {
+            const r = _buscar(item.children[i], nombre)
+            if (r) return r
+        }
+        return null
+    }
+    function aplicarZoom(activo) {
+        const g = _buscar(pantallaPrueba, "graficaCicloEnCurso")
+        if (!g) return
+        if (activo) g.fijarVentana(15, 25, 110, 135)
+        else g.restablecerAhora()
+    }
     Shortcut { sequence: "N"; enabled: ventana.demostracion; onActivated: ventana.iniciarEscenario(ventana.escenario + 1) }
     Shortcut { sequence: "P"; enabled: ventana.demostracion; onActivated: ventana.iniciarEscenario(ventana.escenario - 1) }
     Shortcut { sequence: "R"; enabled: ventana.demostracion; onActivated: ventana.iniciarEscenario(ventana.escenario) }
@@ -205,6 +233,7 @@ Window {
         clip: true
 
         PantallaCicloEnCurso {
+            id: pantallaPrueba
             anchors.fill: parent
             // DATOS DE EJEMPLO
             cicloActivo: "03"
