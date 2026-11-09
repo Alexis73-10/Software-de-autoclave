@@ -30,6 +30,7 @@ Sin alarma ni motivo en ningún modo (el resultado de la planta no expone los av
 
 ## DECISIÓN SIN CONFIRMAR
 - Regla PRI-06: un programa de usuario conserva su número frente a uno de fábrica con el mismo número; el de fábrica cede (queda sin número y fuera de la lista, con aviso en el log y sin `fabrica[6]`/`defecto(6)`). Aplica a cualquier número, también a futuros programas de fábrica y a programas Tuttnauer con el 6.
+- PRI-07: un programa de fábrica nuevo (fuera de los 5 anteriores) sin copia de usuario (número ocupado o retirado, o siembra omitida por JSON ilegible) queda sin número y sin `fabrica[n]`, con aviso en el log.
 - La siembra no usa un número ocupado (programa de usuario o `numeros_usados.json`) y no siembra mientras haya un JSON de usuario o `numeros_usados.json` ilegible (aviso, reintento en el arranque siguiente).
 - Prion se escribe y la marca se guarda con flush+fsync antes de `os.replace`.
 - Marca de «vistos» y el conjunto de 5 legados fijados en código; un equipo sin marca donde el hospital reasignó el número 6 no recibe Prion (aviso en el log).

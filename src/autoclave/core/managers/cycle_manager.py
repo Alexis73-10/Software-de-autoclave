@@ -5,7 +5,7 @@ import math
 import os
 import sys
 import logging
-from autoclave.utils.resources import resource_path, sembrar_faltantes_usuario
+from autoclave.utils.resources import resource_path, sembrar_faltantes_usuario, _FABRICA_LEGADA
 from autoclave.core.runtime.sensores_ciclo import asignacion_por_omision, interpretar_asignacion
 from autoclave.core.managers import catalogo_parametros
 
@@ -833,6 +833,7 @@ class CycleManager:
         # PRI-05: programas de fábrica nuevos llegan también a equipos ya instalados
         sembrar_faltantes_usuario(self.carpeta("cycles"))
         self._load_from_folder("cycles/user", source="user")
+        self._soltar_fabrica_sin_copia_de_usuario()
         self._descartar_numeros_repetidos()
         self._cargar_defectos()
 
@@ -908,6 +909,22 @@ class CycleManager:
         """Perfil por defecto de un número de programa: el del hospital
         (cycles/defecto) o, si no hay, el de fábrica. None si ninguno."""
         return self.defectos.get(numero) or self.fabrica.get(numero)
+
+    def _soltar_fabrica_sin_copia_de_usuario(self):
+        """PRI-07: un programa de fábrica NUEVO (fuera de los 5 anteriores) que
+        no tiene copia de usuario (su número está ocupado o retirado en
+        numeros_usados.json, o la siembra se omitió) queda sin número y sin
+        `fabrica[n]`: no se muestra un «n» que no se puede habilitar ni se
+        reutiliza un número retirado en Reportes. Los 5 anteriores no cambian."""
+        for c in list(self.cycles.values()):
+            if (getattr(c, "source", None) != "factory" or c.number is None
+                    or c.id in _FABRICA_LEGADA):
+                continue
+            logger.warning("Programa de fábrica %s sin copia de usuario: queda sin número %d "
+                           "(número ocupado o retirado, o siembra omitida)", c.id, c.number)
+            if getattr(self.fabrica.get(c.number), "id", None) == c.id:
+                del self.fabrica[c.number]
+            c.number = None
 
     def _descartar_numeros_repetidos(self):
         """Un mismo cycle_number en dos ciclos distintos es un error de

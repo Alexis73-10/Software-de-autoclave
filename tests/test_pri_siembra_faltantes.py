@@ -127,7 +127,8 @@ def test_sin_directorio_de_usuario_no_rompe_ni_lo_crea(raiz):
     assert resources.sembrar_faltantes_usuario(str(raiz)) == []
     assert not (raiz / "user").exists()
     cm = _cargar(raiz)
-    assert sorted(c.number for c in cm.cycles.values()) == [1, 2, 3, 4, 5, 6]   # fábrica
+    # solo fábrica: los 5 anteriores como siempre; Prion (nuevo, sin copia de usuario) sin número
+    assert sorted(c.number for c in cm.cycles.values() if c.number) == [1, 2, 3, 4, 5]
 
 
 def test_sin_fabrica_no_rompe(tmp_path):
@@ -263,3 +264,47 @@ def test_equipo_nuevo_siembra_prion_deshabilitado(tmp_path, monkeypatch):
     resources._sembrar("autoclave/cycles")
     d = json.loads((datos / "autoclave" / "cycles" / "user" / "prion.json").read_text(encoding="utf-8"))
     assert d["habilitado"] is False
+
+
+# ── residual de la segunda revisión: fábrica nueva sin copia de usuario ──
+
+def test_cm_numero_retirado_en_numeros_usados_prion_queda_sin_numero(raiz):
+    (raiz / "user" / "numeros_usados.json").write_text("[6]", encoding="utf-8")
+    cm = _cargar(raiz)
+    assert cm.cycles["prion"].number is None
+    assert cm.fabrica.get(6) is None and cm.defecto(6) is None
+    assert 6 not in [c.number for c in cm.cycles.values()]
+    assert not (raiz / "user" / "prion.json").exists()
+
+
+def test_cm_json_de_usuario_ilegible_prion_sin_numero_y_los_legados_igual(raiz):
+    (raiz / "user" / "roto.json").write_text("{no es json", encoding="utf-8")
+    cm = _cargar(raiz)
+    assert cm.cycles["prion"].number is None and cm.fabrica.get(6) is None
+    assert sorted(c.number for c in cm.cycles.values() if c.number) == [1, 2, 3, 4, 5]
+
+
+def test_cm_hospital_con_programa_6_conserva_todo(raiz):
+    _programa_usuario_con_6(raiz)
+    cm = _cargar(raiz)
+    assert cm.cycles["mio"].number == 6 and cm.cycles["prion"].number is None
+    assert cm.fabrica.get(6) is None
+
+
+def test_cm_prion_sembrado_conserva_el_6(raiz):
+    cm = _cargar(raiz)
+    assert cm.cycles["prion"].number == 6 and cm.cycles["prion"].source == "user"
+    assert cm.fabrica[6].id == "prion"
+
+
+def test_cm_legado_de_fabrica_sin_copia_de_usuario_no_cambia(raiz):
+    """Los 5 anteriores no se tocan aunque el hospital haya borrado su copia."""
+    (raiz / "user" / "textiles.json").unlink()
+    cm = _cargar(raiz)
+    assert cm.cycles["textiles"].number == 5 and cm.fabrica[5].id == "textiles"
+
+
+def test_cm_repo_tal_cual_prion_conserva_el_6():
+    cm = CycleManager()
+    cm.load_all_cycles()
+    assert cm.cycles["prion"].number == 6 and cm.fabrica[6].id == "prion"
