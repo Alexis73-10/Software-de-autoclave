@@ -16,6 +16,20 @@ from tests import test_calentamiento_fase as tcal
 PSAT_134 = p_saturacion_kpa(134.0)
 
 
+
+# PAM (9-nov): el enclave de t_obj (5 s sostenidos) rige ahora para toda carga
+# y la entrada a ESTABLE_PREESTERILIZACION lo exige. Estas pruebas son
+# anteriores y no ejercitan esa espera: el enclave se hace en el primer tick
+# con T >= t_obj (el enclave de 5 s lo cubren test_ajuste_7nov_liquidos.py y
+# test_pam_*.py).
+import pytest as _pytest_pam
+
+
+@_pytest_pam.fixture(autouse=True)
+def _enclave_inmediato_pam(monkeypatch):
+    from autoclave.state_machine.cycle_phases import calentamiento as _cal
+    monkeypatch.setattr(_cal, "_ENCLAVE_T_OBJ_SOSTENIDO_S", 0.0)
+
 def test_constante_de_tolerancia_psat():
     assert cal._TOLERANCIA_PSAT_KPA == 2.0
 
@@ -53,7 +67,9 @@ def _fase_techo(pres):
     fase, estado, set_do = tcal._make_fase(t_obj=134.0, presion_add=11.0, rango=50.0,
                                            factor=0.0, tiempo_estable=999)
     fase.update()
-    estado.sensores_temp["temp_camara"] = 134.0
+    # PAM (9-nov): T bajo t_obj para medir el techo de la rampa antes del
+    # enclave (con T >= t_obj se fijaría P_trabajo y regiría la bajada)
+    estado.sensores_temp["temp_camara"] = 133.0
     estado.sensores_pres["pres_camara"] = pres
     fase.update()
     return fase

@@ -9,6 +9,20 @@ _UNA_REF = {"temp_camara": "principal", "temp_2_camara": "no_en_uso", "temp_ref"
 _DOS_REF = {"temp_camara": "principal", "temp_2_camara": "referencia", "temp_ref": "referencia"}
 
 
+
+# PAM (9-nov): el enclave de t_obj (5 s sostenidos) rige ahora para toda carga
+# y la entrada a ESTABLE_PREESTERILIZACION lo exige. Estas pruebas son
+# anteriores y no ejercitan esa espera: el enclave se hace en el primer tick
+# con T >= t_obj (el enclave de 5 s lo cubren test_ajuste_7nov_liquidos.py y
+# test_pam_*.py).
+import pytest as _pytest_pam
+
+
+@_pytest_pam.fixture(autouse=True)
+def _enclave_inmediato_pam(monkeypatch):
+    from autoclave.state_machine.cycle_phases import calentamiento as _cal
+    monkeypatch.setattr(_cal, "_ENCLAVE_T_OBJ_SOSTENIDO_S", 0.0)
+
 def _ventana(asignacion, refs):
     fase, estado, _ = tcal._make_fase(t_obj=134.0, presion_add=11.0, tiempo_estable=5)
     fase.cycle.sensores = asignacion
