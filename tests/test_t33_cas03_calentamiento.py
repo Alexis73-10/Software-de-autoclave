@@ -18,9 +18,9 @@ EXTRA = 15.0
 P_OBJ = p_saturacion_kpa(T_OBJ)          # p_ref
 P_TECHO = P_OBJ + P_ADD                  # techo normal
 MARGEN = 8.0                             # margen_chaqueta_est por defecto
-TOPE = P_TECHO - 2.0                     # min(techo - 2, 375 - 10, 350)
+TOPE = P_TECHO - 2.0                     # tope de banda anterior a CRI-01 (solo referencia)
 TOPE_BAJA = 350.0                        # min(375 - 10, 350): nivel baja (ajuste 8-nov)
-CONSIGNA_BANDA = min(P_OBJ + MARGEN, TOPE)
+CONSIGNA_BANDA = P_OBJ + MARGEN          # CRI-01: min(p_ref + dp, 350), dp inicial = margen
 
 
 
@@ -94,7 +94,7 @@ def test_sostenimiento_banda_con_histeresis_bajo_la_consigna():
     _tick(fase, estado, T_OBJ, P_OBJ, pres_chaqueta=CONSIGNA_BANDA - 3.5)
     assert _ultima_chaqueta(set_do) == "on"
     assert estado.cascada_chaqueta == {"nivel": "banda", "consigna": pytest.approx(CONSIGNA_BANDA),
-                                       "valvula": True}
+                                       "valvula": True, "dp": pytest.approx(MARGEN)}
     set_do.reset_mock()
     _tick(fase, estado, T_OBJ, P_OBJ, pres_chaqueta=CONSIGNA_BANDA + 0.2)
     assert _ultima_chaqueta(set_do) == "off"

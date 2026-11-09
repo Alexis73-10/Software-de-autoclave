@@ -97,7 +97,8 @@ def test_modo_chaqueta_pwm_conmuta_solo_chaqueta(monkeypatch):
     # PWM_ACTIVO: T >= 134 + 0.3 + 0.3; presión dentro de la banda [P_sp-2, P_sp+1]
     # (A14-M1: P_sp = Psat(134 + 0.3 + 0.3), fija). CAS-02 (tanda 33): en modo
     # chaqueta ya no hay PWM; la cascada cierra la chaqueta al llegar a su
-    # consigna de banda (min(P_sp + 8, techo - 2) = 313,2 kPa aquí).
+    # consigna de banda (CRI-01, tanda 35: min(P_sp + dp, 350) con dp inicial 8
+    # y error 0, ≈317,6 kPa; antes min(P_sp + 8, techo - 2) = 313,2).
     f, estado, set_do, reloj = _chaqueta(monkeypatch, temp=135.0, pres=ap.psat(134.6))
     f.update()
     for _ in range(6):
@@ -106,7 +107,7 @@ def test_modo_chaqueta_pwm_conmuta_solo_chaqueta(monkeypatch):
     assert f._en_recuperacion is False
     set_do.vapor_chaqueta_on.assert_called()
     set_do.vapor_chaqueta_off.assert_not_called()      # sin PWM: ON bajo la consigna
-    estado.sensores_pres["pres_chaqueta"] = TECHO - 2.0
+    estado.sensores_pres["pres_chaqueta"] = ap.psat(134.6) + 8.0
     for _ in range(6):
         reloj.avanzar(0.5)
         assert f.update() == FaseResult.EN_CURSO

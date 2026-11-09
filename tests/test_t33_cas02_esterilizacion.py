@@ -6,7 +6,13 @@ La cascada (cascada_chaqueta.py) decide vapor_chaqueta con p_ref = P_sp
 exención M2-REC-01. Prevalecen VCH-AIS, inhibir_vapor_chaqueta (D-CHQ, sin
 suministro, sin lectura) y la falta de lectura del Principal o de la cámara.
 RECUPERACION se sigue calculando pero no decide la válvula. Modo cámara sin
-cambio. Reloj monotonic simulado (tests/helpers/t12_e12_apoyo.py)."""
+cambio. Reloj monotonic simulado (tests/helpers/t12_e12_apoyo.py).
+
+CRI (tanda 35): la banda ya no se limita a techo - 2 (CRI-01) y el nivel
+«baja» empieza bajo min(Psat(T_est) + brecha_segura_presion, P_sp - 1)
+(CRI-02); RECUPERACION mide brecha_segura_presion sobre Psat. BAJO y las
+consignas de estas pruebas se ajustaron a eso; lo integral y la herencia se
+prueban en tests/test_cri_cascada.py."""
 
 import logging
 
@@ -26,11 +32,13 @@ T_EST = 134.0
 PRESION_ADD = 15.0
 P_SP = p_saturacion_kpa(134.6)                 # brecha 0,3 + histéresis 0,3 ≈ 309,57
 TECHO = p_saturacion_kpa(T_EST) + PRESION_ADD  # P_control_max ≈ 319,2
-TOPE = TECHO - cc.MARGEN_TECHO_KPA             # < 375 - 10 y < suministro 350
-TOPE_BAJA = 350.0                              # min(375 - 10, 350): nivel baja (ajuste 8-nov)
+TECHO_MENOS_2 = TECHO - 2.0                    # tope de banda anterior a CRI-01
+TOPE_BAJA = 350.0                              # min(375 - 10, 350): baja y techo de banda
 MARGEN = 4.0                                   # margen_chaqueta_est de las pruebas
-CONSIGNA_BANDA = P_SP + MARGEN                 # < TOPE
-BAJO = P_SP - cc.UMBRAL_BAJO_KPA - 0.5         # nivel baja
+CONSIGNA_BANDA = P_SP + MARGEN                 # < TOPE_BAJA
+BRECHA_P = 1.5                                 # brecha_segura_presion de _make_fase
+P_BAJA = min(p_saturacion_kpa(T_EST) + BRECHA_P, P_SP - 1.0)   # CRI-02 ≈ 305,7
+BAJO = P_BAJA - 0.5                            # nivel baja
 ALTO = P_SP + cc.UMBRAL_ALTO_KPA + 0.5         # nivel alta
 H = cc.HISTERESIS_KPA
 
@@ -65,9 +73,10 @@ def _chaqueta(set_do):
 
 
 def test_consignas_de_las_pruebas():
-    assert TOPE == pytest.approx(cc.CascadaChaqueta.tope(TECHO, 375.0, 350.0))
-    assert P_SP + 1 < CONSIGNA_BANDA < TOPE
+    assert P_SP + 1 < CONSIGNA_BANDA < TOPE_BAJA
     assert TOPE_BAJA == pytest.approx(cc.CascadaChaqueta.tope_baja(375.0, 350.0))
+    # BAJO sobre la falla de presión baja (Psat - brecha_error_presion 2)
+    assert BAJO > p_saturacion_kpa(T_EST) - 2.0
 
 
 # ── Niveles con la fase real ────────────────────────────────────────────────
@@ -84,7 +93,7 @@ def test_nivel_baja_lleva_la_chaqueta_al_tope(monkeypatch):
     assert pub["nivel"] == cc.NIVEL_BAJA and pub["valvula"] is True
     assert pub["consigna"] == pytest.approx(TOPE_BAJA)
     # sobre techo − 2 sigue ON (la baja ya no se limita al techo)
-    estado.sensores_pres["pres_chaqueta"] = TOPE + 5.0
+    estado.sensores_pres["pres_chaqueta"] = TECHO_MENOS_2 + 5.0
     _tick(f, set_do, reloj)
     assert _chaqueta(set_do) == "vapor_chaqueta_on"
     # llega al tope: OFF
@@ -122,11 +131,12 @@ def test_nivel_banda_usa_el_margen_del_programa(monkeypatch):
     f, estado, _, _ = _fase(monkeypatch, 250.0, margen=6.0)
     f.update()
     assert estado.cascada_chaqueta["consigna"] == pytest.approx(P_SP + 6.0)
-    # margen por defecto (8): la consigna queda limitada por el tope
+    # margen por defecto (8): CRI-01, ya sin el tope techo - 2
     f2, estado2, _, _ = _fase(monkeypatch, 250.0, margen=None)
     f2.update()
     assert estado2.cascada_chaqueta["consigna"] == pytest.approx(
-        min(P_SP + ccc.MARGEN_DEFECTO_KPA, TOPE))
+        P_SP + ccc.MARGEN_DEFECTO_KPA)
+    assert P_SP + ccc.MARGEN_DEFECTO_KPA > TECHO_MENOS_2
 
 
 def test_nivel_alta_off_aunque_la_chaqueta_este_baja(monkeypatch):
@@ -136,13 +146,13 @@ def test_nivel_alta_off_aunque_la_chaqueta_este_baja(monkeypatch):
     set_do.vapor_chaqueta_on.assert_not_called()
     set_do.vapor_camara_on.assert_called()
     assert estado.cascada_chaqueta == {"nivel": cc.NIVEL_ALTA, "consigna": None,
-                                       "valvula": False}
+                                       "valvula": False, "dp": pytest.approx(MARGEN)}
 
 
 def test_cambio_de_nivel_reevalua_en_el_mismo_tick(monkeypatch):
     # chaqueta entre la consigna de banda y el tope: OFF en banda, ON en baja
     pj = CONSIGNA_BANDA + 0.5
-    assert pj <= TOPE - H
+    assert pj <= TOPE_BAJA - H
     f, estado, set_do, reloj = _fase(monkeypatch, pj)
     f.update()
     assert _chaqueta(set_do) == "vapor_chaqueta_off"
@@ -162,11 +172,17 @@ def test_recuperacion_no_decide_la_valvula(monkeypatch):
     f.update()
     assert f._en_recuperacion is True
     assert _chaqueta(set_do) == "vapor_chaqueta_off"
-    # PWM_ACTIVO (T sobre la salida de RECUPERACION) bajo la banda: ON
-    f2, _, set_do2, _ = _fase(monkeypatch, 250.0, temp=134.7, pres=BAJO)
+    # PWM_ACTIVO (T y P sobre la salida de RECUPERACION) en la banda, con la
+    # chaqueta bajo la consigna: ON
+    f2, _, set_do2, _ = _fase(monkeypatch, 250.0, temp=134.7, pres=P_SP)
     f2.update()
     assert f2._en_recuperacion is False
     assert _chaqueta(set_do2) == "vapor_chaqueta_on"
+    # CRI-02: bajo Psat + brecha_segura_presion, RECUPERACION (y nivel baja)
+    f3, _, set_do3, _ = _fase(monkeypatch, 250.0, temp=134.7, pres=BAJO)
+    f3.update()
+    assert f3._en_recuperacion is True
+    assert _chaqueta(set_do3) == "vapor_chaqueta_on"
 
 
 @pytest.mark.parametrize("factor, intervalo", [(1.0, 30), (99.0, 3), (70.0, 0)])
@@ -248,7 +264,7 @@ def test_sin_lectura_de_chaqueta_off(monkeypatch, lectura):
     assert _chaqueta(set_do) == "vapor_chaqueta_off"
     set_do.vapor_camara_on.assert_called()
     assert estado.cascada_chaqueta == {"nivel": cc.NIVEL_SIN_DATOS, "consigna": None,
-                                       "valvula": False}
+                                       "valvula": False, "dp": None}
 
 
 def test_sin_lectura_del_principal_off(monkeypatch):
@@ -388,7 +404,7 @@ def test_integracion_cicloestate(monkeypatch):
     f.estado, f.set_do = estado, set_do
     f.reset()
     s3._con_fases(ciclo, f)
-    consigna = min(P_SP + ccc.MARGEN_DEFECTO_KPA, TOPE)
+    consigna = P_SP + ccc.MARGEN_DEFECTO_KPA       # CRI-01: sin techo - 2
 
     assert ciclo.run() == CicloResultado.EN_CURSO
     assert estado.inhibir_vapor_chaqueta is False

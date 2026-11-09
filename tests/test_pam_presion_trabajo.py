@@ -433,82 +433,10 @@ def test_c03_vapor_sobrecalentado_sin_cambio(monkeypatch):
     assert f.alarma_fallo[0] == "CIC-13"
 
 
-# ── PAM-06: brecha segura / brecha de error ───────────────────────────────
+# PAM-06 retirada en la tanda 35 (CRI-03): sus pruebas pasaron a tests/test_cri_coherencia.py
 
-def _programa(**valores):
-    return pv.programa_liquidos(**valores)
-
-
-def test_regla_brechas():
-    assert cp.errores_brecha_presion(_programa().parameters) == []
-    p = _programa(esterilizacion__brecha_segura_presion=3.0).parameters
-    errores = cp.errores_brecha_presion(p)
-    assert errores and cp.codigo_coherencia(errores) == cp.CODIGO_COHERENCIA_BRECHA_PRESION
-    assert cp.errores_brecha_presion(_programa(esterilizacion__brecha_segura_presion=2.0)
-                                     .parameters)          # igual también incumple
-
-
-def test_al_guardar_se_rechaza():
-    prog = _programa()
-    with pytest.raises(cp.ErrorCoherencia) as e:
-        prog.set_param("esterilizacion", ["brecha_segura_presion"], 3.0)
-    assert e.value.codigo == "COHERENCIA_BRECHA_PRESION"
-    assert prog.get_param("esterilizacion", "brecha_segura_presion") == 1.5
-    with pytest.raises(cp.ErrorCoherencia):
-        prog.set_param("esterilizacion", ["brecha_error_presion"], 1.0)
-
-
-def test_programa_ya_incoherente_no_bloquea_otros_parametros_y_se_corrige():
-    prog = _programa(esterilizacion__brecha_segura_presion=3.0)   # SN260001
-    prog.set_param("esterilizacion", ["tiempo_esterilizacion"], 20)
-    with pytest.raises(cp.ErrorCoherencia):
-        prog.set_param("esterilizacion", ["brecha_segura_presion"], 2.5)
-    prog.set_param("esterilizacion", ["brecha_segura_presion"], 1.5)
-    assert cp.errores_brecha_presion(prog.parameters) == []
-
-
-def test_al_cargar_no_rechaza_ni_migra():
-    p = _programa(esterilizacion__brecha_segura_presion=3.0).parameters
-    assert not any(e.startswith("Coherencia de brechas") for e in cp.errores_programa(p))
-    assert not any(e.startswith("Coherencia de brechas") for e in cp.errores_coherencia(p))
-
-
-def test_al_cargar_aviso_sis06_sin_migrar(caplog):
-    from unittest.mock import MagicMock
-    from autoclave.backend.context import BackendContext
-    from autoclave.core.managers.cycle_manager import CycleManager
-    caplog.set_level(logging.WARNING)
-    prog = _programa(esterilizacion__brecha_segura_presion=3.0)
-    cm = CycleManager.__new__(CycleManager)
-    cm.cycles = {prog.id: prog}
-    assert [c for c, _ in cm.incoherencias_brecha_presion()] == [prog]
-    CycleManager._registrar_advertencias(prog)
-    assert "PAM-06" in caplog.text
-    cm.migraciones_correctivas = lambda: []
-    alarmas = MagicMock()
-    BackendContext._avisar_migraciones_correctivas(
-        types.SimpleNamespace(cycle_manager=cm, alarm_manager=alarmas))
-    llamadas = [c for c in alarmas.activar.call_args_list if c.args[0] == "SIS-06"]
-    assert len(llamadas) == 1
-    assert llamadas[0].kwargs["parametro"] == "brecha_segura_presion"
-    assert llamadas[0].kwargs["anterior"] == llamadas[0].kwargs["nuevo"] == "3"
-    assert prog.get_param("esterilizacion", "brecha_segura_presion") == 3.0
-
-
-def test_textos_y_mapeo_de_pantalla():
+def test_textos_pam():
     from autoclave import i18n
-    from autoclave.ui_qml import sesion_backend
-    from autoclave.ui_qml.controllers import parametros_ciclo_controller as pcc
     for idioma in ("es", "en"):
-        assert i18n.existe("opciones.err_coherencia_brecha_presion", idioma)
         assert i18n.existe("ticket_ciclo.presion_trabajo", idioma)
         assert i18n.existe("motivos_fase.est_aire_kpa", idioma)
-    assert pcc.mensaje_de("COHERENCIA_BRECHA_PRESION") == "opciones.err_coherencia_brecha_presion"
-    assert sesion_backend._CLAVES["COHERENCIA_BRECHA_PRESION"] == \
-        "opciones.err_coherencia_brecha_presion"
-
-
-def test_programas_de_fabrica_cumplen_pam06():
-    for ruta in sorted((pv.RAIZ / "src" / "autoclave" / "cycles").glob("*/*.json")):
-        prog = pv._programa(ruta)
-        assert cp.errores_brecha_presion(prog.parameters) == [], ruta.name

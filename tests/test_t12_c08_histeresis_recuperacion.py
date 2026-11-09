@@ -65,7 +65,7 @@ def test_entrada_inmediata_por_temperatura(monkeypatch):
 def test_salida_exige_histeresis_de_presion(monkeypatch):
     f, estado, _, reloj = _fase(monkeypatch)
     f.update()
-    p_ref = ap.psat(T_EST) - 1.5
+    p_ref = ap.psat(T_EST) + 1.5             # CRI-02 (tanda 35): sobre Psat (antes - 1.5)
     ap.poner(estado, T_EST + 2.0, p_ref + 0.9)
     f.update()
     assert f._en_recuperacion is True        # falta 0.1 kPa de histéresis

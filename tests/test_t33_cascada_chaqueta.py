@@ -1,4 +1,10 @@
-"""CAS-01 (tanda 33): componente puro de control en cascada de vapor_chaqueta."""
+"""CAS-01 (tanda 33): componente puro de control en cascada de vapor_chaqueta.
+
+CRI-01 (tanda 35): `evaluar` pide `ahora`; con el mismo instante en cada tick
+(dt = 0) la integral no se mueve y dp = margen_est, así que estas pruebas
+siguen fijando niveles, histéresis y falla cerrada. CRI-01 retiró el tope
+techo - 2 de la banda y el parámetro p_techo (lo integral se prueba en
+tests/test_cri_cascada.py)."""
 
 import logging
 import math
@@ -10,18 +16,18 @@ from autoclave.state_machine.cycle_phases.cascada_chaqueta import CascadaChaquet
 
 LOGGER = "autoclave.state_machine.cycle_phases.cascada_chaqueta"
 
-# p_ref 200: baja < 198, alta > 201. tope = min(230-2, 375-10, 350) = 228.
-# banda: min(200 + 8, 228) = 208. baja (ajuste 8-nov): min(375-10, 350) = 350.
+# p_ref 200: baja < 198, alta > 201. banda: min(200 + 8, 350) = 208.
+# baja (ajuste 8-nov): min(375-10, 350) = 350.
 P_REF = 200.0
-P_TECHO = 230.0
 MARGEN = 8.0
 PMAX = 375.0
 SUMINISTRO = 350.0
 
 
 def _ev(c, pc, pj, **kw):
-    args = dict(p_ref=P_REF, p_techo=P_TECHO, margen_est=MARGEN,
-                presion_max_chaqueta_control=PMAX, presion_suministro_vapor=SUMINISTRO)
+    args = dict(p_ref=P_REF, margen_est=MARGEN,
+                presion_max_chaqueta_control=PMAX, presion_suministro_vapor=SUMINISTRO,
+                ahora=0.0)
     args.update(kw)
     return c.evaluar(pc, pj, **args)
 
@@ -59,10 +65,10 @@ def test_nivel_alta_off_sin_consigna():
     assert c.valvula is False
 
 
-def test_banda_consigna_limitada_por_tope():
-    # margen grande: p_ref + 40 = 240 > tope 228.
+def test_banda_consigna_sin_tope_de_techo():
+    # CRI-01: margen 40 -> 240 (antes se recortaba a techo - 2 = 228)
     r = _ev(CascadaChaqueta(), 199.0, 200.0, margen_est=40.0)
-    assert r.consigna == pytest.approx(228.0)
+    assert r.consigna == pytest.approx(240.0)
 
 
 # --- Histéresis ----------------------------------------------------------
@@ -100,7 +106,7 @@ def test_arranque_en_zona_de_histeresis_queda_off():
 def test_cambio_banda_a_baja_reevalua_mismo_tick():
     c = CascadaChaqueta()
     assert _ev(c, 199.0, 210.0).decision is False       # banda, sobre 208
-    r = _ev(c, 197.0, 210.0)                            # baja: consigna 228
+    r = _ev(c, 197.0, 210.0)                            # baja: consigna 350
     assert r.nivel == cc.NIVEL_BAJA
     assert r.decision is True
 
@@ -130,26 +136,22 @@ def test_alta_a_banda_vuelve_a_encender_bajo_consigna_menos_3():
 
 # --- Tope ----------------------------------------------------------------
 
-def test_tope_por_techo():
-    assert CascadaChaqueta.tope(220.0, 375.0, 350.0) == pytest.approx(218.0)
-    # el techo limita la banda (margen alto), no la baja (ajuste 8-nov)
-    r = _ev(CascadaChaqueta(), 199.0, 200.0, p_techo=220.0, margen_est=30.0)
-    assert r.consigna == pytest.approx(218.0)
-    r = _ev(CascadaChaqueta(), 190.0, 200.0, p_techo=220.0)
-    assert r.consigna == pytest.approx(350.0)
+def test_banda_limitada_por_tope_baja():
+    # CRI-01: la banda solo la limita tope_baja (D-CHQ - 10 / suministro)
+    r = _ev(CascadaChaqueta(), 199.0, 200.0, margen_est=30.0,
+            presion_suministro_vapor=220.0)
+    assert r.consigna == pytest.approx(220.0)
 
 
 def test_tope_por_dchq_menos_10():
-    assert CascadaChaqueta.tope(400.0, 300.0, 350.0) == pytest.approx(290.0)
     assert CascadaChaqueta.tope_baja(300.0, 350.0) == pytest.approx(290.0)
-    r = _ev(CascadaChaqueta(), 190.0, 200.0, p_techo=400.0, presion_max_chaqueta_control=300.0)
+    r = _ev(CascadaChaqueta(), 190.0, 200.0, presion_max_chaqueta_control=300.0)
     assert r.consigna == pytest.approx(290.0)
 
 
 def test_tope_por_suministro():
-    assert CascadaChaqueta.tope(400.0, 375.0, 250.0) == pytest.approx(250.0)
     assert CascadaChaqueta.tope_baja(375.0, 250.0) == pytest.approx(250.0)
-    r = _ev(CascadaChaqueta(), 190.0, 200.0, p_techo=400.0, presion_suministro_vapor=250.0)
+    r = _ev(CascadaChaqueta(), 190.0, 200.0, presion_suministro_vapor=250.0)
     assert r.consigna == pytest.approx(250.0)
 
 
@@ -157,11 +159,10 @@ def test_tope_por_suministro():
 
 def test_tope_baja_no_depende_del_techo():
     """Baja: min(presion_max_chaqueta_control - 10, suministro); con los
-    defectos del equipo (375, 350) vale 350 aunque el techo sea 218."""
-    for techo in (202.0, 220.0, 230.0, 400.0):
-        r = _ev(CascadaChaqueta(), 190.0, 150.0, p_techo=techo)
-        assert r.nivel == cc.NIVEL_BAJA
-        assert r.consigna == pytest.approx(350.0)
+    defectos del equipo (375, 350) vale 350 (CRI-01: el techo ya no entra)."""
+    r = _ev(CascadaChaqueta(), 190.0, 150.0)
+    assert r.nivel == cc.NIVEL_BAJA
+    assert r.consigna == pytest.approx(350.0)
     assert CascadaChaqueta.tope_baja(375.0, 350.0) == pytest.approx(350.0)
     assert CascadaChaqueta.tope_baja(355.0, 350.0) == pytest.approx(345.0)
 
@@ -197,16 +198,13 @@ def test_baja_parametros_invalidos_falla_cerrada():
         assert r.motivo == cc.MOTIVO_PARAMETROS_INVALIDOS
 
 
-def test_tope_bajo_p_ref_advierte_una_vez_y_no_supera_techo(caplog):
+def test_tope_bajo_p_ref_advierte_una_vez_y_no_lo_supera(caplog):
     c = CascadaChaqueta()
     caplog.set_level(logging.WARNING, logger=LOGGER)
-    # techo 202 -> tope 200 < p_ref + 1 = 201.
-    for pc in (199.0, 199.5, 198.5):
-        r = _ev(c, pc, 150.0, p_techo=202.0)
+    # suministro 200 -> tope_baja 200 < p_ref + 1 = 201.
+    for pc in (199.0, 199.5, 198.5, 190.0):
+        r = _ev(c, pc, 150.0, presion_suministro_vapor=200.0)
         assert r.consigna == pytest.approx(200.0)
-        assert r.consigna <= 202.0
-    # en baja la consigna ya no es el tope del techo (ajuste 8-nov)
-    assert _ev(c, 190.0, 150.0, p_techo=202.0).consigna == pytest.approx(350.0)
     avisos = [x for x in caplog.records if x.levelno == logging.WARNING]
     assert len(avisos) == 1
     assert "Cascada chaqueta" in avisos[0].getMessage()
@@ -215,9 +213,9 @@ def test_tope_bajo_p_ref_advierte_una_vez_y_no_supera_techo(caplog):
 def test_reset_rearma_la_advertencia(caplog):
     c = CascadaChaqueta()
     caplog.set_level(logging.WARNING, logger=LOGGER)
-    _ev(c, 190.0, 150.0, p_techo=202.0)
+    _ev(c, 190.0, 150.0, presion_suministro_vapor=200.0)
     c.reset()
-    _ev(c, 190.0, 150.0, p_techo=202.0)
+    _ev(c, 190.0, 150.0, presion_suministro_vapor=200.0)
     assert len([x for x in caplog.records if x.levelno == logging.WARNING]) == 2
 
 
@@ -255,9 +253,9 @@ def test_sin_lectura_chaqueta_falla_cerrada(valor):
     assert c.valvula is False
 
 
-@pytest.mark.parametrize("campo", ["p_ref", "p_techo", "margen_est",
+@pytest.mark.parametrize("campo", ["p_ref", "margen_est",
                                    "presion_max_chaqueta_control",
-                                   "presion_suministro_vapor"])
+                                   "presion_suministro_vapor", "ahora"])
 @pytest.mark.parametrize("valor", [None, math.nan, math.inf, -math.inf, "x", True])
 def test_parametros_no_finitos_falla_cerrada(campo, valor):
     c = CascadaChaqueta()
@@ -320,11 +318,13 @@ def test_log_una_linea_por_cambio_de_nivel_o_consigna(caplog):
 
 def test_publicar():
     c = CascadaChaqueta()
-    assert c.publicar() == {"nivel": None, "consigna": None, "valvula": False}
+    assert c.publicar() == {"nivel": None, "consigna": None, "valvula": False, "dp": None}
     _ev(c, 199.0, 200.0)
-    assert c.publicar() == {"nivel": "banda", "consigna": pytest.approx(208.0), "valvula": True}
+    assert c.publicar() == {"nivel": "banda", "consigna": pytest.approx(208.0),
+                            "valvula": True, "dp": pytest.approx(8.0)}
     _ev(c, 202.0, 200.0)
-    assert c.publicar() == {"nivel": "alta", "consigna": None, "valvula": False}
+    assert c.publicar() == {"nivel": "alta", "consigna": None, "valvula": False,
+                            "dp": pytest.approx(8.0)}
 
 
 def test_reset():
@@ -332,12 +332,12 @@ def test_reset():
     _ev(c, 199.0, 200.0)
     c.reset()
     assert c.valvula is False
-    assert c.publicar() == {"nivel": None, "consigna": None, "valvula": False}
+    assert c.publicar() == {"nivel": None, "consigna": None, "valvula": False, "dp": None}
     assert _ev(c, 199.0, 206.0).decision is False       # sin memoria de ON
 
 
 def test_constantes():
     assert cc.HISTERESIS_KPA == 3.0
-    assert cc.MARGEN_TECHO_KPA == 2.0
+    assert not hasattr(cc, "MARGEN_TECHO_KPA")         # CRI-01: retirado
     assert cc.UMBRAL_BAJO_KPA == 2.0
     assert cc.UMBRAL_ALTO_KPA == 1.0

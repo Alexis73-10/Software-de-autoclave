@@ -319,29 +319,35 @@ _PREFIJO_CONSIGNA = "Límite de consigna de chaqueta: "
 _PREFIJO_RECUPERACION = "Coherencia de recuperación: "
 _PREFIJO_DESCOMPRESION = "Coherencia de descompresión: "
 _PREFIJO_CONTRAPRESION = "Límite de contrapresión de enfriamiento: "
-_PREFIJO_BRECHA_PRESION = "Coherencia de brechas de presión: "
+_PREFIJO_BRECHA_RECUPERACION = "Coherencia de brecha de recuperación: "
 
-# ── PAM-06 (9-nov, planeacion_presion_add_margen.md): brecha segura / error ──
-# esterilizacion.brecha_segura_presion < brecha_error_presion; si no, la
-# RECUPERACION por presión dispara después de la falla CIC-04. Se rechaza al
-# GUARDAR (Cycle.set_param); al CARGAR no rechaza ni migra: aviso SIS-06 y log
-# (recomendación del plan, PAM-P1 pendiente de Cristian). Por eso no está en
-# errores_coherencia/errores_programa.
-CODIGO_COHERENCIA_BRECHA_PRESION = "COHERENCIA_BRECHA_PRESION"
-RUTAS_BRECHA_PRESION = (("esterilizacion", "brecha_segura_presion"),
-                        ("esterilizacion", "brecha_error_presion"))
+# ── CRI-03 (tanda 35, planeacion_cascada_integral.md; reemplaza a PAM-06) ──
+# esterilizacion.brecha_segura_presion < presion_add_esterilizacion - 3 kPa; si
+# no, la recuperación queda pegada al techo de aislamiento. Se rechaza al
+# GUARDAR (Cycle.set_param); al CARGAR no rechaza ni migra: aviso SIS-06 y log.
+# Por eso no está en errores_coherencia/errores_programa.
+CODIGO_COHERENCIA_BRECHA_RECUPERACION = "COHERENCIA_BRECHA_RECUPERACION"
+MARGEN_BRECHA_RECUPERACION_KPA = 3.0
+RUTAS_BRECHA_RECUPERACION = (("esterilizacion", "brecha_segura_presion"),
+                             ("esterilizacion", "presion_add_esterilizacion"))
+# CRI-04: marca en la hoja de brecha_segura_presion (migración de significado)
+MARCA_MIGRACION_CRI = "migrado_cri"
+ORIGEN_MIGRACION_CRI = "migración CRI: brecha_segura_presion medida sobre Psat"
 
 
-def errores_brecha_presion(parameters: dict) -> list[str]:
-    """PAM-06: [mensaje] si brecha_segura_presion >= brecha_error_presion.
-    Valores ausentes o no numéricos no se evalúan (los marca el catálogo)."""
+def errores_brecha_recuperacion(parameters: dict) -> list[str]:
+    """CRI-03: [mensaje] si brecha_segura_presion >= presion_add_esterilizacion
+    - 3. Valores ausentes o no finitos no se evalúan (los marca el catálogo)."""
     segura = _valor(parameters, "esterilizacion", "brecha_segura_presion")
-    error = _valor(parameters, "esterilizacion", "brecha_error_presion")
-    if not (_num(segura) and _num(error)) or segura < error:
+    add = _valor(parameters, "esterilizacion", "presion_add_esterilizacion")
+    if not (_num(segura) and _num(add)):
         return []
-    return [f"{_PREFIJO_BRECHA_PRESION}brecha_segura_presion ({segura:g} kPa) debe ser menor "
-            f"que brecha_error_presion ({error:g} kPa); si no, la recuperación por presión "
-            f"llega después de la falla por presión baja"]
+    limite = add - MARGEN_BRECHA_RECUPERACION_KPA
+    if segura < limite:
+        return []
+    return [f"{_PREFIJO_BRECHA_RECUPERACION}brecha_segura_presion ({segura:g} kPa) debe ser "
+            f"menor que presion_add_esterilizacion - {MARGEN_BRECHA_RECUPERACION_KPA:g} "
+            f"({limite:g} kPa); si no, la recuperación queda pegada al techo de aislamiento"]
 
 
 def codigo_coherencia(errores: list[str]) -> str:
@@ -363,8 +369,8 @@ def codigo_coherencia(errores: list[str]) -> str:
         return CODIGO_COHERENCIA_RECUPERACION
     if any(e.startswith(_PREFIJO_DESCOMPRESION) for e in errores):
         return CODIGO_COHERENCIA_DESCOMPRESION
-    if any(e.startswith(_PREFIJO_BRECHA_PRESION) for e in errores):
-        return CODIGO_COHERENCIA_BRECHA_PRESION
+    if any(e.startswith(_PREFIJO_BRECHA_RECUPERACION) for e in errores):
+        return CODIGO_COHERENCIA_BRECHA_RECUPERACION
     return "COHERENCIA_LIQUIDO"
 
 

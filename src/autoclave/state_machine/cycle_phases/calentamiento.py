@@ -106,6 +106,12 @@
 #     de hoy), estado.inhibir_vapor_chaqueta (D-CHQ) y el corte duro de CICLO.
 #     La rampa previa no cambia. Se publica en estado.cascada_chaqueta
 #     (None mientras la cascada no decide).
+#   - CRI-01 (tanda 35, planeacion_cascada_integral.md): la consigna de
+#     banda es min(p_ref + dp, tope_baja), con dp integral (sin el límite
+#     techo - 2); con aislamiento o inhibir_vapor_chaqueta la integral solo
+#     puede bajar, y en «baja» no sube (corrección ALTA-1). Al COMPLETAR, estado.cascada_chaqueta queda con
+#     solo la dp aprendida para que ESTERILIZACION parta de ella. El nivel
+#     «baja» sigue en p_ref - 2 (CRI-02 es solo de esterilización).
 # En modo cámara (equipos de mesa) el comportamiento es el de antes.
 #
 # PAM (9-nov, docs/mis_plans/planeacion_presion_add_margen.md): la presión
@@ -539,9 +545,17 @@ class CalentamientoFase(BaseFase):
         self.set_do.descompresion_rapida_off()
         self.estado.fase_en_sostenimiento = False
         # CAS-03: la cascada de esta fase deja de decidir (ESTERILIZACION
-        # publica la suya)
+        # publica la suya). CRI-01: al COMPLETAR en modo chaqueta, con una dp
+        # aprendida, se deja solo esa dp para que ESTERILIZACION parta de ella
+        # (la lee en su reset() y vuelve a publicar None)
         self._cascada.valvula = False
-        self.estado.cascada_chaqueta = None
+        dp = self._cascada.dp
+        if (completado and self._modo_chaqueta and isinstance(dp, (int, float))
+                and not isinstance(dp, bool) and math.isfinite(dp)):
+            self.estado.cascada_chaqueta = {"nivel": None, "consigna": None,
+                                            "valvula": False, "dp": float(dp)}
+        else:
+            self.estado.cascada_chaqueta = None
 
     def _cascada_decide(self, add_liq: float) -> bool:
         """CAS-03: True si la cascada decide vapor_chaqueta en este tick (solo
@@ -562,13 +576,18 @@ class CalentamientoFase(BaseFase):
         self._cascada_activa_previo = activa
         return activa
 
-    def _decision_cascada(self, pres, p_ref, p_techo) -> bool:
-        """CAS-03: evalúa la cascada con p_ref (PAM-03: P_trabajo) y el techo
-        normal. Devuelve la decisión (sin las prevalencias)."""
+    def _decision_cascada(self, pres, p_ref, now, solo_bajar: bool) -> bool:
+        """CAS-03: evalúa la cascada con p_ref (PAM-03: P_trabajo); el nivel
+        «baja» sigue en p_ref - 2 (CRI-02 no aplica aquí: brecha_segura_presion
+        es de esterilización). CRI-01 (corrección ALTA-1): con `solo_bajar`
+        (aislamiento VCH-AIS o inhibir_vapor_chaqueta) la integral solo puede
+        bajar; sin lectura esta función no se llama y la integral no cambia.
+        Devuelve la decisión (sin las prevalencias)."""
         limites = le.limites_presion(self.config)
         res = self._cascada.evaluar(
-            pres, self._pres_chaqueta(), p_ref, p_techo, ccc.margen_kpa(self.cycle),
-            le.presion_max_chaqueta_control(self.config), limites.suministro)
+            pres, self._pres_chaqueta(), p_ref, ccc.margen_kpa(self.cycle),
+            le.presion_max_chaqueta_control(self.config), limites.suministro,
+            ahora=now, solo_bajar=solo_bajar)
         return res.decision
 
     def _fallo(self, mensaje: str) -> FaseResult:
@@ -914,9 +933,11 @@ class CalentamientoFase(BaseFase):
             # a saturación la cámara está sobre p_ref + 1: nivel alta, OFF).
             # Prevalecen VCH-AIS y D-CHQ; el corte duro de CICLO va después.
             # PAM-03: p_ref = P_trabajo (Psat(t_obj) si aún no hay enclave)
+            inhibida = self._chaqueta_inhibida()
             decision = self._decision_cascada(
-                pres, self._p_trabajo if self._p_trabajo is not None else p_obj, p_techo)
-            encender = decision and not aislado and not self._chaqueta_inhibida()
+                pres, self._p_trabajo if self._p_trabajo is not None else p_obj, now,
+                solo_bajar=bool(aislado or inhibida))
+            encender = decision and not aislado and not inhibida
             # la válvula de la cascada sigue a la salida real (DECISIÓN SIN
             # CONFIRMAR): forzada a OFF no reabre por histéresis al liberarse
             self._cascada.valvula = encender

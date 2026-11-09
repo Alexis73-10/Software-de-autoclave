@@ -7,13 +7,14 @@
 # validada de CALENTAMIENTO): dos tramos internos, bidireccionales entre sí,
 # evaluados en cada tick:
 #   RECUPERACION   entra si T < T_est + brecha_segura_temperatura
-#                  O P < P_sat(T_est) - brecha_segura_presion (reacción inmediata)
+#                  O P < P_sat(T_est) + brecha_segura_presion (reacción inmediata;
+#                  CRI-02, tanda 35: el margen se mide SOBRE Psat, antes bajo)
 #                  -> vapor_camara ON continuo, salvo el techo de control
 #                  P >= P_control_max -> OFF hasta P < P_control_max - 2 kPa
 #                  (C-08.3, tanda 12; histéresis: DECISIÓN SIN CONFIRMAR)
 #   PWM_ACTIVO     sale de RECUPERACION solo si (C-08.2, histéresis de salida)
 #                  T >= T_est + brecha_segura_temperatura + _HIST_RECUP_TEMP_K
-#                  Y P >= P_sat(T_est) - brecha_segura_presion + _HIST_RECUP_PRES_KPA
+#                  Y P >= P_sat(T_est) + brecha_segura_presion + _HIST_RECUP_PRES_KPA
 #                  -> vapor_camara en PWM, banda fija [-2,+1] kPa sobre la
 #                  consigna de la fase P_sp (A14-M1, tanda 28), techo de
 #                  control P_control_max = P_sat(T_est) + presion_add_esterilizacion
@@ -102,6 +103,18 @@
 # histéresis). Publicación de solo lectura en estado.cascada_chaqueta
 # ({nivel, consigna, valvula}, con valvula = orden aplicada); None al entrar,
 # en COMPLETADO/FALLO y en modo cámara. El modo cámara no cambia.
+#
+# CRI (tanda 35, planeacion_cascada_integral.md): CRI-01, la consigna de banda
+# de la cascada lleva acción integral (cascada_chaqueta.py) y parte del dp que
+# CALENTAMIENTO publicó al completar, nunca bajo margen_chaqueta_est
+# (corrección MEDIA-2); con aislamiento o inhibir_vapor_chaqueta la integral
+# solo puede bajar, sin lectura del Principal o de la presión se congela
+# (corrección ALTA-1), y se publica `dp`. CRI-02, el nivel «baja» de la cascada usa p_baja =
+# min(Psat(T_est) + brecha_segura_presion, P_sp - 1) en lugar de P_sp - 2
+# (log una vez por fase si recorta; DECISIÓN SIN CONFIRMAR). Segunda revisión
+# de seguridad, MEDIA-B: p_baja nunca bajo Psat(T_est) + PISO_P_BAJA_KPA
+# (salvo que el piso alcance P_sp - 1: rige P_sp - 1) y brecha_segura_presion
+# ausente o ilegible usa el valor de fábrica con aviso, no 0.
 
 import math
 import time
@@ -148,6 +161,20 @@ _HIST_RECUP_PRES_KPA = 1.0
 _HIST_TECHO_KPA = 2.0
 _BANDA_PWM_BAJA = 2.0  # kPa por debajo de P_sp -> vapor ON forzado (A14-M1)
 _BANDA_PWM_ALTA = 1.0  # kPa por encima de P_sp -> vapor OFF forzado (A14-M1)
+# CRI-02 (DECISIÓN SIN CONFIRMAR): el umbral «baja» de la cascada nunca sobre
+# P_sp - este margen (si no, la cascada quedaría siempre en «baja»)
+_MARGEN_P_BAJA_CASCADA_KPA = 1.0
+# Segunda revisión de seguridad, MEDIA-B (DECISIÓN SIN CONFIRMAR): el umbral
+# «baja» de la cascada nunca bajo Psat(T_est) + este piso (con
+# brecha_segura_presion 0 quedaría a 0,1 K de la falla de temperatura baja),
+# salvo que el piso alcance P_sp - _MARGEN_P_BAJA_CASCADA_KPA: entonces rige
+# ese tope (nunca se solapa con «alta»)
+PISO_P_BAJA_KPA = 1.5
+# MEDIA-B: esterilizacion.brecha_segura_presion ausente o ilegible usa el
+# valor de fábrica de los programas (cycles/factory/*.json, 1,5 kPa, rango
+# 0-20) con aviso en el log, no 0 en silencio
+_BRECHA_SEGURA_PRESION_DEFECTO_KPA = 1.5
+_BRECHA_SEGURA_PRESION_RANGO_KPA = (0.0, 20.0)
 # D8-2.8 (tanda 8): tope de la suma de pausas sin datos del módulo E/S en una
 # exposición (parámetro del equipo pausa_max_esterilizacion_s)
 _PAUSA_MAX_DEFECTO_S = 30.0
@@ -182,9 +209,18 @@ class EsterilizacionFase(BaseFase):
         self._techo_recup_off = False
         # A14-M1: consigna fija de la banda PWM (kPa), al entrar a la fase
         self.p_sp = None
-        # CAS-02: cascada de vapor_chaqueta, una por fase (solo modo chaqueta)
-        self._cascada = CascadaChaqueta()
+        # CAS-02: cascada de vapor_chaqueta, una por fase (solo modo chaqueta).
+        # CRI-01: parte del dp que CALENTAMIENTO dejó en estado.cascada_chaqueta
+        # al completar (misma carga), nunca bajo margen_chaqueta_est (MEDIA-2);
+        # sin dato, margen_chaqueta_est
+        self._cascada = CascadaChaqueta(dp_inicial=self._dp_inicial())
         self.estado.cascada_chaqueta = None
+        # CRI-02: el recorte de p_baja a P_sp - 1 se registra una vez por fase
+        self._p_baja_recorte_registrado = False
+        # MEDIA-B: piso de p_baja y brecha_segura_presion ilegible, una línea
+        # de log por fase cada uno
+        self._p_baja_piso_registrado = False
+        self._brecha_p_defecto_registrado = False
 
         # P6 / D-14.6: debounce acumulado de cada condición de falla
         self._debounce: dict[str, DebounceAcumulado] = {
@@ -602,20 +638,100 @@ class EsterilizacionFase(BaseFase):
             setattr(self, abierto_attr, True)
             setattr(self, timer_attr, now)
 
-    def _aplicar_cascada(self, pres, p_control_max, permitido: bool) -> None:
+    def _dp_heredado(self):
+        """CRI-01: dp publicado por CALENTAMIENTO al completar (None si no lo
+        hay o no es un número finito)."""
+        previo = getattr(self.estado, "cascada_chaqueta", None)
+        dp = previo.get("dp") if isinstance(previo, dict) else None
+        return float(dp) if _numero(dp) else None
+
+    def _dp_inicial(self):
+        """CRI-01, corrección MEDIA-2 de la revisión de seguridad: dp de
+        partida = max(dp heredado, margen_chaqueta_est). La bajada a saturación
+        de CALENTAMIENTO puede dejar un dp pequeño (3-4 kPa) y la recarga
+        llegaría tarde. Sin herencia válida devuelve None (la cascada parte del
+        margen); la cascada lo acota a [DP_MIN_KPA, tope_baja - p_ref]."""
+        heredado = self._dp_heredado()
+        if heredado is None:
+            return None
+        return max(heredado, ccc.margen_kpa(self.cycle))
+
+    def _p_baja_cascada(self, p_sat_est, brecha_seg_p):
+        """CRI-02 (modo chaqueta): umbral del nivel «baja» de la cascada,
+        min(Psat(T_est) + brecha_segura_presion, P_sp - 1). Registra el recorte
+        una vez por fase. Sin dato válido devuelve None (la cascada usa
+        P_sp - 2, el umbral anterior; DECISIÓN SIN CONFIRMAR).
+
+        MEDIA-B (segunda revisión de seguridad): piso Psat(T_est) +
+        PISO_P_BAJA_KPA, registrado una vez por fase; si el piso alcanza
+        P_sp - 1 rige P_sp - 1 (nunca se solapa con «alta») con aviso."""
+        if not (_numero(p_sat_est) and _numero(brecha_seg_p) and _numero(self.p_sp)):
+            return None
+        propio = p_sat_est + brecha_seg_p
+        tope = self.p_sp - _MARGEN_P_BAJA_CASCADA_KPA
+        piso = p_sat_est + PISO_P_BAJA_KPA
+        if propio > tope and not self._p_baja_recorte_registrado:
+            self._p_baja_recorte_registrado = True
+            logger.warning(
+                "Esterilización: umbral «baja» de la cascada Psat(T_est) + "
+                "brecha_segura_presion = %.1f kPa sobre P_sp - %.0f; se usa %.1f kPa (CRI-02)",
+                propio, _MARGEN_P_BAJA_CASCADA_KPA, tope)
+        p_baja = min(propio, tope)
+        if p_baja < piso:
+            if piso >= tope:
+                if not self._p_baja_piso_registrado:
+                    self._p_baja_piso_registrado = True
+                    logger.warning(
+                        "Esterilización: piso del umbral «baja» de la cascada Psat(T_est) + "
+                        "%.1f = %.1f kPa en o sobre P_sp - %.0f = %.1f kPa; se conserva "
+                        "%.1f kPa (MEDIA-B)", PISO_P_BAJA_KPA, piso,
+                        _MARGEN_P_BAJA_CASCADA_KPA, tope, tope)
+                return tope
+            if not self._p_baja_piso_registrado:
+                self._p_baja_piso_registrado = True
+                logger.warning(
+                    "Esterilización: umbral «baja» de la cascada %.1f kPa bajo el piso "
+                    "Psat(T_est) + %.1f; se usa %.1f kPa (MEDIA-B)",
+                    p_baja, PISO_P_BAJA_KPA, piso)
+            return piso
+        return p_baja
+
+    def _brecha_segura_presion(self) -> float:
+        """MEDIA-B: esterilizacion.brecha_segura_presion (kPa). Ausente, no
+        numérica, no finita o fuera de 0-20: el valor de fábrica con aviso en
+        el log una vez por fase (antes `or 0.0`, silencioso)."""
+        valor = self.cycle.get_param("esterilizacion", "brecha_segura_presion")
+        lo, hi = _BRECHA_SEGURA_PRESION_RANGO_KPA
+        if _numero(valor) and lo <= valor <= hi:
+            return float(valor)
+        if not self._brecha_p_defecto_registrado:
+            self._brecha_p_defecto_registrado = True
+            logger.warning(
+                "Esterilización: brecha_segura_presion ausente o ilegible (%r); se usa "
+                "el valor de fábrica %.1f kPa (MEDIA-B)",
+                valor, _BRECHA_SEGURA_PRESION_DEFECTO_KPA)
+        return _BRECHA_SEGURA_PRESION_DEFECTO_KPA
+
+    def _aplicar_cascada(self, pres, p_baja, permitido: bool, now,
+                         congelar: bool = False) -> None:
         """CAS-02 (solo modo chaqueta): evalúa la cascada con p_ref = P_sp y
-        p_techo = P_control_max y ordena vapor_chaqueta. La orden es ON solo si
-        la cascada lo pide, `permitido` (False con aislamiento VCH-AIS o sin
-        lectura del Principal o de la presión de cámara) y CICLO no la inhibe
-        (D-CHQ, sin suministro, sin lectura de pres_chaqueta). La válvula de
-        la cascada se sincroniza con la orden dada y se publica
-        estado.cascada_chaqueta con valvula = orden aplicada."""
+        el umbral «baja» p_baja (CRI-02) y ordena vapor_chaqueta. La orden es
+        ON solo si la cascada lo pide, `permitido` (False con aislamiento
+        VCH-AIS o sin lectura del Principal o de la presión de cámara) y CICLO
+        no la inhibe (D-CHQ, sin suministro, sin lectura de pres_chaqueta).
+        CRI-01 (corrección ALTA-1): con aislamiento o inhibición la integral
+        solo puede bajar (`solo_bajar`); `congelar` (sin lectura del Principal
+        o de la presión) la detiene del todo. La válvula de la cascada se
+        sincroniza con la orden dada y se publica estado.cascada_chaqueta con
+        valvula = orden aplicada."""
         limites = le.limites_presion(self.config)
+        inhibida = self._inhibir_chaqueta()
         res = self._cascada.evaluar(
-            pres, self._pres_chaqueta(), self.p_sp, p_control_max,
+            pres, self._pres_chaqueta(), self.p_sp,
             ccc.margen_kpa(self.cycle), le.presion_max_chaqueta_control(self.config),
-            limites.suministro)
-        aplicado = res.decision is True and permitido and not self._inhibir_chaqueta()
+            limites.suministro, ahora=now, congelar=congelar,
+            solo_bajar=(not permitido) or inhibida, p_baja=p_baja)
+        aplicado = res.decision is True and permitido and not inhibida
         if aplicado:
             self.set_do.vapor_chaqueta_on()
         else:
@@ -742,7 +858,7 @@ class EsterilizacionFase(BaseFase):
         rango_temp   =  self.cycle.get_param("esterilizacion", "rango_temperatura_ester")      or 0.0
         rango_pres   =  self.cycle.get_param("esterilizacion", "rango_presion_ester")          or 0.0
         brecha_seg   =  self.cycle.get_param("esterilizacion", "brecha_segura_temperatura")    or 0.0
-        brecha_seg_p =  self.cycle.get_param("esterilizacion", "brecha_segura_presion")        or 0.0
+        brecha_seg_p =  self._brecha_segura_presion()
         brecha_err_t =  self.cycle.get_param("esterilizacion", "brecha_error_temperatura")     or 0.0
         brecha_err_p =  self.cycle.get_param("esterilizacion", "brecha_error_presion")         or 0.0
         lento_on     =  self.cycle.get_param("esterilizacion", "escape_lento_on_ester")        or 0
@@ -833,7 +949,8 @@ class EsterilizacionFase(BaseFase):
                     self.set_do.vapor_camara_on()
                 # CAS-02: la cascada se evalúa (log y publicación) pero sin
                 # lectura la chaqueta queda OFF
-                self._aplicar_cascada(pres, p_control_max, permitido=False)
+                self._aplicar_cascada(pres, self._p_baja_cascada(p_sat_est, brecha_seg_p),
+                                      permitido=False, now=now, congelar=True)
             else:
                 # V12 (SAF-03): sin medición no se controla a ciegas
                 self.set_do.vapor_camara_off()
@@ -905,12 +1022,12 @@ class EsterilizacionFase(BaseFase):
         if self._en_recuperacion:
             self._en_recuperacion = not (
                 temp >= t_est + brecha_seg + _HIST_RECUP_TEMP_K
-                and pres >= p_sat_est - brecha_seg_p + _HIST_RECUP_PRES_KPA
+                and pres >= p_sat_est + brecha_seg_p + _HIST_RECUP_PRES_KPA
             )
         else:
             self._en_recuperacion = (
                 temp < t_est + brecha_seg
-                or pres < p_sat_est - brecha_seg_p
+                or pres < p_sat_est + brecha_seg_p
             )
 
         # ── 4. Control de vapor ────────────────────────────────────────────
@@ -924,7 +1041,8 @@ class EsterilizacionFase(BaseFase):
                 self.set_do.vapor_camara_off()
             else:
                 self.set_do.vapor_camara_on()
-            self._aplicar_cascada(pres, p_control_max, permitido=not aislado)
+            self._aplicar_cascada(pres, self._p_baja_cascada(p_sat_est, brecha_seg_p),
+                                  permitido=not aislado, now=now)
         elif self._en_recuperacion:
             # C-08.3: el techo de control también rige en RECUPERACION, con
             # histéresis (DECISIÓN SIN CONFIRMAR de la sesión principal): OFF

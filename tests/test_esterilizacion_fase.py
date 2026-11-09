@@ -138,7 +138,8 @@ def test_presion_baja_dispara_recuperacion_aunque_temperatura_este_alta():
     p_sat_est = p_saturacion_kpa(134.0)
     temp = 135.0  # por encima del setpoint, NO dispararía por temperatura
     estado.sensores_temp["temp_camara"] = temp
-    estado.sensores_pres["pres_camara"] = p_sat_est - 1.6  # < P_sat(t_est) - 1.5
+    # CRI-02 (tanda 35): RECUPERACION bajo Psat(t_est) + brecha_segura_presion
+    estado.sensores_pres["pres_camara"] = p_sat_est - 1.6  # < P_sat(t_est) + 1.5
     set_do.reset_mock()
     result = fase.update()
     assert result == FaseResult.EN_CURSO
@@ -157,7 +158,9 @@ def test_presion_dentro_del_margen_no_dispara_recuperacion_por_presion():
     estado.sensores_pres["pres_camara"] = p_saturacion_kpa(temp)
     fase.update()
     assert fase._en_recuperacion is False
-    estado.sensores_pres["pres_camara"] = p_sat_est - 1.4  # dentro del margen
+    # CRI-02 (tanda 35): el margen se mide sobre Psat; Psat + 1.6 no dispara
+    # (antes se probaba Psat - 1.4 con el margen bajo Psat)
+    estado.sensores_pres["pres_camara"] = p_sat_est + 1.6
     result = fase.update()
     assert result == FaseResult.EN_CURSO
     assert fase._en_recuperacion is False
@@ -200,7 +203,9 @@ def test_pwm_forzado_on_por_debajo_de_la_banda():
     fase.update()
     temp = 135.0
     estado.sensores_temp["temp_camara"] = temp
-    estado.sensores_pres["pres_camara"] = P_SP_134_03 - 3.0  # < P_sp - 2
+    # < P_sp - 2 y, CRI-02, >= Psat(t_est) + 1.5 + 1 (sale de RECUPERACION);
+    # antes P_sp - 3, que ahora queda dentro de RECUPERACION
+    estado.sensores_pres["pres_camara"] = P_SP_134_03 - 2.5
     set_do.reset_mock()
     result = fase.update()
     assert result == FaseResult.EN_CURSO
