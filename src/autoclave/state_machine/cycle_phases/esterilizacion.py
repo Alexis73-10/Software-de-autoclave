@@ -111,7 +111,10 @@
 # solo puede bajar, sin lectura del Principal o de la presión se congela
 # (corrección ALTA-1), y se publica `dp`. CRI-02, el nivel «baja» de la cascada usa p_baja =
 # min(Psat(T_est) + brecha_segura_presion, P_sp - 1) en lugar de P_sp - 2
-# (log una vez por fase si recorta; DECISIÓN SIN CONFIRMAR).
+# (log una vez por fase si recorta; DECISIÓN SIN CONFIRMAR). Segunda revisión
+# de seguridad, MEDIA-B: p_baja nunca bajo Psat(T_est) + PISO_P_BAJA_KPA
+# (salvo que el piso alcance P_sp - 1: rige P_sp - 1) y brecha_segura_presion
+# ausente o ilegible usa el valor de fábrica con aviso, no 0.
 
 import math
 import time
@@ -161,6 +164,17 @@ _BANDA_PWM_ALTA = 1.0  # kPa por encima de P_sp -> vapor OFF forzado (A14-M1)
 # CRI-02 (DECISIÓN SIN CONFIRMAR): el umbral «baja» de la cascada nunca sobre
 # P_sp - este margen (si no, la cascada quedaría siempre en «baja»)
 _MARGEN_P_BAJA_CASCADA_KPA = 1.0
+# Segunda revisión de seguridad, MEDIA-B (DECISIÓN SIN CONFIRMAR): el umbral
+# «baja» de la cascada nunca bajo Psat(T_est) + este piso (con
+# brecha_segura_presion 0 quedaría a 0,1 K de la falla de temperatura baja),
+# salvo que el piso alcance P_sp - _MARGEN_P_BAJA_CASCADA_KPA: entonces rige
+# ese tope (nunca se solapa con «alta»)
+PISO_P_BAJA_KPA = 1.5
+# MEDIA-B: esterilizacion.brecha_segura_presion ausente o ilegible usa el
+# valor de fábrica de los programas (cycles/factory/*.json, 1,5 kPa, rango
+# 0-20) con aviso en el log, no 0 en silencio
+_BRECHA_SEGURA_PRESION_DEFECTO_KPA = 1.5
+_BRECHA_SEGURA_PRESION_RANGO_KPA = (0.0, 20.0)
 # D8-2.8 (tanda 8): tope de la suma de pausas sin datos del módulo E/S en una
 # exposición (parámetro del equipo pausa_max_esterilizacion_s)
 _PAUSA_MAX_DEFECTO_S = 30.0
@@ -203,6 +217,10 @@ class EsterilizacionFase(BaseFase):
         self.estado.cascada_chaqueta = None
         # CRI-02: el recorte de p_baja a P_sp - 1 se registra una vez por fase
         self._p_baja_recorte_registrado = False
+        # MEDIA-B: piso de p_baja y brecha_segura_presion ilegible, una línea
+        # de log por fase cada uno
+        self._p_baja_piso_registrado = False
+        self._brecha_p_defecto_registrado = False
 
         # P6 / D-14.6: debounce acumulado de cada condición de falla
         self._debounce: dict[str, DebounceAcumulado] = {
@@ -642,18 +660,57 @@ class EsterilizacionFase(BaseFase):
         """CRI-02 (modo chaqueta): umbral del nivel «baja» de la cascada,
         min(Psat(T_est) + brecha_segura_presion, P_sp - 1). Registra el recorte
         una vez por fase. Sin dato válido devuelve None (la cascada usa
-        P_sp - 2, el umbral anterior; DECISIÓN SIN CONFIRMAR)."""
+        P_sp - 2, el umbral anterior; DECISIÓN SIN CONFIRMAR).
+
+        MEDIA-B (segunda revisión de seguridad): piso Psat(T_est) +
+        PISO_P_BAJA_KPA, registrado una vez por fase; si el piso alcanza
+        P_sp - 1 rige P_sp - 1 (nunca se solapa con «alta») con aviso."""
         if not (_numero(p_sat_est) and _numero(brecha_seg_p) and _numero(self.p_sp)):
             return None
         propio = p_sat_est + brecha_seg_p
         tope = self.p_sp - _MARGEN_P_BAJA_CASCADA_KPA
+        piso = p_sat_est + PISO_P_BAJA_KPA
         if propio > tope and not self._p_baja_recorte_registrado:
             self._p_baja_recorte_registrado = True
             logger.warning(
                 "Esterilización: umbral «baja» de la cascada Psat(T_est) + "
                 "brecha_segura_presion = %.1f kPa sobre P_sp - %.0f; se usa %.1f kPa (CRI-02)",
                 propio, _MARGEN_P_BAJA_CASCADA_KPA, tope)
-        return min(propio, tope)
+        p_baja = min(propio, tope)
+        if p_baja < piso:
+            if piso >= tope:
+                if not self._p_baja_piso_registrado:
+                    self._p_baja_piso_registrado = True
+                    logger.warning(
+                        "Esterilización: piso del umbral «baja» de la cascada Psat(T_est) + "
+                        "%.1f = %.1f kPa en o sobre P_sp - %.0f = %.1f kPa; se conserva "
+                        "%.1f kPa (MEDIA-B)", PISO_P_BAJA_KPA, piso,
+                        _MARGEN_P_BAJA_CASCADA_KPA, tope, tope)
+                return tope
+            if not self._p_baja_piso_registrado:
+                self._p_baja_piso_registrado = True
+                logger.warning(
+                    "Esterilización: umbral «baja» de la cascada %.1f kPa bajo el piso "
+                    "Psat(T_est) + %.1f; se usa %.1f kPa (MEDIA-B)",
+                    p_baja, PISO_P_BAJA_KPA, piso)
+            return piso
+        return p_baja
+
+    def _brecha_segura_presion(self) -> float:
+        """MEDIA-B: esterilizacion.brecha_segura_presion (kPa). Ausente, no
+        numérica, no finita o fuera de 0-20: el valor de fábrica con aviso en
+        el log una vez por fase (antes `or 0.0`, silencioso)."""
+        valor = self.cycle.get_param("esterilizacion", "brecha_segura_presion")
+        lo, hi = _BRECHA_SEGURA_PRESION_RANGO_KPA
+        if _numero(valor) and lo <= valor <= hi:
+            return float(valor)
+        if not self._brecha_p_defecto_registrado:
+            self._brecha_p_defecto_registrado = True
+            logger.warning(
+                "Esterilización: brecha_segura_presion ausente o ilegible (%r); se usa "
+                "el valor de fábrica %.1f kPa (MEDIA-B)",
+                valor, _BRECHA_SEGURA_PRESION_DEFECTO_KPA)
+        return _BRECHA_SEGURA_PRESION_DEFECTO_KPA
 
     def _aplicar_cascada(self, pres, p_baja, permitido: bool, now,
                          congelar: bool = False) -> None:
@@ -801,7 +858,7 @@ class EsterilizacionFase(BaseFase):
         rango_temp   =  self.cycle.get_param("esterilizacion", "rango_temperatura_ester")      or 0.0
         rango_pres   =  self.cycle.get_param("esterilizacion", "rango_presion_ester")          or 0.0
         brecha_seg   =  self.cycle.get_param("esterilizacion", "brecha_segura_temperatura")    or 0.0
-        brecha_seg_p =  self.cycle.get_param("esterilizacion", "brecha_segura_presion")        or 0.0
+        brecha_seg_p =  self._brecha_segura_presion()
         brecha_err_t =  self.cycle.get_param("esterilizacion", "brecha_error_temperatura")     or 0.0
         brecha_err_p =  self.cycle.get_param("esterilizacion", "brecha_error_presion")         or 0.0
         lento_on     =  self.cycle.get_param("esterilizacion", "escape_lento_on_ester")        or 0

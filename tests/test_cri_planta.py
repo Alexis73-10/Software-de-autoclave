@@ -217,3 +217,54 @@ def test_sensibilidad_dp_heredado_4(monkeypatch, caso):
     r = cb.correr(pv, *caso)
     assert r["resultado"] == ESPERADO_DP_HEREDADO_4[caso], r["motivo"]
     assert r["aislamientos"] == 0
+
+
+# ── MEDIA-A (segunda revisión): pérdida de suministro de vapor ───────────
+# Envoltura propia (sin tocar planta_vapor.py): durante [INICIO, INICIO +
+# DURACION) el llenado de chaqueta baja a LLENADO_PERDIDA y luego vuelve al
+# del caso. Con llenado 0 la cámara cae a CIC-04 en todos los casos (sin
+# suministro no hay forma de sostenerla: límite físico); con 0,8 kPa/s (20 %
+# del normal) la cámara queda en «banda» bajo P_sp con la válvula ON y la
+# chaqueta sin llegar: sin la corrección dp subía a 90 kPa y el caso 0,015
+# terminaba en CIC-16 (6 aislamientos) y el 0,008 con 4 aislamientos.
+INICIO_PERDIDA_S = 300.0
+DURACION_PERDIDA_S = 150.0
+
+
+def _correr_con_perdida(monkeypatch, caso, llenado_perdida):
+    paso, perdida, llenado = caso
+    base = pv.PlantaVapor
+
+    class _ConPerdida(base):
+        _pasos = 0
+
+        def paso(self):
+            t = self._pasos * pv.DT
+            en_perdida = INICIO_PERDIDA_S <= t < INICIO_PERDIDA_S + DURACION_PERDIDA_S
+            self.LLENADO_CHAQUETA = llenado_perdida if en_perdida else llenado
+            self._pasos += 1
+            super().paso()
+
+    monkeypatch.setattr(pv, "PlantaVapor", _ConPerdida)
+    return cb.correr(pv, paso, perdida, llenado)
+
+
+CASOS_PERDIDA = [(0.03, 0.4, 4.0), (0.015, 0.4, 4.0), (0.008, 0.4, 4.0)]
+
+
+@pytest.mark.parametrize("caso", CASOS_PERDIDA, ids=_id)
+def test_media_a_perdida_de_suministro_degradado(monkeypatch, caso):
+    r = _correr_con_perdida(monkeypatch, caso, 0.8)
+    assert r["aislamientos"] == 0
+    assert "CIC-15" not in r["resultado"] and "CIC-16" not in r["resultado"]
+    assert r["resultado"] == COMPLETADO, r["motivo"]
+    assert r["p_chq_max"] < 375.0
+
+
+@pytest.mark.parametrize("caso", CASOS_PERDIDA, ids=_id)
+def test_media_a_perdida_de_suministro_total(monkeypatch, caso):
+    """Sin suministro 150 s la cámara cae a CIC-04 (límite físico); nunca
+    aislamientos ni CIC-15/16."""
+    r = _correr_con_perdida(monkeypatch, caso, 0.0)
+    assert r["aislamientos"] == 0
+    assert r["resultado"] == P_BAJA, r["motivo"]

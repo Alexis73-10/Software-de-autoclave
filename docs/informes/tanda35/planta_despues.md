@@ -98,3 +98,46 @@ Fecha: 9-nov-2026, rama `tanda35` sobre `275d3191`, sin commit. Correcciones de 
 - **Sensibilidad con `dp` heredado 4 (MEDIA-2):** con `max(4, 20)` = 20 los casos 10 y 11 vuelven a completar; `ESPERADO_DP_HEREDADO_4` = `ESPERADO_CRI` (`test_sensibilidad_dp_heredado_4`, 16 pasan).
 - **134 °C sin CIC-16:** `test_134_sin_cic16` (caudal A14, abierto y restrictivo) pasa: ningún CIC-16, ≤ 1 aislamiento.
 - Pruebas dedicadas (CRI, T33, PAM, esterilización y calentamiento): 723 passed, 12 xfailed (los mismos 12 de antes, sin XPASS).
+
+## Después de MEDIA-A y MEDIA-B
+
+Fecha: 9-nov-2026, rama `tanda35` sobre `9b758b3d`, sin commit. Correcciones de la segunda revisión de seguridad:
+
+- **MEDIA-A (embalamiento en «banda» con el actuador saturado):** `CascadaChaqueta.actuador_saturado()`: no se integra error positivo si en el tick anterior la válvula quedó ON, ese tick fue «banda» y `pres_chaqueta <= consigna_anterior − HISTERESIS_KPA`. El error negativo sigue integrándose. Sin historial (primer tick, tras perder la lectura, tras «alta») no hay saturación. Una sola implementación en el componente (ESTERILIZACION y CALENTAMIENTO). **Precisión (`DECISIÓN SIN CONFIRMAR`):** la consigna anterior cuenta solo si el tick anterior fue «banda». Con la regla literal (incluida la consigna de «baja», `tope_baja` 350) el caso 11 pasaba de COMPLETADO a CIC-04 (T baja, 132 s): en la transición «baja» → «banda» la chaqueta siempre está bajo 347 y la integral de banda quedaba bloqueada sin razón (en «baja» el error positivo ya no se integra desde ALTA-1).
+- **MEDIA-B (piso de `p_baja`):** `p_baja = max(min(Psat(T_est) + brecha_segura_presion, P_sp − 1), Psat(T_est) + PISO_P_BAJA_KPA)`, `PISO_P_BAJA_KPA` = 1,5 (`DECISIÓN SIN CONFIRMAR`), log una vez por fase al recortar por piso; si el piso alcanza `P_sp − 1` rige `P_sp − 1` con aviso. `brecha_segura_presion` ausente o ilegible (no numérica, no finita, fuera de 0–20) usa el valor de fábrica 1,5 kPa con aviso una vez por fase (antes `or 0.0`); también rige en RECUPERACION. El escenario del barrido usa la brecha de fábrica (1,5 = piso), así que MEDIA-B no actúa aquí.
+
+`python tests/banco/cri_barrido_planta.py`; «dp fin (máx)» leído de la cascada con un script de apoyo fuera del repositorio.
+
+| # | Paso | Pérdida | Llenado | Resultado | Cambio | P mín antes → después | Aisl. | Chq máx antes → después | dp fin (máx) antes → después |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | 0,100 | 0,4 | 4,0 | COMPLETADO | igual | 211,7 → 211,7 | 0 | 223,8 → 223,8 | 6,1 (20,0) → 6,1 (20,0) |
+| 2 | 0,100 | 0,4 | 1,5 | COMPLETADO | igual | 211,7 → 211,6 | 0 | 219,8 → 219,8 | 6,3 (20,2) → 6,3 (20,0) |
+| 3 | 0,100 | 0,8 | 4,0 | COMPLETADO | igual | 211,6 → 211,6 | 0 | 227,6 → 227,6 | 10,1 (20,2) → 10,1 (20,0) |
+| 4 | 0,100 | 0,8 | 1,5 | CIC-04 (T baja) 235 s | igual | 206,0 → 206,0 | 0 | 217,8 → 217,8 | 133,5 (133,5) → **20,0 (20,0)** |
+| 5 | 0,030 | 0,4 | 4,0 | COMPLETADO | igual | 211,2 → 211,2 | 0 | 234,4 → 234,2 | 18,6 (21,1) → 18,5 (20,8) |
+| 6 | 0,030 | 0,4 | 1,5 | COMPLETADO | igual | 209,4 → 209,4 | 0 | 236,9 → 235,9 | 19,0 (29,9) → 19,0 (23,9) |
+| 7 | 0,030 | 0,8 | 4,0 | COMPLETADO | igual | 208,0 → 207,7 | 0 | 250,5 → 250,7 | 32,0 (37,5) → 32,0 (37,9) |
+| 8 | 0,030 | 0,8 | 1,5 | CIC-04 (P baja) 28 s | igual | 202,5 → 202,5 | 0 | 228,7 → 228,7 | 24,0 (24,0) → 20,0 (20,0) |
+| 9 | 0,015 | 0,4 | 4,0 | COMPLETADO | igual | 207,9 → 207,8 | 0 | 259,3 → 259,1 | 36,5 (46,1) → 36,5 (46,3) |
+| 10 | 0,015 | 0,4 | 1,5 | COMPLETADO | igual | 206,2 → 206,2 | 0 | 260,9 → 260,2 | 37,0 (55,6) → 37,0 (48,3) |
+| 11 | 0,015 | 0,8 | 4,0 | COMPLETADO | igual | 204,2 → **203,9** | 0 | 289,9 → 291,5 | 63,3 (75,6) → 63,3 (75,6) |
+| 12 | 0,015 | 0,8 | 1,5 | CIC-04 (P baja) 18 s | igual | 200,7 → 200,7 | 0 | 231,6 → 231,6 | 22,8 (22,8) → 20,0 (20,0) |
+| 13 | 0,008 | 0,4 | 4,0 | COMPLETADO | igual | 205,4 → 205,3 | 0 | 298,4 → 299,5 | 67,9 (85,2) → 67,9 (85,3) |
+| 14 | 0,008 | 0,4 | 1,5 | CIC-04 (P baja) 34 s | igual | 202,3 → 202,3 | 0 | 248,6 → 248,6 | 26,0 (26,0) → 21,2 (21,2) |
+| 15 | 0,008 | 0,8 | 4,0 | CIC-04 (P baja) 18 s | igual | 201,0 → 200,9 | 0 | 270,1 → 268,4 | 22,9 (22,9) → 21,9 (21,9) |
+| 16 | 0,008 | 0,8 | 1,5 | CIC-04 (P baja) 17 s | igual | 199,6 → 199,6 | 0 | 233,4 → 233,4 | 22,6 (22,6) → 20,0 (20,0) |
+
+- Ningún caso cambia de resultado; `ESPERADO_CRI` no se modifica. 0 aislamientos en los 16. Fallan los mismos 6 (límite físico).
+- El embalamiento del caso 4 (dp 133,5 kPa) desaparece: dp queda en 20,0. En los fallos tempranos dp ya no pasa de 21,9.
+- **Caso 11 queda con 0,9 kPa sobre CIC-04 (203,9 frente a 203,0; antes 204,2).** Es el caso más justo del barrido; la regla literal de MEDIA-A lo hacía fallar (ver la precisión arriba).
+- **Pérdida de suministro (prueba nueva `test_media_a_perdida_de_suministro_*`, envoltura en el propio test, sin tocar `planta_vapor.py`):** llenado de chaqueta reducido durante 150 s desde el segundo 300 de ESTERILIZACION, casos 0,03 / 0,015 / 0,008 con pérdida 0,4 y llenado 4,0.
+
+| Caso | Llenado durante la pérdida | Sin MEDIA-A: resultado, aisl., dp máx | Con MEDIA-A: resultado, aisl., dp máx |
+|---|---|---|---|
+| 0,03 / 0,4 / 4,0 | 0,8 kPa/s | COMPLETADO, 2, 65,8 | COMPLETADO, 0, 25,9 |
+| 0,015 / 0,4 / 4,0 | 0,8 kPa/s | **FALLO CIC-16**, 6, 90,5 | COMPLETADO, 0, 48,4 |
+| 0,008 / 0,4 / 4,0 | 0,8 kPa/s | COMPLETADO, 4, 131,0 | COMPLETADO, 0, 86,4 |
+| los tres | 0 kPa/s | CIC-04 (P baja), 0 | CIC-04 (P baja), 0 |
+
+  Con llenado 0 la cámara cae a CIC-04 antes de que vuelva el suministro (sin vapor no hay forma de sostenerla, límite físico) y nunca hay aislamientos. Con 0,8 kPa/s (20 % del normal) la cámara queda en «banda» con la válvula ON y la chaqueta sin llegar, que es el escenario de la revisión.
+- **134 °C sin CIC-16:** `test_134_sin_cic16` pasa (caudal A14, abierto y restrictivo).

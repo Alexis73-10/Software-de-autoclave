@@ -21,8 +21,11 @@
 #   inválidas ni en el primer tick (dt 0); en el nivel «baja» (consigna
 #   saturada en tope_baja) y con `solo_bajar` (el llamador fuerza OFF por
 #   prevalencia: VCH-AIS aislado, inhibir_vapor_chaqueta) solo integra error
-#   negativo: dp puede bajar, nunca subir. En «alta» la integral sigue
-#   corriendo: con error negativo dp baja.
+#   negativo: dp puede bajar, nunca subir. Lo mismo con el actuador saturado
+#   (segunda revisión, MEDIA-A): válvula ON en el tick anterior, ese tick en
+#   «banda» y pres_chaqueta <= consigna_anterior - HISTERESIS_KPA (la chaqueta
+#   no llega, p. ej. sin suministro); sin historial no hay saturación. En «alta» la
+#   integral sigue corriendo: con error negativo dp baja.
 #
 #   Nivel:
 #     baja:  pres_camara < p_baja; por defecto p_ref - UMBRAL_BAJO_KPA. CRI-02
@@ -182,9 +185,13 @@ class CascadaChaqueta:
         # Antiembalamiento (revisión de seguridad ALTA-1): en «baja» la
         # consigna ya está saturada en tope_baja y con `solo_bajar` la
         # prevalencia del llamador impide actuar: solo se integra error
-        # negativo (dp puede bajar, nunca subir)
+        # negativo (dp puede bajar, nunca subir). Segunda revisión, MEDIA-A:
+        # tampoco sube con el actuador saturado (válvula ON en el tick
+        # anterior y la chaqueta todavía en o bajo consigna_anterior -
+        # HISTERESIS_KPA: p. ej. sin suministro, la chaqueta no llega)
         self._integrar(pc, p_ref, tope_baja, float(margen_est), ahora, congelar,
-                       solo_bajar=bool(solo_bajar) or nivel == NIVEL_BAJA)
+                       solo_bajar=(bool(solo_bajar) or nivel == NIVEL_BAJA
+                                   or self.actuador_saturado(pj)))
 
         if nivel == NIVEL_BAJA:
             consigna = tope_baja
@@ -206,6 +213,22 @@ class CascadaChaqueta:
             motivo = MOTIVO_HISTERESIS
         self._registrar(nivel, consigna, pc, pj)
         return ResultadoCascada(self.valvula, nivel, consigna, motivo)
+
+    def actuador_saturado(self, pres_chaqueta) -> bool:
+        """MEDIA-A (segunda revisión de seguridad): True si la válvula quedó
+        ON en el tick anterior y la chaqueta sigue en o bajo la consigna
+        anterior - HISTERESIS_KPA (la válvula ya da todo y la chaqueta no
+        llega). La consigna anterior cuenta solo si el tick anterior fue
+        «banda» (la consigna que la integral mueve): tras «baja» la consigna
+        era tope_baja, que no dice nada de la de banda, y en «baja» el error
+        positivo ya no se integra (DECISIÓN SIN CONFIRMAR; con la consigna de
+        «baja» el caso 11 del barrido CRI pasaba de COMPLETADO a CIC-04). Sin
+        historial (primer tick, tras _cerrar o en «alta») o sin lectura
+        válida: False."""
+        return (self.valvula is True and self._nivel == NIVEL_BANDA
+                and _numero(self._consigna)
+                and _lectura_valida(pres_chaqueta)
+                and float(pres_chaqueta) <= self._consigna - HISTERESIS_KPA)
 
     @staticmethod
     def cotas_dp(p_ref, tope_baja) -> tuple[float, float]:

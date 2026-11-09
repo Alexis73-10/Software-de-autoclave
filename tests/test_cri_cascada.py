@@ -28,6 +28,9 @@ MARGEN = 8.0
 PMAX = 375.0
 SUMINISTRO = 350.0
 TOPE_BAJA = 350.0          # min(375 - 10, 350)
+# MEDIA-A: chaqueta en o sobre la consigna (o en histéresis con la válvula
+# cerrada): el actuador no está saturado y la integral corre libre
+PJ_LLENA = 349.0
 
 
 def _ev(c, pc, pj, ahora, **kw):
@@ -103,10 +106,10 @@ def test_reset_con_dp_inicial():
 
 def test_integra_con_error_positivo():
     c = CascadaChaqueta()
-    _ev(c, 199.0, 150.0, 0.0)
-    _ev(c, 199.0, 150.0, 1.0)                 # error 1 kPa, 1 s
+    _ev(c, 199.0, PJ_LLENA, 0.0)
+    _ev(c, 199.0, PJ_LLENA, 1.0)                 # error 1 kPa, 1 s
     assert c.dp == pytest.approx(MARGEN + 0.15)
-    _ev(c, 199.0, 150.0, 1.5)                 # 0,5 s
+    _ev(c, 199.0, PJ_LLENA, 1.5)                 # 0,5 s
     assert c.dp == pytest.approx(MARGEN + 0.15 + 0.075)
 
 
@@ -130,14 +133,14 @@ def test_en_baja_la_integral_no_sube():
     saturada en tope_baja; el error positivo no se integra (antes dp subía
     0,75 kPa por segundo con error 5 y llegaba a 40-137 kPa)."""
     c = CascadaChaqueta()
-    _ev(c, 199.0, 150.0, 0.0)
+    _ev(c, 199.0, PJ_LLENA, 0.0)
     for t in range(1, 60):
-        r = _ev(c, 195.0, 150.0, float(t))     # baja, error 5
+        r = _ev(c, 195.0, PJ_LLENA, float(t))     # baja, error 5
         assert r.nivel == cc.NIVEL_BAJA
         assert r.consigna == pytest.approx(TOPE_BAJA)
     assert c.dp == pytest.approx(MARGEN)
     # al volver a «banda» la consigna es la de antes de la caída
-    r = _ev(c, 199.0, 150.0, 60.0)
+    r = _ev(c, 199.0, PJ_LLENA, 60.0)
     assert r.nivel == cc.NIVEL_BANDA
     assert r.consigna == pytest.approx(P_REF + MARGEN + 0.15)
 
@@ -206,17 +209,17 @@ def test_sin_lectura_no_integra_ni_negativo(campo, valor):
 @pytest.mark.parametrize("salto, dt_efectivo", [(100.0, 2.0), (2.0, 2.0), (-50.0, 0.0)])
 def test_dt_recortado(salto, dt_efectivo):
     c = CascadaChaqueta()
-    _ev(c, 199.0, 150.0, 1000.0)
-    _ev(c, 199.0, 150.0, 1000.0 + salto)
+    _ev(c, 199.0, PJ_LLENA, 1000.0)
+    _ev(c, 199.0, PJ_LLENA, 1000.0 + salto)
     assert c.dp == pytest.approx(MARGEN + 0.15 * dt_efectivo)
 
 
 def test_cota_superior_tope_baja_menos_p_ref():
     c = CascadaChaqueta()
     for t in range(0, 20000):
-        _ev(c, 199.5, 150.0, float(t))
+        _ev(c, 199.5, PJ_LLENA, float(t))
     assert c.dp == pytest.approx(TOPE_BAJA - P_REF)
-    r = _ev(c, 199.5, 150.0, 20001.0)
+    r = _ev(c, 199.5, PJ_LLENA, 20001.0)
     assert r.consigna == pytest.approx(TOPE_BAJA)
 
 
@@ -254,9 +257,9 @@ def test_banda_limitada_por_tope_baja():
 
 def test_consigna_sigue_a_dp():
     c = CascadaChaqueta()
-    _ev(c, 199.0, 150.0, 0.0)
+    _ev(c, 199.0, PJ_LLENA, 0.0)
     for t in range(1, 11):
-        r = _ev(c, 199.0, 150.0, float(t))
+        r = _ev(c, 199.0, PJ_LLENA, float(t))
     assert r.consigna == pytest.approx(P_REF + MARGEN + 1.5)
 
 
@@ -273,10 +276,10 @@ def test_congelar_no_cambia_dp():
 
 def test_tras_congelar_no_integra_de_golpe():
     c = CascadaChaqueta()
-    _ev(c, 199.0, 150.0, 0.0)
-    _ev(c, 199.0, 150.0, 1.0, congelar=True)
-    _ev(c, 199.0, 150.0, 60.0, congelar=True)
-    _ev(c, 199.0, 150.0, 61.0)
+    _ev(c, 199.0, PJ_LLENA, 0.0)
+    _ev(c, 199.0, PJ_LLENA, 1.0, congelar=True)
+    _ev(c, 199.0, PJ_LLENA, 60.0, congelar=True)
+    _ev(c, 199.0, PJ_LLENA, 61.0)
     assert c.dp == pytest.approx(MARGEN + 0.15)
 
 
@@ -345,8 +348,8 @@ def test_p_baja_nunca_sobre_p_ref_menos_1():
 def test_publica_dp():
     c = CascadaChaqueta()
     assert c.publicar()["dp"] is None
-    _ev(c, 199.0, 150.0, 0.0)
-    _ev(c, 199.0, 150.0, 1.0)
+    _ev(c, 199.0, PJ_LLENA, 0.0)
+    _ev(c, 199.0, PJ_LLENA, 1.0)
     assert c.publicar()["dp"] == pytest.approx(MARGEN + 0.15)
 
 
@@ -358,18 +361,18 @@ def _lineas(caplog):
 def test_log_por_cambio_de_dp_mayor_de_2(caplog):
     caplog.set_level(logging.INFO, logger=LOGGER)
     c = CascadaChaqueta()
-    _ev(c, 199.0, 150.0, 0.0)                   # línea inicial
+    _ev(c, 199.0, PJ_LLENA, 0.0)                   # línea inicial
     assert len(_lineas(caplog)) == 1
     assert "dp=8.0" in _lineas(caplog)[0]
     # error 1 kPa: 0,15 kPa/s; a los 13 s dp sube 1,95 (sin línea)
     for t in range(1, 14):
-        _ev(c, 199.0, 150.0, float(t))
+        _ev(c, 199.0, PJ_LLENA, float(t))
     assert len(_lineas(caplog)) == 1
-    _ev(c, 199.0, 150.0, 14.0)                   # 2,1 > 2: una línea
+    _ev(c, 199.0, PJ_LLENA, 14.0)                   # 2,1 > 2: una línea
     assert len(_lineas(caplog)) == 2
     assert "dp=10.1" in _lineas(caplog)[-1]
     for t in range(15, 27):                      # 1,8 más: sin línea
-        _ev(c, 199.0, 150.0, float(t))
+        _ev(c, 199.0, PJ_LLENA, float(t))
     assert len(_lineas(caplog)) == 2
 
 
@@ -421,7 +424,7 @@ def test_ester_sin_herencia_valida_usa_el_margen(monkeypatch, heredado):
 
 
 def test_ester_integra_en_la_banda(monkeypatch):
-    f, estado, set_do, reloj = _ester(monkeypatch, pres=P_SP - 1.0)
+    f, estado, set_do, reloj = _ester(monkeypatch, pres=P_SP - 1.0, pres_chaqueta=PJ_LLENA)
     f.update()
     for _ in range(10):
         reloj.avanzar(0.5)
@@ -547,7 +550,7 @@ def reloj_cal(monkeypatch):
     return ahora
 
 
-def _cal(chaqueta=True, inhibir=False):
+def _cal(chaqueta=True, inhibir=False, pres_chaqueta=200.0):
     fase, estado, set_do = tcal._make_fase(t_obj=T_OBJ, presion_add=11.0, tiempo_estable=600)
     original = fase.cycle.get_param.side_effect
     valores = {"tipo_carga": "solido", "presion_add_liquido_calentamiento": 0.0}
@@ -556,7 +559,7 @@ def _cal(chaqueta=True, inhibir=False):
     if chaqueta:
         estado.modo_vapor = "chaqueta"
         estado.inhibir_vapor_chaqueta = inhibir
-    estado.sensores_pres["pres_chaqueta"] = 200.0
+    estado.sensores_pres["pres_chaqueta"] = pres_chaqueta
     fase.update()
     return fase, estado, set_do
 
@@ -577,7 +580,7 @@ def _tick_cal(fase, estado, pres):
 
 
 def test_cal_integra_en_sostenimiento(reloj_cal):
-    fase, estado, _ = _cal()
+    fase, estado, _ = _cal(pres_chaqueta=PJ_LLENA)
     _a_sostenimiento(fase, estado)
     dp0 = estado.cascada_chaqueta["dp"]
     reloj_cal[0] += 1.0
@@ -647,7 +650,7 @@ def test_cal_completado_modo_camara_no_entrega(reloj_cal):
 def test_herencia_de_calentamiento_a_esterilizacion(monkeypatch, reloj_cal):
     """La dp que CALENTAMIENTO aprende llega a ESTERILIZACION por
     estado.cascada_chaqueta (CicloState: COMPLETADO -> siguiente.reset())."""
-    fase, estado_cal, _ = _cal()
+    fase, estado_cal, _ = _cal(pres_chaqueta=PJ_LLENA)
     _a_sostenimiento(fase, estado_cal)
     for _ in range(20):
         reloj_cal[0] += 1.0
@@ -658,3 +661,125 @@ def test_herencia_de_calentamiento_a_esterilizacion(monkeypatch, reloj_cal):
     f, estado, _, _ = _ester(monkeypatch, heredado=estado_cal.cascada_chaqueta)
     f.update()
     assert estado.cascada_chaqueta["dp"] == pytest.approx(dp)
+
+
+# ── MEDIA-A (segunda revisión): sin integración positiva con el actuador saturado ─
+
+@pytest.mark.req("CRI-01")
+def test_media_a_saturado_no_sube_dp():
+    """Banda, válvula ON y la chaqueta lejos de la consigna (p. ej. sin
+    suministro): el error positivo no se integra (antes dp subía hasta
+    tope_baja - p_ref)."""
+    c = CascadaChaqueta()
+    r = _ev(c, 199.0, 150.0, 0.0)
+    assert r.nivel == cc.NIVEL_BANDA and r.decision is True
+    for t in range(1, 181):
+        r = _ev(c, 199.0, 150.0, float(t))
+        assert r.decision is True
+    assert c.dp == pytest.approx(MARGEN)
+    assert c.actuador_saturado(150.0) is True
+
+
+def test_media_a_saturado_deja_bajar_dp():
+    c = CascadaChaqueta(dp_inicial=20.0)
+    _ev(c, 199.0, 150.0, 0.0)                    # válvula ON
+    _ev(c, 200.5, 150.0, 1.0)                    # banda, error -0,5, saturado
+    assert c.dp == pytest.approx(20.0 - 0.075)
+
+
+def test_media_a_limite_igual_a_consigna_menos_histeresis():
+    c = CascadaChaqueta()
+    _ev(c, 199.0, 150.0, 0.0)                    # ON, consigna 208
+    _ev(c, 199.0, P_REF + MARGEN - cc.HISTERESIS_KPA, 1.0)   # justo en el límite: saturado
+    assert c.dp == pytest.approx(MARGEN)
+    _ev(c, 199.0, P_REF + MARGEN - cc.HISTERESIS_KPA + 0.1, 2.0)  # sobre el límite: integra
+    assert c.dp == pytest.approx(MARGEN + 0.15)
+
+
+def test_media_a_en_histeresis_con_valvula_on_integra():
+    c = CascadaChaqueta()
+    _ev(c, 199.0, 150.0, 0.0)                    # ON
+    _ev(c, 199.0, 206.0, 1.0)                    # 205 < 206 < 208: no saturado
+    assert c.dp == pytest.approx(MARGEN + 0.15)
+
+
+def test_media_a_valvula_off_por_prevalencia_no_es_saturacion():
+    """Si el llamador dejó la válvula en OFF (orden aplicada), no hay
+    saturación: la integral corre (la prevalencia la limita solo_bajar)."""
+    c = CascadaChaqueta()
+    _ev(c, 199.0, 150.0, 0.0)
+    c.valvula = False                            # sincronización del llamador
+    _ev(c, 199.0, 150.0, 1.0)
+    assert c.dp == pytest.approx(MARGEN + 0.15)
+
+
+def test_media_a_sin_historial_no_saturado():
+    """Primer tick y tick tras perder la lectura: sin historial, no saturado."""
+    c = CascadaChaqueta()
+    assert c.actuador_saturado(150.0) is False
+    _ev(c, 199.0, 150.0, 0.0)                    # ON, consigna 208
+    _ev(c, 199.0, None, 1.0)                     # sin lectura: _cerrar (OFF, sin consigna)
+    assert c.actuador_saturado(150.0) is False
+    _ev(c, 199.0, 150.0, 2.0)
+    assert c.dp == pytest.approx(MARGEN + 0.15)
+    c.reset()
+    assert c.actuador_saturado(150.0) is False
+
+
+def test_media_a_tras_baja_no_juzga_con_el_tope():
+    """El tick anterior en «baja» (consigna tope_baja, válvula ON) no cuenta
+    como saturación para la integral de «banda» (DECISIÓN SIN CONFIRMAR)."""
+    c = CascadaChaqueta()
+    _ev(c, 199.0, 150.0, 0.0)
+    r = _ev(c, 195.0, 300.0, 1.0)                # baja: consigna 350, 300 <= 347 → ON
+    assert r.nivel == cc.NIVEL_BAJA and r.decision is True
+    assert c.actuador_saturado(300.0) is False
+    dp = c.dp
+    _ev(c, 199.0, 300.0, 2.0)                    # banda: integra
+    assert c.dp == pytest.approx(dp + 0.15)
+
+
+@pytest.mark.parametrize("pj", [None, math.nan, 0.0, -5.0])
+def test_media_a_sin_lectura_no_saturado(pj):
+    c = CascadaChaqueta()
+    _ev(c, 199.0, 150.0, 0.0)
+    assert c.actuador_saturado(pj) is False
+
+
+def test_media_a_perdida_de_suministro_y_recuperacion():
+    """Escenario de la revisión: 150 s sin suministro (la chaqueta no sube con
+    la válvula ON y la cámara bajo p_ref); dp no crece. Al volver el
+    suministro la chaqueta alcanza la consigna aprendida antes, no el tope."""
+    c = CascadaChaqueta(dp_inicial=15.0)
+    _ev(c, 199.5, 200.0, 0.0)                    # 200 <= 215 - 3 → ON
+    for t in range(1, 151):
+        _ev(c, 199.5, 180.0, float(t))
+    assert c.dp == pytest.approx(15.0)
+    r = _ev(c, 199.5, 214.5, 151.0)              # vuelve el suministro, histéresis: integra
+    assert c.dp == pytest.approx(15.0 + 0.075)
+    r = _ev(c, 199.5, 216.0, 152.0)              # alcanza la consigna
+    assert r.decision is False and r.motivo == cc.MOTIVO_CONSIGNA_ALCANZADA
+
+
+def test_media_a_ester_saturado_no_sube_dp(monkeypatch):
+    """ESTERILIZACION (una sola implementación en el componente)."""
+    f, estado, set_do, reloj = _ester(monkeypatch, pres=P_SP - 1.0, pres_chaqueta=150.0)
+    f.update()
+    for _ in range(40):
+        reloj.avanzar(0.5)
+        f.update()
+    assert estado.cascada_chaqueta["nivel"] == cc.NIVEL_BANDA
+    assert estado.cascada_chaqueta["valvula"] is True
+    assert estado.cascada_chaqueta["dp"] == pytest.approx(MARGEN)
+
+
+def test_media_a_cal_saturado_no_sube_dp(reloj_cal):
+    """CALENTAMIENTO, sostenimiento: misma regla."""
+    fase, estado, _ = _cal(pres_chaqueta=150.0)
+    _a_sostenimiento(fase, estado)
+    dp0 = estado.cascada_chaqueta["dp"]
+    for _ in range(30):
+        reloj_cal[0] += 1.0
+        _tick_cal(fase, estado, P_OBJ - 1.0)
+    assert estado.cascada_chaqueta["nivel"] == cc.NIVEL_BANDA
+    assert estado.cascada_chaqueta["dp"] == pytest.approx(dp0)

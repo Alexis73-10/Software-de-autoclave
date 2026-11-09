@@ -6,7 +6,11 @@ P < Psat(T_est) + brecha_segura_presion y sale con T >= T_est + brecha + 0,3
 y P >= Psat(T_est) + brecha_segura_presion + 1,0, en los dos modos. En modo
 chaqueta, ESTERILIZACION: umbral «baja» de la cascada
 p_baja = min(Psat(T_est) + brecha_segura_presion, P_sp - 1) (log una vez por
-fase si recorta). ESTABLE_PREESTERILIZACION sigue en p_ref - 2."""
+fase si recorta). ESTABLE_PREESTERILIZACION sigue en p_ref - 2.
+
+Segunda revisión de seguridad, MEDIA-B: p_baja nunca bajo Psat(T_est) +
+PISO_P_BAJA_KPA (salvo que el piso alcance P_sp - 1: rige P_sp - 1) y
+brecha_segura_presion ausente o ilegible usa el valor de fábrica con aviso."""
 
 import logging
 import types
@@ -166,13 +170,80 @@ def test_sin_recorte_no_hay_aviso(monkeypatch, caplog):
     assert not [r for r in caplog.records if "CRI-02" in r.getMessage()]
 
 
-def test_brecha_cero_p_baja_en_psat(monkeypatch):
-    f, estado, _, reloj = _fase(monkeypatch, "chaqueta", brecha_p=0.0)
+# ── MEDIA-B (segunda revisión): piso de p_baja y brecha ilegible ────────────
+
+def _avisos(caplog, marca="MEDIA-B"):
+    return [r for r in caplog.records if r.name == est.logger.name and marca in r.getMessage()]
+
+
+def test_piso_constante():
+    assert est.PISO_P_BAJA_KPA == 1.5
+
+
+@pytest.mark.req("CRI-02")
+@pytest.mark.parametrize("brecha", [0.0, 0.5, 1.4])
+def test_brecha_bajo_el_piso_usa_el_piso_con_log_una_vez(monkeypatch, caplog, brecha):
+    """Antes, con brecha 0, p_baja = Psat(T_est): a 0,1 K de la falla de
+    temperatura baja. Ahora p_baja = Psat(T_est) + 1,5."""
+    caplog.set_level(logging.WARNING, logger=est.logger.name)
+    f, estado, _, reloj = _fase(monkeypatch, "chaqueta", brecha_p=brecha)
     f.update()
-    _tick(f, estado, reloj, PSAT - 0.1)
+    assert f._p_baja_cascada(PSAT, brecha) == pytest.approx(PSAT + est.PISO_P_BAJA_KPA)
+    _tick(f, estado, reloj, PSAT + est.PISO_P_BAJA_KPA - 0.1)
     assert estado.cascada_chaqueta["nivel"] == cc.NIVEL_BAJA
-    _tick(f, estado, reloj, PSAT + 0.1)
+    _tick(f, estado, reloj, PSAT + est.PISO_P_BAJA_KPA)
     assert estado.cascada_chaqueta["nivel"] == cc.NIVEL_BANDA
+    for _ in range(5):
+        _tick(f, estado, reloj, P_SP)
+    assert len(_avisos(caplog)) == 1
+    f.reset()
+    f.update()
+    assert len(_avisos(caplog)) == 2              # una vez por fase
+
+
+def test_brecha_en_el_piso_sin_aviso(monkeypatch, caplog):
+    caplog.set_level(logging.WARNING, logger=est.logger.name)
+    f, estado, _, reloj = _fase(monkeypatch, "chaqueta")    # brecha 1,5 = piso
+    for _ in range(5):
+        _tick(f, estado, reloj, P_SP)
+    assert f._p_baja_cascada(PSAT, BRECHA_P) == pytest.approx(PSAT + BRECHA_P)
+    assert not _avisos(caplog)
+
+
+def test_piso_sobre_p_sp_menos_1_conserva_p_sp_menos_1(monkeypatch, caplog):
+    """P_sp muy cerca de Psat(T_est) (p. ej. P_sp = Psat + 2): P_sp - 1 queda
+    bajo el piso: rige P_sp - 1 (nunca se solapa con «alta») y se avisa una
+    vez."""
+    caplog.set_level(logging.WARNING, logger=est.logger.name)
+    f, estado, _, reloj = _fase(monkeypatch, "chaqueta", brecha_p=0.0)
+    f.p_sp = PSAT + 2.0
+    tope = f.p_sp - 1.0
+    assert PSAT + est.PISO_P_BAJA_KPA >= tope
+    assert f._p_baja_cascada(PSAT, 0.0) == pytest.approx(tope)
+    assert f._p_baja_cascada(PSAT, 0.0) == pytest.approx(tope)
+    avisos = _avisos(caplog)
+    assert len(avisos) == 1 and "se conserva" in avisos[0].getMessage()
+
+
+@pytest.mark.parametrize("valor", [None, "1.5", float("nan"), float("inf"), -1.0, 25.0, True])
+def test_brecha_ilegible_usa_el_defecto_con_aviso(monkeypatch, caplog, valor):
+    """Sin `or 0.0`: ausente o ilegible usa el valor de fábrica (1,5 kPa) con
+    aviso una vez por fase; afecta a RECUPERACION y a la cascada."""
+    caplog.set_level(logging.WARNING, logger=est.logger.name)
+    f, estado, _, reloj = _fase(monkeypatch, "chaqueta", brecha_p=valor)
+    f.update()
+    assert f._brecha_segura_presion() == pytest.approx(1.5)
+    _tick(f, estado, reloj, PSAT + 1.4)
+    assert f._en_recuperacion is True             # con 0 no habría entrado
+    avisos = [r for r in _avisos(caplog) if "brecha_segura_presion" in r.getMessage()]
+    assert len(avisos) == 1
+
+
+def test_brecha_cero_valida_sin_aviso_de_defecto(monkeypatch, caplog):
+    caplog.set_level(logging.WARNING, logger=est.logger.name)
+    f, _, _, _ = _fase(monkeypatch, "chaqueta", brecha_p=0.0)
+    assert f._brecha_segura_presion() == 0.0
+    assert not [r for r in _avisos(caplog) if "ausente o ilegible" in r.getMessage()]
 
 
 @pytest.mark.parametrize("p_sat, brecha", [(float("nan"), 1.5), (PSAT, float("inf")),
