@@ -1,0 +1,4 @@
+Fecha: 2026-11-09
+Commit del merge a dev: e9948124
+Suite: NO se corrió la suite completa (decisión de Cristian). Pruebas dedicadas en verde (test_pri_*, test_cri_*, test_t11/t12 programas, test_t32_catalogo_migraciones, test_o2a_parametros_equipo, test_i18n_linea_base, test_ver_*).
+Nota: Prion se entrega DESHABILITADO. Retiro de parametros sin efecto y soporte --etapa beta comiteados en la misma rama. El ajuste abrir_puerta_descarga se aparto en stash para la siguiente version.
