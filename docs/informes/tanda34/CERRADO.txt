@@ -1,0 +1,3 @@
+2026-11-09
+Merge a dev: b4ff0655
+Suite: 7 fallos ajenos a la tanda (4 test_q1rev_migracion_rango_no_dict fallan igual en dev; 3 test_p1_salida_modo_prueba pasan en aislamiento). Revisor de seguridad CAN: aprobado con observaciones.
