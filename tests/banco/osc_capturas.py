@@ -211,8 +211,7 @@ def main() -> int:
     a = ap.parse_args()
     Path(a.destino).mkdir(parents=True, exist_ok=True)
     esc = a.escenarios or ["reposo", "login", "login_teclado", "menu", "preciclo_preparado",
-                           "preciclo_alarma", "opciones_tema", "ciclo_grafica", "fin_fallido",
-                           "modal_cancelar"]
+                           "preciclo_alarma", "opciones_tema", "ciclo_grafica", "fin_fallido"]
     env = {**os.environ, "QT_ENABLE_HIGHDPI_SCALING": "0",
            "PYTHONPATH": str(RAIZ / "src") + os.pathsep + str(RAIZ)}
     for tema in a.temas:
