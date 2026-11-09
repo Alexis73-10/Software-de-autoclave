@@ -7,6 +7,15 @@
 
 from PySide6.QtCore import Property as _PropE, QObject as _QObjE, Signal as _SigE, Slot as _SlotE
 
+import re as _reE
+
+
+def _qe(nombre, cuerpo, **kw):
+    """qml() con los textos «@@clave@@» traducidos al idioma de la corrida."""
+    qml(nombre, _reE.sub(r"@@([a-z_.]+)@@", lambda m: i18n.t(m.group(1)).replace("\\", "\\\\").replace('"', '\\"'),
+                        cuerpo), **kw)
+
+
 _ALARMAS_E = ALARMA + (
     ';append({ id: "PARO", level: "EMERGENCIA", description: "Paro de emergencia activado",'
     ' source_state: "PREPARACION", priority: "alta" })'
@@ -15,10 +24,10 @@ _ALARMAS_E = ALARMA + (
     ';append({ id: "SUM-03", level: "ALERTA", description: "Suministro de agua de la bomba de vacío bajo",'
     ' source_state: "PREPARACION", priority: "baja" })')
 
-qml("e_notificaciones", """
+_qe("e_notificaciones", """
 PanelNotificaciones {
     id: pn; objectName: "pn"
-    titulo: "Notificaciones"; textoCerrar: "Cerrar"; textoSinAlarmas: "Sin notificaciones"
+    titulo: "@@notificaciones.titulo@@"; textoCerrar: "@@acciones.cerrar@@"
     puente: puenteFalso
     alarmas: ListModel { Component.onCompleted: { %s } }
     visible: true
@@ -44,7 +53,7 @@ _DETALLE_E = {
               "E/S. Si la lectura no vuelve, llame al servicio técnico.",
     "aparecida": "2026-11-09T10:21:07", "estado": "activa",
 }
-qml("e_detalle_alarma", """
+_qe("e_detalle_alarma", """
 VentanaDetalleAlarma { id: va; objectName: "va" }
 """, accion="py:e_abrir_detalle")
 
@@ -79,43 +88,41 @@ QtObject {
     property string mensaje: ""
 }
 """
-qml("e_equipo", """
+_qe("e_equipo", """
 PanelEquipo {
     objectName: "pe"
-    titulo: "Información del equipo"; textoCerrar: "Cerrar"
+    titulo: "@@equipo.titulo@@"; textoCerrar: "@@acciones.cerrar@@"
     comandosSistema: comandosFalsos
     filas: [%s]
     visible: true
 }
 """ % _FILAS_QML_E, extra=PUENTE_SIMPLE + _COMANDOS_E)
-qml("e_equipo_apagar", """
+_qe("e_equipo_apagar", """
 PanelEquipo {
     objectName: "pe"
-    titulo: "Información del equipo"; textoCerrar: "Cerrar"
+    titulo: "@@equipo.titulo@@"; textoCerrar: "@@acciones.cerrar@@"
     comandosSistema: comandosFalsos
     filas: [%s]
     visible: true
 }
 """ % _FILAS_QML_E, extra=PUENTE_SIMPLE + _COMANDOS_E, accion="click:botonApagarEquipo")
 
-qml("e_modal_confirmacion", """
+_qe("e_modal_confirmacion", """
 ModalConfirmacion {
     visible: true
-    titulo: "Confirmar el resultado del ciclo"
-    cuerpo: "El ciclo 0042 terminó con fallo (CIC-12, aire o no condensables en la cámara). "
-            + "Al confirmar, el equipo vuelve a la preparación y podrá abrir la puerta cuando la cámara "
-            + "esté en condiciones seguras."
-    nota: "La carga de este ciclo no debe usarse: repita el ciclo con una carga nueva."
-    textoAccion: "Confirmar"
+    titulo: "@@ciclo.modal_forzar_titulo@@"
+    cuerpo: "@@ciclo.modal_forzar_cuerpo@@"
+    nota: "@@ciclo.modal_estado_seguro_nota@@"
+    textoAccion: "@@ciclo.confirmar_forzado@@"
 }
 """)
 
-qml("e_dialogo_confirmacion", """
+_qe("e_dialogo_confirmacion", """
 DialogoConfirmacion {
     visible: true
-    mensaje: "¿Apagar el equipo?\\n\\nLa cámara no está en condiciones seguras: no abra la puerta hasta que baje la presión."
-    textoConfirmar: "Apagar equipo"
-    textoCancelar: "Cancelar"
+    mensaje: "@@equipo.apagar_pregunta@@\\n\\n@@equipo.apagar_camara_no_segura@@"
+    textoConfirmar: "@@equipo.apagar@@"
+    textoCancelar: "@@acciones.cancelar@@"
     colorConfirmar: Colores.peligroFuerte
 }
 """)
@@ -124,7 +131,7 @@ _OPERADORES_E = ",".join('{id: %d, nombre: "%s"}' % (i + 1, n) for i, n in enume
     "Ana María Rodríguez", "Carlos Pérez", "Luisa Fernanda Gómez Castañeda", "Jorge Iván Restrepo",
     "Marta Lucía Ospina", "Pedro Nel Martínez", "Sandra Milena Torres", "Óscar Eduardo Vargas Londoño",
     "Diana Patricia Cárdenas", "Felipe Andrés Hoyos"]))
-qml("e_modal_operador", """
+_qe("e_modal_operador", """
 ModalOperador {
     objectName: "mo"
     operadores: [%s]
@@ -182,9 +189,9 @@ def _e_main_opciones(win, h):
 ACCIONES["e_main_opciones"] = _e_main_opciones
 
 # teclados sobre las demás pantallas que los usan (para ver si tapan el campo)
-qml("e_cambio_clave_teclado",
+_qe("e_cambio_clave_teclado",
     "CambioClave { anchors.fill: parent; teclado: tec }\nPanelTeclado { id: tec; objectName: 'tec' }",
     accion="teclado_alfa")
-qml("e_nuevo_usuario_teclado",
+_qe("e_nuevo_usuario_teclado",
     "NuevoUsuario { anchors.fill: parent; teclado: tec }\nPanelTeclado { id: tec; objectName: 'tec' }",
     accion="teclado_alfa")

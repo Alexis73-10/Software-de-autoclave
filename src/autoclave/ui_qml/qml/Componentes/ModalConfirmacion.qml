@@ -169,7 +169,7 @@ Item {
             id: filaBotones
             readonly property real util: tarjeta.width - 2 * tarjeta.margen - spacing
             readonly property real base: Escala.px(340)
-            readonly property real relleno: Escala.px(32)
+            readonly property real relleno: Escala.px(Escala.horizontal ? 64 : 32)   // horizontal: holgura para que la letra no baje por redondeo
             readonly property real anchoVolver: Math.min(Math.max(base, medidaVolver.width + relleno), util / 2)
             readonly property real anchoAccion: Math.min(Math.max(base, medidaAccion.width + relleno),
                                                          util - anchoVolver)
