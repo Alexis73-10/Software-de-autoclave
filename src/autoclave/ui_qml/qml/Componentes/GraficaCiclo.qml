@@ -335,10 +335,23 @@ Item {
             font.pixelSize: raiz.fuente(20)
         }
         Image {
+            visible: !Escala.horizontal
             x: raiz.m(116); y: raiz.m(24)
             width: raiz.m(14); height: width
             source: raiz.iconosColor + "chevron_abajo.svg"
             sourceSize.width: width; sourceSize.height: height
+        }
+        // Ronda 2 (horizontal): el chevrón negro del SVG casi no se ve en oscuro
+        // (1,29:1 sobre fondoTarjeta); en horizontal va teñido con textoNegro
+        // (negro en claro, claro en oscuro). Preexistente en el vertical oscuro,
+        // pendiente de decisión: el vertical no cambia.
+        IconoColor {
+            objectName: "chevronTiempos"
+            visible: Escala.horizontal
+            x: raiz.m(116); y: raiz.m(24)
+            width: raiz.m(14); height: width
+            source: raiz.iconosColor + "chevron_abajo.svg"
+            color: Colores.textoNegro
         }
         MouseArea {
             anchors.fill: parent

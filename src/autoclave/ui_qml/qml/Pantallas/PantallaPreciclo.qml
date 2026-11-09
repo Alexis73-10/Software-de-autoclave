@@ -393,6 +393,19 @@ Item {
     Texto {
         cx: 599; bl: 308; tam: 36
         text: raiz.programa
+        // Ronda 2 (horizontal): el nombre no cruza los divisores de su recuadro
+        // (351..839) ni baja sobre la ayuda (línea base 352): hasta dos líneas en
+        // la franja 248..332 y la letra baja hasta Escala.fuenteMinima; nunca se
+        // recorta (D8-5.4). Con Binding (when: hz): en vertical no se toca nada.
+        Binding on width { when: raiz.hz; value: raiz.m(488 - 24) }
+        Binding on height { when: raiz.hz; value: raiz.m(84) }
+        Binding on y { when: raiz.hz; value: raiz.m(248) }
+        Binding on horizontalAlignment { when: raiz.hz; value: Text.AlignHCenter }
+        Binding on verticalAlignment { when: raiz.hz; value: Text.AlignVCenter }
+        Binding on wrapMode { when: raiz.hz; value: Text.WordWrap }
+        Binding on maximumLineCount { when: raiz.hz; value: 2 }
+        Binding on fontSizeMode { when: raiz.hz; value: Text.Fit }
+        Binding on minimumPixelSize { when: raiz.hz; value: Escala.fuenteMinima }
         color: raiz.datosVigentes ? raiz.paleta.programa : Colores.textoGuia
         font.family: Tipografia.familia
         font.weight: Tipografia.pesoBold
@@ -859,12 +872,15 @@ Item {
     // paro de emergencia activo. Colores PROVISIONALES (sin mockup).
     BotonAccion {
         objectName: "botonReconocerFalla"
-        caja: [845, 1616, 302, 110]
+        // Ronda 2 (horizontal): 100 px más ancho hacia la izquierda (en FALLA el
+        // deslizador de inicio no se muestra): «ACKNOWLEDGE FAULT» no cabía ni
+        // con la letra al mínimo
+        caja: raiz.hz ? [745, 1616, 402, 110] : [845, 1616, 302, 110]
         colorArriba: Colores.botonNaranjaArriba
         colorAbajo: Colores.botonNaranjaAbajo
         texto: raiz.textos.reconocerFalla
-        textoX: 980
-        circuloX: 866
+        textoX: raiz.hz ? 880 : 980
+        circuloX: raiz.hz ? 766 : 866
         visible: raiz.enFalla && raiz.datosVigentes
         enabled: !raiz.fallaOcupada
         onPulsado: raiz.reconocerFallaPulsado()

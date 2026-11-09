@@ -463,6 +463,19 @@ Item {
     Texto {
         cx: 599; bl: 308; tam: 36
         text: raiz.sinLectura(raiz.programa)
+        // Ronda 2 (horizontal): el nombre no cruza los divisores de su recuadro
+        // (351..839) ni baja sobre la ayuda (línea base 352): hasta dos líneas en
+        // la franja 248..332 y la letra baja hasta Escala.fuenteMinima; nunca se
+        // recorta (D8-5.4). Con Binding (when: hz): en vertical no se toca nada.
+        Binding on width { when: raiz.hz; value: raiz.m(488 - 24) }
+        Binding on height { when: raiz.hz; value: raiz.m(84) }
+        Binding on y { when: raiz.hz; value: raiz.m(248) }
+        Binding on horizontalAlignment { when: raiz.hz; value: Text.AlignHCenter }
+        Binding on verticalAlignment { when: raiz.hz; value: Text.AlignVCenter }
+        Binding on wrapMode { when: raiz.hz; value: Text.WordWrap }
+        Binding on maximumLineCount { when: raiz.hz; value: 2 }
+        Binding on fontSizeMode { when: raiz.hz; value: Text.Fit }
+        Binding on minimumPixelSize { when: raiz.hz; value: Escala.fuenteMinima }
         color: raiz.datosVigentes ? raiz.paleta.programa : Colores.textoGuia
         font.family: Tipografia.familia
         font.weight: Tipografia.pesoBold
