@@ -431,6 +431,9 @@ Item {
                 Text {
                     id: tituloInstalacion
                     objectName: "tituloInstalacion"
+                    // horizontal: con la página subida sobre el teclado el encabezado
+                    // queda recortado arriba; se oculta mientras tanto
+                    opacity: lienzo.desplazamientoHz > 0 ? 0 : 1
                     x: lienzo.margen; y: raiz.hz ? Escala.px(48) : Escala.px(56)
                     text: raiz.terminado ? I18n.t("instalacion.listo_titulo", I18n.lang).toUpperCase() : I18n.t("instalacion.titulo", I18n.lang)
                     color: Colores.textoPrimario
@@ -442,6 +445,9 @@ Item {
                 IndicadorPasos {
                     id: indicador
                     objectName: "indicadorPasos"
+                    // horizontal: con la página subida sobre el teclado el encabezado
+                    // queda recortado arriba; se oculta mientras tanto
+                    opacity: lienzo.desplazamientoHz > 0 ? 0 : 1
                     visible: !raiz.terminado
                     x: lienzo.margen; y: raiz.hz ? Escala.px(124) : Escala.px(140)
                     width: lienzo.ancho
@@ -450,6 +456,9 @@ Item {
                 }
                 Text {
                     objectName: "subtituloPaso"
+                    // horizontal: con la página subida sobre el teclado el encabezado
+                    // queda recortado arriba; se oculta mientras tanto
+                    opacity: lienzo.desplazamientoHz > 0 ? 0 : 1
                     visible: !raiz.terminado
                     // horizontal: a la derecha, en la línea del título
                     x: raiz.hz ? lienzo.margen + lienzo.ancho - width : lienzo.margen

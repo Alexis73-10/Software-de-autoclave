@@ -237,6 +237,8 @@ Item {
             border.color: c.mensajeError !== "" ? Colores.peligroTexto
                         : raiz.campoActivo === c.nombre ? Colores.accionPrimario : Colores.bordeDivisor
             border.width: raiz.campoActivo === c.nombre || c.mensajeError !== "" ? 2 : 1
+            // Ronda 2 (horizontal): en vertical el recuadro no fija color (blanco por defecto, también en oscuro: preexistente, pendiente de decisión); en horizontal toma Colores.fondoCampo (#FFFFFF en claro, igual que hoy)
+            Binding on color { when: raiz.hz; value: Colores.fondoCampo }
 
             TextField {
                 id: entrada
@@ -439,6 +441,8 @@ Item {
                             border.color: raiz.error("rol") !== "" ? Colores.peligroTexto
                                         : listaRoles.visible ? Colores.accionPrimario : Colores.bordeDivisor
                             border.width: listaRoles.visible || raiz.error("rol") !== "" ? 2 : 1
+                            // Ronda 2 (horizontal): en vertical el recuadro no fija color (blanco por defecto, también en oscuro: preexistente, pendiente de decisión); en horizontal toma Colores.fondoCampo (#FFFFFF en claro, igual que hoy)
+                            Binding on color { when: raiz.hz; value: Colores.fondoCampo }
 
                             Text {
                                 anchors.left: parent.left
@@ -532,6 +536,8 @@ Item {
                         radius: Escala.px(8)
                         border.color: Colores.bordeDivisor; border.width: 1
                         opacity: raiz.guardando ? 0.4 : 1.0
+                        // Ronda 2 (horizontal): en vertical el recuadro no fija color (blanco por defecto, también en oscuro: preexistente, pendiente de decisión); en horizontal toma Colores.fondoTarjeta (#FFFFFF en claro, igual que hoy)
+                        Binding on color { when: raiz.hz; value: Colores.fondoTarjeta }
                         Text {
                             anchors.centerIn: parent
                             text: I18n.t("acciones.cancelar", I18n.lang)
@@ -613,6 +619,8 @@ Item {
                         radius: Escala.px(6)
                         border.color: Colores.bordeCampo; border.width: 1
                         clip: true
+                        // Ronda 2 (horizontal): en vertical el recuadro no fija color (blanco por defecto, también en oscuro: preexistente, pendiente de decisión); en horizontal toma Colores.fondoCampo (#FFFFFF en claro, igual que hoy)
+                        Binding on color { when: raiz.hz; value: Colores.fondoCampo }
                         Column {
                             id: columnaRoles
                             width: parent.width
