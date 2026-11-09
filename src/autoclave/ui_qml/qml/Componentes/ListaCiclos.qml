@@ -68,7 +68,9 @@ Item {
             radius: raiz.m(8)
             color: casilla.marcada ? Colores.accionPrimario : Colores.fondoTarjeta
             border.width: casilla.marcada ? 0 : raiz.m(3)
-            border.color: Colores.bordeDivisor
+            // horizontal: borde legible en oscuro (bordeDivisor da 1,3:1 sobre
+            // fondoTarjeta; preexistente en el vertical oscuro, pendiente de decisión)
+            border.color: Escala.horizontal ? Colores.iconoCampo : Colores.bordeDivisor
             Text {
                 anchors.centerIn: parent
                 visible: casilla.marcada

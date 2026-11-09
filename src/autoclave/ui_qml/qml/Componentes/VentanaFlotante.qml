@@ -87,6 +87,10 @@ Item {
         radius: raiz.m(26)
         color: Colores.fondoTarjeta
         opacity: compartido.opacidadContenido
+        // horizontal: la tarjeta es su propia capa (todo su contenido cabe en
+        // ella); así sus textos no se miden contra las tarjetas del Menú que
+        // quedan detrás del velo (revisión de textos de hor_capturas)
+        clip: Escala.horizontal
         MouseArea { anchors.fill: parent }   // no dejar pasar el toque al fondo
 
         Text {
