@@ -63,3 +63,38 @@ En los 6, ni con todo abierto desde el inicio la cámara se sostiene sobre CIC-0
 - `planta_vapor.simular` resetea las fases solo al inicio, así que en los ciclos completos de `test_t33_cas04_planta.py` y `test_pam_planta.py` ESTERILIZACION **no** hereda el `dp` (parte de `margen_chaqueta_est`). En producción `CicloState` llama `siguiente.reset()` al avanzar de fase (`states/ciclo.py:1424`) y la herencia ocurre. `test_herencia_dp_en_ciclo_completo` lo reproduce con el reset en la transición.
 - Sí pasa en la planta: con Líquidos abierto CALENTAMIENTO publica `dp` ≈ 4,0 kPa (cerca de `DP_MIN_KPA` 3, por la bajada a saturación); restrictivo 8,2–8,4; 134 abierto 7,5. Con la herencia los tres ciclos completan sin aislamientos (Líquidos abierto P mín 210,6 en lugar de 210,9).
 - **Hallazgo (sensibilidad, fuera del escenario de §6.3):** en el escenario de §1.4 con `dp` heredado de 4 kPa en lugar de 20, dos casos que completaban con la alpha.26 fallan: caso 10 (0,015 / 0,4 / 1,5) CIC-04 por T baja y caso 11 (0,015 / 0,8 / 4,0) CIC-04 por P baja (P mín 201,9). Con `dp` heredado 3 falla el 11 y completa el 10 (203,8). Causa probable: la integral (`KI_CRI` 0,15) tarda en llevar la consigna de banda desde `P_sp` + 4 al `dp` que pide la pérdida (36–63 kPa en esos casos), mientras la cámara cae; la recarga llega tarde como en la alpha.26. En los ciclos completos simulados que llegan a ESTERILIZACION la herencia corresponde a la necesidad (p. ej. 17,0 kPa con 0,015 / 0,4 / 4,0) y todos completan; los de llenado 1,5 o paso 0,008 no llegan a ESTERILIZACION (timeout de CALENTAMIENTO, sin referencia alpha.26). Queda fijado en `test_sensibilidad_dp_heredado_4`. Decisión para Cristian/director: si conviene acotar por abajo el `dp` heredado (p. ej. `max(heredado, margen_chaqueta_est)`).
+
+## Después de la corrección del revisor
+
+Fecha: 9-nov-2026, rama `tanda35` sobre `275d3191`, sin commit. Correcciones de la revisión de seguridad:
+
+- **ALTA-1 (antiembalamiento por integración condicional):** el nivel se decide antes de integrar; en «baja» (consigna saturada en `tope_baja`) no se integra error positivo; con VCH-AIS aislado o `inhibir_vapor_chaqueta` (`solo_bajar`) solo se integra error negativo (`dp` puede bajar, nunca subir); sin lectura de cámara/chaqueta, sin lectura del Principal en ESTERILIZACION (`congelar`) o con parámetros inválidos sigue congelada del todo. En «alta» sin cambio.
+- **MEDIA-2 (herencia):** ESTERILIZACION parte de `max(dp heredado, margen_chaqueta_est)`, acotado a [`DP_MIN_KPA`, `tope_baja` − `P_sp`].
+
+`python tests/banco/cri_barrido_planta.py` (el escenario parte sin herencia, `dp` inicial 20, así que MEDIA-2 no actúa aquí); «dp fin (máx)» leído de la cascada con un script de apoyo fuera del repositorio.
+
+| # | Paso | Pérdida | Llenado | Resultado | Cambio vs CRI | P mín CRI → corregido | Aisl. | Chq máx CRI → corregido | dp fin (máx) CRI → corregido |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | 0,100 | 0,4 | 4,0 | COMPLETADO | igual | 211,7 → 211,7 | 0 | 223,8 → 223,8 | 6,1 (20,0) → 6,1 (20,0) |
+| 2 | 0,100 | 0,4 | 1,5 | COMPLETADO | igual | 211,7 → 211,7 | 0 | 219,8 → 219,8 | 6,3 (20,2) → 6,3 (20,2) |
+| 3 | 0,100 | 0,8 | 4,0 | COMPLETADO | igual | 211,6 → 211,6 | 0 | 227,6 → 227,6 | 10,1 (20,2) → 10,1 (20,2) |
+| 4 | 0,100 | 0,8 | 1,5 | CIC-04 (T baja) 235 s | igual | 206,0 → 206,0 | 0 | 217,8 → 217,8 | 138,0 → 133,5 (133,5) |
+| 5 | 0,030 | 0,4 | 4,0 | COMPLETADO | igual | 211,2 → 211,2 | 0 | 234,4 → 234,4 | 18,6 (21,1) → 18,6 (21,1) |
+| 6 | 0,030 | 0,4 | 1,5 | COMPLETADO | igual | 209,4 → 209,4 | 0 | 236,9 → 236,9 | 19,0 (29,9) → 19,0 (29,9) |
+| 7 | 0,030 | 0,8 | 4,0 | COMPLETADO | igual | 208,0 → 208,0 | 0 | 250,5 → 250,5 | 32,0 (37,5) → 32,0 (37,5) |
+| 8 | 0,030 | 0,8 | 1,5 | CIC-04 (P baja) 28 s | igual | 202,5 → 202,5 | 0 | 228,7 → 228,7 | 46,7 → 24,0 (24,0) |
+| 9 | 0,015 | 0,4 | 4,0 | COMPLETADO | igual | 207,9 → 207,9 | 0 | 259,3 → 259,3 | 36,5 (46,1) → 36,5 (46,1) |
+| 10 | 0,015 | 0,4 | 1,5 | COMPLETADO | igual | 206,2 → 206,2 | 0 | 260,9 → 260,9 | 37,0 (65,6) → 37,0 (55,6) |
+| 11 | 0,015 | 0,8 | 4,0 | COMPLETADO | igual | 204,2 → 204,2 | 0 | 289,9 → 289,9 | 63,3 (72,3) → 63,3 (75,6) |
+| 12 | 0,015 | 0,8 | 1,5 | CIC-04 (P baja) 18 s | igual | 200,7 → 200,7 | 0 | 231,6 → 231,6 | 36,9 → 22,8 (22,8) |
+| 13 | 0,008 | 0,4 | 4,0 | COMPLETADO | igual | 205,4 → 205,4 | 0 | 298,3 → 298,4 | 67,8 (80,6) → 67,9 (85,2) |
+| 14 | 0,008 | 0,4 | 1,5 | CIC-04 (P baja) 34 s | igual | 202,3 → 202,3 | 0 | 248,6 → 248,6 | 49,4 → 26,0 (26,0) |
+| 15 | 0,008 | 0,8 | 4,0 | CIC-04 (P baja) 18 s | igual | 201,0 → 201,0 | 0 | 270,1 → 270,1 | 36,8 → 22,9 (22,9) |
+| 16 | 0,008 | 0,8 | 1,5 | CIC-04 (P baja) 17 s | igual | 199,6 → 199,6 | 0 | 233,4 → 233,4 | 36,1 → 22,6 (22,6) |
+
+- Ningún caso cambia de resultado; `ESPERADO_CRI` no se modifica. 0 aislamientos en los 16. Fallan los mismos 6 (límite físico).
+- El `dp` ya no se infla en «baja»: en los fallos tempranos (8, 12, 14–16) queda en 22,6–26,0 (antes 36–49). Los máximos de 10, 11 y 13 cambian unos kPa porque se acumulan en «banda» (integración permitida) y el recorrido previo es otro.
+- **Caso 4: el `dp` sigue llegando a 133,5 kPa.** La cámara queda en «banda» (sobre `p_baja`, bajo `P_sp`) mientras la chaqueta no alcanza la consigna (límite de la planta) y la Principal cae a CIC-04 por T baja: la integración condicional de ALTA-1 no cubre un embalamiento en «banda» con la chaqueta saturada físicamente. No cambia el resultado (falla igual, sin aislamientos) y queda para el informe.
+- **Sensibilidad con `dp` heredado 4 (MEDIA-2):** con `max(4, 20)` = 20 los casos 10 y 11 vuelven a completar; `ESPERADO_DP_HEREDADO_4` = `ESPERADO_CRI` (`test_sensibilidad_dp_heredado_4`, 16 pasan).
+- **134 °C sin CIC-16:** `test_134_sin_cic16` (caudal A14, abierto y restrictivo) pasa: ningún CIC-16, ≤ 1 aislamiento.
+- Pruebas dedicadas (CRI, T33, PAM, esterilización y calentamiento): 723 passed, 12 xfailed (los mismos 12 de antes, sin XPASS).

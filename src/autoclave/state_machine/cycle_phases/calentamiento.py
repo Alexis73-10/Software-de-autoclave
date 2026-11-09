@@ -108,8 +108,8 @@
 #     (None mientras la cascada no decide).
 #   - CRI-01 (tanda 35, planeacion_cascada_integral.md): la consigna de
 #     banda es min(p_ref + dp, tope_baja), con dp integral (sin el límite
-#     techo - 2); la integral se congela con aislamiento o
-#     inhibir_vapor_chaqueta. Al COMPLETAR, estado.cascada_chaqueta queda con
+#     techo - 2); con aislamiento o inhibir_vapor_chaqueta la integral solo
+#     puede bajar, y en «baja» no sube (corrección ALTA-1). Al COMPLETAR, estado.cascada_chaqueta queda con
 #     solo la dp aprendida para que ESTERILIZACION parta de ella. El nivel
 #     «baja» sigue en p_ref - 2 (CRI-02 es solo de esterilización).
 # En modo cámara (equipos de mesa) el comportamiento es el de antes.
@@ -576,17 +576,18 @@ class CalentamientoFase(BaseFase):
         self._cascada_activa_previo = activa
         return activa
 
-    def _decision_cascada(self, pres, p_ref, now, congelar: bool) -> bool:
+    def _decision_cascada(self, pres, p_ref, now, solo_bajar: bool) -> bool:
         """CAS-03: evalúa la cascada con p_ref (PAM-03: P_trabajo); el nivel
         «baja» sigue en p_ref - 2 (CRI-02 no aplica aquí: brecha_segura_presion
-        es de esterilización). CRI-01: `congelar` (aislamiento VCH-AIS o
-        inhibir_vapor_chaqueta) detiene la integral. Devuelve la decisión (sin
-        las prevalencias)."""
+        es de esterilización). CRI-01 (corrección ALTA-1): con `solo_bajar`
+        (aislamiento VCH-AIS o inhibir_vapor_chaqueta) la integral solo puede
+        bajar; sin lectura esta función no se llama y la integral no cambia.
+        Devuelve la decisión (sin las prevalencias)."""
         limites = le.limites_presion(self.config)
         res = self._cascada.evaluar(
             pres, self._pres_chaqueta(), p_ref, ccc.margen_kpa(self.cycle),
             le.presion_max_chaqueta_control(self.config), limites.suministro,
-            ahora=now, congelar=congelar)
+            ahora=now, solo_bajar=solo_bajar)
         return res.decision
 
     def _fallo(self, mensaje: str) -> FaseResult:
@@ -935,7 +936,7 @@ class CalentamientoFase(BaseFase):
             inhibida = self._chaqueta_inhibida()
             decision = self._decision_cascada(
                 pres, self._p_trabajo if self._p_trabajo is not None else p_obj, now,
-                congelar=bool(aislado or inhibida))
+                solo_bajar=bool(aislado or inhibida))
             encender = decision and not aislado and not inhibida
             # la válvula de la cascada sigue a la salida real (DECISIÓN SIN
             # CONFIRMAR): forzada a OFF no reabre por histéresis al liberarse

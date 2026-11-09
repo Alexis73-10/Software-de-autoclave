@@ -106,9 +106,10 @@
 #
 # CRI (tanda 35, planeacion_cascada_integral.md): CRI-01, la consigna de banda
 # de la cascada lleva acción integral (cascada_chaqueta.py) y parte del dp que
-# CALENTAMIENTO publicó al completar; la integral se congela con aislamiento,
-# inhibir_vapor_chaqueta o sin lectura del Principal o de la presión, y se
-# publica `dp`. CRI-02, el nivel «baja» de la cascada usa p_baja =
+# CALENTAMIENTO publicó al completar, nunca bajo margen_chaqueta_est
+# (corrección MEDIA-2); con aislamiento o inhibir_vapor_chaqueta la integral
+# solo puede bajar, sin lectura del Principal o de la presión se congela
+# (corrección ALTA-1), y se publica `dp`. CRI-02, el nivel «baja» de la cascada usa p_baja =
 # min(Psat(T_est) + brecha_segura_presion, P_sp - 1) en lugar de P_sp - 2
 # (log una vez por fase si recorta; DECISIÓN SIN CONFIRMAR).
 
@@ -196,8 +197,9 @@ class EsterilizacionFase(BaseFase):
         self.p_sp = None
         # CAS-02: cascada de vapor_chaqueta, una por fase (solo modo chaqueta).
         # CRI-01: parte del dp que CALENTAMIENTO dejó en estado.cascada_chaqueta
-        # al completar (misma carga); sin dato, margen_chaqueta_est
-        self._cascada = CascadaChaqueta(dp_inicial=self._dp_heredado())
+        # al completar (misma carga), nunca bajo margen_chaqueta_est (MEDIA-2);
+        # sin dato, margen_chaqueta_est
+        self._cascada = CascadaChaqueta(dp_inicial=self._dp_inicial())
         self.estado.cascada_chaqueta = None
         # CRI-02: el recorte de p_baja a P_sp - 1 se registra una vez por fase
         self._p_baja_recorte_registrado = False
@@ -625,6 +627,17 @@ class EsterilizacionFase(BaseFase):
         dp = previo.get("dp") if isinstance(previo, dict) else None
         return float(dp) if _numero(dp) else None
 
+    def _dp_inicial(self):
+        """CRI-01, corrección MEDIA-2 de la revisión de seguridad: dp de
+        partida = max(dp heredado, margen_chaqueta_est). La bajada a saturación
+        de CALENTAMIENTO puede dejar un dp pequeño (3-4 kPa) y la recarga
+        llegaría tarde. Sin herencia válida devuelve None (la cascada parte del
+        margen); la cascada lo acota a [DP_MIN_KPA, tope_baja - p_ref]."""
+        heredado = self._dp_heredado()
+        if heredado is None:
+            return None
+        return max(heredado, ccc.margen_kpa(self.cycle))
+
     def _p_baja_cascada(self, p_sat_est, brecha_seg_p):
         """CRI-02 (modo chaqueta): umbral del nivel «baja» de la cascada,
         min(Psat(T_est) + brecha_segura_presion, P_sp - 1). Registra el recorte
@@ -642,22 +655,25 @@ class EsterilizacionFase(BaseFase):
                 propio, _MARGEN_P_BAJA_CASCADA_KPA, tope)
         return min(propio, tope)
 
-    def _aplicar_cascada(self, pres, p_baja, permitido: bool, now) -> None:
+    def _aplicar_cascada(self, pres, p_baja, permitido: bool, now,
+                         congelar: bool = False) -> None:
         """CAS-02 (solo modo chaqueta): evalúa la cascada con p_ref = P_sp y
         el umbral «baja» p_baja (CRI-02) y ordena vapor_chaqueta. La orden es
         ON solo si la cascada lo pide, `permitido` (False con aislamiento
         VCH-AIS o sin lectura del Principal o de la presión de cámara) y CICLO
         no la inhibe (D-CHQ, sin suministro, sin lectura de pres_chaqueta).
-        CRI-01: con cualquiera de esas prevalencias la integral se congela. La
-        válvula de la cascada se sincroniza con la orden dada y se publica
-        estado.cascada_chaqueta con valvula = orden aplicada."""
+        CRI-01 (corrección ALTA-1): con aislamiento o inhibición la integral
+        solo puede bajar (`solo_bajar`); `congelar` (sin lectura del Principal
+        o de la presión) la detiene del todo. La válvula de la cascada se
+        sincroniza con la orden dada y se publica estado.cascada_chaqueta con
+        valvula = orden aplicada."""
         limites = le.limites_presion(self.config)
         inhibida = self._inhibir_chaqueta()
         res = self._cascada.evaluar(
             pres, self._pres_chaqueta(), self.p_sp,
             ccc.margen_kpa(self.cycle), le.presion_max_chaqueta_control(self.config),
-            limites.suministro, ahora=now,
-            congelar=(not permitido) or inhibida, p_baja=p_baja)
+            limites.suministro, ahora=now, congelar=congelar,
+            solo_bajar=(not permitido) or inhibida, p_baja=p_baja)
         aplicado = res.decision is True and permitido and not inhibida
         if aplicado:
             self.set_do.vapor_chaqueta_on()
@@ -877,7 +893,7 @@ class EsterilizacionFase(BaseFase):
                 # CAS-02: la cascada se evalúa (log y publicación) pero sin
                 # lectura la chaqueta queda OFF
                 self._aplicar_cascada(pres, self._p_baja_cascada(p_sat_est, brecha_seg_p),
-                                      permitido=False, now=now)
+                                      permitido=False, now=now, congelar=True)
             else:
                 # V12 (SAF-03): sin medición no se controla a ciegas
                 self.set_do.vapor_camara_off()

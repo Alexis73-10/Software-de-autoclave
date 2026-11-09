@@ -27,6 +27,7 @@ import logging
 import pytest
 
 from autoclave.core.runtime.status import EstadoAutoclave
+from autoclave.state_machine.cycle_phases import corte_chaqueta_consigna as ccc
 from autoclave.state_machine.cycle_phases.cascada_chaqueta import CascadaChaqueta
 from tests.banco import cri_barrido_planta as cb
 from tests.helpers import planta_vapor as pv
@@ -160,10 +161,11 @@ def test_134_sin_cic16(caudal):
 @pytest.mark.parametrize("carga,caudal", [("liquidos", "abierto"), ("liquidos", "restrictivo"),
                                           ("134", "abierto")])
 def test_herencia_dp_en_ciclo_completo(monkeypatch, carga, caudal):
-    """Con el reset de CicloState al avanzar de fase, ESTERILIZACION parte del
-    dp que CALENTAMIENTO publicó (CRI-01) y el ciclo completa sin aislamientos.
-    En Líquidos abierto CALENTAMIENTO deja ≈4 kPa (cerca de DP_MIN_KPA, por la
-    bajada a saturación): se hereda y no causa falla en este escenario."""
+    """Con el reset de CicloState al avanzar de fase, ESTERILIZACION parte de
+    max(dp que CALENTAMIENTO publicó, margen_chaqueta_est) (CRI-01 y corrección
+    MEDIA-2) y el ciclo completa sin aislamientos. En Líquidos abierto
+    CALENTAMIENTO deja ≈4 kPa (cerca de DP_MIN_KPA, por la bajada a
+    saturación): ESTERILIZACION parte del margen."""
     reg = {}
     base = pv.EsterilizacionFase
 
@@ -172,6 +174,7 @@ def test_herencia_dp_en_ciclo_completo(monkeypatch, carga, caudal):
             if not self._inicializado and "dp_her" not in reg:
                 previo = getattr(self.estado, "cascada_chaqueta", None)
                 reg["dp_her"] = previo.get("dp") if isinstance(previo, dict) else None
+                reg["margen"] = ccc.margen_kpa(self.cycle)
                 self.reset()          # como CicloState al avanzar de fase
             r = super().update()
             if "dp0" not in reg and isinstance(self.estado.cascada_chaqueta, dict):
@@ -184,16 +187,18 @@ def test_herencia_dp_en_ciclo_completo(monkeypatch, carga, caudal):
     assert r.resultado == COMPLETADO, r.motivo
     assert r.aislamientos == 0
     assert reg["dp_her"] is not None
-    assert reg["dp0"] == pytest.approx(reg["dp_her"], abs=0.1)
+    # corrección MEDIA-2: nunca bajo margen_chaqueta_est
+    assert reg["dp0"] == pytest.approx(max(reg["dp_her"], reg["margen"]), abs=0.1)
 
 
 # ── Sensibilidad: dp heredado pequeño en el escenario de §1.4 ────────────
 # HALLAZGO (no criterio de §6.3, que parte sin herencia: dp inicial =
-# margen_chaqueta_est 20): si ESTERILIZACION hereda dp = 4 kPa (lo que
-# CALENTAMIENTO publica en Líquidos abierto), los casos 10 y 11, que completaban
-# con la alpha.26, fallan. Se fija el resultado actual para ver cualquier cambio.
+# margen_chaqueta_est 20): con CRI (536f0b56), si ESTERILIZACION heredaba dp =
+# 4 kPa (lo que CALENTAMIENTO publica en Líquidos abierto), los casos 10 y 11,
+# que completaban con la alpha.26, fallaban. Con la corrección MEDIA-2
+# (dp inicial = max(heredado, margen) = max(4, 20) = 20) el resultado es el de
+# ESPERADO_CRI.
 ESPERADO_DP_HEREDADO_4 = dict(ESPERADO_CRI)
-ESPERADO_DP_HEREDADO_4.update({(0.015, 0.4, 1.5): T_BAJA, (0.015, 0.8, 4.0): P_BAJA})
 
 
 @pytest.mark.parametrize("caso", CASOS, ids=_id)
@@ -205,7 +210,7 @@ def test_sensibilidad_dp_heredado_4(monkeypatch, caso):
             if not self._inicializado:
                 self.estado.cascada_chaqueta = {"nivel": None, "consigna": None,
                                                 "valvula": False, "dp": 4.0}
-                self._cascada = CascadaChaqueta(dp_inicial=self._dp_heredado())
+                self._cascada = CascadaChaqueta(dp_inicial=self._dp_inicial())
             return super().update()
 
     monkeypatch.setattr(pv, "EsterilizacionFase", _Heredado)

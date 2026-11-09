@@ -14,11 +14,15 @@
 #   pasa el llamador (`ahora`) recortado a 0..DT_MAX_S (un salto o una pausa
 #   no integra de golpe). Valor inicial: `dp_inicial` (lo aprendido en
 #   CALENTAMIENTO, herencia en ESTERILIZACION) o, sin él, margen_est
-#   (margen_chaqueta_est del programa); acotado igual. Antiembalamiento: no
-#   integra con `congelar` (el llamador lo pide con VCH-AIS aislado,
-#   inhibir_vapor_chaqueta o una orden OFF por prevalencia), sin lectura de
-#   cámara o de chaqueta, con entradas inválidas ni en el primer tick (dt 0).
-#   En «alta» la integral sigue corriendo: con error negativo dp baja.
+#   (margen_chaqueta_est del programa); acotado igual. Antiembalamiento
+#   (integración condicional, corrección ALTA-1 de la revisión de seguridad):
+#   no integra nada con `congelar` (el llamador sin medida válida, p. ej. sin
+#   lectura del Principal), sin lectura de cámara o de chaqueta, con entradas
+#   inválidas ni en el primer tick (dt 0); en el nivel «baja» (consigna
+#   saturada en tope_baja) y con `solo_bajar` (el llamador fuerza OFF por
+#   prevalencia: VCH-AIS aislado, inhibir_vapor_chaqueta) solo integra error
+#   negativo: dp puede bajar, nunca subir. En «alta» la integral sigue
+#   corriendo: con error negativo dp baja.
 #
 #   Nivel:
 #     baja:  pres_camara < p_baja; por defecto p_ref - UMBRAL_BAJO_KPA. CRI-02
@@ -131,12 +135,16 @@ class CascadaChaqueta:
 
     def evaluar(self, pres_camara, pres_chaqueta, p_ref, margen_est,
                 presion_max_chaqueta_control, presion_suministro_vapor, *,
-                ahora, congelar: bool = False, p_baja=None) -> ResultadoCascada:
+                ahora, congelar: bool = False, solo_bajar: bool = False,
+                p_baja=None) -> ResultadoCascada:
         """Evalúa un tick y devuelve la decisión de vapor_chaqueta.
 
-        `ahora`: instante monotonic del tick (s). `congelar`: True si una
-        prevalencia del llamador fuerza OFF (la integral no cambia).
-        `p_baja`: umbral del nivel «baja» (None = p_ref - UMBRAL_BAJO_KPA)."""
+        `ahora`: instante monotonic del tick (s). `congelar`: True si el
+        llamador no tiene una medida válida (p. ej. sin lectura del Principal):
+        la integral no cambia. `solo_bajar`: True si una prevalencia del
+        llamador fuerza OFF (VCH-AIS aislado, inhibir_vapor_chaqueta): solo se
+        integra error negativo. `p_baja`: umbral del nivel «baja» (None =
+        p_ref - UMBRAL_BAJO_KPA)."""
         if not all(_numero(v) for v in (p_ref, margen_est,
                                         presion_max_chaqueta_control,
                                         presion_suministro_vapor, ahora)) \
@@ -162,16 +170,28 @@ class CascadaChaqueta:
                 "la consigna no supera el tope",
                 tope_baja, UMBRAL_ALTO_KPA, p_ref + UMBRAL_ALTO_KPA)
 
-        self._integrar(pc, p_ref, tope_baja, float(margen_est), ahora, congelar)
-
         umbral_baja = p_ref - UMBRAL_BAJO_KPA if p_baja is None else float(p_baja)
         umbral_baja = min(umbral_baja, p_ref - MARGEN_P_BAJA_KPA)
         if pc < umbral_baja:
-            nivel, consigna = NIVEL_BAJA, tope_baja
+            nivel = NIVEL_BAJA
         elif pc > p_ref + UMBRAL_ALTO_KPA:
-            nivel, consigna = NIVEL_ALTA, None
+            nivel = NIVEL_ALTA
         else:
-            nivel, consigna = NIVEL_BANDA, min(p_ref + self.dp, tope_baja)
+            nivel = NIVEL_BANDA
+
+        # Antiembalamiento (revisión de seguridad ALTA-1): en «baja» la
+        # consigna ya está saturada en tope_baja y con `solo_bajar` la
+        # prevalencia del llamador impide actuar: solo se integra error
+        # negativo (dp puede bajar, nunca subir)
+        self._integrar(pc, p_ref, tope_baja, float(margen_est), ahora, congelar,
+                       solo_bajar=bool(solo_bajar) or nivel == NIVEL_BAJA)
+
+        if nivel == NIVEL_BAJA:
+            consigna = tope_baja
+        elif nivel == NIVEL_ALTA:
+            consigna = None
+        else:
+            consigna = min(p_ref + self.dp, tope_baja)
 
         if consigna is None:
             self.valvula = False
@@ -192,7 +212,8 @@ class CascadaChaqueta:
         """CRI-01: (mínimo, máximo) de dp; el máximo nunca bajo el mínimo."""
         return DP_MIN_KPA, max(DP_MIN_KPA, float(tope_baja) - float(p_ref))
 
-    def _integrar(self, pc, p_ref, tope_baja, margen_est, ahora, congelar) -> None:
+    def _integrar(self, pc, p_ref, tope_baja, margen_est, ahora, congelar,
+                  solo_bajar=False) -> None:
         lo, hi = self.cotas_dp(p_ref, tope_baja)
         if self.dp is None:
             inicial = self._dp_inicial if self._dp_inicial is not None else margen_est
@@ -201,7 +222,9 @@ class CascadaChaqueta:
             return
         if not congelar and self._t_ultimo is not None:
             dt = min(max(ahora - self._t_ultimo, 0.0), DT_MAX_S)
-            self.dp += KI_CRI * (p_ref - pc) * dt
+            incremento = KI_CRI * (p_ref - pc) * dt
+            if not (solo_bajar and incremento > 0):
+                self.dp += incremento
         self.dp = min(max(self.dp, lo), hi)
         self._t_ultimo = ahora
 

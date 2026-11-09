@@ -125,13 +125,82 @@ def test_en_alta_la_integral_baja_dp():
     assert c.dp == pytest.approx(MARGEN - 0.3)
 
 
-def test_en_baja_la_integral_sigue():
+def test_en_baja_la_integral_no_sube():
+    """Corrección ALTA-1 (antiembalamiento): en «baja» la consigna ya está
+    saturada en tope_baja; el error positivo no se integra (antes dp subía
+    0,75 kPa por segundo con error 5 y llegaba a 40-137 kPa)."""
     c = CascadaChaqueta()
     _ev(c, 199.0, 150.0, 0.0)
-    r = _ev(c, 195.0, 150.0, 1.0)              # baja, error 5
-    assert r.nivel == cc.NIVEL_BAJA
-    assert r.consigna == pytest.approx(TOPE_BAJA)
-    assert c.dp == pytest.approx(MARGEN + 0.75)
+    for t in range(1, 60):
+        r = _ev(c, 195.0, 150.0, float(t))     # baja, error 5
+        assert r.nivel == cc.NIVEL_BAJA
+        assert r.consigna == pytest.approx(TOPE_BAJA)
+    assert c.dp == pytest.approx(MARGEN)
+    # al volver a «banda» la consigna es la de antes de la caída
+    r = _ev(c, 199.0, 150.0, 60.0)
+    assert r.nivel == cc.NIVEL_BANDA
+    assert r.consigna == pytest.approx(P_REF + MARGEN + 0.15)
+
+
+def test_en_baja_con_p_baja_propio_bajo_p_ref_no_sube():
+    """Con p_baja (CRI-02) el nivel «baja» siempre tiene error positivo:
+    dp queda fijo mientras dure."""
+    c = CascadaChaqueta(dp_inicial=20.0)
+    _ev(c, 199.0, 150.0, 0.0, p_baja=198.0)
+    for t in range(1, 30):
+        _ev(c, 197.0, 150.0, float(t), p_baja=198.0)
+    assert c.dp == pytest.approx(20.0)
+
+
+# ── Integración condicional con prevalencia (solo_bajar) ────────────────────
+
+def test_solo_bajar_no_sube_con_error_positivo():
+    c = CascadaChaqueta()
+    _ev(c, 199.0, 150.0, 0.0)
+    for t in range(1, 30):
+        _ev(c, 199.0, 150.0, float(t), solo_bajar=True)   # banda, error +1
+    assert c.dp == pytest.approx(MARGEN)
+
+
+def test_solo_bajar_baja_con_error_negativo():
+    """VCH-AIS aislado: la cámara está sobre p_ref (error negativo) y dp debe
+    poder bajar (antes quedaba congelada)."""
+    c = CascadaChaqueta(dp_inicial=20.0)
+    _ev(c, 199.0, 150.0, 0.0)
+    r = _ev(c, 210.0, 150.0, 1.0, solo_bajar=True)       # alta, error -10
+    assert r.nivel == cc.NIVEL_ALTA
+    assert c.dp == pytest.approx(20.0 - 1.5)
+    _ev(c, 200.5, 150.0, 2.0, solo_bajar=True)            # banda, error -0,5
+    assert c.dp == pytest.approx(20.0 - 1.5 - 0.075)
+
+
+def test_solo_bajar_respeta_dp_min():
+    c = CascadaChaqueta()
+    _ev(c, 199.0, 150.0, 0.0)
+    for t in range(1, 200):
+        _ev(c, 230.0, 150.0, float(t), solo_bajar=True)
+    assert c.dp == pytest.approx(cc.DP_MIN_KPA)
+
+
+def test_congelar_prevalece_sobre_solo_bajar():
+    """Sin medida válida en el llamador (congelar) no se integra nada, ni
+    siquiera error negativo (falla cerrada)."""
+    c = CascadaChaqueta(dp_inicial=20.0)
+    _ev(c, 199.0, 150.0, 0.0)
+    for t in range(1, 30):
+        _ev(c, 230.0, 150.0, float(t), congelar=True, solo_bajar=True)
+    assert c.dp == pytest.approx(20.0)
+
+
+@pytest.mark.parametrize("campo, valor", [("camara", None), ("chaqueta", None),
+                                          ("camara", math.nan)])
+def test_sin_lectura_no_integra_ni_negativo(campo, valor):
+    c = CascadaChaqueta(dp_inicial=20.0)
+    _ev(c, 199.0, 150.0, 0.0)
+    for t in range(1, 10):
+        pc, pj = (valor, 150.0) if campo == "camara" else (230.0, valor)
+        _ev(c, pc, pj, float(t), solo_bajar=True)
+    assert c.dp == pytest.approx(20.0)
 
 
 @pytest.mark.parametrize("salto, dt_efectivo", [(100.0, 2.0), (2.0, 2.0), (-50.0, 0.0)])
@@ -334,6 +403,15 @@ def test_ester_hereda_dp_de_calentamiento(monkeypatch):
     assert estado.cascada_chaqueta["consigna"] == pytest.approx(P_SP + 21.0)
 
 
+@pytest.mark.parametrize("heredado, esperado", [(4.0, MARGEN), (3.0, MARGEN), (MARGEN, MARGEN),
+                                                (8.5, 8.5)])
+def test_ester_herencia_nunca_bajo_el_margen(monkeypatch, heredado, esperado):
+    """Corrección MEDIA-2: dp inicial = max(dp heredado, margen_chaqueta_est)."""
+    f, estado, _, _ = _ester(monkeypatch, heredado={"dp": heredado})
+    f.update()
+    assert estado.cascada_chaqueta["dp"] == pytest.approx(esperado)
+
+
 @pytest.mark.parametrize("heredado", ["sin", {"dp": None}, {"dp": math.nan}, {"nivel": "banda"},
                                       "texto", 5.0])
 def test_ester_sin_herencia_valida_usa_el_margen(monkeypatch, heredado):
@@ -352,23 +430,30 @@ def test_ester_integra_en_la_banda(monkeypatch):
     assert estado.cascada_chaqueta["dp"] == pytest.approx(MARGEN + 0.15 * 5.0)
 
 
-def test_ester_congela_con_aislamiento(monkeypatch):
-    f, estado, set_do, reloj = _ester(monkeypatch)
+def test_ester_aislamiento_solo_deja_bajar_dp(monkeypatch):
+    """Corrección ALTA-1: con VCH-AIS aislado la cámara está sobre P_sp (error
+    negativo) y dp baja; si la cámara cae bajo P_sp con el aislamiento aún
+    vigente, dp no sube."""
+    f, estado, set_do, reloj = _ester(monkeypatch, heredado={"dp": 20.0})
     f.update()
     ap.poner(estado, 134.7, TECHO)               # aislamiento (error negativo)
     set_do.reset_mock()
+    previo = estado.cascada_chaqueta["dp"]
     for _ in range(4):
         reloj.avanzar(0.5)
         f.update()
+        assert estado.cascada_chaqueta["dp"] <= previo
+        previo = estado.cascada_chaqueta["dp"]
     assert f._aislamiento().aislado is True
-    assert estado.cascada_chaqueta["dp"] == pytest.approx(MARGEN)
+    assert estado.cascada_chaqueta["dp"] < 20.0
     set_do.vapor_chaqueta_on.assert_not_called()
-    # la cámara cae a la banda con el aislamiento aún vigente (3 s): sigue congelada
+    # la cámara cae a la banda con el aislamiento aún vigente (3 s): no sube
     ap.poner(estado, 134.7, P_SP - 1.0)
     reloj.avanzar(0.5)
     f.update()
     assert f._aislamiento().aislado is True
-    assert estado.cascada_chaqueta["dp"] == pytest.approx(MARGEN)
+    assert estado.cascada_chaqueta["dp"] == pytest.approx(previo)
+    set_do.vapor_chaqueta_on.assert_not_called()
 
 
 def test_ester_congela_con_inhibicion(monkeypatch):
@@ -382,6 +467,33 @@ def test_ester_congela_con_inhibicion(monkeypatch):
     set_do.vapor_chaqueta_on.assert_not_called()
     assert estado.cascada_chaqueta["dp"] == pytest.approx(MARGEN)
     assert estado.cascada_chaqueta["valvula"] is False
+
+
+def test_ester_inhibicion_deja_bajar_dp(monkeypatch):
+    """Corrección ALTA-1: con inhibir_vapor_chaqueta y la cámara sobre P_sp
+    (nivel alta) dp baja."""
+    f, estado, set_do, reloj = _ester(monkeypatch, heredado={"dp": 20.0})
+    f.update()
+    estado.inhibir_vapor_chaqueta = True
+    ap.poner(estado, 134.7, P_SP + 3.0)
+    set_do.reset_mock()
+    for _ in range(4):
+        reloj.avanzar(0.5)
+        f.update()
+    set_do.vapor_chaqueta_on.assert_not_called()
+    assert estado.cascada_chaqueta["dp"] == pytest.approx(20.0 - 0.15 * 3.0 * 2.0)
+
+
+def test_ester_en_baja_no_sube_dp(monkeypatch):
+    """Corrección ALTA-1: cámara en el nivel «baja» (consigna en tope_baja):
+    dp no se infla."""
+    f, estado, _, reloj = _ester(monkeypatch, pres=P_SP - 6.0)
+    f.update()
+    for _ in range(40):
+        reloj.avanzar(0.5)
+        f.update()
+    assert estado.cascada_chaqueta["nivel"] == cc.NIVEL_BAJA
+    assert estado.cascada_chaqueta["dp"] == pytest.approx(MARGEN)
 
 
 def test_ester_congela_sin_lectura_del_principal(monkeypatch):
@@ -483,6 +595,21 @@ def test_cal_congela_con_inhibicion(reloj_cal):
         _tick_cal(fase, estado, P_OBJ - 1.0)
     assert estado.cascada_chaqueta["dp"] == pytest.approx(dp0)
     assert estado.cascada_chaqueta["valvula"] is False
+
+
+def test_cal_inhibicion_deja_bajar_dp(reloj_cal):
+    """Corrección ALTA-1 en CALENTAMIENTO: inhibida y con la cámara sobre
+    p_ref, dp baja (antes quedaba congelada)."""
+    fase, estado, set_do = _cal()
+    _a_sostenimiento(fase, estado)
+    dp0 = estado.cascada_chaqueta["dp"]
+    estado.inhibir_vapor_chaqueta = True
+    for _ in range(5):
+        reloj_cal[0] += 1.0
+        _tick_cal(fase, estado, P_OBJ + 2.0)
+    assert estado.cascada_chaqueta["nivel"] == cc.NIVEL_ALTA
+    assert estado.cascada_chaqueta["dp"] == pytest.approx(max(dp0 - 0.15 * 2.0 * 5, cc.DP_MIN_KPA))
+    assert estado.cascada_chaqueta["dp"] < dp0
 
 
 def test_cal_completado_entrega_dp(reloj_cal):
