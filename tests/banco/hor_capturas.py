@@ -213,6 +213,16 @@ _SCRIPT = textwrap.dedent(r'''
     arnes("teclado_alfa", "PruebaTecladoAlfanumerico.qml")
     arnes("teclado_num", "PruebaTecladoNumerico.qml")
 
+    # Escenarios por grupo de pantallas: cada tests/banco/hor_escenarios_*.py se
+    # ejecuta aquí con qml(), arnes(), PUENTE_PRECICLO, PUENTE_SIMPLE, ALARMA,
+    # fases() y ACCIONES a la vista. ACCIONES[nombre] = f(win, h) se usa con
+    # accion="py:nombre"; h trae tocar, por_nombre, todos, QTest, QPointF, Qt,
+    # QMetaObject y Q_ARG.
+    ACCIONES = {}
+    import glob as _glob
+    for _f in sorted(_glob.glob(os.path.join(cfg["banco"], "hor_escenarios_*.py"))):
+        exec(compile(open(_f, encoding="utf-8").read(), _f, "exec"), globals())
+
     REVISOR = None
 
     def todos(win):
@@ -321,6 +331,13 @@ _SCRIPT = textwrap.dedent(r'''
                         Q_ARG("QVariant", 100), Q_ARG("QVariant", 1), Q_ARG("QVariant", None),
                         Q_ARG("QVariant", None))
             QTest.qWait(900)
+        if acc.startswith("py:"):
+            import types
+            h = types.SimpleNamespace(tocar=tocar, por_nombre=lambda n: por_nombre(win, n),
+                                      todos=lambda: todos(win), QTest=QTest, QPointF=QPointF, Qt=Qt,
+                                      QMetaObject=QMetaObject, Q_ARG=Q_ARG, engine=engine)
+            ACCIONES[acc[3:]](win, h)
+            QTest.qWait(600)
         if acc == "historial_detalle":
             QTest.qWait(600)
             filas = [o for o in todos(win) if o.objectName().startswith("resultado_")]
@@ -377,7 +394,8 @@ def main() -> int:
            "PYTHONPATH": str(Path(a.raiz) / "src") + os.pathsep + str(RAIZ_PROPIA)}
     for tema in a.temas:
         cfg = {"tema": tema, "destino": a.destino, "ancho": ancho, "alto": alto,
-               "escenarios": a.escenarios, "idioma": a.idioma}
+               "escenarios": a.escenarios, "idioma": a.idioma,
+               "banco": str(RAIZ_PROPIA / "tests" / "banco")}
         p = subprocess.run([sys.executable, "-X", "utf8", "-c", _SCRIPT, json.dumps(cfg)],
                            capture_output=True, text=True, encoding="utf-8", env=env,
                            cwd=a.raiz, timeout=1800)
