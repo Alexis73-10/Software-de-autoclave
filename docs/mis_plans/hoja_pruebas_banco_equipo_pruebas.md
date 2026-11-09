@@ -3404,3 +3404,56 @@
 - **Criterio:** Aprobado si la barra no contiene el motivo y la fila NO ABRIR sí.
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+## Bloque PAM. Presión añadida como margen de trabajo (9-nov)
+
+Precondiciones: T33-01 (calibración de `pres_chaqueta`, HAZ-CAS-02) y PAM-00. Plan: `docs/mis_plans/planeacion_presion_add_margen.md`; riesgos HAZ-PAM-01..03.
+
+### PAM-00 — Comparar la Principal, temp_2_camara y el transmisor de cámara contra patrón a 121 °C (PRIMER PASO)
+- **Modo:** Con vapor  ·  **Origen:** PAM-H1; HAZ-PAM-02
+- **Pasos:** con la cámara estable a 121 °C (vapor saturado), medir con patrón la temperatura junto a la Principal y la presión de cámara; anotar Principal, `temp_2_camara`, `pres_camara`, Tsat(P) y el desfase Tsat(P) − Principal.
+- **Criterio:** Aprobado si la Principal y el transmisor coinciden con el patrón dentro de su tolerancia. Si la Principal está descalibrada se calibra antes de seguir; si está bien y el punto es más frío, es un hallazgo de proceso (drenaje, aire) para Cristian.
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### PAM-01 — Instrumental 121 (sólido) llega a ESTABLE y a ESTERILIZACION
+- **Modo:** Con vapor  ·  **Origen:** PAM-01..03; HAZ-PAM-01
+- **Pasos:** programa Instrumental 121 en modo chaqueta. En `backend.log` anotar «presión de trabajo fijada en … (PAM-02)», cada «presión de trabajo sube», la entrada a ESTABLE_PREESTERILIZACION y la línea «P_sp=… (heredada|calculada)» de ESTERILIZACION. Registrar `pres_camara`, Principal y `temp_2_camara`.
+- **Criterio:** Aprobado si completa sin timeout de CALENTAMIENTO (ciclo 27), sin aislamientos en el empuje y con P_trabajo ≤ Psat(121) + presion_add_calentamiento − (histeresis_cierre_camara + 1).
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### PAM-02 — Líquidos 121 °C: entrada a ESTERILIZACION dentro de la banda
+- **Modo:** Con vapor  ·  **Origen:** PAM-02..04; HAZ-PAM-01
+- **Pasos:** programa Líquidos 121 °C con carga máxima (modo chaqueta). Anotar P_trabajo y d, la presión al entrar a ESTERILIZACION, el primer nivel «Cascada chaqueta» de la fase, los «cámara AISLADA» y la presión mínima de la exposición.
+- **Criterio:** Aprobado si la cascada no arranca ESTERILIZACION en nivel «baja», sin pulso largo ni aislamiento al entrar, completa sin CIC-04 y con margen hasta Psat(121) − brecha_error_presion de al menos 5 kPa (ejemplo del plan: 7–10 kPa).
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### PAM-03 — Sobreimpulso con la Principal calibrada
+- **Modo:** Con vapor  ·  **Origen:** PAM-01, PAM-04; HAZ-PAM-01
+- **Pasos:** con PAM-00 aprobado, correr Instrumental 121 y 134 °C sólidos. Anotar d y la temperatura máxima de la Principal y del patrón en ESTERILIZACION.
+- **Criterio:** Aprobado si la carga no supera T_est + 2 K, no hay falla de temperatura alta y d queda bajo 5 kPa. Valores de margen (histeresis + 1, P_control_max − 3, paso 1 kPa) para la decisión de Cristian.
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### PAM-04 — Línea de ticket y registro del desfase
+- **Modo:** Con vapor  ·  **Origen:** PAM-02, PAM-04 (§6.3, §6.4); HAZ-PAM-02
+- **Pasos:** en los ciclos de PAM-01/02 revisar el pie del ticket («Presión de trabajo: Psat + d kPa»; en inglés «Working pressure: …») y que d coincida con el log.
+- **Criterio:** Aprobado si la línea aparece una vez por ciclo con el d del log.
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### PAM-05 — Detección de aire con el margen en kPa
+- **Modo:** Con vapor  ·  **Origen:** PAM-05; HAZ-PAM-03
+- **Pasos:** prueba de Bowie & Dick y un ciclo de sólidos con fuga de aire controlada (o prevacío reducido). Anotar si dispara CIC-12 y el motivo (exceso y límite en kPa).
+- **Criterio:** Aprobado si con aire dispara CIC-12 con el motivo en kPa y sin aire no hay CIC-12 espurio con `presion_add_esterilizacion` de fábrica.
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### PAM-06 — Regla de brechas de presión
+- **Modo:** En seco  ·  **Origen:** PAM-06
+- **Pasos:** en Parámetros del ciclo intentar «Brecha segura de presión» ≥ «Brecha de error de presión» (rechazo con el texto es/en). Con un programa instalado que ya la incumple (Líquidos de SN260001, 3,0/2,0) reiniciar: aviso SIS-06 en Preciclo y campana, programa ejecutable, sin cambio de valores; corregirlo y reiniciar.
+- **Criterio:** Aprobado si el guardado se rechaza, la carga solo avisa y tras corregir el aviso no vuelve.
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________

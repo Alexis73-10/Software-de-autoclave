@@ -62,15 +62,21 @@ def _enclavar(fase, estado, reloj, pres, temp=T_OBJ):
     return _tick(fase, estado, temp, pres)
 
 
-# ── Sólidos y extra 0: idéntico al comportamiento anterior ────────────────
+# ── Sólidos y extra 0: sin el extra de líquidos ───────────────────────────
+# PAM-01 (9-nov): con carga sólida la rampa empuja a P_TECHO - 4 sin usar el
+# extra; un líquido con extra 0 sigue apuntando a Psat(T_obj) (no empuja)
 
 @pytest.mark.parametrize("carga,extra", [("solido", 15.0), ("liquido", 0.0), ("solido", 0.0)])
 def test_solido_o_extra_cero_no_empuja(carga, extra):
     fase, estado, _ = _fase(carga, extra)
     _tick(fase, estado, 110.0, P_OBJ + 5)
-    referencia, est_ref, _ = _fase("solido", 0.0)
-    _tick(referencia, est_ref, 110.0, P_OBJ + 5)
-    assert fase._duty_actual == referencia._duty_actual
+    if carga == "solido":
+        referencia, est_ref, _ = _fase("solido", 0.0)
+        _tick(referencia, est_ref, 110.0, P_OBJ + 5)
+        assert fase._duty_actual == referencia._duty_actual
+        assert fase._duty_actual > 0.0          # PAM-01: empuje sólido a P_TECHO - 4
+    else:
+        assert fase._duty_actual == 0.0         # líquido sin extra: objetivo Psat(T_obj)
     assert fase._add_liquido() == 0.0
     # el techo sigue siendo p_techo: a P >= p_techo duty 0
     _tick(fase, estado, 110.0, P_TECHO + 1)
@@ -78,10 +84,15 @@ def test_solido_o_extra_cero_no_empuja(carga, extra):
     assert fase._t_obj_alcanzada is False
 
 
-def test_solido_alcanzar_t_obj_no_enclava_ni_baja_a_psat():
+def test_solido_enclava_t_obj_a_los_5_s_y_fija_la_presion_de_trabajo(reloj):
+    # PAM-01/02 (9-nov): el enclave rige para toda carga; P_trabajo al tope
     fase, estado, set_do = _fase("solido", EXTRA)
     _tick(fase, estado, T_OBJ, P_OBJ + 10)
     assert fase._t_obj_alcanzada is False
+    reloj[0] += 6.0
+    _tick(fase, estado, T_OBJ, P_OBJ + 10)
+    assert fase._t_obj_alcanzada is True
+    assert fase._p_trabajo == pytest.approx(P_TECHO - 4.0)
 
 
 # ── Líquido con extra: rampa y techo ampliados ────────────────────────────
@@ -89,7 +100,7 @@ def test_solido_alcanzar_t_obj_no_enclava_ni_baja_a_psat():
 def test_liquido_rampa_apunta_a_psat_mas_extra():
     fase, estado, _ = _fase("liquido", EXTRA)
     ref, est_ref, _ = _fase("solido", 0.0)
-    pres = P_OBJ + 6   # sobre p_obj: sin extra la rampa ya se apaga
+    pres = P_OBJ + 6   # PAM-01: el sólido empuja a P_OBJ + 7; el líquido a P_OBJ + 15
     _tick(fase, estado, 110.0, pres)
     _tick(ref, est_ref, 110.0, pres)
     assert fase._duty_actual > ref._duty_actual
@@ -143,22 +154,27 @@ def test_enclave_y_bajando_a_psat_mantiene_vapor_off_y_no_entra_a_estable(reloj)
     assert fase._duty_actual == 0.0
     assert fase._en_sostenimiento is False
     set_do.reset_mock()
-    # la temperatura cae bajo T_obj: el enclave se mantiene
-    _tick(fase, estado, T_OBJ - 0.5, P_OBJ + 5)
+    # la temperatura cae bajo T_obj: el enclave se mantiene (PAM-03: P sobre
+    # P_trabajo + 1 = P_OBJ + 8, sin vapor)
+    _tick(fase, estado, T_OBJ - 0.5, P_OBJ + 9)
     assert fase._t_obj_alcanzada is True
     assert fase._duty_actual == 0.0
     set_do.vapor_camara_on.assert_not_called()
-    _tick(fase, estado, T_OBJ, P_OBJ + 2.5)           # aún sobre Psat + 2
+    # PAM-03: P_trabajo = clamp(P_OBJ + 10, P_OBJ, P_TECHO - 4) = P_OBJ + 7;
+    # sin vapor ni entrada mientras P > P_trabajo + 1
+    _tick(fase, estado, T_OBJ, P_OBJ + 8.5)
     assert fase._en_sostenimiento is False
     assert fase._duty_actual == 0.0
 
 
-def test_entra_a_estable_solo_con_p_dentro_de_psat_mas_menos_2(reloj):
+def test_entra_a_estable_solo_con_p_hasta_p_trabajo_mas_1(reloj):
+    # PAM-03 (9-nov): reemplaza la entrada con P <= Psat + 2 del ajuste 7-nov
     fase, estado, _ = _fase("liquido", EXTRA)
     _enclavar(fase, estado, reloj, P_OBJ + 10)
-    _tick(fase, estado, T_OBJ, P_OBJ + 2.5)
+    assert fase._p_trabajo == pytest.approx(P_OBJ + 7.0)
+    _tick(fase, estado, T_OBJ, P_OBJ + 8.5)
     assert fase._en_sostenimiento is False
-    _tick(fase, estado, T_OBJ, P_OBJ + 1.5)
+    _tick(fase, estado, T_OBJ, P_OBJ + 7.5)
     assert fase._en_sostenimiento is True
 
 
@@ -261,10 +277,10 @@ def test_chaqueta_m2_techo_ampliado_en_empuje_y_en_bajada_normal_despues(reloj):
     assert fase._corte_m2_previo is False
     assert estado.cascada_chaqueta["nivel"] == "alta"
     set_do.vapor_chaqueta_on.assert_not_called()
-    # terminada la bajada (P <= Psat+2) la cascada sigue con el techo
-    # normal: p_chaq sobre la consigna -> OFF (tiempo_estable 0: el mismo tick
-    # completa y limpia la publicación)
-    _tick(fase, estado, T_OBJ, P_OBJ + 1.5)
+    # terminada la bajada (PAM-03: P <= P_trabajo + 1 = Psat + 8) la cascada
+    # sigue con el techo normal: p_chaq sobre la consigna -> OFF
+    # (tiempo_estable 0: el mismo tick completa y limpia la publicación)
+    _tick(fase, estado, T_OBJ, P_OBJ + 7.5)
     assert fase._corte_m2_previo is False
     assert fase._cascada.valvula is False
     set_do.vapor_chaqueta_on.assert_not_called()

@@ -7,6 +7,20 @@ from autoclave.state_machine.cycle_phases.base_fase import FaseResult
 from autoclave.core.runtime.steam import p_saturacion_kpa
 
 
+
+# PAM (9-nov): el enclave de t_obj (5 s sostenidos) rige ahora para toda carga
+# y la entrada a ESTABLE_PREESTERILIZACION lo exige. Estas pruebas son
+# anteriores y no ejercitan esa espera: el enclave se hace en el primer tick
+# con T >= t_obj (el enclave de 5 s lo cubren test_ajuste_7nov_liquidos.py y
+# test_pam_*.py).
+import pytest as _pytest_pam
+
+
+@_pytest_pam.fixture(autouse=True)
+def _enclave_inmediato_pam(monkeypatch):
+    from autoclave.state_machine.cycle_phases import calentamiento as _cal
+    monkeypatch.setattr(_cal, "_ENCLAVE_T_OBJ_SOSTENIDO_S", 0.0)
+
 def _make_fase(t_obj=134.0, presion_add=11.0, timeout_min=60,
                factor=50.0, rango=2.0, tasa_calentamiento=0.0, tasa_presion=0.0,
                tiempo_estable=0, intervalo=2, t_inicial=20.0,
@@ -95,7 +109,9 @@ def test_duty_baja_por_presion_cercana_al_objetivo_aunque_lejos_de_p_sat_temp():
     interfiera en este caso."""
     fase, estado, set_do = _make_fase(t_obj=134.0, presion_add=11.0, rango=2.0, factor=50.0)
     fase.update()  # inicializar
-    p_obj = p_saturacion_kpa(134.0)  # tanda 12 C-01: sin presion_add
+    # PAM-01: con carga sólida y antes del enclave el objetivo de presión de la
+    # rampa es Psat(t_obj) + presion_add - (histeresis_cierre_camara 3 + 1)
+    p_obj = p_saturacion_kpa(134.0) + 11.0 - 4.0
     estado.sensores_temp["temp_camara"] = 110.0  # P_sat(110) ~ 146 kPa, muy lejos de p_obj
     estado.sensores_pres["pres_camara"] = p_obj - 1.0  # a 1 kPa del objetivo, dentro de rango=2.0
     result = fase.update()
@@ -165,7 +181,8 @@ def test_duty_interpola_linealmente_dentro_de_la_banda_de_proximidad():
     duty_proximidad."""
     fase, estado, set_do = _make_fase(t_obj=134.0, presion_add=11.0, rango=2.0, factor=50.0)
     fase.update()
-    p_obj = p_saturacion_kpa(134.0)  # tanda 12 C-01: sin presion_add
+    # PAM-01: objetivo del empuje sólido, Psat(t_obj) + presion_add - 4
+    p_obj = p_saturacion_kpa(134.0) + 11.0 - 4.0
     estado.sensores_temp["temp_camara"] = 100.0  # dist_t grande -> prox_t=1.0 (clamped)
     estado.sensores_pres["pres_camara"] = p_obj - 1.0  # dist_p=1.0, margen=2.0 -> prox_p=0.5
     result = fase.update()

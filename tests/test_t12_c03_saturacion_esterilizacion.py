@@ -31,7 +31,9 @@ def test_aire_4_9_s_no_falla_5_s_falla_con_cic12(monkeypatch):
     assert valores["temp"] == 134.5
     set_do.vapor_camara_off.assert_called()
     set_do.descompresion_lenta_off.assert_called()
-    assert getattr(estado.motivo_fallo, "codigo", None) == "est_aire"
+    # PAM-05 (9-nov): el motivo da el exceso y el límite en kPa
+    assert getattr(estado.motivo_fallo, "codigo", None) == "est_aire_kpa"
+    assert valores["limite_kpa"] == 11.0              # min(presion_add 11, 2 K)
     CATALOGO["CIC-12"].renderizar(valores)            # la plantilla tiene sus campos
 
 
@@ -70,7 +72,11 @@ def test_una_lectura_dentro_reinicia_el_conteo(monkeypatch):
 
 
 def test_dentro_de_2_k_no_falla(monkeypatch):
-    f, _, _, reloj = ap.fase(monkeypatch, t_est=T_EST, temp=134.5, pres=ap.psat(136.4))
+    # PAM-05 (9-nov): el margen de aire es min(presion_add_esterilizacion 11,
+    # Psat(T + 2) - Psat(T)) en kPa; 10,5 kPa sobre Psat(134,5) no falla (antes
+    # el caso era Psat(136,4), 1,9 K, que ahora supera los 11 kPa)
+    f, _, _, reloj = ap.fase(monkeypatch, t_est=T_EST, temp=134.5,
+                             pres=ap.psat(134.5) + 10.5)
     for _ in range(30):
         assert f.update() == FaseResult.EN_CURSO
         reloj.avanzar(1.0)

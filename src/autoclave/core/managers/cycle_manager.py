@@ -718,10 +718,21 @@ class Cycle:
         cambios += [(self._hoja(f, p), catalogo_parametros.coercionar(self._hoja(f, p), f, p, v))
                     for f, p, v in (arrastres or [])]
         previos = [(hoja, hoja["value"]) for hoja, _ in cambios]
+        # PAM-06: brecha_segura_presion < brecha_error_presion, solo al guardar.
+        # Un programa ya incoherente (cargado con aviso SIS-06) no bloquea los
+        # cambios de otros parámetros; sí los de las dos brechas mientras no
+        # queden coherentes (DECISIÓN SIN CONFIRMAR)
+        brecha_antes = catalogo_parametros.errores_brecha_presion(self.parameters)
+        editados = self.vinculados(fase, path) + [(f, p) for f, p, _ in (arrastres or [])]
+        toca_brechas = any((f, ".".join(p)) in catalogo_parametros.RUTAS_BRECHA_PRESION
+                           for f, p in editados)
         for hoja, valor in cambios:
             hoja["value"] = valor
         # Reglas entre parámetros (T10, decisión 1.2): si no se cumplen, nada cambia
         errores = catalogo_parametros.errores_coherencia(self.parameters)
+        brecha_despues = catalogo_parametros.errores_brecha_presion(self.parameters)
+        if brecha_despues and (toca_brechas or not brecha_antes):
+            errores = errores + brecha_despues
         if errores:
             limite = catalogo_parametros.valor_limite(self.parameters)
             for hoja, valor in reversed(previos):
@@ -974,6 +985,14 @@ class CycleManager:
                 logger.warning("Programa %s: advertencia %s: %s", cycle.id, clave, mensaje)
         except Exception:
             logger.exception("Programa %s: no se pudieron evaluar las advertencias", cycle.id)
+        # PAM-06: al cargar, la regla de brechas no rechaza ni migra; queda en
+        # el log y el backend activa SIS-06 (incoherencias_brecha_presion)
+        try:
+            for mensaje in catalogo_parametros.errores_brecha_presion(cycle.parameters):
+                logger.warning("Programa %s: %s (no se migra; corregir en Parámetros del "
+                               "ciclo) (PAM-06)", cycle.id, mensaje)
+        except Exception:
+            logger.exception("Programa %s: no se pudo evaluar la regla de brechas", cycle.id)
 
     def _validar_al_cargar(self, cycle, full_path: str) -> None:
         errores = catalogo_parametros.errores_programa(cycle.parameters)
@@ -1021,6 +1040,23 @@ class CycleManager:
         del alivio)] de la última carga."""
         return [(c, m) for c in self.cycles.values()
                 for m in (getattr(c, "migraciones_no_aplicadas", None) or [])]
+
+    def incoherencias_brecha_presion(self) -> list[tuple["Cycle", dict]]:
+        """PAM-06: [(programa, {"segura", "error"})] de los programas cargados
+        (no dañados) con brecha_segura_presion >= brecha_error_presion. Se
+        evalúa en el momento (no se migra nada). Nunca lanza."""
+        salida = []
+        for cycle in list(self.cycles.values()):
+            if getattr(cycle, "danado", None):
+                continue
+            try:
+                if catalogo_parametros.errores_brecha_presion(cycle.parameters):
+                    salida.append((cycle, {
+                        "segura": cycle.get_param("esterilizacion", "brecha_segura_presion"),
+                        "error": cycle.get_param("esterilizacion", "brecha_error_presion")}))
+            except Exception:
+                logger.exception("Programa %s: no se pudo evaluar la regla de brechas", cycle.id)
+        return salida
 
     def revalidar_programas(self) -> list[str]:
         """DEU-01 (tanda 16): vuelve a aplicar la regla de carga

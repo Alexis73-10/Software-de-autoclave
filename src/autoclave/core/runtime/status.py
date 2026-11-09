@@ -164,6 +164,14 @@ class EstadoAutoclave:
         # cascada de vapor_chaqueta (modo chaqueta, ESTERILIZACION y
         # ESTABLE_PREESTERILIZACION). Solo publicación; None fuera de esas fases.
         self.cascada_chaqueta = None
+        # PAM-02 (9-nov): presión de trabajo (kPa abs) y d = P_trabajo -
+        # Psat(t_obj) (kPa) fijados por CALENTAMIENTO al enclavar t_obj (con
+        # sólidos, el desfase Principal/saturación; con el empuje de líquidos
+        # incluye la presión que dejó el empuje, acotada al tope);
+        # ESTERILIZACION lee d. Solo publicación; None fuera de ciclo y antes
+        # del enclave.
+        self.presion_trabajo = None
+        self.desfase_trabajo = None
         # T30-02: datos de progreso de la fase activa que publican
         # CALENTAMIENTO (ventana de estabilización), DESCOMPRESION (modos 4/5
         # enfriando) y SECADO (conteo de la fase) para la pantalla de ciclo en

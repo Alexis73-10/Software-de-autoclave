@@ -10,6 +10,20 @@ from autoclave.core.runtime import sensores_ciclo as sc
 from autoclave.installation.equipment import EquipmentClass
 
 
+
+# PAM (9-nov): el enclave de t_obj (5 s sostenidos) rige ahora para toda carga
+# y la entrada a ESTABLE_PREESTERILIZACION lo exige. Estas pruebas son
+# anteriores y no ejercitan esa espera: el enclave se hace en el primer tick
+# con T >= t_obj (el enclave de 5 s lo cubren test_ajuste_7nov_liquidos.py y
+# test_pam_*.py).
+import pytest as _pytest_pam
+
+
+@_pytest_pam.fixture(autouse=True)
+def _enclave_inmediato_pam(monkeypatch):
+    from autoclave.state_machine.cycle_phases import calentamiento as _cal
+    monkeypatch.setattr(_cal, "_ENCLAVE_T_OBJ_SOSTENIDO_S", 0.0)
+
 def _prog(asignacion=None):
     return SimpleNamespace(sensores=asignacion)
 

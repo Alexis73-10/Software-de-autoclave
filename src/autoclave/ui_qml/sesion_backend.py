@@ -103,6 +103,7 @@ _CLAVES = {
     "COHERENCIA_RECUPERACION": "opciones.err_coherencia_recuperacion",
     "COHERENCIA_DESCOMPRESION": "opciones.err_coherencia_descompresion",   # LIQ-03 (tanda 32)
     "LIMITE_CONTRAPRESION_ENFRIAMIENTO": "opciones.err_limite_contrapresion_enfriamiento",  # M-A
+    "COHERENCIA_BRECHA_PRESION": "opciones.err_coherencia_brecha_presion",   # PAM-06
     "ROL_SONDA_NO_ACTIVA": "opciones.err_rol_sonda_no_activa",
     # Opciones › Entradas / Salidas (planeacion_opciones_entradas_salidas.md):
     # el texto del backend (`detail`) acompaña a estas claves en pantalla

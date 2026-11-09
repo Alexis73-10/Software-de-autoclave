@@ -111,6 +111,10 @@ _ESTADOS_SECADO = ("pendiente", "hecho", "sin_ruptura", "omitido", "cortado", "s
 CLAVE_CONFIRMADO_FORZADO = "ticket_ciclo.confirmado_forzado"
 CLAVE_CONFIRMADO_TRAS_PARO = "ticket_ciclo.confirmado_tras_paro"
 CLAVE_ENTREGA_NO_REGISTRADA = "ticket_ciclo.entrega_no_registrada"
+# PAM-04 (6.4, 9-nov): línea informativa «Presión de trabajo: Psat + d kPa»
+# que ESTERILIZACION anota al entrar (d en kPa, diferencia). DECISIÓN SIN
+# CONFIRMAR. Va sin el rótulo «Aviso».
+CLAVE_PRESION_TRABAJO = "ticket_ciclo.presion_trabajo"
 
 
 def aviso_secado_tras_fallo(resultado) -> dict | None:
@@ -201,6 +205,9 @@ def _linea_aviso(aviso, p: Presentacion) -> str:
                 return f"{_t(p, 'cancelado_por')}: {aviso.get('usuario') or '---'}"
             if clave == CLAVE_SECADO_TRAS_FALLO:
                 return _linea_secado(aviso, p)
+            if clave == CLAVE_PRESION_TRABAJO:
+                from autoclave import i18n
+                return i18n.t(clave, p.idioma, d=aviso.get("d") or "---")
             if clave in (CLAVE_CONFIRMADO_FORZADO, CLAVE_CONFIRMADO_TRAS_PARO,
                          CLAVE_ENTREGA_NO_REGISTRADA):
                 from autoclave import i18n
