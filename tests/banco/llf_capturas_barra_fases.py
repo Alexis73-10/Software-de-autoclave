@@ -8,6 +8,9 @@
 #
 #   set PYTHONPATH=<raíz del worktree>\src     (si hay otro checkout instalado)
 #   python tests/banco/llf_capturas_barra_fases.py          genera las capturas
+#   python tests/banco/llf_capturas_barra_fases.py --vap    capturas del vapor (tanda 34,
+#                                                           claro y oscuro, 1024 px) en
+#                                                           docs/informes/tanda34/capturas/
 #   python tests/banco/llf_capturas_barra_fases.py --demo   abre el MODO
 #                                                           DEMOSTRACION animado
 #                                                           (Pruebas/PruebaCicloEnCurso.qml)
@@ -82,26 +85,32 @@ _SCRIPT = _COMUN + textwrap.dedent(r'''
         ("11a_antes_del_cambio", [(["c", "a:0.85", "p", "p", "p", "p"], True, 1500)]),
         ("11b_cierre_y_conector", [(["c", "a:0.85", "p", "p", "p", "p"], True, 1500),
                                    (["c", "c", "a:0.1", "p", "p", "p"], True, 650)]),
-        ("11c_chorro_nivel_bajo", [(["c", "a:0.85", "p", "p", "p", "p"], True, 1500),
-                                   (["c", "c", "a:0.1", "p", "p", "p"], True, 1900)]),
-        ("11d_chorro_nivel_medio", [(["c", "a:0.85", "p", "p", "p", "p"], True, 1500),
-                                    (["c", "c", "a:0.1", "p", "p", "p"], True, 1900),
-                                    (["c", "c", "a:0.35", "p", "p", "p"], True, 1600)]),
-        ("11e_sin_chorro_sobre_mitad", [(["c", "a:0.85", "p", "p", "p", "p"], True, 1500),
-                                        (["c", "c", "a:0.1", "p", "p", "p"], True, 1900),
-                                        (["c", "c", "a:0.6", "p", "p", "p"], True, 1600)]),
         ("12a_recalculo_antes", [(["c", "c", "a:0.9", "p", "p", "p"], True, 1500)]),
         ("12b_recalculo_despues", [(["c", "c", "a:0.9", "p", "p", "p"], True, 1500),
                                    (["c", "c", "a:0.75", "p", "p", "p"], True, 1800)]),
     ]
-    TAMANOS = [(1024, 1638, "1024"), (1200, 1920, "1200")]
+    # Tanda 34 (VAP-06): vapor del tubo, bocanadas y burbujas. Primera carga = sin
+    # animación de nivel; la espera deja correr el vapor (nace y vive ~2,5 s).
+    ESC_VAP = [
+        ("vap_01_activa_25", [(["c", "c", "a:0.25", "p", "p", "p"], True, 3000)]),
+        ("vap_02_activa_70", [(["c", "c", "a:0.7", "p", "p", "p"], True, 3000)]),
+        ("vap_03_ultima_completada_con_burbujas", [(["c", "c", "c", "a:0.4", "p", "p"], True, 3000)]),
+        ("vap_04_ciclo_terminado_sin_animacion", [(["c"] * 6, True, 3000)]),
+    ]
+    MODO_VAP = len(sys.argv) > 3 and sys.argv[3] == "vap"
+    TEMAS = ["claro", "oscuro"] if MODO_VAP else ["claro"]
+    if MODO_VAP:
+        ESC = ESC_VAP
+    TAMANOS = [(1024, 1638, "1024")] if MODO_VAP else [(1024, 1638, "1024"), (1200, 1920, "1200")]
 
-    for (ancho, alto, etiqueta) in TAMANOS:
+    for (tema, (ancho, alto, etiqueta)) in [(t, tam) for t in TEMAS for tam in TAMANOS]:
         engine = QQmlApplicationEngine()
         engine.warnings.connect(lambda ws: [print('AVISO QML:', x.toString(), file=sys.stderr) for x in ws])
         engine.addImportPath(QML_DIR)
         engine.setInitialProperties({})
         engine.load(QUrl.fromLocalFile(QML_DIR + "/Pruebas/PruebaCicloEnCurso.qml"))
+        if tema == "oscuro":
+            engine.singletonInstance("Tema", "Colores").setProperty("oscuro", True)
         w = engine.rootObjects()[0]
         w.setFlags(w.flags() | Qt.FramelessWindowHint)
         w.setGeometry(0, 0, ancho, alto)
@@ -119,13 +128,13 @@ _SCRIPT = _COMUN + textwrap.dedent(r'''
                 pantalla.setProperty("fases", F(spec))
                 QTest.qWait(espera)
             img = w.grabWindow()
-            img.save(os.path.join(destino, f"{nombre}_{etiqueta}.png"))
+            img.save(os.path.join(destino, f"{nombre}_{tema}_{etiqueta}.png" if MODO_VAP else f"{nombre}_{etiqueta}.png"))
             # recorte de la barra (para revisarla a gran tamaño)
             esc = barra.property("escala")
             p = barra.mapToScene(barra.boundingRect().topLeft())
             recorte = img.copy(0, int(p.y() + 420 * esc), ancho, int(160 * esc))
-            recorte.save(os.path.join(destino, f"{nombre}_{etiqueta}_barra.png"))
-            print("captura", nombre, etiqueta)
+            recorte.save(os.path.join(destino, f"{nombre}_{tema}_{etiqueta}_barra.png" if MODO_VAP else f"{nombre}_{etiqueta}_barra.png"))
+            print("captura", nombre, tema, etiqueta)
         w.close()
         engine.deleteLater()
         QTest.qWait(50)
@@ -133,6 +142,9 @@ _SCRIPT = _COMUN + textwrap.dedent(r'''
 
 
 def main() -> int:
+    global DESTINO
+    if "--vap" in sys.argv:
+        DESTINO = RAIZ / "docs" / "informes" / "tanda34" / "capturas"
     DESTINO.mkdir(parents=True, exist_ok=True)
     demo = "--demo" in sys.argv
     env = {**os.environ,
@@ -140,7 +152,7 @@ def main() -> int:
            "QT_ENABLE_HIGHDPI_SCALING": "0"}
     env.pop("QT_QPA_PLATFORM", None)   # plataforma real
     script = _SCRIPT_DEMO if demo else _SCRIPT
-    p = subprocess.run([sys.executable, "-X", "utf8", "-c", script, str(RAIZ), str(DESTINO)],
+    p = subprocess.run([sys.executable, "-X", "utf8", "-c", script, str(RAIZ), str(DESTINO)] + (["vap"] if "--vap" in sys.argv else []),
                        capture_output=not demo, text=True, encoding="utf-8", env=env, cwd=RAIZ,
                        timeout=None if demo else 900)
     if not demo:
