@@ -61,12 +61,15 @@ Item {
         id: tarjeta
         objectName: "tarjetaModalConfirmacion"
         readonly property real margen: Escala.px(48)
-        width: parent.width - Escala.px(160)
+        // Tanda horizontal (9-nov): en el lienzo horizontal no pasa de 1300 de
+        // ancho y usa más alto (margen de 48); en vertical, como siempre
+        width: Escala.horizontal ? Math.min(parent.width - Escala.px(160), Escala.px(1300))
+                                 : parent.width - Escala.px(160)
         // alto del contenido; si no cabe en la pantalla, el cuerpo se desplaza
         readonly property real altoContenido: zona.contentHeight
         height: Math.min(textoTitulo.y + textoTitulo.height + Escala.px(20 + 2 + 24)
                          + altoContenido + Escala.px(48) + filaBotones.height + Escala.px(48),
-                         parent.height - Escala.px(192))
+                         parent.height - Escala.px(Escala.horizontal ? 96 : 192))
         anchors.centerIn: parent
         radius: Escala.px(28)
         color: Colores.fondoTarjeta

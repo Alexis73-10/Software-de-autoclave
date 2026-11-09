@@ -31,47 +31,90 @@ PanelModal {
         return I18n.existe("equipo." + clave, I18n.lang) ? I18n.t("equipo." + clave, I18n.lang) : clave
     }
 
+    // Tanda horizontal (9-nov): en el lienzo horizontal la tarjeta va casi a
+    // todo el ancho y las filas en dos columnas (de arriba abajo, luego la
+    // segunda), con desplazamiento si no caben. En vertical, la lista de siempre.
+    anchoRecuadroHorizontal: Escala.px(1824)
+    readonly property real _separacionColumnas: Escala.px(64)
+
+    component FilaEquipo: Item {
+        id: fila
+        required property var modelData
+        // parte del ancho para el rótulo (el valor, el resto)
+        property real fraccionRotulo: 0.5
+        height: Escala.px(76)
+
+        Text {
+            anchors.left: parent.left
+            anchors.verticalCenter: parent.verticalCenter
+            width: parent.width * fila.fraccionRotulo
+            text: raiz.textoEquipo(fila.modelData.clave)
+            fontSizeMode: Text.HorizontalFit; minimumPixelSize: Escala.fuenteMinima
+            color: Colores.textoSecundario
+            font.family: Tipografia.familia
+            font.weight: Tipografia.pesoMedium
+            font.pixelSize: Escala.fuente(Tipografia.campoEtiquetaTam)
+        }
+        Text {
+            anchors.right: parent.right
+            anchors.verticalCenter: parent.verticalCenter
+            width: parent.width * (1 - fila.fraccionRotulo)
+            horizontalAlignment: Text.AlignRight
+            text: !fila.modelData.disponible ? I18n.t("equipo.no_disponible", I18n.lang)
+                : fila.modelData.valorClave ? raiz.textoEquipo(fila.modelData.valorClave)
+                : (fila.modelData.valor ?? raiz.sinLectura)
+            fontSizeMode: Text.HorizontalFit; minimumPixelSize: Escala.fuenteMinima
+            color: fila.modelData.disponible ? Colores.textoPrimario : Colores.textoGuia
+            font.family: Tipografia.familia
+            font.weight: Tipografia.pesoSemiBold
+            font.pixelSize: Escala.fuente(Tipografia.campoValorTam)
+        }
+        Rectangle {
+            anchors.bottom: parent.bottom
+            width: parent.width; height: Escala.px(1)
+            color: Colores.bordeDivisor
+        }
+    }
+
     ListView {
+        visible: !Escala.horizontal
         anchors.left: parent.left; anchors.right: parent.right
         anchors.top: parent.top
         anchors.bottom: raiz.puedeApagar ? zonaApagar.top : parent.bottom
         clip: true
-        model: raiz.filas
-        delegate: Item {
-            id: fila
-            required property var modelData
+        model: Escala.horizontal ? [] : raiz.filas
+        delegate: FilaEquipo {
             width: ListView.view.width
-            height: Escala.px(76)
+        }
+    }
 
-            Text {
-                anchors.left: parent.left
-                anchors.verticalCenter: parent.verticalCenter
-                width: parent.width * 0.5
-                text: raiz.textoEquipo(fila.modelData.clave)
-                fontSizeMode: Text.HorizontalFit; minimumPixelSize: Escala.fuenteMinima
-                color: Colores.textoSecundario
-                font.family: Tipografia.familia
-                font.weight: Tipografia.pesoMedium
-                font.pixelSize: Escala.fuente(Tipografia.campoEtiquetaTam)
-            }
-            Text {
-                anchors.right: parent.right
-                anchors.verticalCenter: parent.verticalCenter
-                width: parent.width * 0.5
-                horizontalAlignment: Text.AlignRight
-                text: !fila.modelData.disponible ? I18n.t("equipo.no_disponible", I18n.lang)
-                    : fila.modelData.valorClave ? raiz.textoEquipo(fila.modelData.valorClave)
-                    : (fila.modelData.valor ?? raiz.sinLectura)
-                fontSizeMode: Text.HorizontalFit; minimumPixelSize: Escala.fuenteMinima
-                color: fila.modelData.disponible ? Colores.textoPrimario : Colores.textoGuia
-                font.family: Tipografia.familia
-                font.weight: Tipografia.pesoSemiBold
-                font.pixelSize: Escala.fuente(Tipografia.campoValorTam)
-            }
-            Rectangle {
-                anchors.bottom: parent.bottom
-                width: parent.width; height: Escala.px(1)
-                color: Colores.bordeDivisor
+    Flickable {
+        id: columnasEquipo
+        objectName: "columnasEquipo"
+        visible: Escala.horizontal
+        anchors.left: parent.left; anchors.right: parent.right
+        anchors.top: parent.top
+        anchors.bottom: raiz.puedeApagar ? zonaApagar.top : parent.bottom
+        anchors.bottomMargin: raiz.puedeApagar ? Escala.px(16) : 0
+        clip: true
+        contentHeight: rejillaEquipo.height
+        boundsBehavior: Flickable.StopAtBounds
+        interactive: contentHeight > height
+
+        Grid {
+            id: rejillaEquipo
+            readonly property int n: Escala.horizontal ? (raiz.filas ? raiz.filas.length : 0) : 0
+            columns: 2
+            rows: Math.max(1, Math.ceil(n / 2))
+            flow: Grid.TopToBottom
+            columnSpacing: raiz._separacionColumnas
+            Repeater {
+                model: Escala.horizontal ? raiz.filas : []
+                delegate: FilaEquipo {
+                    width: (columnasEquipo.width - raiz._separacionColumnas) / 2
+                    // la columna es más angosta que en vertical: el rótulo, más largo, toma más
+                    fraccionRotulo: 0.56
+                }
             }
         }
     }

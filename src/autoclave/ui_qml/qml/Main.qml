@@ -372,6 +372,10 @@ Window {
             anchors.left: parent.left; anchors.right: parent.right
             anchors.verticalCenter: parent.verticalCenter
             anchors.margins: Escala.px(48)
+            // Tanda horizontal (9-nov): en el lienzo horizontal, centrada con el
+            // ancho que tiene en vertical (1104 de diseño); en vertical, 48 por lado
+            anchors.leftMargin: Escala.horizontal ? (parent.width - Escala.px(1104)) / 2 : Escala.px(48)
+            anchors.rightMargin: Escala.horizontal ? (parent.width - Escala.px(1104)) / 2 : Escala.px(48)
             height: filaAlarmaArranque.height + Escala.px(48)
             radius: Escala.px(16)
             color: Colores.fondoTarjeta

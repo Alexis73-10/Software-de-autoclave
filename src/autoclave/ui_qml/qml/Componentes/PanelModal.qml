@@ -13,6 +13,10 @@ Item {
     property string titulo: ""
     property string textoCerrar: ""
     property real altoTarjeta: Escala.px(1300)
+    // Tanda horizontal (9-nov): en el lienzo horizontal (1920x1200) la tarjeta
+    // no ocupa todo el ancho (como máximo este valor) y usa más alto (margen
+    // de 48 arriba y abajo en vez de 96). En vertical, como siempre.
+    property real anchoRecuadroHorizontal: Escala.px(1500)
     default property alias contenido: zona.data
 
     // Transición (movimiento, 31-oct): la tarjeta tocada se expande hasta el
@@ -53,8 +57,9 @@ Item {
 
     Rectangle {
         id: tarjeta
-        width: parent.width - Escala.px(96)
-        height: Math.min(raiz.altoTarjeta, parent.height - Escala.px(192))
+        width: Escala.horizontal ? Math.min(parent.width - Escala.px(96), raiz.anchoRecuadroHorizontal)
+                                 : parent.width - Escala.px(96)
+        height: Math.min(raiz.altoTarjeta, parent.height - Escala.px(Escala.horizontal ? 96 : 192))
         anchors.centerIn: parent
         radius: Escala.px(28)
         color: Colores.fondoTarjeta

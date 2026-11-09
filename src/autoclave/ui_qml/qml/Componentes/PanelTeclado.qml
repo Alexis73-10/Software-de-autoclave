@@ -182,9 +182,21 @@ Item {
     readonly property real _margen: Escala.px(24)
     readonly property Item _activo: _tipo === "numerico" ? numerico : alfanumerico
     readonly property real _altoMaximo: parent ? parent.height * 0.45 : 0   // TEC-D06
+    // Tanda horizontal (9-nov): en el lienzo horizontal (1200 de alto, 540 de
+    // tope) los teclados llevan el encabezado a la izquierda de la rejilla y el
+    // margen de arriba y abajo baja lo justo para no pasar del tope (las
+    // teclas no cambian de tamaño). En vertical, _margen como siempre.
+    readonly property real _margenVertical: Escala.horizontal
+                                            ? Math.max(0, Math.min(_margen, (_altoMaximo - _activo.implicitHeight) / 2))
+                                            : _margen
+    // ancho del encabezado lateral: del margen izquierdo hasta la rejilla, que
+    // queda centrada en el panel
+    function _anchoEncabezado(teclado) {
+        return Math.max(0, (width - teclado.anchoRejilla) / 2 - _margen - teclado.separacionLateral)
+    }
 
     width: parent ? parent.width : 0
-    height: Math.min(_activo.implicitHeight + 2 * _margen, _altoMaximo)
+    height: Math.min(_activo.implicitHeight + 2 * _margenVertical, _altoMaximo)
     visible: _fraccion > 0
     z: 10
 
@@ -226,8 +238,12 @@ Item {
         id: numerico
         objectName: "tecladoNumerico"
         visible: raiz._tipo === "numerico"
+        encabezadoLateral: Escala.horizontal
+        anchoEncabezado: raiz._anchoEncabezado(numerico)
         anchors.horizontalCenter: parent.horizontalCenter
-        y: raiz._margen
+        // con el encabezado a la izquierda, la rejilla queda centrada
+        anchors.horizontalCenterOffset: -desplazamientoRejilla / 2
+        y: raiz._margenVertical
         width: implicitWidth; height: implicitHeight
         onConfirmado: valor => raiz._entregar(valor)
         onCancelado: raiz._cancelar()
@@ -236,8 +252,12 @@ Item {
         id: alfanumerico
         objectName: "tecladoAlfanumerico"
         visible: raiz._tipo === "alfanumerico"
+        encabezadoLateral: Escala.horizontal
+        anchoEncabezado: raiz._anchoEncabezado(alfanumerico)
         anchors.horizontalCenter: parent.horizontalCenter
-        y: raiz._margen
+        // con el encabezado a la izquierda, la rejilla queda centrada
+        anchors.horizontalCenterOffset: -desplazamientoRejilla / 2
+        y: raiz._margenVertical
         width: implicitWidth; height: implicitHeight
         onConfirmado: texto => raiz._entregar(texto)
         onCancelado: raiz._cancelar()

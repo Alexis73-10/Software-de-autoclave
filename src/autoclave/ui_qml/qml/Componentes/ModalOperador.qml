@@ -46,8 +46,12 @@ Item {
         id: tarjeta
         objectName: "panelModalOperador"
         readonly property real margen: Escala.px(48)
-        width: parent.width - Escala.px(160)
-        height: Math.min(Escala.px(1300), parent.height - Escala.px(192))
+        // Tanda horizontal (9-nov): en el lienzo horizontal no pasa de 1300 de
+        // ancho y usa más alto (margen de 48); la lista se desplaza. En
+        // vertical, como siempre.
+        width: Escala.horizontal ? Math.min(parent.width - Escala.px(160), Escala.px(1300))
+                                 : parent.width - Escala.px(160)
+        height: Math.min(Escala.px(1300), parent.height - Escala.px(Escala.horizontal ? 96 : 192))
         anchors.centerIn: parent
         radius: Escala.px(28)
         color: Colores.fondoTarjeta
