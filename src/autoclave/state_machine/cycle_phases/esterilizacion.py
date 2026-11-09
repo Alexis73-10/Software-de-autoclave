@@ -119,6 +119,7 @@ from .aislamiento_camara import AislamientoCamara
 from .cascada_chaqueta import CascadaChaqueta
 from . import corte_chaqueta_consigna as ccc
 from .debounce_acumulado import DebounceAcumulado
+from .calentamiento import tolerancia_aire_kpa
 from .base_fase import BaseFase, FaseResult
 
 logger = logging.getLogger(__name__)
@@ -130,8 +131,15 @@ _DEBOUNCE_FALLA_S = 5.0
 _DEBOUNCE_VENTANA_S = 10.0
 _CLAVES_FALLA = ("temp_alta", "temp_baja", "pres_alta", "pres_baja",
                  "aire", "sobrecalentado")
-# C-03: umbral de |Tsat(P) - T_principal| (K)
+# C-03: umbral de |Tsat(P) - T_principal| (K). PAM-05: rige solo el lado de
+# vapor sobrecalentado (CIC-13); el de aire (CIC-12) pasa a kPa con
+# calentamiento.tolerancia_aire_kpa (nunca más permisivo que estos 2 K)
 _UMBRAL_SATURACION_K = 2.0
+# PAM-04: P_sp heredada nunca sobre P_control_max - este margen (la banda alta
+# P_sp + 1 queda al menos 2 kPa bajo el techo). DECISIÓN SIN CONFIRMAR
+_MARGEN_PSP_TECHO_KPA = 3.0
+# PAM-04 (6.4): línea informativa del ticket al entrar a la fase
+CLAVE_TICKET_PRESION_TRABAJO = "ticket_ciclo.presion_trabajo"
 # C-08.2: histéresis de salida de RECUPERACION
 _HIST_RECUP_TEMP_K = 0.3
 _HIST_RECUP_PRES_KPA = 1.0
@@ -632,6 +640,33 @@ class EsterilizacionFase(BaseFase):
         _HIST_RECUP_TEMP_K), kPa abs. Lanza ValueError fuera de IAPWS-IF97."""
         return p_saturacion_kpa(t_est + brecha_seg + _HIST_RECUP_TEMP_K)
 
+    @staticmethod
+    def consigna_heredada(p_calculada, p_sat_est, desfase, p_control_max) -> tuple[float, str]:
+        """PAM-04: (P_sp, origen). P_sp = max(P_calculada, min(Psat(T_est) + d,
+        P_control_max - 3)); origen "heredada" si gana Psat(T_est) + d, si no
+        "calculada". d sin dato (None, no finito o <= 0): P_calculada, el
+        comportamiento anterior. El tope se aplica solo al término heredado,
+        para que d = 0 deje exactamente la consigna de A14-M1 (DECISIÓN SIN
+        CONFIRMAR)."""
+        if (not _numero(desfase) or desfase <= 0 or not _numero(p_sat_est)
+                or not _numero(p_control_max)):
+            return p_calculada, "calculada"
+        heredada = min(p_sat_est + desfase, p_control_max - _MARGEN_PSP_TECHO_KPA)
+        if heredada > p_calculada:
+            return heredada, "heredada"
+        return p_calculada, "calculada"
+
+    def _anotar_presion_trabajo(self, desfase) -> None:
+        """PAM-04 (6.4): línea informativa «Presión de trabajo: Psat + d kPa»
+        en el pie del ticket. Solo con d conocido. Nunca lanza."""
+        try:
+            avisos = getattr(self.estado, "avisos_ciclo", None)
+            if isinstance(avisos, list) and _numero(desfase):
+                avisos.append({"clave": CLAVE_TICKET_PRESION_TRABAJO,
+                               "d": f"{max(0.0, float(desfase)):.1f}"})
+        except Exception:
+            logger.exception("Esterilización: no se pudo anotar la presión de trabajo")
+
     def _control_vapor_pwm(self, pres, factor_pct, intervalo, p_control_max, now):
         """PWM_ACTIVO, solo modo cámara (CAS-02: en modo chaqueta no se usa;
         factor_esterilizacion e intervalo_segmentos_ester solo rigen aquí)."""
@@ -740,6 +775,15 @@ class EsterilizacionFase(BaseFase):
                 self.p_sp = self.consigna_pwm(t_est, brecha_seg)
             except (ValueError, TypeError):
                 self.p_sp = p_sat_est
+            # PAM-04: hereda el desfase d de CALENTAMIENTO (estado.desfase_
+            # trabajo); sin dato, d = 0 (la consigna calculada de A14-M1)
+            desfase = getattr(self.estado, "desfase_trabajo", None)
+            self.p_sp, origen = self.consigna_heredada(self.p_sp, p_sat_est, desfase,
+                                                       p_control_max)
+            logger.info("Esterilización: P_sp=%.1f kPa (%s), desfase d=%s kPa (PAM-04)",
+                        self.p_sp, origen,
+                        f"{float(desfase):.1f}" if _numero(desfase) else "sin dato")
+            self._anotar_presion_trabajo(desfase)
             logger.info(
                 "Esterilización: iniciando %.0fs a %.1f°C | P_sp=%.1f kPa (banda %.1f–%.1f) "
                 "| P_control_max=%.1f kPa",
@@ -823,11 +867,21 @@ class EsterilizacionFase(BaseFase):
             except (ValueError, TypeError):
                 t_sat = None        # P <= 0: la presión baja ya lo vigila
             dt = (t_sat - temp) if t_sat is not None else 0.0
-            if self._confirmada("aire", dt > _UMBRAL_SATURACION_K, now):
+            # PAM-05: lado de aire en kPa, P - Psat(T) > min(presion_add_
+            # esterilizacion, Psat(T + 2) - Psat(T)); sin cálculo posible no
+            # cuenta (como antes con t_sat None)
+            tol_aire = tolerancia_aire_kpa(temp, presion_add)
+            try:
+                exceso = pres - p_saturacion_kpa(temp)
+            except (ValueError, TypeError):
+                exceso = None
+            aire = tol_aire is not None and exceso is not None and exceso > tol_aire
+            if self._confirmada("aire", aire, now):
                 return self._fallo_propio(
-                    CIC_12, {"tsat": t_sat, "temp": temp, "dt": dt},
-                    motivos_fase.motivo("est_aire", temp=temp, temp_sat=t_sat,
-                                        dt=f"{dt:.1f}"))
+                    CIC_12, {"tsat": t_sat, "temp": temp, "dt": dt,
+                             "exceso_kpa": exceso, "limite_kpa": tol_aire},
+                    motivos_fase.motivo("est_aire_kpa", temp=temp, temp_sat=t_sat,
+                                        exceso=f"{exceso:.1f}", limite=f"{tol_aire:.1f}"))
             if self._confirmada("sobrecalentado", dt < -_UMBRAL_SATURACION_K, now):
                 return self._fallo_propio(
                     CIC_13, {"tsat": t_sat, "temp": temp, "dt": -dt},

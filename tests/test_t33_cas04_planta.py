@@ -20,6 +20,9 @@ comportamiento (en cualquier sentido) se vea:
     sobre el umbral de falla 203,0; COMPLETADO);
   - informativos: k = 1,07 y k = 0,95 (dependencia de calibración,
     HAZ-CAS-02).
+PAM (9-nov, planeacion_presion_add_margen.md): con P_trabajo heredada en
+ESTERILIZACION pasan a cumplir la caracterización y los informativos salvo el
+restrictivo k = 1,07 (ver _esperado); el cambio es consecuencia directa de PAM.
 """
 import logging
 
@@ -70,16 +73,15 @@ def _esperado(esc):
     nombre, carga, caudal, k, valores = esc
     if caudal is None:
         return None
-    if carga == "134" and (caudal == "restrictivo" or k == 1.07):
+    # PAM (9-nov): con la presión de trabajo heredada cumplen ahora el
+    # restrictivo k = 1,00 con add_liq 20 (antes caracterización), el
+    # restrictivo k = 0,95 (Líquidos y 134) y el abierto k = 1,07 en Líquidos
+    # (antes informativos). Siguen sin cumplir:
+    if carga == "134" and ((caudal == "restrictivo" and k != 0.95) or k == 1.07):
         return "excluido: timeout de CALENTAMIENTO en la rampa A14-M2, igual en alpha.24"
-    if k == 1.07:
-        return "informativo, HAZ-CAS-02: transmisor que lee alto (k=1,07)"
-    if caudal == "restrictivo" and k == 0.95:
-        return "informativo, HAZ-CAS-02: transmisor que lee bajo (k=0,95) con caudal restrictivo"
-    if (caudal == "restrictivo" and k == 1.00
-            and valores.get("calentamiento__presion_add_liquido_calentamiento") == 20.0):
-        return ("caracterización: caudal restrictivo, presión mínima 204,2–204,3 kPa "
-                "bajo 204,5 (COMPLETADO)")
+    if k == 1.07 and caudal == "restrictivo":
+        return ("informativo, HAZ-CAS-02: transmisor que lee alto (k=1,07) con caudal "
+                "restrictivo: timeout de CALENTAMIENTO")
     return None
 
 

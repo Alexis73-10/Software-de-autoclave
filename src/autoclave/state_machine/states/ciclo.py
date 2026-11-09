@@ -250,6 +250,9 @@ class CicloState:
         self.estado.valores_fallo = {}
         self.estado.f0_acumulado  = 0.0
         self.estado.avisos_ciclo  = []
+        # PAM-02: presión de trabajo del ciclo (la fija CALENTAMIENTO)
+        self.estado.presion_trabajo = None
+        self.estado.desfase_trabajo = None
         self.estado.sin_datos_modulo_es_s = 0.0
         # F4 (tanda 16): contratos por ciclo (ver EstadoAutoclave)
         self.estado.aislamiento_camara = AislamientoCamara()
@@ -1192,6 +1195,9 @@ class CicloState:
                 # de chaqueta del ciclo
                 self.estado.modo_vapor = None
                 self.estado.inhibir_vapor_chaqueta = False
+                # PAM-02: fuera de ciclo no hay presión de trabajo
+                self.estado.presion_trabajo = None
+                self.estado.desfase_trabajo = None
                 if resultado_final == CicloResultado.COMPLETADO:
                     self._armar_vaciado_chaqueta()
                 return resultado_final

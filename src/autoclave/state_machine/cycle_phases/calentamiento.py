@@ -107,6 +107,22 @@
 #     La rampa previa no cambia. Se publica en estado.cascada_chaqueta
 #     (None mientras la cascada no decide).
 # En modo cámara (equipos de mesa) el comportamiento es el de antes.
+#
+# PAM (9-nov, docs/mis_plans/planeacion_presion_add_margen.md): la presión
+# añadida es margen de trabajo, no objetivo.
+#   PAM-01: hasta enclavar t_obj (5 s sostenidos, ahora para toda carga) la
+#     rampa sólida apunta a p_techo - MARGEN_EMPUJE (histeresis_cierre + 1);
+#     el empuje de líquidos no cambia (ajuste 7-nov).
+#   PAM-02: al enclavar, P_trabajo = clamp(P, Psat(t_obj), tope) y d =
+#     P_trabajo - Psat(t_obj) (estado.presion_trabajo / desfase_trabajo, log);
+#     cada reinicio de la ventana con la Principal bajo t_obj sube P_trabajo
+#     1 kPa hasta el tope.
+#   PAM-03: entrada con T >= t_obj y Psat - 2 <= P <= P_trabajo + 1 (toda
+#     carga); sin vapor tras el enclave mientras P > P_trabajo + 1; en
+#     sostenimiento la referencia (rampa en modo cámara, p_ref de la cascada)
+#     es P_trabajo. Banda de sostenimiento sin cambio.
+#   PAM-05: C-02, lado de aire en kPa: P - Psat(T) <= min(presion_add_
+#     calentamiento, Psat(T+2) - Psat(T)); lado de vapor sobrecalentado igual.
 
 import math
 import time
@@ -155,6 +171,11 @@ _HISTERESIS_CIERRE_RANGO = (1.0, 10.0)
 # 0–30; 0, ausente o no numérico desactiva la función.
 _ADD_LIQUIDO_RANGO = (0.0, 30.0)
 
+
+def _numero_finito(valor) -> bool:
+    return (isinstance(valor, (int, float)) and not isinstance(valor, bool)
+            and math.isfinite(valor))
+
 # Ajuste 7-nov (revisión MEDIA-2): el enclave «t_obj alcanzada» exige el
 # Principal en o sobre t_obj sostenido este tiempo seguido (s, monotonic), para
 # que una PT100 ruidosa (±1,1 °C) no lo dispare con una sola lectura.
@@ -164,12 +185,60 @@ _ENCLAVE_T_OBJ_SOSTENIDO_S = 5.0
 # Ajuste 7-nov (revisión MEDIA-2): tras el empuje, la rampa de líquidos apunta
 # a Psat(t_obj) + este valor (kPa, dentro de la banda de entrada ±2 kPa) para
 # que la Tsat de la cámara quede sobre t_obj. DECISIÓN SIN CONFIRMAR
+# PAM-03 (9-nov): tras el enclave la referencia es P_trabajo (>= Psat(t_obj));
+# este valor queda como piso de la referencia con el empuje de líquidos.
 _OBJETIVO_POST_EMPUJE_KPA = 1.0
 
+# ── PAM (planeacion_presion_add_margen.md, 9-nov) ─────────────────────────
+# La presión añadida es el margen sobre Psat que tolera el desfase entre la
+# Principal y la saturación de la presión medida (error de sensores o de
+# calibración) antes de considerar no condensables.
+# PAM-01: el empuje (antes de enclavar t_obj) apunta a p_techo - MARGEN_EMPUJE,
+# con MARGEN_EMPUJE = histeresis_cierre_camara + este valor (4 kPa con los
+# defectos), para no llegar al aislamiento. DECISIÓN SIN CONFIRMAR
+MARGEN_EMPUJE_SOBRE_HISTERESIS_KPA = 1.0
+# PAM-02: subida de P_trabajo por cada reinicio de la ventana de
+# ESTABLE_PREESTERILIZACION con la Principal bajo t_obj. DECISIÓN SIN CONFIRMAR
+PASO_TRABAJO_KPA = 1.0
+# PAM-03: la entrada a ESTABLE_PREESTERILIZACION admite P <= P_trabajo + esto;
+# sobre ese valor (tras el enclave) no se aporta vapor
+TOLERANCIA_ENTRADA_TRABAJO_KPA = 1.0
+# PAM-05: el margen de aire nunca supera el equivalente a esta diferencia de
+# temperatura (el umbral de C-03 anterior)
+TOPE_AIRE_K = 2.0
 
-def _numero_finito(valor) -> bool:
-    return (isinstance(valor, (int, float)) and not isinstance(valor, bool)
-            and math.isfinite(valor))
+
+def margen_empuje_kpa(histeresis_cierre: float) -> float:
+    """PAM-01: MARGEN_EMPUJE_KPA = histeresis_cierre_camara + 1 (kPa)."""
+    return float(histeresis_cierre) + MARGEN_EMPUJE_SOBRE_HISTERESIS_KPA
+
+
+def tope_trabajo_kpa(p_obj: float, p_techo: float, margen_empuje: float) -> float:
+    """PAM-01/02: tope de la presión de trabajo y objetivo del empuje sólido,
+    p_techo - margen, nunca bajo Psat(t_obj) (con una presion_add menor que
+    el margen queda el comportamiento anterior, objetivo Psat(t_obj))."""
+    return max(float(p_obj), float(p_techo) - float(margen_empuje))
+
+
+def presion_trabajo_kpa(pres: float, p_obj: float, tope: float) -> float:
+    """PAM-02: P_trabajo = clamp(P_cámara, Psat(t_obj), tope)."""
+    return min(max(float(pres), float(p_obj)), float(tope))
+
+
+def tolerancia_aire_kpa(temp, presion_add) -> float | None:
+    """PAM-05: margen de presión (kPa) sobre Psat(T_principal) tolerado antes
+    de considerar aire o no condensables: min(presion_add, Psat(T + 2 K) -
+    Psat(T)); nunca más permisivo que 2 K. presion_add no numérico o negativo:
+    el tope de 2 K o 0 respectivamente. None si T queda fuera de IAPWS-IF97
+    (el llamador lo trata como incoherente / sin dato)."""
+    try:
+        margen_2k = p_saturacion_kpa(temp + TOPE_AIRE_K) - p_saturacion_kpa(temp)
+    except (ValueError, TypeError):
+        return None
+    if not _numero_finito(presion_add):
+        return margen_2k
+    return min(max(float(presion_add), 0.0), margen_2k)
+
 
 
 def _duty_por_tasa(tasa_actual, tasa_max):
@@ -274,9 +343,15 @@ class CalentamientoFase(BaseFase):
 
         self.estado.fase_en_sostenimiento = False
 
-        # Ajuste 7-nov: enclave «t_obj alcanzada» del empuje con líquidos
+        # Ajuste 7-nov: enclave «t_obj alcanzada» (PAM-01: para toda carga)
         self._t_obj_alcanzada = False
         self._t_obj_sostenida_desde = None   # MEDIA-2: inicio de T >= t_obj seguido
+        # PAM-02: presión de trabajo (kPa abs) fijada al enclavar; None antes
+        self._p_trabajo = None
+        self._p_obj_trabajo = None           # Psat(t_obj) con que se fijó
+        self._subida_hecha = False           # una subida por reinicio de la ventana
+        self.estado.presion_trabajo = None   # 6.2: solo publicación
+        self.estado.desfase_trabajo = None
 
     # ------------------------------------------------------------------
     # Tanda 16, VCH: modo de vapor y aislamiento de cámara
@@ -364,6 +439,44 @@ class CalentamientoFase(BaseFase):
         lo, hi = _ADD_LIQUIDO_RANGO
         return min(max(float(valor), lo), hi)
 
+    def _margen_empuje(self) -> float:
+        """PAM-01: histeresis_cierre_camara + 1 (kPa)."""
+        return margen_empuje_kpa(self._histeresis_cierre())
+
+    def _publicar_trabajo(self) -> None:
+        """6.2: estado.presion_trabajo y estado.desfase_trabajo (d), solo
+        publicación; ESTERILIZACION lee d de aquí."""
+        self.estado.presion_trabajo = self._p_trabajo
+        self.estado.desfase_trabajo = (None if self._p_trabajo is None
+                                       else max(0.0, self._p_trabajo - self._p_obj_trabajo))
+
+    def _fijar_presion_trabajo(self, pres, p_obj, tope) -> None:
+        """PAM-02: al enclavar t_obj, P_trabajo = clamp(P, Psat(t_obj), tope)."""
+        self._p_trabajo = presion_trabajo_kpa(pres, p_obj, tope)
+        self._p_obj_trabajo = float(p_obj)
+        self._publicar_trabajo()
+        logger.info("Calentamiento: presión de trabajo fijada en %.1f kPa = Psat(t_obj) %.1f + "
+                    "desfase %.1f kPa (P medida %.1f kPa, tope %.1f kPa) (PAM-02)",
+                    self._p_trabajo, p_obj, self.estado.desfase_trabajo, pres, tope)
+
+    def _subir_presion_trabajo(self, tope, temp) -> None:
+        """PAM-02: reinicio de la ventana con la Principal bajo t_obj: P_trabajo
+        sube PASO_TRABAJO_KPA sin pasar del tope; una sola vez por reinicio."""
+        if self._subida_hecha or self._p_trabajo is None:
+            return
+        self._subida_hecha = True
+        nueva = min(self._p_trabajo + PASO_TRABAJO_KPA, tope)
+        if nueva <= self._p_trabajo:
+            logger.info("Calentamiento: presión de trabajo en el tope %.1f kPa; no sube "
+                        "(Principal %.1f °C bajo t_obj) (PAM-02)", tope, temp)
+            return
+        anterior = self._p_trabajo
+        self._p_trabajo = nueva
+        self._publicar_trabajo()
+        logger.info("Calentamiento: presión de trabajo sube de %.1f a %.1f kPa (desfase %.1f kPa; "
+                    "Principal %.1f °C bajo t_obj, tope %.1f kPa) (PAM-02)",
+                    anterior, nueva, self.estado.desfase_trabajo, temp, tope)
+
     def _vigilar_aislamiento(self, pres, p_techo, now):
         """VCH-AIS (§4.4/§4.5), solo modo chaqueta. Devuelve (aislado,
         FaseResult.FALLO o None)."""
@@ -439,12 +552,12 @@ class CalentamientoFase(BaseFase):
         self._cascada_activa_previo = activa
         return activa
 
-    def _decision_cascada(self, pres, p_obj, p_techo) -> bool:
-        """CAS-03: evalúa la cascada con p_ref = Psat(t_obj) y el techo
+    def _decision_cascada(self, pres, p_ref, p_techo) -> bool:
+        """CAS-03: evalúa la cascada con p_ref (PAM-03: P_trabajo) y el techo
         normal. Devuelve la decisión (sin las prevalencias)."""
         limites = le.limites_presion(self.config)
         res = self._cascada.evaluar(
-            pres, self._pres_chaqueta(), p_obj, p_techo, ccc.margen_kpa(self.cycle),
+            pres, self._pres_chaqueta(), p_ref, p_techo, ccc.margen_kpa(self.cycle),
             le.presion_max_chaqueta_control(self.config), limites.suministro)
         return res.decision
 
@@ -527,9 +640,19 @@ class CalentamientoFase(BaseFase):
         # Durante el empuje VCH-AIS y A14-M2 usan el techo ampliado; la banda
         # de sostenimiento sigue con p_techo.
         add_liq = self._add_liquido()
-        empuje = add_liq > 0.0 and not self._t_obj_alcanzada
-        p_obj_rampa = p_obj + add_liq if empuje else p_obj
-        p_techo_rampa = p_techo + add_liq if empuje else p_techo
+        # PAM-01: el empuje (antes del enclave) deja de ser exclusivo de
+        # líquidos: con carga sólida apunta a p_techo - MARGEN_EMPUJE; con
+        # líquidos y extra > 0, como el ajuste 7-nov; líquidos sin extra,
+        # Psat(t_obj) como antes (DECISIÓN SIN CONFIRMAR)
+        tope_trab = tope_trabajo_kpa(p_obj, p_techo, self._margen_empuje())
+        empuje_liq = add_liq > 0.0 and not self._t_obj_alcanzada
+        empuje = empuje_liq   # techo ampliado (VCH-AIS / A14-M2): solo líquidos
+        if empuje_liq:
+            p_obj_rampa, p_techo_rampa = p_obj + add_liq, p_techo + add_liq
+        elif not self._t_obj_alcanzada and not self._carga_liquida():
+            p_obj_rampa, p_techo_rampa = tope_trab, p_techo
+        else:
+            p_obj_rampa, p_techo_rampa = p_obj, p_techo
 
         # ── 1. Inicialización ────────────────────────────────────────────
         if not self._inicializado:
@@ -572,8 +695,9 @@ class CalentamientoFase(BaseFase):
 
         # Ajuste 7-nov: enclava t_obj alcanzada (una sola vez por fase) solo
         # con T >= t_obj sostenida _ENCLAVE_T_OBJ_SOSTENIDO_S seguidos
-        # (MEDIA-2); bajo t_obj o sin lectura, la cuenta se reinicia
-        if add_liq > 0.0 and not self._t_obj_alcanzada:
+        # (MEDIA-2); bajo t_obj o sin lectura, la cuenta se reinicia.
+        # PAM-01/02: para toda carga; al enclavar se fija P_trabajo
+        if not self._t_obj_alcanzada:
             if temp is not None and pres is not None and temp >= t_obj:
                 ahora_enc = time.monotonic()
                 if self._t_obj_sostenida_desde is None:
@@ -581,18 +705,27 @@ class CalentamientoFase(BaseFase):
                 if ahora_enc - self._t_obj_sostenida_desde >= _ENCLAVE_T_OBJ_SOSTENIDO_S:
                     self._t_obj_alcanzada = True
                     empuje = False
-                    logger.info("Calentamiento: T_obj alcanzada con presión adicional de "
-                                "líquidos (%.1f kPa) — P=%.1f kPa; se espera que baje a "
-                                "%.1f kPa", add_liq, pres, p_obj + _TOLERANCIA_PSAT_KPA)
+                    logger.info("Calentamiento: T_obj alcanzada (%.1f °C) — P=%.1f kPa%s",
+                                temp, pres,
+                                f"; presión adicional de líquidos {add_liq:.1f} kPa"
+                                if add_liq > 0.0 else "")
+                    self._fijar_presion_trabajo(pres, p_obj, tope_trab)
             else:
                 self._t_obj_sostenida_desde = None
-        if add_liq > 0.0 and self._t_obj_alcanzada:
-            # MEDIA-2 (b): tras el empuje, objetivo levemente sobre Psat(t_obj)
-            p_obj_rampa, p_techo_rampa = p_obj + _OBJETIVO_POST_EMPUJE_KPA, p_techo
-        # Tras el empuje y antes del sostenimiento: sin aporte de vapor
-        # mientras la presión siga sobre la saturación + tolerancia
-        bajando_a_psat = (add_liq > 0.0 and self._t_obj_alcanzada and not self._en_sostenimiento
-                          and pres is not None and pres > p_obj + _TOLERANCIA_PSAT_KPA)
+        if self._t_obj_alcanzada:
+            # PAM-03: tras el enclave la referencia es P_trabajo; con el
+            # empuje de líquidos, nunca bajo Psat(t_obj) + 1 (MEDIA-2 (b))
+            p_ref_trab = self._p_trabajo if self._p_trabajo is not None else p_obj
+            if add_liq > 0.0:
+                # (P_trabajo >= Psat(t_obj): queda dentro de la entrada)
+                p_ref_trab = max(p_ref_trab, p_obj + _OBJETIVO_POST_EMPUJE_KPA)
+            p_obj_rampa, p_techo_rampa = p_ref_trab, p_techo
+        # Tras el enclave y antes del sostenimiento: sin aporte de vapor
+        # mientras la presión siga sobre P_trabajo + 1 (PAM-03; antes, solo
+        # con líquidos, sobre Psat(t_obj) + 2)
+        bajando_a_psat = (self._t_obj_alcanzada and self._p_trabajo is not None
+                          and not self._en_sostenimiento and pres is not None
+                          and pres > self._p_trabajo + TOLERANCIA_ENTRADA_TRABAJO_KPA)
 
         # Ajuste 7-nov (MEDIA-1): VCH-AIS y A14-M2 usan el techo ampliado
         # durante el empuje y durante la bajada a saturación que le sigue
@@ -769,7 +902,9 @@ class CalentamientoFase(BaseFase):
             # A14-M2, con p_ref = Psat(t_obj) y el techo NORMAL (en la bajada
             # a saturación la cámara está sobre p_ref + 1: nivel alta, OFF).
             # Prevalecen VCH-AIS y D-CHQ; el corte duro de CICLO va después.
-            decision = self._decision_cascada(pres, p_obj, p_techo)
+            # PAM-03: p_ref = P_trabajo (Psat(t_obj) si aún no hay enclave)
+            decision = self._decision_cascada(
+                pres, self._p_trabajo if self._p_trabajo is not None else p_obj, p_techo)
             encender = decision and not aislado and not self._chaqueta_inhibida()
             # la válvula de la cascada sigue a la salida real (DECISIÓN SIN
             # CONFIRMAR): forzada a OFF no reabre por histéresis al liberarse
@@ -813,9 +948,13 @@ class CalentamientoFase(BaseFase):
         # se disipe antes de entregar control a ESTERILIZACION.
         p_min_banda = p_obj - _TOLERANCIA_PSAT_KPA
         if not self._en_sostenimiento:
-            # C-01.2: entra con T >= t_obj y P >= Psat(t_obj) - 2 kPa; con el
-            # extra de líquidos (ajuste 7-nov), además P <= Psat(t_obj) + 2 kPa
-            p_max_entrada = p_obj + _TOLERANCIA_PSAT_KPA if add_liq > 0.0 else math.inf
+            # C-01.2: entra con T >= t_obj y P >= Psat(t_obj) - 2 kPa. PAM-03:
+            # además con t_obj enclavada (P_trabajo fijada) y P <= P_trabajo +
+            # 1 kPa, para toda carga (reemplaza el P <= Psat(t_obj) + 2 de
+            # líquidos del ajuste 7-nov)
+            if self._p_trabajo is None:
+                return FaseResult.EN_CURSO
+            p_max_entrada = self._p_trabajo + TOLERANCIA_ENTRADA_TRABAJO_KPA
             if temp >= t_obj and p_min_banda <= pres <= p_max_entrada:
                 self._en_sostenimiento = True
                 logger.info("Calentamiento: condición alcanzada — entra a ESTABLE_PREESTERILIZACION")
@@ -836,14 +975,27 @@ class CalentamientoFase(BaseFase):
         exige_coherencia = self.cycle.get_param(
             "globals", "tipo_carga", default="solido") != "liquido"
         if exige_coherencia:
+            # PAM-05: lado de vapor sobrecalentado sin cambio (Tsat(P) - T >=
+            # -1 K); lado de aire en kPa: P - Psat(T) <= min(presion_add_
+            # calentamiento, Psat(T + 2) - Psat(T)) (nunca más de 2 K)
             dif_tp = _diferencia_coherencia_tp(temp, pres)
-            coherente = dif_tp is not None and abs(dif_tp) <= _COHERENCIA_TP_K
+            tol_aire = tolerancia_aire_kpa(temp, p_add)
+            try:
+                exceso = pres - p_saturacion_kpa(temp)
+            except (ValueError, TypeError):
+                exceso = None
+            coherente = (dif_tp is not None and dif_tp >= -_COHERENCIA_TP_K
+                         and tol_aire is not None and exceso is not None
+                         and exceso <= tol_aire)
             if not coherente and self._coherente_previo:
                 logger.warning(
                     "Calentamiento: sin coherencia T-P en sostenimiento — "
-                    "Tsat(P)=%s°C T=%.1f°C diferencia=%s K (máx %.1f K)",
+                    "Tsat(P)=%s°C T=%.1f°C diferencia=%s K (mín -%.1f K); P - Psat(T)=%s kPa "
+                    "(máx %s kPa)",
                     "?" if dif_tp is None else f"{temp + dif_tp:.2f}", temp,
                     "?" if dif_tp is None else f"{dif_tp:+.2f}", _COHERENCIA_TP_K,
+                    "?" if exceso is None else f"{exceso:+.1f}",
+                    "?" if tol_aire is None else f"{tol_aire:.1f}",
                 )
             self._coherente_previo = coherente
             dentro_rango = dentro_rango and coherente
@@ -866,6 +1018,7 @@ class CalentamientoFase(BaseFase):
         dentro_rango = dentro_rango and refs_en_consigna
 
         if dentro_rango:
+            self._subida_hecha = False       # PAM-02: rearma la subida
             self._timer_recuperacion_fin = None
             if self._timer_sostenido_desde is None:
                 self._timer_sostenido_desde = now
@@ -882,6 +1035,10 @@ class CalentamientoFase(BaseFase):
                 self._apagar_salidas(completado=True)
                 return FaseResult.COMPLETADO
         else:
+            # PAM-02: ventana reiniciada con la Principal bajo t_obj -> P_trabajo
+            # sube PASO_TRABAJO_KPA (una vez por reinicio, hasta el tope)
+            if temp < t_obj:
+                self._subir_presion_trabajo(tope_trab, temp)
             self._timer_sostenido_desde = None
             self.estado.fase_en_sostenimiento = False
             self.estado.estabilizacion_s = None          # T30-02

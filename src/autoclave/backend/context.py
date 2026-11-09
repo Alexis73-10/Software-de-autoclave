@@ -230,6 +230,21 @@ class BackendContext:
                         motivo=f"no se migró a {c['nuevo']:g}: {m.get('motivo', '')}")
         except Exception:
             logger.exception("No se pudo activar el aviso de migración no aplicada")
+        # PAM-06 (9-nov): brecha_segura_presion >= brecha_error_presion al
+        # cargar: no se migra (recomendación del plan, PAM-P1); aviso SIS-06
+        # para que el operador lo corrija en Parámetros del ciclo
+        try:
+            incoherencias = getattr(self.cycle_manager, "incoherencias_brecha_presion", None)
+            for cycle, m in (incoherencias() if callable(incoherencias) else []):
+                self.alarm_manager.activar(
+                    MIGRACION_CORRECTIVA,
+                    origen=f"{cycle.id}/esterilizacion.brecha_segura_presion",
+                    programa=cycle.name, parametro="brecha_segura_presion",
+                    anterior=f"{m['segura']:g}", nuevo=f"{m['segura']:g}", unidad="kPa",
+                    motivo=f"no se migró: debe ser menor que brecha_error_presion "
+                           f"({m['error']:g} kPa); corríjalo en Parámetros del ciclo")
+        except Exception:
+            logger.exception("No se pudo activar el aviso de brechas de presión (PAM-06)")
 
     # ── LIC-02 (licencia L0): contraseña de fábrica vigente ──────────────────
 

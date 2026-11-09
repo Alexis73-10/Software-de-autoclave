@@ -18,6 +18,20 @@ RAIZ = Path(__file__).resolve().parents[1]
 PERFILES = sorted((RAIZ / "src" / "autoclave" / "cycles").glob("*/*.json"))
 
 
+
+# PAM (9-nov): el enclave de t_obj (5 s sostenidos) rige ahora para toda carga
+# y la entrada a ESTABLE_PREESTERILIZACION lo exige. Estas pruebas son
+# anteriores y no ejercitan esa espera: el enclave se hace en el primer tick
+# con T >= t_obj (el enclave de 5 s lo cubren test_ajuste_7nov_liquidos.py y
+# test_pam_*.py).
+import pytest as _pytest_pam
+
+
+@_pytest_pam.fixture(autouse=True)
+def _enclave_inmediato_pam(monkeypatch):
+    from autoclave.state_machine.cycle_phases import calentamiento as _cal
+    monkeypatch.setattr(_cal, "_ENCLAVE_T_OBJ_SOSTENIDO_S", 0.0)
+
 def _viejo(valor=3.5):
     return {"calentamiento": {
         "factor_calentamiento": {"value": 50, "type": "int", "unit": "%", "min": 0, "max": 100},
@@ -158,13 +172,16 @@ def _fase(rango_temp, rango_pres, temp, pres, viejo=None):
 
 
 P_OBJ = p_saturacion_kpa(134.0)  # tanda 12 C-01: sin presion_add
+# PAM-01 (9-nov): con carga sólida y antes del enclave de t_obj la rampa apunta
+# a Psat(t_obj) + presion_add - (histeresis_cierre_camara + 1) = P_OBJ + 7
+P_EMPUJE = P_OBJ + 11.0 - 4.0
 
 
 def test_rango_de_presion_actua_sobre_la_presion():
     # temp lejos (100 °C), presión 10 kPa bajo P_obj. Con rango_pres=20 la
     # cercanía de presión es 0,5 -> duty = 0,5·1 + 0,5·0,5 = 0,75. El rango de
     # temperatura (2 °C) no participa.
-    fase = _fase(2.0, 20.0, 100.0, P_OBJ - 10.0)
+    fase = _fase(2.0, 20.0, 100.0, P_EMPUJE - 10.0)
     fase.update()
     assert fase._duty_actual == pytest.approx(0.75)
 
@@ -183,12 +200,14 @@ def test_sobrepaso_de_presion_usa_el_rango_de_presion():
     # techo P_obj+11). Con rango_pres=10 el piso se escala a 0,5 -> duty 0,25.
     fase = _fase(2.0, 10.0, 134.0, P_OBJ + 5.0)
     fase._en_sostenimiento = True
+    # PAM-03: en sostenimiento la referencia es P_trabajo (aquí Psat(t_obj))
+    fase._t_obj_alcanzada, fase._p_trabajo, fase._p_obj_trabajo = True, P_OBJ, P_OBJ
     fase.update()
     assert fase._duty_actual == pytest.approx(0.25)
 
 
 def test_sin_claves_nuevas_usa_la_vieja():
     # Defensa: un Cycle armado sin pasar por la migración sigue funcionando
-    fase = _fase(None, None, 100.0, P_OBJ - 10.0, viejo=20.0)
+    fase = _fase(None, None, 100.0, P_EMPUJE - 10.0, viejo=20.0)
     fase.update()
     assert fase._duty_actual == pytest.approx(0.75)

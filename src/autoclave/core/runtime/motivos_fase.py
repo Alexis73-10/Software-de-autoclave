@@ -42,6 +42,8 @@ CODIGOS = (
     "est_timeout_f0",
     # E12 (tanda 12): C-03 (saturación, solo sólidos) y C-13.4 (Referencia)
     "est_aire", "est_sobrecalentado", "est_excursion_referencia",
+    # PAM-05 (9-nov): C-03 lado de aire con valor y límite en kPa
+    "est_aire_kpa",
     # F2 (tanda 16): VCH §4.5 (aislamiento de cámara) y P5 (tope de reinicios)
     "ais_sostenida", "ais_recurrente", "est_tope_reinicios",
     "desc_tiempo_limite",
