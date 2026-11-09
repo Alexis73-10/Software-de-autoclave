@@ -216,7 +216,8 @@ Item {
         property var modelData: ({})
         property string tipo: ""
         objectName: "sensor_" + modelData.name
-        width: parent ? parent.width : 0
+        // horizontal: dos tarjetas por fila (en vertical, una)
+        width: parent ? (Escala.horizontal ? (parent.width - Escala.px(12)) / 2 : parent.width) : 0
         height: Escala.px(190)
         radius: Escala.px(14)
         color: Colores.fondoTarjeta
@@ -361,7 +362,8 @@ Item {
                 id: cuadriculaEntradas
                 width: parent.width
                 spacing: Escala.px(12)
-                readonly property real ancho: (width - spacing) / 2
+                // horizontal: tres tarjetas por fila (en vertical, dos)
+                readonly property real ancho: Escala.horizontal ? (width - spacing * 2) / 3 : (width - spacing) / 2
 
                 Repeater {
                     model: control.entradas
@@ -552,7 +554,8 @@ Item {
                 anchors.top: cabeceraSalidas.bottom
                 width: parent.width
                 spacing: Escala.px(12)
-                readonly property real ancho: (width - spacing) / 2
+                // horizontal: tres tarjetas por fila (en vertical, dos)
+                readonly property real ancho: Escala.horizontal ? (width - spacing * 2) / 3 : (width - spacing) / 2
 
                 // P1 (tanda 7): modelo entero (cantidad) y datos por índice. Con la
                 // lista como modelo, el refresco de 1 s recreaba todas las tarjetas
@@ -634,7 +637,9 @@ Item {
             contentHeight: columnaTemperatura.implicitHeight
             boundsBehavior: Flickable.StopAtBounds
             clip: true
-            Column {
+            // Flow: en vertical, una tarjeta por fila como la columna de antes;
+            // en horizontal, dos
+            Flow {
                 id: columnaTemperatura
                 width: parent.width
                 spacing: Escala.px(12)
@@ -654,7 +659,7 @@ Item {
             contentHeight: columnaPresion.implicitHeight
             boundsBehavior: Flickable.StopAtBounds
             clip: true
-            Column {
+            Flow {
                 id: columnaPresion
                 width: parent.width
                 spacing: Escala.px(12)

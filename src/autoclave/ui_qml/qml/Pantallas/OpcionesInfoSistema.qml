@@ -41,13 +41,22 @@ Item {
                 font.pixelSize: Escala.fuente(22)
             }
 
+            // Horizontal: los grupos en dos columnas (en vertical, uno debajo
+            // de otro con el mismo espacio que daba la columna)
+            Grid {
+                id: rejillaGrupos
+                width: parent.width
+                columns: Escala.horizontal ? 2 : 1
+                rowSpacing: Escala.px(10)
+                columnSpacing: Escala.px(40)
+                readonly property real anchoGrupo: Escala.horizontal ? (width - columnSpacing) / 2 : width
             Repeater {
                 model: control.grupos
                 delegate: Column {
                     id: grupo
                     required property var modelData
                     objectName: "grupoInfo_" + modelData.grupo
-                    width: columna.width
+                    width: rejillaGrupos.anchoGrupo
                     spacing: 0
                     Text {
                         topPadding: Escala.px(18)
@@ -121,6 +130,7 @@ Item {
                         }
                     }
                 }
+            }
             }
         }
     }

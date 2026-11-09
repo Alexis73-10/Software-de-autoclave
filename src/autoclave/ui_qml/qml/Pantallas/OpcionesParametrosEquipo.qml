@@ -278,16 +278,19 @@ Item {
                 font.pixelSize: Escala.fuente(22)
             }
             IndicadorCargando { objectName: "cargandoParametrosEquipo" }
+            // Horizontal: cuatro columnas y la tarjeta de la máquina como una
+            // celda más (dos filas en el alto del lienzo, sin desplazarse)
             Grid {
                 id: rejilla
-                columns: 2
+                columns: Escala.horizontal ? 4 : 2
                 spacing: Escala.px(20)
                 width: parent.width
-                readonly property real anchoCelda: (width - spacing) / 2
+                readonly property real anchoCelda: Escala.horizontal ? (width - spacing * 3) / 4 : (width - spacing) / 2
                 Repeater {
                     // D9-3 (tanda 9): la lista la entrega el backend, ya filtrada por el
                     // perfil (sin Puerta ni Empaque con puertas simples)
-                    model: control.grupos.filter(g => g !== "maquina")
+                    model: Escala.horizontal ? control.grupos.filter(g => g !== "maquina").concat(["maquina"])
+                                             : control.grupos.filter(g => g !== "maquina")
                     delegate: TarjetaGrupo {
                         required property string modelData
                         grupo: modelData
@@ -297,6 +300,9 @@ Item {
             }
             TarjetaGrupo {
                 grupo: "maquina"
+                // horizontal: la de la máquina va dentro de la rejilla
+                objectName: Escala.horizontal ? "recuadroMaquinaVertical" : "tarjeta_" + grupo
+                visible: !Escala.horizontal
                 width: parent.width
                 height: Escala.px(160)
             }
@@ -402,12 +408,17 @@ Item {
             font.family: Tipografia.familia
             font.pixelSize: Escala.fuente(22)
         }
-        Column {
+        // Horizontal: las filas en dos columnas (los submenús largos, como
+        // Chaqueta, caben en el alto del lienzo)
+        Grid {
             id: listaGrupo
             objectName: "listaParametrosEquipo"
             anchors.top: motivoGrupo.visible ? motivoGrupo.bottom : tituloGrupo.bottom
             anchors.topMargin: Escala.px(12)
             width: parent.width
+            columns: Escala.horizontal ? 2 : 1
+            columnSpacing: Escala.px(40)
+            readonly property real anchoFila: Escala.horizontal ? (width - columnSpacing) / 2 : width
 
             IndicadorCargando { objectName: "cargandoGrupoEquipo" }
 
@@ -418,7 +429,7 @@ Item {
                 visible: control.grupo === "impresion"
                 readonly property bool habilitado: raiz.edicionPermitida && control.impresoraConocida
                                                    && control.motivoParametro !== "rol"
-                width: parent.width
+                width: listaGrupo.anchoFila
                 height: visible ? Escala.px(110) : 0
                 color: "transparent"
                 opacity: habilitado ? 1.0 : 0.5
@@ -491,6 +502,7 @@ Item {
                     id: filaParametro
                     required property var modelData
                     objectName: "paramEquipo_" + modelData.clave
+                    width: listaGrupo.anchoFila
                     // guardándose: valor vigente, «Guardando…» y sin edición
                     readonly property bool guardando: raiz.pendiente("param:" + modelData.clave)
                     // aceptado sin relectura: el valor anterior ya no se muestra como vigente
@@ -919,9 +931,18 @@ Item {
             anchors.horizontalCenter: parent.horizontalCenter
             y: Escala.px(97 + 32 + 16)
             width: parent.width - Escala.px(40)
-            height: columnaAjuste.height + Escala.px(72)
+            // horizontal: a lo sumo el alto disponible, con desplazamiento si
+            // la descripción no cabe (en vertical, el alto del contenido)
+            height: Escala.horizontal ? Math.min(columnaAjuste.height + Escala.px(72), parent.height - y)
+                                      : columnaAjuste.height + Escala.px(72)
             radius: Escala.px(20)
             color: Colores.fondoTarjeta
+            Flickable {
+                anchors.fill: parent
+                contentHeight: columnaAjuste.height + Escala.px(72)
+                interactive: contentHeight > height + 1
+                boundsBehavior: Flickable.StopAtBounds
+                clip: Escala.horizontal
             Column {
                 id: columnaAjuste
                 x: Escala.px(24); y: Escala.px(24)
@@ -1083,6 +1104,7 @@ Item {
                     font.pixelSize: Escala.fuente(20)
                     color: Colores.textoSecundario
                 }
+            }
             }
         }
     }

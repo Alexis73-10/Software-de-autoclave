@@ -46,7 +46,8 @@ Item {
             }
         }
 
-        Item { width: 1; height: Escala.px(40) }
+        // horizontal: separadores menores para caber en el alto del lienzo
+        Item { width: 1; height: Escala.px(Escala.horizontal ? 10 : 40) }
 
         Text {
             objectName: "horaGrande"
@@ -70,8 +71,16 @@ Item {
             font.pixelSize: Escala.fuente(40)
         }
 
-        Item { width: 1; height: Escala.px(40) }
+        Item { width: 1; height: Escala.px(Escala.horizontal ? 10 : 40) }
 
+        // Horizontal: los cuatro datos en dos columnas (en vertical, una)
+        Grid {
+            id: rejillaDatos
+            width: parent.width
+            columns: Escala.horizontal ? 2 : 1
+            rowSpacing: Escala.px(18)
+            columnSpacing: Escala.px(40)
+            readonly property real anchoDato: Escala.horizontal ? (width - columnSpacing) / 2 : width
         Repeater {
             model: [
                 { clave: "zona", valor: control.zona },
@@ -83,7 +92,7 @@ Item {
                 id: fila
                 required property var modelData
                 objectName: "datoFecha_" + modelData.clave
-                width: parent ? parent.width : 0
+                width: rejillaDatos.anchoDato
                 height: Escala.px(92)
                 Text {
                     anchors.left: parent.left; anchors.leftMargin: Escala.px(12)
@@ -115,6 +124,7 @@ Item {
                 }
                 Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Colores.bordeDivisor }
             }
+        }
         }
 
         Text {

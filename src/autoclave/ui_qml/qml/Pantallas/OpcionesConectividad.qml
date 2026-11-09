@@ -117,9 +117,20 @@ Item {
         clip: true
         interactive: contentHeight > height
 
-        Column {
+        // Horizontal: dos bloques lado a lado (red y servidor de correo a la
+        // izquierda; destinatarios a la derecha); en vertical, uno debajo de
+        // otro con el mismo espacio que daba la columna única
+        Grid {
             id: columna
             width: parent.width
+            columns: Escala.horizontal ? 2 : 1
+            rowSpacing: Escala.px(6)
+            columnSpacing: Escala.px(40)
+            // horizontal: 60 / 40 (la fila del interruptor de correo cabe sin achicar su detalle)
+            readonly property real anchoBloque: Escala.horizontal ? Math.round((width - columnSpacing) * 0.6) : width
+        Column {
+            id: bloqueRedCorreo
+            width: columna.anchoBloque
             spacing: Escala.px(6)
 
             Rectangle {
@@ -237,9 +248,14 @@ Item {
                 valor: control.contrasenaConfigurada ? I18n.t("conectividad.configurada", I18n.lang)
                                                      : I18n.t("conectividad.no_configurada", I18n.lang)
             }
+        }
+        Column {
+            id: bloqueDestinatarios
+            width: Escala.horizontal ? columna.width - columna.columnSpacing - columna.anchoBloque : columna.anchoBloque
+            spacing: Escala.px(6)
             Text {
                 width: parent.width
-                topPadding: Escala.px(12)
+                topPadding: Escala.px(Escala.horizontal ? 16 : 12)
                 text: I18n.t("conectividad.destinatarios", I18n.lang,
                              { n: control.destinatarios.length, max: control.maxDestinatarios })
                 color: Colores.textoSecundario
@@ -253,7 +269,7 @@ Item {
                     required property var modelData
                     required property int index
                     objectName: "destinatario_" + index
-                    width: columna.width
+                    width: bloqueDestinatarios.width
                     height: Escala.px(88)
                     radius: Escala.px(12)
                     color: Colores.fondoSutil
@@ -333,6 +349,7 @@ Item {
                     onPulsado: control.enviarPrueba()
                 }
             }
+        }
         }
     }
 }

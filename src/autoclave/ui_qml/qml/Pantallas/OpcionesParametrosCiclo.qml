@@ -393,14 +393,25 @@ Item {
                 font.family: Tipografia.familia
                 font.pixelSize: Escala.fuente(22)
             }
-            Repeater {
-                model: control.secciones
-                delegate: Fila {
-                    required property var modelData
-                    objectName: "seccion_" + modelData.clave
-                    titulo: raiz.nombreSeccion(modelData.clave)
-                    valor: modelData.no_se_ejecuta ? I18n.t("opciones.no_se_ejecuta", I18n.lang) : ""
-                    onPulsada: { control.abrirSeccion(modelData.clave); raiz.vista = "seccion" }
+            // Horizontal: las fases en dos columnas (en vertical, una: la
+            // rejilla deja cada fila donde la dejaba la columna)
+            Grid {
+                id: rejillaSecciones
+                width: parent.width
+                columns: Escala.horizontal ? 2 : 1
+                rowSpacing: Escala.px(6)
+                columnSpacing: Escala.px(40)
+                readonly property real anchoFila: Escala.horizontal ? (width - columnSpacing) / 2 : width
+                Repeater {
+                    model: control.secciones
+                    delegate: Fila {
+                        required property var modelData
+                        objectName: "seccion_" + modelData.clave
+                        width: rejillaSecciones.anchoFila
+                        titulo: raiz.nombreSeccion(modelData.clave)
+                        valor: modelData.no_se_ejecuta ? I18n.t("opciones.no_se_ejecuta", I18n.lang) : ""
+                        onPulsada: { control.abrirSeccion(modelData.clave); raiz.vista = "seccion" }
+                    }
                 }
             }
             Rectangle { width: parent.width; height: Escala.px(2); color: Colores.bordeCampo }
@@ -479,17 +490,21 @@ Item {
                 Cargando { objectName: "cargandoSeccion"; activo: control.cargando }
             }
         }
-        ListView {
+        // Horizontal: los parámetros en dos columnas (celdas del mismo alto que
+        // la fila; en vertical, una columna como la lista de antes)
+        GridView {
             objectName: "listaParametros"
             anchors.top: encabezadoSeccion.bottom; anchors.topMargin: Escala.px(12)
             anchors.left: parent.left; anchors.right: parent.right
             anchors.bottom: pieSeccion.top
             clip: true
+            cellWidth: Escala.horizontal ? Math.floor(width / 2) : width
+            cellHeight: Escala.px(92)
             model: control.parametros
             delegate: Fila {
                 required property var modelData
                 objectName: "param_" + modelData.clave
-                width: ListView.view.width
+                width: GridView.view.cellWidth - (Escala.horizontal ? Escala.px(20) : 0)
                 titulo: raiz.etiqueta(control.seccion, modelData.clave)
                 readonly property bool deModo: raiz.esModo(control.seccion, modelData)
                 valor: Unidades.version < 0 ? ""
@@ -583,6 +598,14 @@ Item {
             anchors.top: encabezadoSensores.bottom; anchors.topMargin: Escala.px(16)
             width: parent.width
             spacing: Escala.px(14)
+            // Horizontal: las tarjetas en dos columnas (en vertical, una)
+            Grid {
+                id: rejillaSensores
+                width: parent.width
+                columns: Escala.horizontal ? 2 : 1
+                rowSpacing: Escala.px(14)
+                columnSpacing: Escala.px(14)
+                readonly property real anchoSensor: Escala.horizontal ? (width - columnSpacing) / 2 : width
             Repeater {
                 model: control.sensores
                 delegate: Rectangle {
@@ -593,7 +616,7 @@ Item {
                     readonly property bool editable: control.sensoresEditable && raiz.edicionPermitida
                                                      && !control.operacionEnCurso
                     objectName: "sensor_" + modelData.id
-                    width: parent.width
+                    width: rejillaSensores.anchoSensor
                     height: Escala.px(170)
                     radius: Escala.px(14)
                     color: Colores.fondoSutil
@@ -628,6 +651,7 @@ Item {
                         onElegido: (v) => raiz._asignar(tarjeta.modelData.id, ["principal", "referencia", "no_en_uso"][v])
                     }
                 }
+            }
             }
             Text {
                 text: I18n.t("opciones.sensores_conteo", I18n.lang,
@@ -936,9 +960,18 @@ Item {
             anchors.horizontalCenter: parent.horizontalCenter
             y: Escala.px(97 + 32 + 16)      // bajo la franja de botones
             width: parent.width - Escala.px(40)
-            height: columnaAjuste.height + Escala.px(72)
+            // horizontal: a lo sumo el alto disponible, con desplazamiento si
+            // la descripción no cabe (en vertical, el alto del contenido)
+            height: Escala.horizontal ? Math.min(columnaAjuste.height + Escala.px(72), parent.height - y)
+                                      : columnaAjuste.height + Escala.px(72)
             radius: Escala.px(20)
             color: Colores.fondoTarjeta
+            Flickable {
+                anchors.fill: parent
+                contentHeight: columnaAjuste.height + Escala.px(72)
+                interactive: contentHeight > height + 1
+                boundsBehavior: Flickable.StopAtBounds
+                clip: Escala.horizontal
             Column {
                 id: columnaAjuste
                 x: Escala.px(24); y: Escala.px(24)
@@ -1219,6 +1252,7 @@ Item {
                     font.pixelSize: Escala.fuente(20)
                     color: Colores.textoSecundario
                 }
+            }
             }
         }
     }
