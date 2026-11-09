@@ -1,7 +1,8 @@
-BLOQUEADO: CAS-04 no cumple el criterio de liberación (caudal restrictivo, k=1,00: 0/9; ningun ajuste de HISTERESIS_KPA/MARGEN_TECHO_KPA lo corrige). Sin merge ni compilacion; necesita decision de Cristian.
 Fecha: 2026-11-08
-Rama: tanda33 (sin unir a dev); ultimo commit de la tanda: ver git log tanda33
-Suite completa: NO corrida (suite base de la alpha.24 en worktree ..\autoclave_base, incompleta; pruebas T33 + m3_brecha: 176 pasan, 36 xfail)
-Compilacion: NO hecha (no hay merge ni suite en verde ni revision de seguridad)
-Detalle y decisiones pendientes: docs/informes/tanda33/R33_informe.md y CAS04_tabla.md
-Cuando decidas, comando de compilacion desde dev limpio: python tools/entrega/compilar_entrega.py
+Resultado: TANDA 33 LIBERADA y unida a dev (merge eea169d3). Sin compilacion (decision de Cristian: hasta el merge).
+Decision de Cristian (8-nov): tope de la consigna en nivel «baja» = min(presion_max_chaqueta_control - 10, presion_suministro_vapor) (350 kPa por defecto, DECISION SIN CONFIRMAR hasta el banco); CAS-04 con k=1,00 caudal abierto y restrictivo. Abierto 9/9; restrictivo 4/8 (sin el 134 C excluido), el resto como caracterizacion; k=1,07 y 0,95 informativos.
+Revision de seguridad: sin bloqueantes; MEDIA-1 (defensa en profundidad con tope 350, vapor sobrecalentado) y MEDIA-2 (HAZ-CAS-02) anotadas en HAZ-CAS-01/02.
+Suite completa: 8 fallos, 11852 pasan, 11 skip, 35 xfail (suite_final.txt). La base alpha.24 tenia 9 fallos (suite_base.txt). Ningun fallo atribuible a CAS; test_p1_salida_modo_prueba [standby] y [salida_app] no estaban en la base pero pasan aislados en la rama y en la base (orden de ejecucion).
+PRECONDICION DE BANCO E INSTALACION (HAZ-CAS-02): calibrar pres_chaqueta con patron antes de cualquier prueba T33.
+Detalle: docs/informes/tanda33/R33_informe.md y CAS04_tabla.md
+Cuando decidas compilar, desde dev limpio: python tools/entrega/compilar_entrega.py

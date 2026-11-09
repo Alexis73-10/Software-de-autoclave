@@ -15,4 +15,4 @@ Rama `tanda33` (desde `dev` 4ffcd17c). Suite base en worktree `..\autoclave_base
 | Revisor, suite completa, merge, compilación | Pendiente |
 | CERRADO.txt | Lo actualiza Cristian |
 
-Último commit: ver `git log tanda33` (feat(cas): tope de la baja, 8-nov).
+Tanda liberada y unida a dev (eea169d3); sin compilar. Ver CERRADO.txt.
