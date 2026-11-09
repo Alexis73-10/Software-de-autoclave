@@ -1,0 +1,4 @@
+Fecha: 2026-11-09
+Commit del merge a dev: f60f20c9
+Suite: NO se corrió la suite completa (decisión de Cristian). Pruebas dedicadas: 496 passed (test_cri_*, test_t33_cascada/cas02/cas03, test_pam_presion_trabajo, test_esterilizacion_fase, test_t32_catalogo_migraciones). 3 fallos preexistentes en dev limpio: test_t12_v12_ventana_referencia_en_cero[0|0.0|nan].
+No se compiló.
