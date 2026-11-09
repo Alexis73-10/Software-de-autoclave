@@ -48,9 +48,9 @@ def _chaqueta(monkeypatch, temp=T_OK, pres=P_OK, extras=None, **kw):
                                        temp=temp, pres=pres, **kw)
     estado.modo_vapor = "chaqueta"
     estado.inhibir_vapor_chaqueta = False
-    # A14-M2 (tanda 28): lectura de chaqueta bajo P_sp + margen_chaqueta_est
-    # (sin lectura la chaqueta queda OFF); el corte M2 se prueba en
-    # tests/test_t28_a14_esterilizacion.py
+    # CAS-02 (tanda 33): lectura de chaqueta bajo la consigna de la cascada
+    # menos la histéresis (sin lectura la chaqueta queda OFF); la cascada se
+    # prueba en tests/test_t33_cas02_esterilizacion.py
     estado.sensores_pres["pres_chaqueta"] = 300.0
     if extras:
         _con_params(f, **extras)
@@ -95,15 +95,22 @@ def test_modo_chaqueta_recuperacion_conmuta_chaqueta_y_deja_camara_abierta(monke
 
 def test_modo_chaqueta_pwm_conmuta_solo_chaqueta(monkeypatch):
     # PWM_ACTIVO: T >= 134 + 0.3 + 0.3; presión dentro de la banda [P_sp-2, P_sp+1]
-    # (A14-M1: P_sp = Psat(134 + 0.3 + 0.3), fija)
+    # (A14-M1: P_sp = Psat(134 + 0.3 + 0.3), fija). CAS-02 (tanda 33): en modo
+    # chaqueta ya no hay PWM; la cascada cierra la chaqueta al llegar a su
+    # consigna de banda (min(P_sp + 8, techo - 2) = 313,2 kPa aquí).
     f, estado, set_do, reloj = _chaqueta(monkeypatch, temp=135.0, pres=ap.psat(134.6))
     f.update()
-    for _ in range(12):
+    for _ in range(6):
         reloj.avanzar(0.5)
         assert f.update() == FaseResult.EN_CURSO
     assert f._en_recuperacion is False
     set_do.vapor_chaqueta_on.assert_called()
-    set_do.vapor_chaqueta_off.assert_called()          # el PWM cierra la chaqueta
+    set_do.vapor_chaqueta_off.assert_not_called()      # sin PWM: ON bajo la consigna
+    estado.sensores_pres["pres_chaqueta"] = TECHO - 2.0
+    for _ in range(6):
+        reloj.avanzar(0.5)
+        assert f.update() == FaseResult.EN_CURSO
+    set_do.vapor_chaqueta_off.assert_called()          # la cascada cierra la chaqueta
     set_do.vapor_camara_off.assert_not_called()        # la cámara nunca se cierra
     assert set_do.vapor_camara_on.call_count >= 13     # ON en cada tick
 
@@ -178,7 +185,13 @@ def test_aislamiento_sale_con_histeresis_y_3_s(monkeypatch):
     assert f.update() == FaseResult.EN_CURSO
     assert estado.aislamiento_camara.aislado is False
     set_do.vapor_camara_on.assert_called()
-    set_do.vapor_chaqueta_on.assert_called()           # RECUPERACION retoma la chaqueta
+    # CAS-02 (tanda 33): techo - 3 está sobre P_sp + 1 (nivel alta de la
+    # cascada): la chaqueta sigue cerrada; con la cámara en la banda reabre
+    set_do.vapor_chaqueta_on.assert_not_called()
+    ap.poner(estado, T_OK, ap.psat(134.6))
+    reloj.avanzar(0.5)
+    f.update()
+    set_do.vapor_chaqueta_on.assert_called()
 
 
 def test_histeresis_cierre_camara_del_programa(monkeypatch):

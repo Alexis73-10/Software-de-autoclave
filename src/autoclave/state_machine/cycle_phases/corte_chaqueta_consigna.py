@@ -19,11 +19,11 @@
 # enclavar el corte por tramo es DECISIÓN PENDIENTE de Cristian y debe medirse
 # en banco (hoja de pruebas, bloque T28).
 #
-# M2-REC-01 (7-nov, decisión de Cristian, opción 1): en ESTERILIZACION el
-# corte no aplica mientras pres_camara está bajo la banda PWM (P_sp - 2),
-# porque con la chaqueta cargada sobre el umbral bloqueaba la única
-# fuente de vapor y la cámara caía hasta CIC-04 (ciclos 21 y 23 de SN260001).
-# CALENTAMIENTO no cambia (hallazgo en docs/informes/m2_recuperacion/).
+# CAS-02/CAS-03 (tanda 33): en ESTERILIZACION (modo chaqueta) el corte ya no
+# se usa: lo reemplaza la cascada (cascada_chaqueta.py), y con ella la
+# exención M2-REC-01 (7-nov), retirada de este módulo. En CALENTAMIENTO rige
+# solo en la rampa previa a la cascada. margen_kpa sigue siendo el margen de
+# la consigna de banda de la cascada.
 #
 # El componente es puro: las fases lo consultan en cada tick.
 
@@ -64,34 +64,12 @@ def texto_lectura(pres) -> str:
     return f"{float(pres):.1f}" if _numero(pres) else f"sin lectura ({pres!r})"
 
 
-MOTIVO_BAJO_BANDA = "bajo_banda"
-
-
-def motivo_exencion(pres_camara, consigna, banda_baja) -> str | None:
-    """M2-REC-01 (7-nov, decisión de Cristian, opción 1; solo ESTERILIZACION):
-    "bajo_banda" si pres_camara < consigna - banda_baja (solo con lectura y
-    consigna numéricas): la cámara necesita vapor y el corte por consigna no
-    aplica en este tick; si no, None. Estar en RECUPERACION NO exime: con
-    carga líquida la fase sigue en RECUPERACION por la temperatura lenta de la
-    sonda aunque la cámara esté sobre la banda, y eximir ahí llevaba la
-    chaqueta al suministro y la cámara a aislamientos repetidos (CIC-16) en la
-    planta simulada. Sin histéresis."""
-    if (_numero(pres_camara) and _numero(consigna) and _numero(banda_baja)
-            and float(pres_camara) < float(consigna) - float(banda_baja)):
-        return MOTIVO_BAJO_BANDA
-    return None
-
-
-def debe_cortar(pres_chaqueta, consigna, margen, camara_necesita_vapor=False) -> bool:
+def debe_cortar(pres_chaqueta, consigna, margen) -> bool:
     """True si vapor_chaqueta debe quedar OFF: sin lectura válida de
     pres_chaqueta, sin umbral calculable, o pres_chaqueta > consigna + margen.
-    M2-REC-01: con camara_necesita_vapor True el umbral no corta, pero sin
-    lectura válida o sin umbral se sigue cortando (falla cerrada). La exención
-    nunca anula el aislamiento VCH-AIS ni el corte D-CHQ: los evalúa la fase y
-    CICLO aparte."""
+    El aislamiento VCH-AIS y el corte D-CHQ los evalúan la fase y CICLO
+    aparte."""
     umbral = umbral_kpa(consigna, margen)
     if umbral is None or not _numero(pres_chaqueta):
         return True
-    if camara_necesita_vapor is True:
-        return False
     return float(pres_chaqueta) > umbral

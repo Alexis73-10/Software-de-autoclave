@@ -1,0 +1,7 @@
+BLOQUEADO: CAS-04 no cumple el criterio de liberación (caudal restrictivo, k=1,00: 0/9; ningun ajuste de HISTERESIS_KPA/MARGEN_TECHO_KPA lo corrige). Sin merge ni compilacion; necesita decision de Cristian.
+Fecha: 2026-11-08
+Rama: tanda33 (sin unir a dev); ultimo commit de la tanda: ver git log tanda33
+Suite completa: NO corrida (suite base de la alpha.24 en worktree ..\autoclave_base, incompleta; pruebas T33 + m3_brecha: 176 pasan, 36 xfail)
+Compilacion: NO hecha (no hay merge ni suite en verde ni revision de seguridad)
+Detalle y decisiones pendientes: docs/informes/tanda33/R33_informe.md y CAS04_tabla.md
+Cuando decidas, comando de compilacion desde dev limpio: python tools/entrega/compilar_entrega.py

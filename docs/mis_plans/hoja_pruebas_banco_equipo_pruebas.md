@@ -3350,3 +3350,27 @@
 - **Criterio:** Aprobado si se confirma tras el paro con ese pie y la bitácora como antes.
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+
+## Bloque T33. Control en cascada de la chaqueta (tanda 33)
+
+### T33-01 — Calibrar pres_chaqueta con patrón (PRIMER PASO, obligatorio)
+- **Modo:** En seco  ·  **Origen:** CAS; HAZ-CAS-02
+- **Pasos:** antes de cualquier otra prueba del bloque y antes de instalar, calibrar la entrada `pres_chaqueta` con un manómetro patrón en al menos dos puntos (atmosférica y cerca de 200 kPa abs) y anotar la lectura del equipo frente al patrón y la ganancia k resultante. Evidencia previa: chaqueta 216,9 kPa con cámara 211,9 (k ≈ 1,07).
+- **Criterio:** Aprobado si la lectura coincide con el patrón dentro de la tolerancia del transmisor (k ≈ 1,00). Sin esta aprobación no se ejecutan T33-02 ni T33-03 ni se instala.
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### T33-02 — Líquidos 121 °C con la cascada
+- **Modo:** Con vapor  ·  **Origen:** CAS-01..03, CAS-05; HAZ-CAS-01
+- **Pasos:** equipo con chaqueta (modo chaqueta), programa Líquidos 121 °C con carga máxima. Registrar `pres_camara`, `pres_chaqueta` y `temp_camara`; en `backend.log` revisar las líneas «Cascada chaqueta» y contar los «cámara AISLADA». Anotar la presión mínima de cámara en ESTERILIZACION, la chaqueta máxima y confirmar el tope de 350 kPa del nivel «baja».
+- **Criterio:** Aprobado si el ciclo completa sin CIC-04 ni CIC-16, la cámara no baja de 204,5 kPa (falla a 203,0), a lo sumo 1 aislamiento y la chaqueta queda bajo 375 kPa. Si conmuta en el borde o la chaqueta pasa de 350 kPa, anotarlo para la decisión de Cristian.
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### T33-03 — Sólidos 134 °C con la cascada
+- **Modo:** Con vapor  ·  **Origen:** CAS-01..03; HAZ-CAS-01
+- **Pasos:** programa de sólidos a 134 °C en modo chaqueta. Registrar lo mismo que en T33-02 y el sobreimpulso de temperatura. El timeout de CALENTAMIENTO a 134 °C viene de la rampa A14-M2 (no de la cascada); anotarlo si ocurre.
+- **Criterio:** Aprobado si completa, la cámara no baja de 303,7 kPa, a lo sumo 1 aislamiento, sobreimpulso ≤ 0,79 K y la chaqueta bajo 375 kPa.
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________

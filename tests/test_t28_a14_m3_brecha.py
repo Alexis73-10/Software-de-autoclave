@@ -90,10 +90,12 @@ def test_programas_del_repo_con_0_3_y_coherentes(ruta):
     p = json.loads(Path(ruta).read_text(encoding="utf-8"))["parameters"]
     assert p["esterilizacion"][CLAVE]["value"] == 0.3
     assert cp.errores_programa(p) == []
-    # presion_add_esterilizacion sin cambio (15 a 134/134,5 °C, 11 a 121 °C)
+    # presion_add_esterilizacion sin cambio (15 a 134/134,5 °C, 11 a 121 °C);
+    # tanda 33 (CAS-05): liquidos sube a 15 a 121 °C
     t = p["esterilizacion"]["temperatura_esterilizacion"]["value"]
     add = p["esterilizacion"]["presion_add_esterilizacion"]["value"]
-    assert add == (11.0 if t == 121.0 else 15.0)
+    esperado = 15.0 if (t != 121.0 or Path(ruta).name == "liquidos.json") else 11.0
+    assert add == esperado
     corr, no_apl = [], []
     migrar_parametros(p, corr, no_apl, recuperacion=True)
     assert corr == [] and no_apl == []
