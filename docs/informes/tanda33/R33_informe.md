@@ -83,3 +83,9 @@ La tabla completa (55 escenarios, en tres columnas) está en `CAS04_tabla.md`.
 ## Hallazgo M3 (solo reportado)
 
 `backend/context.py:306` solo reescribe el archivo de los programas con `source == "user"`. Un programa de fábrica con `brecha_segura_temperatura` 1,0 se migra en memoria (`_migrar_brecha_t28`) en cada arranque y nunca queda marcado ni reescrito. Los JSON de fábrica del repo ya traen 0,3, así que no se pudo confirmar qué programa lo dispara (probablemente `textiles` en la copia instalada del equipo).
+
+## Decisión de Cristian (8-nov)
+
+- **Ajuste autorizado:** el nivel «baja» de la cascada usa `min(presion_max_chaqueta_control − 10, presion_suministro_vapor)` (350 kPa con los defectos). `DECISIÓN SIN CONFIRMAR` hasta el banco.
+- **Criterio de liberación:** k = 1,00 con caudal abierto Y restrictivo. Abierto 9/9; restrictivo 4/8 (los otros 4 quedan como caracterización). Excluido: el timeout de CALENTAMIENTO a 134 °C (viene de la rampa A14-M2, también en la alpha.24). Se libera con el ajuste.
+- **Precondición HAZ-CAS-02 (obligatoria):** calibrar `pres_chaqueta` con patrón antes del banco y de la instalación (evidencia: chaqueta 216,9 kPa con cámara 211,9 ≈ k 1,07). Es el primer paso del bloque T33 de la hoja de banco.
