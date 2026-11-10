@@ -29,10 +29,14 @@ Item {
         color: Colores.fondoMarinoOscuro   // franjas si la ventana no es 5:8
     }
 
+    // Proyección del lienzo (tanda responsive): la regla vive en Escala; el
+    // tamaño es el del QQuickWidget que la aloja (pantalla de alto fijo).
+    readonly property real dprPantalla: Screen.devicePixelRatio
+    Binding { target: Escala; property: "dpr"; value: host.dprPantalla }
     Binding {
         target: Escala
         property: "factor"
-        value: Math.min(host.width / Escala.anchoDiseno, host.height / Escala.altoDiseno)
+        value: Escala.factorPara(host.width, host.height)
     }
 
     Item {

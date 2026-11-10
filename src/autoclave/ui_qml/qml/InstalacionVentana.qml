@@ -35,10 +35,14 @@ Window {
     property string versionSoftware: ""
     property bool introTerminada: false
 
+    // Proyección del lienzo (tanda responsive): la regla vive en Escala. El
+    // asistente es de alto fijo: centrado, con franjas si sobra alto o ancho.
+    readonly property real dprPantalla: Screen.devicePixelRatio
+    Binding { target: Escala; property: "dpr"; value: ventana.dprPantalla }
     Binding {
         target: Escala
         property: "factor"
-        value: Math.min(ventana.width / Escala.anchoDiseno, ventana.height / Escala.altoDiseno)
+        value: Escala.factorPara(ventana.width, ventana.height)
     }
 
     Item {

@@ -19,12 +19,15 @@ Window {
 
 
     Binding { target: Escala; property: "horizontal"; value: Escala.esHorizontal(ventana.width, ventana.height) }
+    // escala de Windows de la pantalla (zonas táctiles, tanda responsive)
+    readonly property real dprPantalla: Screen.devicePixelRatio
+    Binding { target: Escala; property: "dpr"; value: ventana.dprPantalla }
 
 
     Binding {
         target: Escala
         property: "factor"
-        value: Math.min(ventana.width / Escala.anchoDiseno, ventana.height / Escala.altoDiseno)
+        value: Escala.factorPara(ventana.width, ventana.height)
     }
 
     Item {
