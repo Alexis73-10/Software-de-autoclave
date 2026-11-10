@@ -135,6 +135,7 @@ Item {
     MouseArea {
         id: zona
         anchors.fill: parent
+        anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height))   // tanda responsive: zona táctil mínima
         enabled: raiz.interactiva
         onClicked: { Movimiento.registrarOrigen(raiz); raiz.pulsada() }
     }

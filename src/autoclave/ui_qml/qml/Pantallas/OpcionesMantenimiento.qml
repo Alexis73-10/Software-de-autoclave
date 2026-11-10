@@ -143,6 +143,7 @@ Item {
         }
         MouseArea {
             anchors.fill: parent
+            anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height))   // tanda responsive: zona táctil mínima
             enabled: campo.habilitado
             onClicked: raiz.teclado.abrirNumerico(
                 campo.rotulo, campo.unidad, campo.valor < 0 ? 0 : campo.valor,
@@ -174,7 +175,7 @@ Item {
             font.family: Tipografia.familia
             font.pixelSize: Escala.fuente(22)
         }
-        MouseArea { anchors.fill: parent; onClicked: control.limpiarMensaje() }
+        MouseArea { anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); onClicked: control.limpiarMensaje() }
     }
 
     // Movimiento (31-oct): el botón Calibrar se expande hasta la subpantalla de
@@ -257,7 +258,7 @@ Item {
                 font.family: Tipografia.familia
                 font.pixelSize: Escala.fuente(22)
             }
-            MouseArea { anchors.fill: parent; onClicked: impresiones.limpiarMensaje() }
+            MouseArea { anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); onClicked: impresiones.limpiarMensaje() }
         }
         Repeater {
             model: [{ clave: "calibrar", texto: "calibracion_atm.boton_calibrar" },
@@ -305,6 +306,7 @@ Item {
                 }
                 MouseArea {
                     anchors.fill: parent
+                    anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height))   // tanda responsive: zona táctil mínima
                     enabled: accion.habilitado
                     onClicked: {
                         Movimiento.registrarOrigen(accion)
@@ -382,7 +384,7 @@ Item {
                         font.weight: Tipografia.pesoSemiBold
                         font.pixelSize: Escala.fuente(24)
                     }
-                    MouseArea { anchors.fill: parent; onClicked: raiz.tipoElegido = chip.modelData }
+                    MouseArea { anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); onClicked: raiz.tipoElegido = chip.modelData }
                 }
             }
         }
@@ -406,6 +408,7 @@ Item {
             }
             MouseArea {
                 anchors.fill: parent
+                anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height))   // tanda responsive: zona táctil mínima
                 enabled: parent.habilitado
                 onClicked: confirmar.abrir()
             }
@@ -466,6 +469,7 @@ Item {
             }
             MouseArea {
                 anchors.fill: parent
+                anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height))   // tanda responsive: zona táctil mínima
                 enabled: parent.habilitado
                 onClicked: {
                     // el desenlace llega por onCambioResuelto (más abajo)

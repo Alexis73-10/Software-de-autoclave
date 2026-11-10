@@ -202,19 +202,28 @@ Item {
     readonly property bool hz: Escala.horizontal
     readonly property real _escalaHz: Escala.px(Escala.anchoVertical) / anchoMockup
     // ancho y alto del marco en px del mockup (solo horizontal)
-    readonly property real anchoMarco: hz ? width / _escalaHz : anchoMockup
+    // Tanda responsive (sin franjas, decisión de Cristian): en vertical la
+    // escala tampoco pasa la del ancho de diseño (_anchoRefV); lo que el lienzo
+    // tenga de más ancho (_dxV) o de más alto que 5:8 (_dyV), en px del mockup,
+    // lo reparten la tarjeta principal y la de alarmas, que crecen; la cabecera
+    // y los botones siguen a su borde y el bloque de ciclo y parámetros queda
+    // centrado. A 1200x1920 (o con un ancho menor, como antes) valen 0.
+    readonly property real _anchoRefV: Math.min(width, Escala.px(Escala.anchoVertical))
+    readonly property real _dxV: hz ? 0 : (width - _anchoRefV) / _escalaHz
+    readonly property real _dyV: hz ? 0 : Math.max(0, height - _anchoRefV * 1920 / 1200) / _escalaHz
+    readonly property real anchoMarco: hz ? width / _escalaHz : anchoMockup + _dxV
     readonly property real _altoHz: hz ? height / _escalaHz : altoMockup
     readonly property real dxCentro: (anchoMarco - anchoMockup) / 2
     readonly property real dxDerecha: anchoMarco - anchoMockup
     // botones de acción: misma distancia a la barra inferior que en vertical
-    readonly property real dyAcciones: hz ? _altoHz - altoMockup : 0
+    readonly property real dyAcciones: hz ? _altoHz - altoMockup : _dyV
     // tarjeta de alarmas y avisos en horizontal: columna derecha, a todo el alto
     // de la tarjeta principal (márgenes de 15 como en vertical)
     readonly property real _alX: 1178
     readonly property real _alY: 192
     readonly property real _alW: anchoMarco - 19 - 15 - _alX
     readonly property real _alH: _altoHz - 171 - 10 - 15 - _alY
-    function m(v) { return hz ? v * _escalaHz : v * raiz.width / anchoMockup }
+    function m(v) { return hz ? v * _escalaHz : v * raiz._anchoRefV / anchoMockup }
     // pixelSize exige entero > 0 (width es 0 antes del primer layout)
     function fuente(v) { return Math.max(1, Math.round(m(v))) }
 
@@ -354,19 +363,16 @@ Item {
         objectName: "tarjetaPreciclo"
         x: raiz.m(19); y: raiz.m(177)
         // horizontal: a lo ancho (márgenes de 19 a cada lado)
-        width: raiz.m(raiz.hz ? raiz.anchoMarco - 38 : 1159); height: barraInferior.y - raiz.m(10) - y
+        width: raiz.m(raiz.hz ? raiz.anchoMarco - 38 : 1159 + raiz.dxDerecha); height: barraInferior.y - raiz.m(10) - y
         radius: raiz.m(30)
         color: Colores.fondoTarjeta
     }
 
     // ---- tarjeta de ciclo ----
     Rectangle {
-        x: raiz.m(19); y: raiz.m(404); width: raiz.m(1159); height: raiz.m(2)
+        x: raiz.m(19); y: raiz.m(404); width: raiz.m(1159 + raiz.dxDerecha * (raiz.hz ? 0 : 1)); height: raiz.m(2)
         color: raiz.paleta.bordeTarjeta
     }
-    Divisor { cx: 351; y0: 219; y1: 384; color: raiz.paleta.divisorCiclo }
-    Divisor { cx: 839; y0: 219; y1: 384; color: raiz.paleta.divisorCiclo }
-
     component Rotulo: Texto {
         bl: 229; tam: 17
         color: raiz.paleta.negro
@@ -380,6 +386,48 @@ Item {
         font.weight: Tipografia.pesoSemiBold
     }
 
+    // U10a (tanda 10, D10-1.3): la etiqueta muestra su texto completo si cabe entre
+    // su borde izquierdo (lx) y el divisor derecho de su columna (limite), menos un
+    // margen; si no, la abreviatura abrev.<clave> (TextoAjustable, D10-1.1).
+    readonly property real margenEtiqueta: 4
+    component Etiqueta: TextoAjustable {
+        property real lx: 0
+        property real bl: 0
+        property real limite: 0
+        x: raiz.m(lx)
+        y: raiz.m(bl) - baselineOffset
+        anchoDisponible: raiz.m(limite - lx - raiz.margenEtiqueta)
+        font.pixelSize: raiz.fuente(12)
+        color: raiz.paleta.etiqueta
+        font.family: Tipografia.familia
+        font.weight: Tipografia.pesoSemiBold
+    }
+    component Valor: Texto {
+        bl: 554; tam: 55
+        property color tinta: Colores.textoNegro   // los sensores usan valorTemp*/valorPresion
+        color: raiz.datosVigentes ? tinta : Colores.textoGuia
+        font.family: raiz.fuenteNumeros
+        font.weight: Tipografia.pesoBold
+    }
+    component Unidad: Texto {
+        bl: 606; tam: 27
+        color: raiz.paleta.unidad
+        font.family: raiz.fuenteNumeros
+        font.weight: Tipografia.pesoBold
+    }
+
+    readonly property var tintaTermometro: [12.25, 4.0, 36.55, 44.0]
+
+    // Tanda responsive: bloque de ciclo y parámetros, centrado en vertical si
+    // el lienzo es más ancho que 5:8 (x 0 en horizontal y a 1200x1920)
+    Item {
+        id: bloqueCiclo
+        x: raiz.m(raiz.hz ? 0 : raiz.dxCentro)
+        width: raiz.width; height: raiz.height
+    Divisor { cx: 351; y0: 219; y1: 384; color: raiz.paleta.divisorCiclo }
+    Divisor { cx: 839; y0: 219; y1: 384; color: raiz.paleta.divisorCiclo }
+
+
     Rotulo { cx: 199; text: raiz.textos.cicloActivo }
     Texto {
         cx: 200; bl: 333; tam: 103
@@ -391,14 +439,18 @@ Item {
 
     Rotulo { cx: 599.5; text: raiz.textos.programa }
     Texto {
+        id: nombrePrograma
         cx: 599; bl: 308; tam: 36
         text: raiz.programa
         // Ronda 2 (horizontal): el nombre no cruza los divisores de su recuadro
         // (351..839) ni baja sobre la ayuda (línea base 352): hasta dos líneas en
         // la franja 248..332 y la letra baja hasta Escala.fuenteMinima; nunca se
         // recorta (D8-5.4). Con Binding (when: hz): en vertical no se toca nada.
-        Binding on width { when: raiz.hz; value: raiz.m(488 - 24) }
-        Binding on height { when: raiz.hz; value: raiz.m(84) }
+        // Tanda responsive: siempre activo (en vertical, el ancho y el alto propios
+        // del texto): con `when` el giro horizontal -> vertical en caliente dejaba
+        // el ancho del horizontal fijo y el nombre se salía de su caja
+        Binding on width { value: raiz.hz ? raiz.m(488 - 24) : nombrePrograma.implicitWidth }
+        Binding on height { value: raiz.hz ? raiz.m(84) : nombrePrograma.implicitHeight }
         Binding on y { when: raiz.hz; value: raiz.m(248) }
         Binding on horizontalAlignment { when: raiz.hz; value: Text.AlignHCenter }
         Binding on verticalAlignment { when: raiz.hz; value: Text.AlignVCenter }
@@ -485,37 +537,6 @@ Item {
     Divisor { cx: 786.7; y0: 452; y1: 606; color: raiz.paleta.divisorParam }
     Divisor { cx: 974.8; y0: 452; y1: 606; color: raiz.paleta.divisorParam }
 
-    // U10a (tanda 10, D10-1.3): la etiqueta muestra su texto completo si cabe entre
-    // su borde izquierdo (lx) y el divisor derecho de su columna (limite), menos un
-    // margen; si no, la abreviatura abrev.<clave> (TextoAjustable, D10-1.1).
-    readonly property real margenEtiqueta: 4
-    component Etiqueta: TextoAjustable {
-        property real lx: 0
-        property real bl: 0
-        property real limite: 0
-        x: raiz.m(lx)
-        y: raiz.m(bl) - baselineOffset
-        anchoDisponible: raiz.m(limite - lx - raiz.margenEtiqueta)
-        font.pixelSize: raiz.fuente(12)
-        color: raiz.paleta.etiqueta
-        font.family: Tipografia.familia
-        font.weight: Tipografia.pesoSemiBold
-    }
-    component Valor: Texto {
-        bl: 554; tam: 55
-        property color tinta: Colores.textoNegro   // los sensores usan valorTemp*/valorPresion
-        color: raiz.datosVigentes ? tinta : Colores.textoGuia
-        font.family: raiz.fuenteNumeros
-        font.weight: Tipografia.pesoBold
-    }
-    component Unidad: Texto {
-        bl: 606; tam: 27
-        color: raiz.paleta.unidad
-        font.family: raiz.fuenteNumeros
-        font.weight: Tipografia.pesoBold
-    }
-
-    readonly property var tintaTermometro: [12.25, 4.0, 36.55, 44.0]
 
     Icono { caja: [59.1, 448, 20, 33]; tinta: raiz.tintaTermometro; source: raiz.iconosColor + "sensor_temperatura.svg" }
     Etiqueta { lx: 115.1; bl: 469; limite: 222.2; clave: "ciclo.temp_ester" }
@@ -572,12 +593,14 @@ Item {
         }
     }
 
+    }   // bloqueCiclo
+
     // ---- tarjeta de alarmas y avisos ----
     // Horizontal: la tarjeta va en la columna derecha (_alX, _alY, _alW, _alH)
     // con los mismos márgenes internos (47 / 48) que en vertical.
     Rectangle {
         x: raiz.m(raiz.hz ? raiz._alX : 34); y: raiz.m(raiz.hz ? raiz._alY : 655)
-        width: raiz.m(raiz.hz ? raiz._alW : 1130); height: raiz.m(raiz.hz ? raiz._alH : 944)
+        width: raiz.m(raiz.hz ? raiz._alW : 1130 + raiz.dxDerecha); height: raiz.m(raiz.hz ? raiz._alH : 944 + raiz.dyAcciones)
         radius: raiz.m(30)
         color: Colores.fondoTarjeta
         border.width: raiz.m(2); border.color: raiz.paleta.bordeTarjeta
@@ -591,7 +614,7 @@ Item {
     }
     Rectangle {
         x: raiz.m(raiz.hz ? raiz._alX + 47 : 81); y: raiz.m(raiz.hz ? raiz._alY + 82 : 737)
-        width: raiz.m(raiz.hz ? raiz._alW - 95 : 1116 - 81); height: raiz.m(2)
+        width: raiz.m(raiz.hz ? raiz._alW - 95 : 1116 - 81 + raiz.dxDerecha); height: raiz.m(2)
         color: raiz.paleta.lineaAlarmas
     }
     // Zona del listado (PC-06): geometría fija, se puebla sin moverla.
@@ -608,7 +631,7 @@ Item {
     Item {
         id: zonaAlarmas
         x: raiz.m(raiz.hz ? raiz._alX + 47 : 81); y: raiz.m(raiz.hz ? raiz._alY + 84 : 739)
-        width: raiz.m(raiz.hz ? raiz._alW - 95 : 1116 - 81); height: raiz.m(raiz.hz ? raiz._alH - 85 : 1598 - 739)
+        width: raiz.m(raiz.hz ? raiz._alW - 95 : 1116 - 81 + raiz.dxDerecha); height: raiz.m(raiz.hz ? raiz._alH - 85 : 1598 - 739 + raiz.dyAcciones)
 
         Text {
             id: avisoSinConexion
@@ -678,6 +701,7 @@ Item {
                 MouseArea {
                     objectName: "areaFilaAlarmaPreciclo"
                     anchors.fill: parent
+                    anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height))   // tanda responsive: zona táctil mínima
                     onClicked: detalleAlarmaPreciclo.abrirDesde(fila.model)
                 }
                 Text {
@@ -708,7 +732,7 @@ Item {
     Texto {
         visible: raiz.conteoAlarmas === 0 && raiz.datosVigentes
                  && seguridadPreciclo.conteo === 0
-        cx: raiz.hz ? raiz._alX + raiz._alW / 2 : 598.5; bl: raiz.hz ? raiz._alY + raiz._alH / 2 + 49 : 1176; tam: 28
+        cx: raiz.hz ? raiz._alX + raiz._alW / 2 : 598.5 + raiz.dxCentro; bl: raiz.hz ? raiz._alY + raiz._alH / 2 + 49 : 1176 + raiz.dyAcciones / 2; tam: 28
         text: raiz.textos.sinAlarmas
         color: raiz.paleta.textoVacio
         font.family: Tipografia.familia
@@ -776,7 +800,7 @@ Item {
             fontSizeMode: Text.HorizontalFit
             minimumPixelSize: Math.min(raiz.fuente(17), Escala.fuenteMinima)
         }
-        MouseArea { anchors.fill: parent; onClicked: boton.pulsado() }
+        MouseArea { anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); onClicked: boton.pulsado() }
     }
 
     // Degradados medidos a x=310 / x=1010 (plan §6.1–6.2), extrapolados linealmente
@@ -834,7 +858,7 @@ Item {
     DeslizadorInicio {
         objectName: "deslizadorIniciarCiclo"
         // 10 % más ancho (302 → 332), conservando el borde derecho
-        x: raiz.m(815); y: raiz.m(1616 + raiz.dyAcciones); width: raiz.m(332); height: raiz.m(110)
+        x: raiz.m(815 + raiz._dxV); y: raiz.m(1616 + raiz.dyAcciones); width: raiz.m(332); height: raiz.m(110)
         texto: raiz.textos.iniciar
         textoCompletado: raiz.textos.iniciando
         // Como tkinter (_upd_listo) pero oculto en vez de inactivo cuando el equipo
@@ -875,12 +899,12 @@ Item {
         // Ronda 2 (horizontal): 100 px más ancho hacia la izquierda (en FALLA el
         // deslizador de inicio no se muestra): «ACKNOWLEDGE FAULT» no cabía ni
         // con la letra al mínimo
-        caja: raiz.hz ? [745, 1616, 402, 110] : [845, 1616, 302, 110]
+        caja: raiz.hz ? [745, 1616, 402, 110] : [845 + raiz._dxV, 1616, 302, 110]
         colorArriba: Colores.botonNaranjaArriba
         colorAbajo: Colores.botonNaranjaAbajo
         texto: raiz.textos.reconocerFalla
-        textoX: raiz.hz ? 880 : 980
-        circuloX: raiz.hz ? 766 : 866
+        textoX: raiz.hz ? 880 : 980 + raiz._dxV
+        circuloX: raiz.hz ? 766 : 866 + raiz._dxV
         visible: raiz.enFalla && raiz.datosVigentes
         enabled: !raiz.fallaOcupada
         onPulsado: raiz.reconocerFallaPulsado()
@@ -941,6 +965,7 @@ Item {
             TextoPieBarra { bl: 1862; text: raiz.textos.serie + raiz.serie }
             MouseArea {
                 anchors.fill: parent
+                anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height))   // tanda responsive: zona táctil mínima
                 onClicked: {
                     raiz.equipoPulsado()
                     raiz.infoEquipo?.actualizar()
@@ -972,7 +997,7 @@ Item {
                 source: raiz.iconosColor + "usuario.svg"
                 sourceSize.width: width; sourceSize.height: height
             }
-            MouseArea { anchors.fill: parent; onClicked: raiz.avatarPulsado() }
+            MouseArea { anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); onClicked: raiz.avatarPulsado() }
         }
     }
 
@@ -1110,6 +1135,7 @@ Item {
                 }
                 MouseArea {
                     anchors.fill: parent
+                    anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height))   // tanda responsive: zona táctil mínima
                     enabled: fila.activa
                     onClicked: raiz.selectorCiclo.elegir(fila.modelData.cycleId)
                 }

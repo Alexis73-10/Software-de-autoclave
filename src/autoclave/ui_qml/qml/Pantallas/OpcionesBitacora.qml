@@ -55,7 +55,7 @@ Item {
                 font.pixelSize: Escala.fuente(24)
             }
         }
-        MouseArea { anchors.fill: parent; onClicked: filtro.pulsado() }
+        MouseArea { anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); onClicked: filtro.pulsado() }
     }
 
     // Tanda 17 (BIT-05): Desde y Hasta abren el calendario táctil (sin
@@ -227,7 +227,7 @@ Item {
             color: Colores.accionPrimarioTexto
             font.family: Tipografia.familia; font.weight: Tipografia.pesoSemiBold
             font.pixelSize: Escala.fuente(26)
-            MouseArea { anchors.fill: parent; anchors.margins: -Escala.px(20); enabled: parent.habilitado
+            MouseArea { anchors.fill: parent; anchors.margins: -(Escala.px(20) + Escala.margenTactil(Math.min(parent.width, parent.height) + 2 * Escala.px(20))); enabled: parent.habilitado
                         onClicked: control.paginaAnterior() }
         }
         Text {
@@ -247,7 +247,7 @@ Item {
             color: Colores.accionPrimarioTexto
             font.family: Tipografia.familia; font.weight: Tipografia.pesoSemiBold
             font.pixelSize: Escala.fuente(26)
-            MouseArea { anchors.fill: parent; anchors.margins: -Escala.px(20); enabled: parent.habilitado
+            MouseArea { anchors.fill: parent; anchors.margins: -(Escala.px(20) + Escala.margenTactil(Math.min(parent.width, parent.height) + 2 * Escala.px(20))); enabled: parent.habilitado
                         onClicked: control.paginaSiguiente() }
         }
     }

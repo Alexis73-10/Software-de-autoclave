@@ -278,7 +278,12 @@ Item {
     readonly property bool hz: Escala.horizontal
     readonly property real _escalaHz: Escala.px(Escala.anchoVertical) / anchoMockup
     // ancho del marco en px del mockup (1196 en vertical; 1913,6 en horizontal)
-    readonly property real anchoMarco: hz ? width / _escalaHz : anchoMockup
+    // Tanda responsive: en vertical la escala no pasa la del ancho de diseño;
+    // el ancho de más (_dxV, px del mockup) lo toman la tarjeta, la gráfica y la
+    // barra de progreso; el bloque de ciclo y los relojes quedan centrados
+    readonly property real _anchoRefV: Math.min(width, Escala.px(Escala.anchoVertical))
+    readonly property real _dxV: hz ? 0 : (width - _anchoRefV) / _escalaHz
+    readonly property real anchoMarco: hz ? width / _escalaHz : anchoMockup + _dxV
     readonly property real dxCentro: (anchoMarco - anchoMockup) / 2
     readonly property real dxDerecha: anchoMarco - anchoMockup
     // rectángulo de la gráfica / panel de fin de ciclo (px del mockup); en
@@ -286,10 +291,10 @@ Item {
     // progreso de la fase) al margen derecho (16, como en vertical)
     readonly property real gx: hz ? 1192 : 33
     readonly property real gy: hz ? 192 : 804
-    readonly property real gw: hz ? anchoMarco - 19 - 16 - gx : 1162 - 33
+    readonly property real gw: hz ? anchoMarco - 19 - 16 - gx : 1162 - 33 + _dxV
     // borde inferior (yb): en horizontal, a 14 del de la tarjeta principal
     readonly property real gyFin: hz ? 1722 : 1598
-    function m(v) { return hz ? v * _escalaHz : v * raiz.width / anchoMockup }
+    function m(v) { return hz ? v * _escalaHz : v * raiz._anchoRefV / anchoMockup }
     function fuente(v) { return Math.max(1, Math.round(m(v))) }
     // alto sobrante respecto al mockup; lo absorbe la gráfica
     readonly property real extra: raiz.height - m(altoMockup)
@@ -430,25 +435,58 @@ Item {
         // la barra de progreso llega a y 1723 del lienzo y no se reubica (D-19)
         x: raiz.m(19); y: raiz.m(177)
         // horizontal: a lo ancho (márgenes de 19 a cada lado)
-        width: raiz.m(raiz.hz ? raiz.anchoMarco - 38 : 1159); height: barraInferior.y - raiz.m(10) - y
+        width: raiz.m(raiz.hz ? raiz.anchoMarco - 38 : 1159 + raiz._dxV); height: barraInferior.y - raiz.m(10) - y
         radius: raiz.m(30)
         color: Colores.fondoTarjeta
     }
 
     // ---- tarjeta de ciclo (= PantallaPreciclo.qml salvo ESTADO) ----
     Rectangle {
-        x: raiz.m(19); y: raiz.m(404); width: raiz.m(1159); height: raiz.m(2)
+        x: raiz.m(19); y: raiz.m(404); width: raiz.m(1159 + raiz._dxV); height: raiz.m(2)
         color: raiz.paleta.bordeTarjeta
     }
-    Divisor { cx: 351; y0: 219; y1: 384; color: raiz.paleta.divisorCiclo }
-    Divisor { cx: 839; y0: 219; y1: 384; color: raiz.paleta.divisorCiclo }
-
     component Rotulo: Texto {
         bl: 229; tam: 17
         color: raiz.paleta.negro
         font.family: Tipografia.familia
         font.weight: Tipografia.pesoMedium
     }
+    readonly property real margenEtiqueta: 4
+    component Etiqueta: TextoAjustable {
+        property real lx: 0
+        property real bl: 0
+        property real limite: 0
+        x: raiz.m(lx)
+        y: raiz.m(bl) - baselineOffset
+        anchoDisponible: raiz.m(limite - lx - raiz.margenEtiqueta)
+        font.pixelSize: raiz.fuente(12)
+        color: raiz.paleta.etiqueta
+        font.family: Tipografia.familia
+        font.weight: Tipografia.pesoSemiBold
+    }
+    component Valor: Texto {
+        bl: 554; tam: 55
+        property color tinta: Colores.textoNegro   // los sensores usan valorTemp*/valorPresion
+        color: raiz.datosVigentes ? tinta : Colores.textoGuia
+        font.family: raiz.fuenteNumeros
+        font.weight: Tipografia.pesoBold
+    }
+    component Unidad: Texto {
+        bl: 606; tam: 27
+        color: raiz.paleta.unidad
+        font.family: raiz.fuenteNumeros
+        font.weight: Tipografia.pesoBold
+    }
+
+    // Tanda responsive: bloque de ciclo, fases y parámetros, centrado en
+    // vertical si el lienzo es más ancho que 5:8 (x 0 en horizontal y a 1200x1920)
+    Item {
+        id: bloqueCiclo
+        x: raiz.m(raiz.hz ? 0 : raiz.dxCentro)
+        width: raiz.width; height: raiz.height
+    Divisor { cx: 351; y0: 219; y1: 384; color: raiz.paleta.divisorCiclo }
+    Divisor { cx: 839; y0: 219; y1: 384; color: raiz.paleta.divisorCiclo }
+
 
     Rotulo { cx: 199; text: raiz.textos.cicloActivo }
     Texto {
@@ -461,14 +499,18 @@ Item {
 
     Rotulo { cx: 599.5; text: raiz.textos.programa }
     Texto {
+        id: nombrePrograma
         cx: 599; bl: 308; tam: 36
         text: raiz.sinLectura(raiz.programa)
         // Ronda 2 (horizontal): el nombre no cruza los divisores de su recuadro
         // (351..839) ni baja sobre la ayuda (línea base 352): hasta dos líneas en
         // la franja 248..332 y la letra baja hasta Escala.fuenteMinima; nunca se
         // recorta (D8-5.4). Con Binding (when: hz): en vertical no se toca nada.
-        Binding on width { when: raiz.hz; value: raiz.m(488 - 24) }
-        Binding on height { when: raiz.hz; value: raiz.m(84) }
+        // Tanda responsive: siempre activo (en vertical, el ancho y el alto propios
+        // del texto): con `when` el giro horizontal -> vertical en caliente dejaba
+        // el ancho del horizontal fijo y el nombre se salía de su caja
+        Binding on width { value: raiz.hz ? raiz.m(488 - 24) : nombrePrograma.implicitWidth }
+        Binding on height { value: raiz.hz ? raiz.m(84) : nombrePrograma.implicitHeight }
         Binding on y { when: raiz.hz; value: raiz.m(248) }
         Binding on horizontalAlignment { when: raiz.hz; value: Text.AlignHCenter }
         Binding on verticalAlignment { when: raiz.hz; value: Text.AlignVCenter }
@@ -554,32 +596,6 @@ Item {
     // U10a (tanda 10, D10-1.3): la etiqueta muestra su texto completo si cabe entre
     // su borde izquierdo (lx) y el divisor derecho de su columna (limite), menos un
     // margen; si no, la abreviatura abrev.<clave> (TextoAjustable, D10-1.1).
-    readonly property real margenEtiqueta: 4
-    component Etiqueta: TextoAjustable {
-        property real lx: 0
-        property real bl: 0
-        property real limite: 0
-        x: raiz.m(lx)
-        y: raiz.m(bl) - baselineOffset
-        anchoDisponible: raiz.m(limite - lx - raiz.margenEtiqueta)
-        font.pixelSize: raiz.fuente(12)
-        color: raiz.paleta.etiqueta
-        font.family: Tipografia.familia
-        font.weight: Tipografia.pesoSemiBold
-    }
-    component Valor: Texto {
-        bl: 554; tam: 55
-        property color tinta: Colores.textoNegro   // los sensores usan valorTemp*/valorPresion
-        color: raiz.datosVigentes ? tinta : Colores.textoGuia
-        font.family: raiz.fuenteNumeros
-        font.weight: Tipografia.pesoBold
-    }
-    component Unidad: Texto {
-        bl: 606; tam: 27
-        color: raiz.paleta.unidad
-        font.family: raiz.fuenteNumeros
-        font.weight: Tipografia.pesoBold
-    }
 
     Item {
         anchors.fill: parent
@@ -652,6 +668,8 @@ Item {
                 Unidad { cx: entrada.c0 + (entrada.esPresion ? 109.6 : 85.1); text: entrada.modelData.unidad || "" }
             }
         }
+    }
+
     }
 
     // ======================= gráfica (alto flexible) =======================
@@ -822,6 +840,10 @@ Item {
         color: raiz.paleta.rotuloReloj
         font.family: Tipografia.familia
     }
+    // Tanda responsive: relojes centrados como el bloque de ciclo
+    Item {
+        x: raiz.m(raiz.hz ? 0 : raiz.dxCentro)
+        width: raiz.width; height: raiz.height
     Reloj { cx: 426.5; text: raiz.formatoReloj(raiz.transcurridoS) }
     RotuloReloj { cx: 426.5; text: raiz.textos.transcurrido }
     // T30-02: en lugar del tiempo restante, el progreso de la fase activa
@@ -837,12 +859,14 @@ Item {
     }
     RotuloReloj { cx: 960; text: raiz.textos.progresoFase }
 
+    }
+
     // Barra de progreso: ancho completo bajo los relojes (plan §5.6; el mockup
     // la corta en x = 814). Sin estimación de restante queda vacía.
     Rectangle {
         id: pista
         x: raiz.m(39); y: raiz.yb(1691)
-        width: raiz.m(1157 - 39); height: raiz.m(32)
+        width: raiz.m(1157 - 39 + raiz._dxV); height: raiz.m(32)
         radius: height / 2
         color: raiz.paleta.pistaProgreso
         Rectangle {
@@ -904,6 +928,7 @@ Item {
             TextoPieBarra { bl: 1862; text: raiz.textos.serie + raiz.sinLectura(raiz.serie) }
             MouseArea {
                 anchors.fill: parent
+                anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height))   // tanda responsive: zona táctil mínima
                 onClicked: {
                     raiz.equipoPulsado()
                     raiz.infoEquipo?.actualizar()
@@ -998,7 +1023,7 @@ Item {
                 horizontalAlignment: Text.AlignHCenter
                 verticalAlignment: Text.AlignVCenter
             }
-            MouseArea { anchors.fill: parent; onClicked: modalForzar.abrir() }
+            MouseArea { anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); onClicked: modalForzar.abrir() }
         }
 
         // CAN-02 (tanda 34): mientras el ciclo no termina, CANCELAR CICLO es un
@@ -1102,6 +1127,7 @@ Item {
             }
             MouseArea {
                 anchors.fill: parent
+                anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height))   // tanda responsive: zona táctil mínima
                 onClicked: {
                     if (!raiz.terminado)
                         return
@@ -1127,7 +1153,7 @@ Item {
         MouseArea { anchors.fill: parent }   // nada debajo recibe toques
         GraficaCiclo {
             x: raiz.m(33); y: raiz.m(40)
-            width: raiz.m(raiz.hz ? raiz.anchoMarco - 66 : 1162 - 33)
+            width: raiz.m(raiz.hz ? raiz.anchoMarco - 66 : 1162 - 33 + raiz._dxV)
             height: parent.height - raiz.m(80)
             escala: raiz.m(1)
             modoPantallaCompleta: true

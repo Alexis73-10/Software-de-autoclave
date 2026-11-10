@@ -111,7 +111,8 @@ Item {
     // tarjeta pone el avatar a la izquierda y el formulario a la derecha,
     // arriba, para que los campos queden sobre el teclado en pantalla.
     readonly property bool hz: Escala.horizontal
-    readonly property real escalaBarra: hz ? Escala.px(Escala.anchoVertical) / 1196 : raiz.width / 1196
+    // tanda responsive: en vertical tampoco pasa la escala del ancho de diseño
+    readonly property real escalaBarra: hz ? Escala.px(Escala.anchoVertical) / 1196 : Math.min(raiz.width, Escala.px(Escala.anchoVertical)) / 1196
 
     readonly property string iconos: "../../assets/iconos/color/"
 
@@ -152,7 +153,7 @@ Item {
                 color: Colores.textoSecundario
                 MouseArea {
                     anchors.fill: parent
-                    anchors.margins: -Escala.px(16)
+                    anchors.margins: -(Escala.px(16) + Escala.margenTactil(Math.min(parent.width, parent.height) + 2 * Escala.px(16)))
                     onClicked: campo.visibleTexto = !campo.visibleTexto
                 }
             }
@@ -296,6 +297,7 @@ Item {
                             }
                             MouseArea {
                                 anchors.fill: parent
+                                anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height))   // tanda responsive: zona táctil mínima
                                 enabled: raiz.puedeEnviar
                                 onClicked: raiz.cambiar()
                             }

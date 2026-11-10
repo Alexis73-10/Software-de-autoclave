@@ -39,7 +39,7 @@ Item {
         objectName: "fondoModalOperador"
         anchors.fill: parent
         color: Colores.velo
-        MouseArea { anchors.fill: parent; onClicked: raiz._cancelar() }
+        MouseArea { anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); onClicked: raiz._cancelar() }
     }
 
     Rectangle {
@@ -151,6 +151,7 @@ Item {
                 }
                 MouseArea {
                     anchors.fill: parent
+                    anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height))   // tanda responsive: zona táctil mínima
                     enabled: !raiz.ocupado
                     onClicked: raiz.elegido = fila.modelData.id
                 }
@@ -202,7 +203,7 @@ Item {
                     font.weight: Tipografia.pesoSemiBold
                     font.pixelSize: Escala.fuente(Tipografia.botonEtiquetaTam)
                 }
-                MouseArea { anchors.fill: parent; onClicked: raiz._cancelar() }
+                MouseArea { anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); onClicked: raiz._cancelar() }
             }
             Rectangle {
                 objectName: "botonIniciarOperador"
@@ -223,7 +224,7 @@ Item {
                     font.weight: Tipografia.pesoSemiBold
                     font.pixelSize: Escala.fuente(Tipografia.botonEtiquetaTam)
                 }
-                MouseArea { anchors.fill: parent; enabled: parent.activo; onClicked: raiz._aceptar() }
+                MouseArea { anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); enabled: parent.activo; onClicked: raiz._aceptar() }
             }
         }
     }

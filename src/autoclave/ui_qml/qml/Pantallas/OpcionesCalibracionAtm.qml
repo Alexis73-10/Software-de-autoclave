@@ -119,7 +119,7 @@ Item {
             font.weight: Tipografia.pesoSemiBold
             font.pixelSize: Escala.fuente(28)
         }
-        MouseArea { anchors.fill: parent; enabled: boton.habilitado; onClicked: boton.pulsado() }
+        MouseArea { anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); enabled: boton.habilitado; onClicked: boton.pulsado() }
     }
 
     Flickable {
@@ -152,7 +152,7 @@ Item {
                     font.family: Tipografia.familia
                     font.pixelSize: Escala.fuente(22)
                 }
-                MouseArea { anchors.fill: parent; onClicked: control.limpiarMensaje() }
+                MouseArea { anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); onClicked: control.limpiarMensaje() }
             }
 
             Text {

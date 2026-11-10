@@ -62,5 +62,5 @@ Rectangle {
         }
     }
 
-    MouseArea { anchors.fill: parent; onClicked: raiz.pulsada() }
+    MouseArea { anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); onClicked: raiz.pulsada() }
 }

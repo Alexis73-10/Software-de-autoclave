@@ -69,7 +69,10 @@ Item {
     // horizontales (hz) van en dos columnas: tarjetas de menú a la izquierda y
     // Resumen del Sistema a la derecha (2 x 2), con la barra inferior a lo ancho.
     readonly property bool hz: Escala.horizontal
-    readonly property real escala: hz ? Escala.px(Escala.anchoVertical) / anchoMockup : width / anchoMockup
+    // Tanda responsive: en vertical la escala no pasa la del ancho de diseño;
+    // si el lienzo es más ancho que 5:8, las tarjetas y la barra se estiran a
+    // lo ancho entre los márgenes de 54 (hx/hw; a 1200x1920 valen lo de siempre)
+    readonly property real escala: hz ? Escala.px(Escala.anchoVertical) / anchoMockup : Math.min(width, Escala.px(Escala.anchoVertical)) / anchoMockup
     // ancho del marco en px del mockup (1196 en vertical; 1913,6 en horizontal)
     readonly property real anchoMarco: width / escala
     // columna derecha (solo horizontal): de 1158 al margen derecho de 54
@@ -77,6 +80,10 @@ Item {
     readonly property real _anchoDer: anchoMarco - 54 - _xDer
     readonly property real _anchoResumenHz: (_anchoDer - 19) / 2
     function m(v) { return v * escala }
+    readonly property real _dxV: hz ? 0 : (width - Math.min(width, Escala.px(Escala.anchoVertical))) / escala
+    readonly property real _sx: hz ? 1 : (anchoMockup - 108 + _dxV) / (anchoMockup - 108)
+    function hx(x) { return hz ? x : 54 + (x - 54) * _sx }
+    function hw(w) { return hz ? w : w * _sx }
     function fuente(v) { return Math.max(1, Math.round(m(v))) }
     // Alto sobrante en px del mockup (0 en el marco de diseño) y su mitad
     readonly property real _extra: Math.max(0, height / escala - altoMockup)
@@ -165,7 +172,7 @@ Item {
     // Casa de contorno dibujada (en assets solo hay casa rellena): caja 57 x 57 en (567, 262)
     Shape {
         // horizontal: a la izquierda del título, sobre la columna de tarjetas
-        x: raiz.hz ? raiz.m(596.5) - tituloMenu.width / 2 - raiz.m(57 + 24) : raiz.m(567)
+        x: raiz.hz ? raiz.m(596.5) - tituloMenu.width / 2 - raiz.m(57 + 24) : raiz.m(raiz.hx(595.5) - 28.5)
         y: raiz.hz ? raiz.m(230) - raiz.m(57) + raiz.m(8) : raiz.m(262)
         width: raiz.m(57); height: raiz.m(57)
         preferredRendererType: Shape.CurveRenderer
@@ -198,7 +205,7 @@ Item {
         font.weight: Tipografia.pesoSemiBold
         font.pixelSize: raiz.fuente(39)
     }
-    Titulo { id: tituloMenu; objectName: "tituloMenu"; cx: 596.5 + (raiz.hz ? (57 + 24) / 2 : 0); bl: raiz.hz ? 238 : 390; text: I18n.t("menu.titulo", I18n.lang) }
+    Titulo { id: tituloMenu; objectName: "tituloMenu"; cx: raiz.hx(596.5) + (raiz.hz ? (57 + 24) / 2 : 0); bl: raiz.hz ? 238 : 390; text: I18n.t("menu.titulo", I18n.lang) }
 
     // ======================= tarjetas de menú =======================
     component Fila1: TarjetaMenu {
@@ -213,7 +220,7 @@ Item {
 
     Fila1 {
         objectName: "tarjetaIniciarSesion"
-        x: raiz.m(54); width: raiz.m(716)
+        x: raiz.m(54); width: raiz.m(raiz.hw(716))
         titulo: I18n.t("acciones.iniciar_sesion", I18n.lang)
         descripcion: I18n.t("menu.iniciar_sesion_desc", I18n.lang)
         icono: raiz.iconosMono + "usuario.svg"
@@ -228,7 +235,7 @@ Item {
     // para ver (decisión de Cristian, 2026-10-02)
     Fila1 {
         objectName: "tarjetaHistorial"
-        x: raiz.m(789); width: raiz.m(350)
+        x: raiz.m(raiz.hx(789)); width: raiz.m(raiz.hw(350))
         titulo: I18n.t("modulos.historial", I18n.lang)
         descripcion: I18n.t("menu.historial_desc", I18n.lang)
         // variante color: glifo morado con su propio aro gris, como el v3
@@ -244,7 +251,7 @@ Item {
     // separación, como entre Iniciar sesión e Historial)
     Fila2 {
         objectName: "tarjetaReportes"
-        x: raiz.m(54); width: raiz.m(533)
+        x: raiz.m(54); width: raiz.m(raiz.hw(533))
         titulo: I18n.t("modulos.reportes", I18n.lang)
         descripcion: I18n.t("menu.reportes_desc", I18n.lang)
         icono: raiz.iconosMono + "reportes.svg"
@@ -254,7 +261,7 @@ Item {
     }
     Fila2 {
         objectName: "tarjetaInformacion"
-        x: raiz.m(606); width: raiz.m(533)
+        x: raiz.m(raiz.hx(606)); width: raiz.m(raiz.hw(533))
         // Abre la información del equipo, el mismo panel que el recuadro de modelo
         // y serie de PantallaPreciclo.qml (decisión de Cristian, 2026-10-02)
         titulo: I18n.t("modulos.informacion", I18n.lang)
@@ -277,7 +284,7 @@ Item {
         height: parent.height
         y: raiz.m(raiz._desfaseResumen)
 
-        Titulo { objectName: "tituloResumen"; cx: raiz.hz ? raiz._xDer + raiz._anchoDer / 2 : 598; bl: raiz.hz ? 238 : 1244; text: I18n.t("menu.resumen", I18n.lang) }
+        Titulo { objectName: "tituloResumen"; cx: raiz.hz ? raiz._xDer + raiz._anchoDer / 2 : raiz.hx(598); bl: raiz.hz ? 238 : 1244; text: I18n.t("menu.resumen", I18n.lang) }
 
         // horizontal: 2 x 2 en la columna derecha (fila 0 arriba, 1 abajo)
         component Resumen: TarjetaResumen {
@@ -291,7 +298,7 @@ Item {
         // Solo informativa: se ve normal pero no es botón (decisión de Cristian, 2026-10-02)
         Resumen {
             objectName: "resumenCiclosTotales"
-            x: raiz.hz ? bloqueResumen.xHz(0) : raiz.m(54); width: raiz.m(raiz.hz ? raiz._anchoResumenHz : 230)
+            x: raiz.hz ? bloqueResumen.xHz(0) : raiz.m(54); width: raiz.m(raiz.hz ? raiz._anchoResumenHz : raiz.hw(230))
             interactiva: false
             icono: raiz.iconosMono + "ciclos_totales.svg"
             tamIcono: 79
@@ -304,7 +311,7 @@ Item {
         Resumen {
             objectName: "resumenMantenimiento"
             colHz: 1
-            x: raiz.hz ? bloqueResumen.xHz(1) : raiz.m(300); width: raiz.m(raiz.hz ? raiz._anchoResumenHz : 293)
+            x: raiz.hz ? bloqueResumen.xHz(1) : raiz.m(raiz.hx(300)); width: raiz.m(raiz.hz ? raiz._anchoResumenHz : raiz.hw(293))
             icono: raiz.iconosMono + "mantenimiento.svg"
             tamIcono: 73
             colorAcento: Colores.menuNaranja
@@ -319,7 +326,7 @@ Item {
         Resumen {
             objectName: "resumenCiclosHoy"
             filaHz: 1
-            x: raiz.hz ? bloqueResumen.xHz(0) : raiz.m(609); width: raiz.m(raiz.hz ? raiz._anchoResumenHz : 206)
+            x: raiz.hz ? bloqueResumen.xHz(0) : raiz.m(raiz.hx(609)); width: raiz.m(raiz.hz ? raiz._anchoResumenHz : raiz.hw(206))
             icono: raiz.iconosMono + "reloj.svg"
             iconoIncluyeAro: true
             colorAcento: Colores.menuMorado
@@ -331,7 +338,7 @@ Item {
         Resumen {
             objectName: "resumenUltimoCiclo"
             filaHz: 1; colHz: 1
-            x: raiz.hz ? bloqueResumen.xHz(1) : raiz.m(831); width: raiz.m(raiz.hz ? raiz._anchoResumenHz : 308)
+            x: raiz.hz ? bloqueResumen.xHz(1) : raiz.m(raiz.hx(831)); width: raiz.m(raiz.hz ? raiz._anchoResumenHz : raiz.hw(308))
             icono: raiz.iconosMono + "reproducir.svg"
             iconoIncluyeAro: true
             colorAcento: Colores.menuAzul
@@ -356,7 +363,7 @@ Item {
         // D8-5.2: el Menú no tiene una tarjeta única; la barra mide lo mismo
         // que la grilla de tarjetas de encima (x 54 a 1139 del lienzo)
         x: raiz.m(54)
-        width: raiz.m(raiz.hz ? raiz.anchoMarco - 54 - 54 : 1139 - 54)
+        width: raiz.m(raiz.hz ? raiz.anchoMarco - 54 - 54 : raiz.hw(1139 - 54))
         y: parent.height - raiz.m(raiz.altoMockup - 1746)
         escala: raiz.escala
         inicioActivo: raiz.inicioActivo
@@ -538,6 +545,7 @@ Item {
                 }
                 MouseArea {
                     anchors.fill: parent
+                    anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height))   // tanda responsive: zona táctil mínima
                     onClicked: { ventanaCiclosHoy.seleccion = null; raiz.historial?.limpiarGrafica() }
                 }
             }

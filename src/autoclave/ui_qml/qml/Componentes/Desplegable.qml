@@ -105,7 +105,7 @@ Item {
             source: "../../assets/iconos/color/" + (raiz.abierto ? "chevron_arriba" : "chevron_abajo") + ".svg"
             color: raiz.abierto ? Colores.textoPrimario : Colores.textoNegro   // OSC-17
         }
-        MouseArea { anchors.fill: parent; onClicked: raiz.abrir() }
+        MouseArea { anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); onClicked: raiz.abrir() }
     }
 
     // ---------------------------------------------------------------- lista
@@ -124,7 +124,7 @@ Item {
         Rectangle {
             anchors.fill: parent
             color: Colores.velo
-            MouseArea { anchors.fill: parent; onClicked: raiz.cerrar() }
+            MouseArea { anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); onClicked: raiz.cerrar() }
         }
 
         Rectangle {
@@ -189,7 +189,7 @@ Item {
                         width: parent.width; height: Escala.px(1)
                         color: Colores.bordeDivisor
                     }
-                    MouseArea { anchors.fill: parent; onClicked: raiz.elegir(fila.modelData.valor) }
+                    MouseArea { anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); onClicked: raiz.elegir(fila.modelData.valor) }
                 }
                 // al abrir, la opción vigente queda a la vista
                 onVisibleChanged: if (visible) {

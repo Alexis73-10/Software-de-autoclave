@@ -105,7 +105,7 @@ Item {
                     font.weight: Tipografia.pesoBold
                     font.pixelSize: raiz.fuente(24)
                 }
-                MouseArea { id: zonaAnio; anchors.fill: parent; onClicked: raiz.verAnioPedido() }
+                MouseArea { id: zonaAnio; anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); onClicked: raiz.verAnioPedido() }
             }
             SelectorPrograma {
                 id: selector

@@ -120,7 +120,7 @@ Item {
             font.weight: Tipografia.pesoSemiBold
             font.pixelSize: Escala.fuente(26)
         }
-        MouseArea { anchors.fill: parent; enabled: boton.habilitado; onClicked: boton.pulsado() }
+        MouseArea { anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); enabled: boton.habilitado; onClicked: boton.pulsado() }
     }
 
     component Chip: Rectangle {
@@ -169,7 +169,7 @@ Item {
                         font.weight: Tipografia.pesoSemiBold
                         font.pixelSize: Escala.fuente(26)
                     }
-                    MouseArea { anchors.fill: parent; onClicked: raiz.pestana = pes.modelData }
+                    MouseArea { anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); onClicked: raiz.pestana = pes.modelData }
                 }
             }
         }
@@ -213,7 +213,7 @@ Item {
                 font.family: Tipografia.familia
                 font.pixelSize: Escala.fuente(22)
             }
-            MouseArea { anchors.fill: parent; onClicked: control.limpiarMensaje() }
+            MouseArea { anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); onClicked: control.limpiarMensaje() }
         }
 
         Text {
@@ -295,7 +295,7 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
                     activo: filaU.modelData.activo
                 }
-                MouseArea { anchors.fill: parent; onClicked: raiz.seleccionado = filaU.modelData.usuario }
+                MouseArea { anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); onClicked: raiz.seleccionado = filaU.modelData.usuario }
             }
         }
 
@@ -536,7 +536,7 @@ Item {
         Rectangle {
             anchors.fill: parent
             color: Colores.velo
-            MouseArea { anchors.fill: parent; onClicked: elegirRol.visible = false }
+            MouseArea { anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); onClicked: elegirRol.visible = false }
         }
         Rectangle {
             id: panelRol

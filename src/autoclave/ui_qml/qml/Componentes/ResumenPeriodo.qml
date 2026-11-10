@@ -245,6 +245,7 @@ Flickable {
                     MouseArea {
                         id: zonaCausa
                         anchors.fill: parent
+                        anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height))   // tanda responsive: zona táctil mínima
                         onClicked: raiz.causaElegida(filaCausa.modelData.causa)
                     }
                 }

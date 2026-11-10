@@ -1,0 +1,783 @@
+{
+ "tamano": "1200x1920",
+ "escenarios": 132,
+ "distintos": [
+  "intro"
+ ],
+ "resultado": {
+  "OpcionesAvanzadas": {
+   "igual": true,
+   "items": 24,
+   "moviles_excluidos": 0
+  },
+  "OpcionesBitacora": {
+   "igual": true,
+   "items": 43,
+   "moviles_excluidos": 0
+  },
+  "OpcionesCalibracionAtm": {
+   "igual": true,
+   "items": 51,
+   "moviles_excluidos": 0
+  },
+  "OpcionesCalibracionSensor": {
+   "igual": true,
+   "items": 69,
+   "moviles_excluidos": 0
+  },
+  "OpcionesConectividad": {
+   "igual": true,
+   "items": 50,
+   "moviles_excluidos": 0
+  },
+  "OpcionesEntradasSalidas": {
+   "igual": true,
+   "items": 27,
+   "moviles_excluidos": 0
+  },
+  "OpcionesFechaHora": {
+   "igual": true,
+   "items": 23,
+   "moviles_excluidos": 1
+  },
+  "OpcionesInfoSistema": {
+   "igual": true,
+   "items": 90,
+   "moviles_excluidos": 0
+  },
+  "OpcionesManejoCiclos": {
+   "igual": true,
+   "items": 20,
+   "moviles_excluidos": 0
+  },
+  "OpcionesMantenimiento": {
+   "igual": true,
+   "items": 57,
+   "moviles_excluidos": 0
+  },
+  "OpcionesParametrosCiclo": {
+   "igual": true,
+   "items": 31,
+   "moviles_excluidos": 0
+  },
+  "OpcionesParametrosEquipo": {
+   "igual": true,
+   "items": 59,
+   "moviles_excluidos": 0
+  },
+  "OpcionesReasignacion": {
+   "igual": true,
+   "items": 28,
+   "moviles_excluidos": 0
+  },
+  "OpcionesRespaldo": {
+   "igual": true,
+   "items": 68,
+   "moviles_excluidos": 0
+  },
+  "OpcionesUsuarios": {
+   "igual": true,
+   "items": 40,
+   "moviles_excluidos": 0
+  },
+  "b_ciclo_espera_entrega": {
+   "igual": true,
+   "items": 174,
+   "moviles_excluidos": 0
+  },
+  "b_ciclo_espera_entrega_ingeniero": {
+   "igual": true,
+   "items": 178,
+   "moviles_excluidos": 0
+  },
+  "b_ciclo_pantalla_completa": {
+   "igual": true,
+   "items": 292,
+   "moviles_excluidos": 0
+  },
+  "b_ciclo_sin_conexion": {
+   "igual": true,
+   "items": 212,
+   "moviles_excluidos": 0
+  },
+  "b_ciclo_tiempos": {
+   "igual": true,
+   "items": 224,
+   "moviles_excluidos": 0
+  },
+  "b_ciclo_zoom_lupa": {
+   "igual": true,
+   "items": 218,
+   "moviles_excluidos": 0
+  },
+  "b_fin_estado_seguro_modal": {
+   "igual": true,
+   "items": 171,
+   "moviles_excluidos": 0
+  },
+  "b_fin_fallido_grafica": {
+   "igual": true,
+   "items": 214,
+   "moviles_excluidos": 0
+  },
+  "b_fin_observaciones_panel": {
+   "igual": true,
+   "items": 149,
+   "moviles_excluidos": 0
+  },
+  "b_fin_observaciones_pildora": {
+   "igual": true,
+   "items": 221,
+   "moviles_excluidos": 0
+  },
+  "b_preciclo_falla": {
+   "igual": true,
+   "items": 119,
+   "moviles_excluidos": 0
+  },
+  "b_preciclo_modo_prueba": {
+   "igual": true,
+   "items": 104,
+   "moviles_excluidos": 0
+  },
+  "b_preciclo_muchas_alarmas": {
+   "igual": true,
+   "items": 159,
+   "moviles_excluidos": 0
+  },
+  "b_preciclo_programa_largo": {
+   "igual": true,
+   "items": 102,
+   "moviles_excluidos": 0
+  },
+  "b_preciclo_puerta2": {
+   "igual": true,
+   "items": 109,
+   "moviles_excluidos": 0
+  },
+  "b_preciclo_puerta2_manual": {
+   "igual": true,
+   "items": 98,
+   "moviles_excluidos": 0
+  },
+  "b_preciclo_selector": {
+   "igual": true,
+   "items": 143,
+   "moviles_excluidos": 0
+  },
+  "b_preciclo_sin_conexion": {
+   "igual": true,
+   "items": 113,
+   "moviles_excluidos": 0
+  },
+  "barra_reinicio": {
+   "igual": true,
+   "items": 9,
+   "moviles_excluidos": 0
+  },
+  "cambio_clave": {
+   "igual": true,
+   "items": 93,
+   "moviles_excluidos": 0
+  },
+  "cambio_clave_teclado": {
+   "igual": true,
+   "items": 215,
+   "moviles_excluidos": 0
+  },
+  "ciclo_completo": {
+   "igual": true,
+   "items": 143,
+   "moviles_excluidos": 0
+  },
+  "ciclo_demo": {
+   "igual": true,
+   "items": 221,
+   "moviles_excluidos": 0
+  },
+  "ciclo_grafica": {
+   "igual": true,
+   "items": 203,
+   "moviles_excluidos": 0
+  },
+  "d_avanzadas": {
+   "igual": true,
+   "items": 189,
+   "moviles_excluidos": 0
+  },
+  "d_avanzadas_programa": {
+   "igual": true,
+   "items": 189,
+   "moviles_excluidos": 0
+  },
+  "d_bitacora": {
+   "igual": true,
+   "items": 281,
+   "moviles_excluidos": 0
+  },
+  "d_bitacora_tipo": {
+   "igual": true,
+   "items": 312,
+   "moviles_excluidos": 0
+  },
+  "d_cajon": {
+   "igual": true,
+   "items": 235,
+   "moviles_excluidos": 0
+  },
+  "d_calibracion_atm": {
+   "igual": true,
+   "items": 197,
+   "moviles_excluidos": 0
+  },
+  "d_calibracion_sensor": {
+   "igual": true,
+   "items": 214,
+   "moviles_excluidos": 0
+  },
+  "d_ciclo_ajuste": {
+   "igual": true,
+   "items": 318,
+   "moviles_excluidos": 0
+  },
+  "d_ciclo_entradas": {
+   "igual": true,
+   "items": 178,
+   "moviles_excluidos": 0
+  },
+  "d_ciclo_sensores": {
+   "igual": true,
+   "items": 215,
+   "moviles_excluidos": 0
+  },
+  "d_conectividad": {
+   "igual": true,
+   "items": 207,
+   "moviles_excluidos": 0
+  },
+  "d_entradas_salidas": {
+   "igual": true,
+   "items": 268,
+   "moviles_excluidos": 0
+  },
+  "d_equipo_ajuste": {
+   "igual": true,
+   "items": 213,
+   "moviles_excluidos": 0
+  },
+  "d_equipo_chaqueta": {
+   "igual": true,
+   "items": 214,
+   "moviles_excluidos": 0
+  },
+  "d_equipo_impresion": {
+   "igual": true,
+   "items": 175,
+   "moviles_excluidos": 0
+  },
+  "d_es_presion": {
+   "igual": true,
+   "items": 206,
+   "moviles_excluidos": 0
+  },
+  "d_es_salidas": {
+   "igual": true,
+   "items": 383,
+   "moviles_excluidos": 0
+  },
+  "d_es_temperatura": {
+   "igual": true,
+   "items": 206,
+   "moviles_excluidos": 0
+  },
+  "d_fecha_hora": {
+   "igual": true,
+   "items": 166,
+   "moviles_excluidos": 1
+  },
+  "d_info_sistema": {
+   "igual": true,
+   "items": 235,
+   "moviles_excluidos": 0
+  },
+  "d_mantenimiento": {
+   "igual": true,
+   "items": 200,
+   "moviles_excluidos": 0
+  },
+  "d_parametros_ciclo": {
+   "igual": true,
+   "items": 222,
+   "moviles_excluidos": 0
+  },
+  "d_parametros_ciclo_fase": {
+   "igual": true,
+   "items": 263,
+   "moviles_excluidos": 0
+  },
+  "d_parametros_equipo": {
+   "igual": true,
+   "items": 199,
+   "moviles_excluidos": 0
+  },
+  "d_parametros_equipo_maquina": {
+   "igual": true,
+   "items": 220,
+   "moviles_excluidos": 0
+  },
+  "d_reasignacion": {
+   "igual": true,
+   "items": 543,
+   "moviles_excluidos": 0
+  },
+  "d_respaldo": {
+   "igual": true,
+   "items": 204,
+   "moviles_excluidos": 0
+  },
+  "d_usuarios": {
+   "igual": true,
+   "items": 234,
+   "moviles_excluidos": 0
+  },
+  "d_usuarios_operadores": {
+   "igual": true,
+   "items": 194,
+   "moviles_excluidos": 0
+  },
+  "d_usuarios_seleccion": {
+   "igual": true,
+   "items": 234,
+   "moviles_excluidos": 0
+  },
+  "e_cambio_clave_teclado": {
+   "igual": true,
+   "items": 215,
+   "moviles_excluidos": 0
+  },
+  "e_detalle_alarma": {
+   "igual": true,
+   "items": 37,
+   "moviles_excluidos": 0
+  },
+  "e_dialogo_confirmacion": {
+   "igual": true,
+   "items": 14,
+   "moviles_excluidos": 0
+  },
+  "e_equipo": {
+   "igual": true,
+   "items": 85,
+   "moviles_excluidos": 0
+  },
+  "e_equipo_apagar": {
+   "igual": true,
+   "items": 98,
+   "moviles_excluidos": 0
+  },
+  "e_main_sin_conexion": {
+   "igual": true,
+   "items": 177,
+   "moviles_excluidos": 0
+  },
+  "e_modal_confirmacion": {
+   "igual": true,
+   "items": 20,
+   "moviles_excluidos": 0
+  },
+  "e_modal_operador": {
+   "igual": true,
+   "items": 49,
+   "moviles_excluidos": 0
+  },
+  "e_notificaciones": {
+   "igual": true,
+   "items": 85,
+   "moviles_excluidos": 0
+  },
+  "e_nuevo_usuario_teclado": {
+   "igual": true,
+   "items": 226,
+   "moviles_excluidos": 0
+  },
+  "fin_fallido": {
+   "igual": true,
+   "items": 152,
+   "moviles_excluidos": 0
+  },
+  "inst_activacion_auto": {
+   "igual": true,
+   "items": 68,
+   "moviles_excluidos": 0
+  },
+  "inst_camara": {
+   "igual": true,
+   "items": 68,
+   "moviles_excluidos": 0
+  },
+  "inst_contrasenas": {
+   "igual": true,
+   "items": 69,
+   "moviles_excluidos": 0
+  },
+  "inst_datos": {
+   "igual": true,
+   "items": 111,
+   "moviles_excluidos": 0
+  },
+  "inst_enfriamiento": {
+   "igual": true,
+   "items": 71,
+   "moviles_excluidos": 0
+  },
+  "inst_equipo": {
+   "igual": true,
+   "items": 116,
+   "moviles_excluidos": 0
+  },
+  "inst_listo": {
+   "igual": true,
+   "items": 26,
+   "moviles_excluidos": 0
+  },
+  "inst_puertas": {
+   "igual": true,
+   "items": 105,
+   "moviles_excluidos": 0
+  },
+  "inst_puertas_una": {
+   "igual": true,
+   "items": 86,
+   "moviles_excluidos": 0
+  },
+  "inst_resumen": {
+   "igual": true,
+   "items": 93,
+   "moviles_excluidos": 0
+  },
+  "inst_resumen_auto": {
+   "igual": true,
+   "items": 93,
+   "moviles_excluidos": 0
+  },
+  "inst_teclado_clave": {
+   "igual": true,
+   "items": 191,
+   "moviles_excluidos": 0
+  },
+  "inst_teclado_codigo": {
+   "igual": true,
+   "items": 179,
+   "moviles_excluidos": 0
+  },
+  "inst_vapor": {
+   "igual": true,
+   "items": 70,
+   "moviles_excluidos": 0
+  },
+  "instalacion": {
+   "igual": true,
+   "items": 57,
+   "moviles_excluidos": 0
+  },
+  "intro": {
+   "igual": false,
+   "items": [
+    8,
+    9
+   ],
+   "diferencias": [
+    [
+     [
+      "QQuickImage",
+      "",
+      0,
+      0,
+      1200,
+      1920,
+      "",
+      0
+     ],
+     [
+      "QQuickImage",
+      "",
+      -240.67,
+      -111.07,
+      1681.34,
+      1681.34,
+      "",
+      0
+     ]
+    ],
+    [
+     [
+      "QQuickItem",
+      "lienzo",
+      0,
+      0,
+      1200,
+      1920,
+      "",
+      0
+     ],
+     [
+      "QQuickImage",
+      "",
+      0,
+      0,
+      1200,
+      1920,
+      "",
+      0
+     ]
+    ],
+    [
+     [
+      "QQuickMouseArea",
+      "",
+      0,
+      0,
+      1200,
+      1920,
+      "",
+      0
+     ],
+     [
+      "QQuickItem",
+      "lienzo",
+      0,
+      0,
+      1200,
+      1920,
+      "",
+      0
+     ]
+    ],
+    [
+     [
+      "QQuickRectangle",
+      "",
+      0,
+      0,
+      1200,
+      1920,
+      "",
+      0
+     ],
+     [
+      "QQuickMouseArea",
+      "",
+      0,
+      0,
+      1200,
+      1920,
+      "",
+      0
+     ]
+    ],
+    [
+     [
+      "QQuickRepeater",
+      "",
+      0,
+      0,
+      0,
+      0,
+      "",
+      0
+     ],
+     [
+      "QQuickRectangle",
+      "",
+      0,
+      0,
+      1200,
+      1920,
+      "",
+      0
+     ]
+    ]
+   ]
+  },
+  "intro_final": {
+   "igual": true,
+   "items": 17,
+   "moviles_excluidos": 0
+  },
+  "login": {
+   "igual": true,
+   "items": 78,
+   "moviles_excluidos": 0
+  },
+  "login_sin_bd": {
+   "igual": true,
+   "items": 83,
+   "moviles_excluidos": 0
+  },
+  "login_teclado": {
+   "igual": true,
+   "items": 200,
+   "moviles_excluidos": 0
+  },
+  "login_teclado_clave": {
+   "igual": true,
+   "items": 200,
+   "moviles_excluidos": 0
+  },
+  "login_teclado_num": {
+   "igual": true,
+   "items": 150,
+   "moviles_excluidos": 0
+  },
+  "menu": {
+   "igual": true,
+   "items": 146,
+   "moviles_excluidos": 0
+  },
+  "menu_ciclos_hoy": {
+   "igual": true,
+   "items": 194,
+   "moviles_excluidos": 0
+  },
+  "menu_ciclos_hoy_ciclo": {
+   "igual": true,
+   "items": 275,
+   "moviles_excluidos": 0
+  },
+  "menu_historial": {
+   "igual": true,
+   "items": 242,
+   "moviles_excluidos": 0
+  },
+  "menu_historial_ciclo": {
+   "igual": true,
+   "items": 284,
+   "moviles_excluidos": 0
+  },
+  "menu_historial_destino": {
+   "igual": true,
+   "items": 270,
+   "moviles_excluidos": 0
+  },
+  "menu_mantenimiento": {
+   "igual": true,
+   "items": 171,
+   "moviles_excluidos": 0
+  },
+  "menu_ultimo_ciclo": {
+   "igual": true,
+   "items": 271,
+   "moviles_excluidos": 0
+  },
+  "nuevo_usuario": {
+   "igual": true,
+   "items": 104,
+   "moviles_excluidos": 0
+  },
+  "nuevo_usuario_roles": {
+   "igual": true,
+   "items": 120,
+   "moviles_excluidos": 0
+  },
+  "nuevo_usuario_teclado": {
+   "igual": true,
+   "items": 226,
+   "moviles_excluidos": 0
+  },
+  "opciones": {
+   "igual": true,
+   "items": 173,
+   "moviles_excluidos": 0
+  },
+  "opciones_equipo_maquina": {
+   "igual": true,
+   "items": 83,
+   "moviles_excluidos": 0
+  },
+  "preciclo_alarma": {
+   "igual": true,
+   "items": 109,
+   "moviles_excluidos": 0
+  },
+  "preciclo_preparado": {
+   "igual": true,
+   "items": 98,
+   "moviles_excluidos": 0
+  },
+  "reportes": {
+   "igual": true,
+   "items": 716,
+   "moviles_excluidos": 0
+  },
+  "reportes_abajo": {
+   "igual": true,
+   "items": 716,
+   "moviles_excluidos": 0
+  },
+  "reportes_alarmas": {
+   "igual": true,
+   "items": 791,
+   "moviles_excluidos": 0
+  },
+  "reportes_anio": {
+   "igual": true,
+   "items": 2100,
+   "moviles_excluidos": 0
+  },
+  "reportes_ciclo": {
+   "igual": true,
+   "items": 872,
+   "moviles_excluidos": 0
+  },
+  "reportes_correo": {
+   "igual": true,
+   "items": 740,
+   "moviles_excluidos": 0
+  },
+  "reportes_dia": {
+   "igual": true,
+   "items": 747,
+   "moviles_excluidos": 0
+  },
+  "reportes_fallo": {
+   "igual": true,
+   "items": 815,
+   "moviles_excluidos": 0
+  },
+  "reportes_medio": {
+   "igual": true,
+   "items": 716,
+   "moviles_excluidos": 0
+  },
+  "reportes_panel": {
+   "igual": true,
+   "items": 747,
+   "moviles_excluidos": 0
+  },
+  "reportes_selector": {
+   "igual": true,
+   "items": 739,
+   "moviles_excluidos": 0
+  },
+  "reposo": {
+   "igual": true,
+   "items": 8,
+   "moviles_excluidos": 0
+  },
+  "reposo_aviso": {
+   "igual": true,
+   "items": 9,
+   "moviles_excluidos": 0
+  },
+  "teclado_alfa": {
+   "igual": true,
+   "items": 121,
+   "moviles_excluidos": 0
+  },
+  "teclado_num": {
+   "igual": true,
+   "items": 71,
+   "moviles_excluidos": 0
+  }
+ }
+}

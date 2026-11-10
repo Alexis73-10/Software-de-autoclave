@@ -37,6 +37,91 @@ QtObject {
     // En horizontal es igual con el lienzo 1920x1200: más alto que 8:5 (p. ej. 4:3)
     // crece hacia abajo; más ancho (16:9), franjas laterales.
     property real altoLienzo: altoDiseno
+    // Ancho del lienzo en px de diseño (>= anchoDiseno), tanda responsive: en
+    // pantallas más anchas que el lienzo de diseño el lienzo crece a lo ancho.
+    property real anchoLienzo: anchoDiseno
+
+    // ── Regla de proyección (tanda responsive, 10-nov) ────────────────────
+    // Decisión de Cristian (10-nov): la interfaz se AJUSTA a la pantalla, sin
+    // barras ni franjas a los lados ni arriba o abajo, en cualquier proporción
+    // y escala de Windows. Una sola implementación para las dos orientaciones
+    // y las 4 raíces: cada raíz solo enlaza factor = factorPara(ancho, alto),
+    // anchoLienzo = anchoLienzoPara(ancho, alto) y altoLienzo =
+    // altoLienzoPara(ancho, alto) con el tamaño real de su ventana en px
+    // LÓGICOS (los que entrega Qt 6 con la escala de Windows ya aplicada).
+    //   - Un factor ÚNICO para letras, íconos, botones y zonas táctiles (nunca
+    //     se deforman): factor = min(ancho / anchoDiseno, alto / altoDiseno)
+    //     del lienzo de la orientación de ESE tamaño. Así el lienzo ocupa la
+    //     misma fracción de la pantalla física a 100, 125, 150 o 200 %: la
+    //     escala de Windows se compensa y solo cambia la nitidez.
+    //   - Lienzo lógico flexible en los DOS ejes: anchoLienzo = ancho / factor
+    //     y altoLienzo = alto / factor (>= los de diseño). El lienzo mide
+    //     siempre lo mismo que la ventana: lo que sobra en un eje lo reparten
+    //     las pantallas con anclajes y Layout (fondos, barras y paneles a todo
+    //     el ancho o alto, columnas y listas que crecen, gráficas más anchas).
+    //   - Con un tamaño inválido (0, negativo, NaN o infinito: ventana aún sin
+    //     geometría) el factor vale 1 y el lienzo el de diseño, nunca 0 ni NaN.
+    //   - No hay factor mínimo: por debajo del tamaño mínimo soportado el lienzo
+    //     se sigue achicando (nada queda fuera de la pantalla); las zonas
+    //     táctiles conservan su mínimo con margenTactil().
+    // A 1200x1920 y 1920x1200 al 100 % da exactamente factor 1 y el lienzo de
+    // diseño, como antes de esta tanda.
+    function _medidaValida(v) { return typeof v === "number" && isFinite(v) && v > 0 }
+    function anchoDisenoPara(ancho, alto) { return esHorizontal(ancho, alto) ? anchoHorizontal : anchoVertical }
+    function altoDisenoPara(ancho, alto) { return esHorizontal(ancho, alto) ? altoHorizontal : altoVertical }
+    function factorPara(ancho, alto) {
+        if (!_medidaValida(ancho) || !_medidaValida(alto))
+            return 1.0
+        return Math.min(ancho / anchoDisenoPara(ancho, alto), alto / altoDisenoPara(ancho, alto))
+    }
+    function altoLienzoPara(ancho, alto) {
+        const altoD = altoDisenoPara(ancho, alto)
+        if (!_medidaValida(ancho) || !_medidaValida(alto))
+            return altoD
+        return Math.max(altoD, alto / factorPara(ancho, alto))
+    }
+    function anchoLienzoPara(ancho, alto) {
+        const anchoD = anchoDisenoPara(ancho, alto)
+        if (!_medidaValida(ancho) || !_medidaValida(alto))
+            return anchoD
+        return Math.max(anchoD, ancho / factorPara(ancho, alto))
+    }
+
+    // Escala de Windows de la pantalla de la ventana raíz (Screen.devicePixelRatio,
+    // la enlaza cada raíz; 1 fuera de ellas). Solo la usan las zonas táctiles:
+    // el lienzo ya está en px lógicos.
+    property real dpr: 1.0
+    function _dprValido() { return _medidaValida(dpr) ? dpr : 1.0 }
+    // Escala física del lienzo: px físicos por px de diseño (factor x dpr). No
+    // cambia con la escala de Windows para una misma resolución física.
+    readonly property real escalaFisica: factor * _dprValido()
+
+    // Tamaño mínimo soportado (DECISIÓN SIN CONFIRMAR, informe de la tanda):
+    // escala física 0,5, es decir 1024x600 en horizontal y 600x1024 en
+    // vertical en px físicos, a cualquier escala de Windows.
+    readonly property real escalaFisicaMinima: 0.5
+    function soportado(anchoLogico, altoLogico, dprPantalla) {
+        const d = _medidaValida(dprPantalla) ? dprPantalla : 1.0
+        return factorPara(anchoLogico, altoLogico) * d >= escalaFisicaMinima - 1e-9
+    }
+
+    // Zonas táctiles mínimas (DECISIÓN SIN CONFIRMAR): una zona táctil nunca
+    // queda por debajo de min(44 px físicos, su propio tamaño de diseño). Lo
+    // que sobra se agrega como margen INVISIBLE de la zona (MouseArea con
+    // márgenes negativos), sin cambiar el dibujo. A escala física 1 o más (las
+    // medidas de diseño exactas) el margen es 0: nada cambia en 1200x1920 ni
+    // en 1920x1200 al 100 %.
+    readonly property real tactilMinimoFisico: 44
+    // `ladoLogico`: el lado de la zona en px lógicos (su width o height real).
+    // Devuelve cuánto extenderla por cada lado, en px lógicos (>= 0).
+    function margenTactil(ladoLogico) {
+        if (!_medidaValida(ladoLogico) || !_medidaValida(factor))
+            return 0
+        const d = _dprValido()
+        const ladoDiseno = ladoLogico / factor
+        const minimoLogico = Math.min(tactilMinimoFisico, ladoDiseno) / d
+        return Math.max(0, (minimoLogico - ladoLogico) / 2)
+    }
 
     function px(valor) { return valor * factor }
     // pixelSize exige entero; redondear evita que Qt trunque y el texto quede chico

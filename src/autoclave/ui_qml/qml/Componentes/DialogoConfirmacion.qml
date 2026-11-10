@@ -26,7 +26,7 @@ Item {
     Rectangle {
         anchors.fill: parent
         color: Colores.velo
-        MouseArea { anchors.fill: parent; onClicked: raiz._descartar() }
+        MouseArea { anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); onClicked: raiz._descartar() }
     }
 
     Rectangle {
@@ -101,7 +101,7 @@ Item {
                     font.weight: Tipografia.pesoSemiBold
                     font.pixelSize: Escala.fuente(Tipografia.botonEtiquetaTam)
                 }
-                MouseArea { anchors.fill: parent; onClicked: raiz._descartar() }
+                MouseArea { anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); onClicked: raiz._descartar() }
             }
             Rectangle {
                 objectName: "botonConfirmarDialogo"
@@ -122,7 +122,7 @@ Item {
                     font.pixelSize: Escala.fuente(Tipografia.botonEtiquetaTam)
                 }
                 // se cierra al confirmar: el estado del envío lo muestra la pantalla
-                MouseArea { anchors.fill: parent; onClicked: { raiz.cerrar(); raiz.confirmado() } }
+                MouseArea { anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); onClicked: { raiz.cerrar(); raiz.confirmado() } }
             }
         }
     }

@@ -81,7 +81,7 @@ Item {
                 font.pixelSize: raiz.fuente(30)
             }
         }
-        MouseArea { anchors.fill: parent; onClicked: casilla.alternada() }
+        MouseArea { anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); onClicked: casilla.alternada() }
     }
 
     component Celda: Text {
@@ -186,6 +186,7 @@ Item {
             MouseArea {
                 id: zona
                 anchors.fill: parent
+                anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height))   // tanda responsive: zona táctil mínima
                 enabled: raiz.seleccionable
                 onClicked: raiz.cicloElegido(fila.modelData)
             }

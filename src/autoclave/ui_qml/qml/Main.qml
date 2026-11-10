@@ -253,20 +253,31 @@ Window {
     // pantalla de ciclo en curso, sin esperar el toque del arranque (plan §9)
     Component.onCompleted: { if (enCiclo && pila.depth === 1) irAPrincipal(); irAPanelSeguridad(); vigilarConexion() }
 
+    // Proyección del lienzo (tanda responsive): la regla vive en Escala; la
+    // raíz solo la enlaza con el tamaño real de su ventana y la escala de
+    // Windows de su pantalla. Siguen al cambio de resolución, de escala, de
+    // orientación o de monitor sin reiniciar (cambia el tamaño de la ventana).
+    readonly property real dprPantalla: Screen.devicePixelRatio
+    Binding { target: Escala; property: "dpr"; value: ventana.dprPantalla }
     Binding {
         target: Escala
         property: "factor"
-        value: Math.min(ventana.width / Escala.anchoDiseno,
-                        ventana.height / Escala.altoDiseno)
+        value: Escala.factorPara(ventana.width, ventana.height)
     }
     Binding {
         target: Escala
         property: "altoLienzo"
-        value: Math.max(Escala.altoDiseno, ventana.height / Escala.factor)
+        value: Escala.altoLienzoPara(ventana.width, ventana.height)
+    }
+    Binding {
+        target: Escala
+        property: "anchoLienzo"
+        value: Escala.anchoLienzoPara(ventana.width, ventana.height)
     }
 
+    // Lienzo: mide lo mismo que la ventana (sin franjas, decisión de Cristian)
     Item {
-        width: Escala.px(Escala.anchoDiseno)
+        width: Escala.px(Escala.anchoLienzo)
         height: Escala.px(Escala.altoLienzo)
         anchors.centerIn: parent
         clip: true

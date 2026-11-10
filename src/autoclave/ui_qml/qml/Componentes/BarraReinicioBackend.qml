@@ -20,7 +20,7 @@ Rectangle {
     Column {
         anchors.centerIn: parent
         // horizontal (Escala.horizontal): el mismo ancho que en el lienzo vertical
-        width: Escala.horizontal ? Escala.px(Escala.anchoVertical) * 0.8 : parent.width * 0.8
+        width: Escala.horizontal ? Escala.px(Escala.anchoVertical) * 0.8 : Math.min(parent.width, Escala.px(Escala.anchoVertical)) * 0.8
         spacing: Escala.px(28)
 
         Text {

@@ -36,7 +36,10 @@ Item {
     // 1920 px de lienzo (1913,6 del mockup): el logo queda a la izquierda, la hora
     // y la fecha se centran (dxCentro) y la campana y el engranaje conservan su
     // margen derecho (dxDerecha). En vertical los dos desplazamientos valen 0.
-    readonly property real anchoMarco: Escala.horizontal ? Escala.anchoHorizontal * 1196 / Escala.anchoVertical : 1196
+    readonly property real anchoMarco: (Escala.horizontal ? Escala.anchoHorizontal * 1196 / Escala.anchoVertical : 1196) + _anchoExtra
+    // tanda responsive: el lienzo más ancho que el de diseño (sin franjas); 0 a
+    // los tamaños de diseño
+    readonly property real _anchoExtra: (Escala.anchoLienzo - Escala.anchoDiseno) * 1196 / Escala.anchoVertical
     readonly property real dxCentro: (anchoMarco - 1196) / 2
     readonly property real dxDerecha: anchoMarco - 1196
 

@@ -94,6 +94,7 @@ Item {
     MouseArea {
         objectName: "areaFila"
         anchors.fill: parent
+        anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height))   // tanda responsive: zona táctil mínima
         onClicked: raiz.pulsada()
     }
 

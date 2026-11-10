@@ -194,7 +194,8 @@ Item {
     // Estado), con los botones debajo a la derecha: la tarjeta deja ~655 px de
     // diseño de alto útil (1200 − barra superior − barra flotante − pie).
     readonly property bool hz: Escala.horizontal
-    readonly property real escalaBarra: hz ? Escala.px(Escala.anchoVertical) / 1196 : raiz.width / 1196
+    // tanda responsive: en vertical tampoco pasa la escala del ancho de diseño
+    readonly property real escalaBarra: hz ? Escala.px(Escala.anchoVertical) / 1196 : Math.min(raiz.width, Escala.px(Escala.anchoVertical)) / 1196
     readonly property real _anchoCol: Escala.px(449)
     readonly property real _xColB: Escala.px(381 + 449 + 48)
     readonly property real _xColC: Escala.px(381 + 2 * (449 + 48))
@@ -260,6 +261,7 @@ Item {
             }
             MouseArea {
                 anchors.fill: entrada
+                anchors.margins: -Escala.margenTactil(Math.min(entrada.width, entrada.height))   // tanda responsive: zona táctil mínima
                 onClicked: c.tocado()
             }
             // Muestra "ojo_mostrar" mientras está oculta (la acción disponible es mostrarla)
@@ -274,7 +276,7 @@ Item {
                 color: Colores.textoSecundario
                 MouseArea {
                     anchors.fill: parent
-                    anchors.margins: -Escala.px(16)   // área táctil más grande que el icono
+                    anchors.margins: -(Escala.px(16) + Escala.margenTactil(Math.min(parent.width, parent.height) + 2 * Escala.px(16)))   // área táctil más grande que el icono
                     onClicked: c.ojoTocado()
                 }
             }
@@ -333,7 +335,7 @@ Item {
                         color: Colores.textoPrimario
                         MouseArea {
                             anchors.fill: parent
-                            anchors.margins: -Escala.px(24)
+                            anchors.margins: -(Escala.px(24) + Escala.margenTactil(Math.min(parent.width, parent.height) + 2 * Escala.px(24)))
                             onClicked: raiz.pulsarAtras()
                         }
                     }
@@ -466,6 +468,7 @@ Item {
                             }
                             MouseArea {
                                 anchors.fill: parent
+                                anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height))   // tanda responsive: zona táctil mínima
                                 onClicked: {
                                     if (raiz.teclado)
                                         raiz.teclado.cerrar()
@@ -514,7 +517,7 @@ Item {
                         }
                         MouseArea {
                             anchors.fill: parent
-                            anchors.margins: -Escala.px(16)
+                            anchors.margins: -(Escala.px(16) + Escala.margenTactil(Math.min(parent.width, parent.height) + 2 * Escala.px(16)))
                             onClicked: raiz.activo = !raiz.activo
                         }
                     }
@@ -548,6 +551,7 @@ Item {
                         }
                         MouseArea {
                             anchors.fill: parent
+                            anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height))   // tanda responsive: zona táctil mínima
                             enabled: !raiz.guardando
                             onClicked: raiz.pulsarCancelar()
                         }
@@ -583,6 +587,7 @@ Item {
                         }
                         MouseArea {
                             anchors.fill: parent
+                            anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height))   // tanda responsive: zona táctil mínima
                             enabled: !raiz.guardando
                             onClicked: raiz.pulsarGuardar()
                         }
@@ -605,6 +610,7 @@ Item {
                     // ---- lista de roles (sobre lo demás) ----
                     MouseArea {   // tocar fuera la cierra
                         anchors.fill: parent
+                        anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height))   // tanda responsive: zona táctil mínima
                         visible: listaRoles.visible
                         onClicked: listaRoles.visible = false
                     }
@@ -642,6 +648,7 @@ Item {
                                     }
                                     MouseArea {
                                         anchors.fill: parent
+                                        anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height))   // tanda responsive: zona táctil mínima
                                         onClicked: {
                                             raiz.rol = opcion.modelData.valor
                                             listaRoles.visible = false
@@ -714,7 +721,7 @@ Item {
                     font.weight: Tipografia.pesoSemiBold
                     font.pixelSize: Escala.fuente(Tipografia.botonEtiquetaTam)
                 }
-                MouseArea { anchors.fill: parent; onClicked: dialogoDescartar.confirmar() }
+                MouseArea { anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); onClicked: dialogoDescartar.confirmar() }
             }
         }
     }

@@ -145,7 +145,7 @@ Item {
             font.family: Tipografia.familia
             font.pixelSize: Escala.fuente(22)
         }
-        MouseArea { anchors.fill: parent; onClicked: control.limpiarMensaje() }
+        MouseArea { anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); onClicked: control.limpiarMensaje() }
     }
 
     // «Cargando…» mientras llegan las lecturas del backend
@@ -223,6 +223,7 @@ Item {
         }
         MouseArea {
             anchors.fill: parent
+            anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height))   // tanda responsive: zona táctil mínima
             onClicked: { Movimiento.registrarOrigen(tarjeta); control.abrirGrupo(tarjeta.grupo) }
         }
     }
@@ -374,7 +375,7 @@ Item {
             width: parent.width; height: 1
             color: Colores.bordeDivisor
         }
-        MouseArea { anchors.fill: parent; enabled: fila.chevron; onClicked: fila.pulsada() }
+        MouseArea { anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); enabled: fila.chevron; onClicked: fila.pulsada() }
     }
 
     Item {
@@ -494,6 +495,7 @@ Item {
                 }
                 MouseArea {
                     anchors.fill: parent
+                    anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height))   // tanda responsive: zona táctil mínima
                     enabled: filaImpresora.habilitado && !control.reiniciando
                     onClicked: raiz.pedirCambioImpresora(!control.impresoraHabilitada)
                 }
@@ -1003,6 +1005,7 @@ Item {
                             }
                             MouseArea {
                                 anchors.fill: parent
+                                anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height))   // tanda responsive: zona táctil mínima
                                 enabled: tarjetaValor.modelData.toque && ajuste.editable
                                 onClicked: { ajuste.nuevo = ajuste.param.defecto; ajuste.restablecer = true }
                             }
@@ -1028,6 +1031,7 @@ Item {
                     }
                     MouseArea {
                         anchors.fill: parent
+                        anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height))   // tanda responsive: zona táctil mínima
                         enabled: ajuste.editable && raiz.teclado !== null
                         onClicked: raiz.convertible(ajuste.param)
                             ? raiz.teclado.abrirNumerico(

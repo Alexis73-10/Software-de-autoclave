@@ -67,7 +67,9 @@ Item {
     // las alturas se fijan en px de diseño desde el logo (las mismas distancias
     // que en vertical), para que nada crezca ni se encime; en vertical, igual.
     readonly property bool hz: Escala.horizontal
-    readonly property real anchoRef: hz ? Escala.px(Escala.anchoVertical) : width
+    // tanda responsive: en vertical el tamaño del logo y la barra no pasa el del
+    // ancho de diseño (lienzo más ancho que 5:8, sin franjas)
+    readonly property real anchoRef: hz ? Escala.px(Escala.anchoVertical) : Math.min(width, Escala.px(Escala.anchoVertical))
     readonly property real altoRef: hz ? Escala.px(Escala.altoVertical) : height
     readonly property real anchoLogo: Escala.px(480)
     readonly property real altoLogo: anchoLogo * 446 / 1666   // proporción del viewBox del SVG

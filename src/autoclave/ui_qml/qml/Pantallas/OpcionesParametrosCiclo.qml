@@ -266,7 +266,7 @@ Item {
             width: parent.width; height: 1
             color: Colores.bordeDivisor
         }
-        MouseArea { anchors.fill: parent; onClicked: { Movimiento.registrarOrigen(fila); fila.pulsada() } }
+        MouseArea { anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); onClicked: { Movimiento.registrarOrigen(fila); fila.pulsada() } }
     }
 
     // Mensaje del último error (§5.4)
@@ -288,7 +288,7 @@ Item {
             font.family: Tipografia.familia
             font.pixelSize: Escala.fuente(22)
         }
-        MouseArea { anchors.fill: parent; onClicked: control.limpiarMensaje() }
+        MouseArea { anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); onClicked: control.limpiarMensaje() }
     }
 
     // D8-5.7: aviso informativo de un cambio automático (p. ej. el modo de
@@ -471,7 +471,7 @@ Item {
                 text: "‹"
                 font.pixelSize: Escala.fuente(96)
                 color: Colores.accionPrimarioTexto
-                MouseArea { anchors.fill: parent; anchors.margins: -Escala.px(28); onClicked: raiz.vista = "programa" }
+                MouseArea { anchors.fill: parent; anchors.margins: -(Escala.px(28) + Escala.margenTactil(Math.min(parent.width, parent.height) + 2 * Escala.px(28))); onClicked: raiz.vista = "programa" }
             }
             Column {
                 Text {
@@ -567,7 +567,7 @@ Item {
                 text: "‹"
                 font.pixelSize: Escala.fuente(96)
                 color: Colores.accionPrimarioTexto
-                MouseArea { anchors.fill: parent; anchors.margins: -Escala.px(28); onClicked: raiz.vista = "programa" }
+                MouseArea { anchors.fill: parent; anchors.margins: -(Escala.px(28) + Escala.margenTactil(Math.min(parent.width, parent.height) + 2 * Escala.px(28))); onClicked: raiz.vista = "programa" }
             }
             Column {
                 Text {
@@ -1028,6 +1028,7 @@ Item {
                             }
                             MouseArea {
                                 anchors.fill: parent
+                                anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height))   // tanda responsive: zona táctil mínima
                                 enabled: tarjetaValor.modelData.toque && ajuste.editable
                                 onClicked: ajuste.nuevo = ajuste.param.defecto
                             }
@@ -1074,6 +1075,7 @@ Item {
                     }
                     MouseArea {
                         anchors.fill: parent
+                        anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height))   // tanda responsive: zona táctil mínima
                         enabled: ajuste.editable && raiz.teclado !== null
                         // U1: con unidades convertidas el teclado no acota (el rango
                         // se valida en la unidad interna en ajuste.recibir)

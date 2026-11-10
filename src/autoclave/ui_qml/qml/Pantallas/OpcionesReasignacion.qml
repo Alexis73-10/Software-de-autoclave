@@ -108,6 +108,7 @@ Item {
         }
         MouseArea {
             anchors.fill: parent
+            anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height))   // tanda responsive: zona táctil mínima
             enabled: boton.habilitado
             onClicked: boton.pulsado()
         }
@@ -187,6 +188,7 @@ Item {
                 }
                 MouseArea {
                     anchors.fill: parent
+                    anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height))   // tanda responsive: zona táctil mínima
                     enabled: banda.index === 4
                     onClicked: control.limpiarMensaje()
                 }
@@ -379,6 +381,7 @@ Item {
                     }
                     MouseArea {
                         anchors.fill: parent
+                        anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height))   // tanda responsive: zona táctil mínima
                         enabled: control.editable
                         onClicked: raiz.abrirSelector(fila.dato.funcion)
                     }
@@ -439,7 +442,7 @@ Item {
         Rectangle {
             anchors.fill: parent
             color: Colores.velo
-            MouseArea { anchors.fill: parent; onClicked: selector.visible = false }
+            MouseArea { anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); onClicked: selector.visible = false }
         }
         Rectangle {
             width: parent.width - Escala.px(40)
@@ -514,6 +517,7 @@ Item {
                                 }
                                 MouseArea {
                                     anchors.fill: parent
+                                    anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height))   // tanda responsive: zona táctil mínima
                                     onClicked: {
                                         control.elegirPuerto(raiz.funcionEnEleccion, chip.modelData.puerto)
                                         selector.visible = false

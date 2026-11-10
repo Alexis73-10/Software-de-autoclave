@@ -5,7 +5,8 @@ import Autoclave.I18n
 // Barra superior común a casi todas las pantallas (06_MEDIDAS: 1080x176 en el diseño).
 Rectangle {
     id: raiz
-    width: Escala.px(Escala.anchoDiseno)
+    // tanda responsive: a todo el ancho del lienzo (mide lo que la ventana)
+    width: Escala.px(Escala.anchoLienzo)
     height: Escala.px(176)
     color: "transparent"   // logo y reloj flotan sobre FondoApp
 
@@ -16,7 +17,7 @@ Rectangle {
     property bool mostrarIconos: false
     // Tanda horizontal: campana y engranaje conservan su margen derecho en el
     // lienzo horizontal (0 en vertical, donde anchoDiseno = 1200)
-    readonly property real _dxDerecha: Escala.anchoDiseno - Escala.anchoVertical
+    readonly property real _dxDerecha: Escala.anchoLienzo - Escala.anchoVertical
     property int conteoNotificaciones: 0
     signal campanaPulsada()
     signal engranajePulsado()
@@ -98,7 +99,7 @@ Rectangle {
         }
         MouseArea {
             anchors.fill: parent
-            anchors.margins: -Escala.px(20)   // área táctil más grande que el icono
+            anchors.margins: -(Escala.px(20) + Escala.margenTactil(Math.min(parent.width, parent.height) + 2 * Escala.px(20)))   // área táctil más grande que el icono
             onClicked: raiz.campanaPulsada()
         }
     }
@@ -114,7 +115,7 @@ Rectangle {
         }
         MouseArea {
             anchors.fill: parent
-            anchors.margins: -Escala.px(20)
+            anchors.margins: -(Escala.px(20) + Escala.margenTactil(Math.min(parent.width, parent.height) + 2 * Escala.px(20)))
             onClicked: raiz.engranajePulsado()
         }
     }

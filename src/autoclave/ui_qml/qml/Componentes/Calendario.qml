@@ -105,7 +105,7 @@ Item {
         Rectangle {
             anchors.fill: parent
             color: Colores.velo
-            MouseArea { anchors.fill: parent; onClicked: raiz.cancelar() }
+            MouseArea { anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); onClicked: raiz.cancelar() }
         }
 
         Rectangle {
@@ -214,6 +214,7 @@ Item {
                             }
                             MouseArea {
                                 anchors.fill: parent
+                                anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height))   // tanda responsive: zona táctil mínima
                                 enabled: celda.dia > 0
                                 onClicked: raiz.elegirDia(celda.dia)
                             }
@@ -259,7 +260,7 @@ Item {
             source: "../../assets/iconos/color/" + f.icono + ".svg"
             color: f.icono === "chevron_derecha" ? Colores.textoNegro : Colores.textoPrimario
         }
-        MouseArea { anchors.fill: parent; onClicked: f.pulsada() }
+        MouseArea { anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); onClicked: f.pulsada() }
     }
 
     component BotonCal: Rectangle {
@@ -282,6 +283,6 @@ Item {
             font.weight: Tipografia.pesoSemiBold
             font.pixelSize: Escala.fuente(24)
         }
-        MouseArea { anchors.fill: parent; onClicked: b.pulsado() }
+        MouseArea { anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); onClicked: b.pulsado() }
     }
 }
