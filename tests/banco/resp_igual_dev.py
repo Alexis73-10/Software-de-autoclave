@@ -71,7 +71,7 @@ def main() -> int:
             # Una diferencia cuya caja queda DENTRO de una zona que cambia sola
             # entre dos corridas de dev en algún escenario de este tamaño (p. ej.
             # el pulso del deslizador INICIAR, que es el mismo en todas las
-            # variantes de Preciclo) se informa como animación, no como cambio
+            # variantes de Preciclo) se marca como «en zona animada»
             cajas_anim = [r.get("caja") for n, r in resumen.items() if n in animados and r.get("caja")]
             cajas_anim += [comparar(base / "dev" / f"hor_{tema}_{n}.png", base / "dev2" / f"hor_{tema}_{n}.png").get("caja")
                            for n in animados if (base / "dev2" / f"hor_{tema}_{n}.png").exists()]
@@ -84,7 +84,10 @@ def main() -> int:
                           if not r["igual"] and n not in animados and r.get("caja") and _dentro(r["caja"])]
             for n in por_region:
                 resumen[n]["en_zona_animada"] = True
-            distintos = [n for n, r in resumen.items() if not r["igual"] and n not in animados and n not in por_region]
+            # se informan aparte pero SIGUEN contando como distintos: la zona es
+            # amplia (la gráfica animada cubre casi toda la pantalla) y puede
+            # ocultar un cambio real; la geometría (resp_geometria_igual.py) decide
+            distintos = [n for n, r in resumen.items() if not r["igual"] and n not in animados]
             total_malos += len(distintos)
             SALIDA.mkdir(parents=True, exist_ok=True)
             (SALIDA / f"igual_dev_{t}_{tema}.json").write_text(json.dumps(

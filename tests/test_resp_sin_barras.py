@@ -37,26 +37,30 @@ ESCENARIOS = ["intro", "reposo", "login", "cambio_clave", "nuevo_usuario", "inst
 PROPORCIONES = ["1600x1200", "1920x1200", "1920x1080", "2560x1080",
                 "1200x1600", "1200x1920", "1080x1920", "1080x2560"]
 MINIMOS = ["1024x600", "600x1024"]
+# escala de Windows (tamaño físico @ escala): misma regla que al 100 %
+ESCALADOS = ["1920x1080@1.5", "1200x1920@1.25", "2560x1440@2", "1080x1920@1.75"]
 DISENO = {"h": "1920x1200", "v": "1200x1920"}
 
 
 @pytest.fixture(scope="module")
 def capturas():
     destino = Path(tempfile.mkdtemp(prefix="resp_sin_barras_"))
-    tamanos = PROPORCIONES + MINIMOS
+    tamanos = PROPORCIONES + MINIMOS + ESCALADOS
+
+    def uno(t):
+        tam, _, esc = t.partition("@")
+        return rc.correr(RAIZ, destino, tam, float(esc or 1), "claro", ESCENARIOS, "es", "windows", 44.0)
     with ThreadPoolExecutor(max_workers=5) as ex:
-        res = dict(zip(tamanos, ex.map(
-            lambda t: rc.correr(RAIZ, destino, t, 1.0, "claro", ESCENARIOS, "es", "windows", 44.0),
-            tamanos)))
+        res = dict(zip(tamanos, ex.map(uno, tamanos)))
     return res
 
 
 def _orient(t):
-    w, h = (int(x) for x in t.split("x"))
+    w, h = (int(x) for x in t.split("@")[0].split("x"))
     return "h" if w >= h else "v"
 
 
-@pytest.mark.parametrize("tamano", PROPORCIONES + MINIMOS)
+@pytest.mark.parametrize("tamano", PROPORCIONES + MINIMOS + ESCALADOS)
 def test_el_contenido_cubre_toda_la_ventana(capturas, tamano):
     r = capturas[tamano]
     assert set(ESCENARIOS) <= set(r), sorted(set(ESCENARIOS) - set(r))
@@ -83,7 +87,7 @@ def _cuenta(tamano, esc, p):
     return (tamano, esc, rc._firma(p)) not in RESIDUALES
 
 
-@pytest.mark.parametrize("tamano", PROPORCIONES + MINIMOS)
+@pytest.mark.parametrize("tamano", PROPORCIONES + MINIMOS + ESCALADOS)
 def test_nada_fuera_y_sin_desbordes_nuevos(capturas, tamano):
     r, base = capturas[tamano], capturas[DISENO[_orient(tamano)]]
     nuevos = {}
@@ -96,7 +100,7 @@ def test_nada_fuera_y_sin_desbordes_nuevos(capturas, tamano):
     assert not nuevos, json.dumps(nuevos, ensure_ascii=False)[:3000]
 
 
-@pytest.mark.parametrize("tamano", PROPORCIONES + MINIMOS)
+@pytest.mark.parametrize("tamano", PROPORCIONES + MINIMOS + ESCALADOS)
 def test_zonas_tactiles_minimas(capturas, tamano):
     r, base = capturas[tamano], capturas[DISENO[_orient(tamano)]]
     malos = {}

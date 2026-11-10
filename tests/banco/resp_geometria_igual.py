@@ -30,7 +30,9 @@ function volcarGeometria(raiz) {
     // del deslizador, vapor y burbujas de los círculos de fase): su posición
     // depende del instante de la captura; se marcan y no se comparan
     const ANIMADOS = ["DeslizadorInicio", "CirculoFaseLiquido"]
-    function rec(it, ruta, anim) {
+    // la fila de leyenda de la gráfica (propiedades disponible y tam) se marca
+    // con «L» en la ruta (la usa tests/test_resp_giro_en_caliente.py)
+    function rec(it, ruta, anim, ley) {
         const hijos = it.children || []
         for (let i = 0; i < hijos.length; ++i) {
             const h = hijos[i]
@@ -38,14 +40,15 @@ function volcarGeometria(raiz) {
             const p = h.mapToItem(null, 0, 0)
             const clase = String(h).split("(")[0].split("_QML")[0]
             const a = anim || ANIMADOS.indexOf(clase) >= 0
-            r.push([(a ? "A" : "") + ruta + "/" + i, clase, h.objectName || "", Math.round(p.x * 100) / 100, Math.round(p.y * 100) / 100,
+            const l = ley || (h.disponible !== undefined && h.tam !== undefined)
+            r.push([(a ? "A" : "") + (l ? "L" : "") + ruta + "/" + i, clase, h.objectName || "", Math.round(p.x * 100) / 100, Math.round(p.y * 100) / 100,
                     Math.round(h.width * 100) / 100, Math.round(h.height * 100) / 100,
                     typeof h.text === "string" ? h.text.slice(0, 40) : "",
                     h.font !== undefined && h.font ? h.font.pixelSize : 0])
-            rec(h, ruta + "/" + i, a)
+            rec(h, ruta + "/" + i, a, l)
         }
     }
-    rec(raiz, "", false)
+    rec(raiz, "", false, false)
     return JSON.stringify(r)
 }
 """
