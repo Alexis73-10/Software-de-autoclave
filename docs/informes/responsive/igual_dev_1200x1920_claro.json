@@ -1,0 +1,526 @@
+{
+ "tamano": "1200x1920",
+ "tema": "claro",
+ "carpeta": "C:\\Users\\tecni\\AppData\\Local\\Temp\\resp_igual_v74m_baf\\1200x1920_claro",
+ "escenarios": 132,
+ "identicos": 119,
+ "animados_dev_contra_dev": [
+  "b_ciclo_sin_conexion",
+  "b_ciclo_tiempos",
+  "b_ciclo_zoom_lupa",
+  "b_preciclo_programa_largo",
+  "b_preciclo_puerta2_manual",
+  "b_preciclo_selector",
+  "ciclo_demo",
+  "ciclo_grafica",
+  "d_fecha_hora",
+  "intro",
+  "OpcionesFechaHora",
+  "preciclo_alarma",
+  "preciclo_preparado"
+ ],
+ "en_zona_animada": [],
+ "distintos_reales": [],
+ "resultado": {
+  "b_ciclo_espera_entrega": {
+   "igual": true
+  },
+  "b_ciclo_espera_entrega_ingeniero": {
+   "igual": true
+  },
+  "b_ciclo_pantalla_completa": {
+   "igual": true
+  },
+  "b_ciclo_sin_conexion": {
+   "igual": false,
+   "pixeles": 1565,
+   "caja": [
+    864,
+    260,
+    1045,
+    1819
+   ],
+   "dev_contra_dev_distinto": true
+  },
+  "b_ciclo_tiempos": {
+   "igual": false,
+   "pixeles": 5844,
+   "caja": [
+    476,
+    259,
+    1082,
+    1854
+   ],
+   "dev_contra_dev_distinto": true
+  },
+  "b_ciclo_zoom_lupa": {
+   "igual": false,
+   "pixeles": 5557,
+   "caja": [
+    474,
+    259,
+    1082,
+    1854
+   ],
+   "dev_contra_dev_distinto": true
+  },
+  "b_fin_estado_seguro_modal": {
+   "igual": true
+  },
+  "b_fin_fallido_grafica": {
+   "igual": true
+  },
+  "b_fin_observaciones_panel": {
+   "igual": true
+  },
+  "b_fin_observaciones_pildora": {
+   "igual": true
+  },
+  "b_preciclo_falla": {
+   "igual": true
+  },
+  "b_preciclo_modo_prueba": {
+   "igual": true
+  },
+  "b_preciclo_muchas_alarmas": {
+   "igual": true
+  },
+  "b_preciclo_programa_largo": {
+   "igual": false,
+   "pixeles": 2454,
+   "caja": [
+    817,
+    1626,
+    1142,
+    1726
+   ],
+   "dev_contra_dev_distinto": true
+  },
+  "b_preciclo_puerta2": {
+   "igual": true
+  },
+  "b_preciclo_puerta2_manual": {
+   "igual": false,
+   "pixeles": 2585,
+   "caja": [
+    817,
+    1626,
+    1142,
+    1726
+   ],
+   "dev_contra_dev_distinto": true
+  },
+  "b_preciclo_selector": {
+   "igual": false,
+   "pixeles": 1637,
+   "caja": [
+    820,
+    1627,
+    1145,
+    1726
+   ],
+   "dev_contra_dev_distinto": true
+  },
+  "b_preciclo_sin_conexion": {
+   "igual": true
+  },
+  "barra_reinicio": {
+   "igual": true
+  },
+  "cambio_clave": {
+   "igual": true
+  },
+  "cambio_clave_teclado": {
+   "igual": true
+  },
+  "ciclo_completo": {
+   "igual": true
+  },
+  "ciclo_demo": {
+   "igual": false,
+   "pixeles": 4432,
+   "caja": [
+    94,
+    260,
+    1079,
+    1854
+   ],
+   "dev_contra_dev_distinto": true
+  },
+  "ciclo_grafica": {
+   "igual": false,
+   "pixeles": 5421,
+   "caja": [
+    480,
+    260,
+    1091,
+    1854
+   ],
+   "dev_contra_dev_distinto": true
+  },
+  "d_avanzadas": {
+   "igual": true
+  },
+  "d_avanzadas_programa": {
+   "igual": true
+  },
+  "d_bitacora": {
+   "igual": true
+  },
+  "d_bitacora_tipo": {
+   "igual": true
+  },
+  "d_cajon": {
+   "igual": true
+  },
+  "d_calibracion_atm": {
+   "igual": true
+  },
+  "d_calibracion_sensor": {
+   "igual": true
+  },
+  "d_ciclo_ajuste": {
+   "igual": true
+  },
+  "d_ciclo_entradas": {
+   "igual": true
+  },
+  "d_ciclo_sensores": {
+   "igual": true
+  },
+  "d_conectividad": {
+   "igual": true
+  },
+  "d_entradas_salidas": {
+   "igual": true
+  },
+  "d_equipo_ajuste": {
+   "igual": true
+  },
+  "d_equipo_chaqueta": {
+   "igual": true
+  },
+  "d_equipo_impresion": {
+   "igual": true
+  },
+  "d_es_presion": {
+   "igual": true
+  },
+  "d_es_salidas": {
+   "igual": true
+  },
+  "d_es_temperatura": {
+   "igual": true
+  },
+  "d_fecha_hora": {
+   "igual": false,
+   "pixeles": 18012,
+   "caja": [
+    376,
+    427,
+    949,
+    535
+   ],
+   "dev_contra_dev_distinto": true
+  },
+  "d_info_sistema": {
+   "igual": true
+  },
+  "d_mantenimiento": {
+   "igual": true
+  },
+  "d_parametros_ciclo": {
+   "igual": true
+  },
+  "d_parametros_ciclo_fase": {
+   "igual": true
+  },
+  "d_parametros_equipo": {
+   "igual": true
+  },
+  "d_parametros_equipo_maquina": {
+   "igual": true
+  },
+  "d_reasignacion": {
+   "igual": true
+  },
+  "d_respaldo": {
+   "igual": true
+  },
+  "d_usuarios": {
+   "igual": true
+  },
+  "d_usuarios_operadores": {
+   "igual": true
+  },
+  "d_usuarios_seleccion": {
+   "igual": true
+  },
+  "e_cambio_clave_teclado": {
+   "igual": true
+  },
+  "e_detalle_alarma": {
+   "igual": true
+  },
+  "e_dialogo_confirmacion": {
+   "igual": true
+  },
+  "e_equipo": {
+   "igual": true
+  },
+  "e_equipo_apagar": {
+   "igual": true
+  },
+  "e_main_sin_conexion": {
+   "igual": true
+  },
+  "e_modal_confirmacion": {
+   "igual": true
+  },
+  "e_modal_operador": {
+   "igual": true
+  },
+  "e_notificaciones": {
+   "igual": true
+  },
+  "e_nuevo_usuario_teclado": {
+   "igual": true
+  },
+  "fin_fallido": {
+   "igual": true
+  },
+  "inst_activacion_auto": {
+   "igual": true
+  },
+  "inst_camara": {
+   "igual": true
+  },
+  "inst_contrasenas": {
+   "igual": true
+  },
+  "inst_datos": {
+   "igual": true
+  },
+  "inst_enfriamiento": {
+   "igual": true
+  },
+  "inst_equipo": {
+   "igual": true
+  },
+  "inst_listo": {
+   "igual": true
+  },
+  "inst_puertas": {
+   "igual": true
+  },
+  "inst_puertas_una": {
+   "igual": true
+  },
+  "inst_resumen": {
+   "igual": true
+  },
+  "inst_resumen_auto": {
+   "igual": true
+  },
+  "inst_teclado_clave": {
+   "igual": true
+  },
+  "inst_teclado_codigo": {
+   "igual": true
+  },
+  "inst_vapor": {
+   "igual": true
+  },
+  "instalacion": {
+   "igual": true
+  },
+  "intro": {
+   "igual": false,
+   "pixeles": 1390464,
+   "caja": [
+    0,
+    190,
+    1199,
+    1552
+   ],
+   "dev_contra_dev_distinto": true
+  },
+  "intro_final": {
+   "igual": true
+  },
+  "login": {
+   "igual": true
+  },
+  "login_sin_bd": {
+   "igual": true
+  },
+  "login_teclado": {
+   "igual": true
+  },
+  "login_teclado_clave": {
+   "igual": true
+  },
+  "login_teclado_num": {
+   "igual": true
+  },
+  "menu": {
+   "igual": true
+  },
+  "menu_ciclos_hoy": {
+   "igual": true
+  },
+  "menu_ciclos_hoy_ciclo": {
+   "igual": true
+  },
+  "menu_historial": {
+   "igual": true
+  },
+  "menu_historial_ciclo": {
+   "igual": true
+  },
+  "menu_historial_destino": {
+   "igual": true
+  },
+  "menu_mantenimiento": {
+   "igual": true
+  },
+  "menu_ultimo_ciclo": {
+   "igual": true
+  },
+  "nuevo_usuario": {
+   "igual": true
+  },
+  "nuevo_usuario_roles": {
+   "igual": true
+  },
+  "nuevo_usuario_teclado": {
+   "igual": true
+  },
+  "opciones": {
+   "igual": true
+  },
+  "opciones_equipo_maquina": {
+   "igual": true
+  },
+  "OpcionesAvanzadas": {
+   "igual": true
+  },
+  "OpcionesBitacora": {
+   "igual": true
+  },
+  "OpcionesCalibracionAtm": {
+   "igual": true
+  },
+  "OpcionesCalibracionSensor": {
+   "igual": true
+  },
+  "OpcionesConectividad": {
+   "igual": true
+  },
+  "OpcionesEntradasSalidas": {
+   "igual": true
+  },
+  "OpcionesFechaHora": {
+   "igual": false,
+   "pixeles": 399,
+   "caja": [
+    341,
+    190,
+    876,
+    204
+   ],
+   "dev_contra_dev_distinto": true
+  },
+  "OpcionesInfoSistema": {
+   "igual": true
+  },
+  "OpcionesManejoCiclos": {
+   "igual": true
+  },
+  "OpcionesMantenimiento": {
+   "igual": true
+  },
+  "OpcionesParametrosCiclo": {
+   "igual": true
+  },
+  "OpcionesParametrosEquipo": {
+   "igual": true
+  },
+  "OpcionesReasignacion": {
+   "igual": true
+  },
+  "OpcionesRespaldo": {
+   "igual": true
+  },
+  "OpcionesUsuarios": {
+   "igual": true
+  },
+  "preciclo_alarma": {
+   "igual": false,
+   "pixeles": 2082,
+   "caja": [
+    817,
+    1626,
+    925,
+    1726
+   ],
+   "dev_contra_dev_distinto": true
+  },
+  "preciclo_preparado": {
+   "igual": false,
+   "pixeles": 2040,
+   "caja": [
+    817,
+    1626,
+    925,
+    1726
+   ],
+   "dev_contra_dev_distinto": true
+  },
+  "reportes": {
+   "igual": true
+  },
+  "reportes_abajo": {
+   "igual": true
+  },
+  "reportes_alarmas": {
+   "igual": true
+  },
+  "reportes_anio": {
+   "igual": true
+  },
+  "reportes_ciclo": {
+   "igual": true
+  },
+  "reportes_correo": {
+   "igual": true
+  },
+  "reportes_dia": {
+   "igual": true
+  },
+  "reportes_fallo": {
+   "igual": true
+  },
+  "reportes_medio": {
+   "igual": true
+  },
+  "reportes_panel": {
+   "igual": true
+  },
+  "reportes_selector": {
+   "igual": true
+  },
+  "reposo": {
+   "igual": true
+  },
+  "reposo_aviso": {
+   "igual": true
+  },
+  "teclado_alfa": {
+   "igual": true
+  },
+  "teclado_num": {
+   "igual": true
+  }
+ }
+}

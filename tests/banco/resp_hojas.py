@@ -20,13 +20,16 @@ def main() -> int:
     ap.add_argument("destino")
     ap.add_argument("--lado", type=int, default=720)
     ap.add_argument("--hoja", type=int, default=360, help="lado mayor de cada miniatura en la hoja")
+    ap.add_argument("--escenarios", nargs="*", default=None, help="solo estos (por defecto, todos)")
     a = ap.parse_args()
     origen, destino = Path(a.origen), Path(a.destino)
     destino.mkdir(parents=True, exist_ok=True)
     for carpeta in sorted(p for p in origen.iterdir() if p.is_dir() and "@" in p.name):
-        tam = carpeta.name.replace("@1", "")
+        tam = carpeta.name[:-2] if carpeta.name.endswith("@1") else carpeta.name.replace("@", "_a_")
         for tema in ("claro", "oscuro"):
             fs = sorted(carpeta.glob(f"hor_{tema}_*.png"))
+            if a.escenarios:
+                fs = [f for f in fs if f.stem[len(f"hor_{tema}_"):] in a.escenarios]
             if not fs:
                 continue
             (destino / tam).mkdir(exist_ok=True)
