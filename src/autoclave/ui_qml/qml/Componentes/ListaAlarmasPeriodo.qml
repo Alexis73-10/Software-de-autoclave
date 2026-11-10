@@ -230,6 +230,8 @@ Item {
             height: Math.min(parent.height - raiz.m(160), raiz.m(1100))
             radius: raiz.m(24)
             color: Colores.fondoTarjeta
+            // horizontal: capa propia (todo su contenido cabe en ella)
+            clip: Escala.horizontal
             MouseArea { anchors.fill: parent }
 
             Text {

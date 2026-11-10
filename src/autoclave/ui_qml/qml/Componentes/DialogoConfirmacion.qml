@@ -31,7 +31,10 @@ Item {
 
     Rectangle {
         id: tarjeta
-        width: parent.width - Escala.px(160)
+        // Tanda horizontal (9-nov): en el lienzo horizontal no pasa de 1300 de
+        // ancho (el mensaje no se estira a 1760); en vertical, como siempre
+        width: Escala.horizontal ? Math.min(parent.width - Escala.px(160), Escala.px(1300))
+                                 : parent.width - Escala.px(160)
         height: textoMensaje.implicitHeight + Escala.px(96 + 88 + 64)
         anchors.centerIn: parent
         radius: Escala.px(28)

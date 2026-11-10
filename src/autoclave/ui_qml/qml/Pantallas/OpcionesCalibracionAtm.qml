@@ -110,7 +110,11 @@ Item {
             horizontalAlignment: Text.AlignHCenter
             fontSizeMode: Text.HorizontalFit; minimumPixelSize: Escala.fuenteMinima
             text: boton.texto
-            color: Colores.textoSobreAccion
+            // horizontal: sobre un relleno que no es el de acción primaria, el
+            // tono de la tarjeta (blanco en claro, como antes; oscuro en el
+            // tema oscuro, donde el blanco no contrasta con naranja, verde o rojo)
+            color: Escala.horizontal && !Qt.colorEqual(boton.fondo, Colores.accionPrimario)
+                   ? Colores.fondoTarjeta : Colores.textoSobreAccion
             font.family: Tipografia.familia
             font.weight: Tipografia.pesoSemiBold
             font.pixelSize: Escala.fuente(28)
@@ -168,6 +172,20 @@ Item {
                 font.pixelSize: Escala.fuente(22)
             }
 
+            // Horizontal: condiciones y progreso a la izquierda; datos,
+            // resultado, criterios y acciones a la derecha (en vertical, uno debajo de otro con el
+            // mismo espacio que daba la columna única)
+            Grid {
+                id: rejillaCalibracion
+                width: parent.width
+                columns: Escala.horizontal ? 2 : 1
+                rowSpacing: Escala.px(10)
+                columnSpacing: Escala.px(40)
+                readonly property real anchoBloque: Escala.horizontal ? (width - columnSpacing) / 2 : width
+            Column {
+                id: bloqueCondiciones
+                width: rejillaCalibracion.anchoBloque
+                spacing: Escala.px(10)
             // ── condiciones ───────────────────────────────────────────
             Repeater {
                 model: control.listaCondiciones
@@ -176,7 +194,7 @@ Item {
                     required property string modelData
                     readonly property bool cumple: control.condiciones[modelData] === true
                     objectName: "condicion_" + modelData
-                    width: columna.width
+                    width: bloqueCondiciones.width
                     height: Escala.px(64)
                     Rectangle {
                         id: marca
@@ -261,6 +279,11 @@ Item {
                     color: Colores.accionPrimario
                 }
             }
+            }
+            Column {
+                id: bloqueProgreso
+                width: rejillaCalibracion.anchoBloque
+                spacing: Escala.px(10)
 
             Dato { rotulo: I18n.t("calibracion_atm.promedio", I18n.lang); valor: control.promedio }
             Dato { rotulo: I18n.t("calibracion_atm.dispersion", I18n.lang); valor: control.dispersion }
@@ -355,6 +378,8 @@ Item {
                     habilitado: !control.operacionEnCurso
                     onPulsado: control.descartar()
                 }
+            }
+            }
             }
         }
     }

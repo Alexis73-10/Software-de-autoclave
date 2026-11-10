@@ -46,8 +46,21 @@ Item {
     readonly property var _inicioFila: [0, Escala.px(TecladoProvisional.desplazamientoFila2), _paso]
     readonly property bool _capaLetras: ctrl.capa === "letras"
 
-    implicitWidth: rejilla.width
-    implicitHeight: encabezado.height + _sep + rejilla.height
+    // Tanda horizontal (9-nov): con el lienzo horizontal (1200 de alto) el
+    // panel no puede pasar del 45 % del alto (TEC-D06, 540 px de diseño): el
+    // encabezado va a la izquierda de la rejilla en vez de encima. Mismas
+    // teclas y mismos tamaños. Lo fija PanelTeclado; en false (vertical, y
+    // fuera del panel) todo queda como siempre.
+    property bool encabezadoLateral: false
+    property real anchoEncabezado: 0
+    readonly property real separacionLateral: Escala.px(24)
+    readonly property real anchoRejilla: rejilla.width
+    // x de la rejilla dentro del teclado (0 con el encabezado encima)
+    readonly property real desplazamientoRejilla: encabezadoLateral ? anchoEncabezado + separacionLateral : 0
+
+    implicitWidth: encabezadoLateral ? desplazamientoRejilla + rejilla.width : rejilla.width
+    implicitHeight: encabezadoLateral ? Math.max(encabezado.height, rejilla.height)
+                                      : encabezado.height + _sep + rejilla.height
 
     TecladoAlfanumericoController {
         id: ctrl
@@ -58,7 +71,7 @@ Item {
     // ---- encabezado (TEC-D13): nombre del campo y valor ----
     Column {
         id: encabezado
-        width: rejilla.width
+        width: raiz.encabezadoLateral ? raiz.anchoEncabezado : rejilla.width
         spacing: Escala.px(4)
 
         Text {
@@ -87,7 +100,8 @@ Item {
     // ---- rejilla ----
     Item {
         id: rejilla
-        y: encabezado.height + raiz._sep
+        x: raiz.desplazamientoRejilla
+        y: raiz.encabezadoLateral ? 0 : encabezado.height + raiz._sep
         width: raiz._inicioFila[1] + 10 * raiz._paso - raiz._sep   // fila 2, la más ancha
         height: 4 * raiz._altoTecla + 3 * raiz._sep
 

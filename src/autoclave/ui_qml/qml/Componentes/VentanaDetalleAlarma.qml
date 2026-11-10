@@ -165,7 +165,9 @@ Item {
             id: tarjeta
             objectName: "tarjetaDetalleAlarma"
             anchors.centerIn: parent
-            width: Math.min(parent.width - Escala.px(80), Escala.px(1000))
+            // Tanda horizontal (9-nov): en el lienzo horizontal, más ancha (1400)
+            // para que el detalle ocupe menos alto; en vertical, 1000
+            width: Math.min(parent.width - Escala.px(80), Escala.px(Escala.horizontal ? 1400 : 1000))
             height: Math.min(parent.height - Escala.px(120),
                              cabecera.height + contenido.contentHeight + botones.height + Escala.px(120))
             radius: Escala.px(24)

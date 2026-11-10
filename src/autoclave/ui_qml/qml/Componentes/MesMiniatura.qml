@@ -70,6 +70,11 @@ Item {
         // clave de tema -> color; respaldo si la clave aún no existe (p. ej. exitoFondo)
         function colorTema(clave, respaldo) {
             if (!clave) return "transparent"
+            // horizontal: el borde neutro (sin operación, no ejecutado) con
+            // iconoCampo, igual en claro (#CCCCCC) y legible en oscuro (bordeCampo
+            // #33445A sobre fondoTarjeta da 1,6:1; preexistente en el vertical
+            // oscuro, pendiente de decisión)
+            if (Escala.horizontal && clave === "bordeCampo") return Colores.iconoCampo
             const c = Colores[clave]
             return c !== undefined ? c : respaldo
         }

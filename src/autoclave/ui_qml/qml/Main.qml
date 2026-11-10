@@ -14,6 +14,9 @@ Window {
     // Modo oscuro: el tema vigente (Apariencia) enlazado a Colores; ninguna
     // pantalla pregunta por el tema, solo leen Colores.*
     Binding { target: Colores; property: "oscuro"; value: Apariencia.oscuro }
+    // Orientación del lienzo (tanda horizontal): la del tamaño real de esta
+    // ventana, que app.py pone en pantalla completa en el monitor elegido
+    Binding { target: Escala; property: "horizontal"; value: Escala.esHorizontal(ventana.width, ventana.height) }
     width: 600; height: 960   // 5:8, igual que el lienzo de Escala
     visibility: Window.Windowed   // app.py la pasa a pantalla completa en el monitor elegido
     visible: true
@@ -369,6 +372,10 @@ Window {
             anchors.left: parent.left; anchors.right: parent.right
             anchors.verticalCenter: parent.verticalCenter
             anchors.margins: Escala.px(48)
+            // Tanda horizontal (9-nov): en el lienzo horizontal, centrada con el
+            // ancho que tiene en vertical (1104 de diseño); en vertical, 48 por lado
+            anchors.leftMargin: Escala.horizontal ? (parent.width - Escala.px(1104)) / 2 : Escala.px(48)
+            anchors.rightMargin: Escala.horizontal ? (parent.width - Escala.px(1104)) / 2 : Escala.px(48)
             height: filaAlarmaArranque.height + Escala.px(48)
             radius: Escala.px(16)
             color: Colores.fondoTarjeta

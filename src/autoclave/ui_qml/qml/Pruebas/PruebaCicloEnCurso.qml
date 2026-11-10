@@ -33,6 +33,12 @@ Window {
     property bool zoomGrafica: false
 
 
+    // Orientación del lienzo (tanda horizontal): la del tamaño de esta ventana
+
+
+    Binding { target: Escala; property: "horizontal"; value: Escala.esHorizontal(ventana.width, ventana.height) }
+
+
     Binding {
         target: Escala
         property: "factor"

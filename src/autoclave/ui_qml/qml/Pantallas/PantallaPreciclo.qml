@@ -191,7 +191,30 @@ Item {
     readonly property string fuenteNumeros: "Arial"
 
     readonly property real anchoMockup: 1196
-    function m(v) { return v * raiz.width / anchoMockup }
+    readonly property real altoMockup: 1917
+    // Tanda horizontal (9-nov): en el lienzo horizontal (Escala.horizontal) la
+    // escala es la del lienzo vertical (mismos px de diseño), no el ancho de la
+    // pantalla. Disposición en dos columnas: a la izquierda, la tarjeta de ciclo,
+    // la de parámetros y los botones (abajo, sobre la barra, como en vertical);
+    // a la derecha, la tarjeta de alarmas y avisos a todo el alto. Cabecera y
+    // barra inferior a lo ancho. En vertical todo vale exactamente lo de antes
+    // (hz false: dxCentro, dxDerecha y dyAcciones valen 0).
+    readonly property bool hz: Escala.horizontal
+    readonly property real _escalaHz: Escala.px(Escala.anchoVertical) / anchoMockup
+    // ancho y alto del marco en px del mockup (solo horizontal)
+    readonly property real anchoMarco: hz ? width / _escalaHz : anchoMockup
+    readonly property real _altoHz: hz ? height / _escalaHz : altoMockup
+    readonly property real dxCentro: (anchoMarco - anchoMockup) / 2
+    readonly property real dxDerecha: anchoMarco - anchoMockup
+    // botones de acción: misma distancia a la barra inferior que en vertical
+    readonly property real dyAcciones: hz ? _altoHz - altoMockup : 0
+    // tarjeta de alarmas y avisos en horizontal: columna derecha, a todo el alto
+    // de la tarjeta principal (márgenes de 15 como en vertical)
+    readonly property real _alX: 1178
+    readonly property real _alY: 192
+    readonly property real _alW: anchoMarco - 19 - 15 - _alX
+    readonly property real _alH: _altoHz - 171 - 10 - 15 - _alY
+    function m(v) { return hz ? v * _escalaHz : v * raiz.width / anchoMockup }
     // pixelSize exige entero > 0 (width es 0 antes del primer layout)
     function fuente(v) { return Math.max(1, Math.round(m(v))) }
 
@@ -273,7 +296,7 @@ Item {
         function _dosDigitos(n) { return n < 10 ? "0" + n : "" + n }
 
         Texto {
-            cx: 597.5; bl: 108; tam: 97
+            cx: 597.5 + raiz.dxCentro; bl: 108; tam: 97
             text: reloj._dosDigitos(reloj._ahora.getHours()) + ":" +
                   reloj._dosDigitos(reloj._ahora.getMinutes())
             color: Colores.textoSobreAccion
@@ -281,7 +304,7 @@ Item {
             font.weight: Tipografia.pesoBold
         }
         Texto {
-            cx: 598; bl: 141; tam: 26
+            cx: 598 + raiz.dxCentro; bl: 141; tam: 26
             text: reloj._ahora.getDate() + " " +
                   (reloj._meses[reloj._ahora.getMonth()] ?? "") + "  -  " +
                   reloj._ahora.getFullYear()
@@ -293,12 +316,12 @@ Item {
     Item {
         anchors.fill: parent
         Icono {
-            caja: [888, 64, 51, 57]; tinta: [5.85, 4.0, 42.15, 44.0]
+            caja: [888 + raiz.dxDerecha, 64, 51, 57]; tinta: [5.85, 4.0, 42.15, 44.0]
             source: raiz.iconosColor + "campana.svg"   // variante blanca
         }
         InsigniaCampana {
             objectName: "insigniaCampana"
-            x: raiz.m(922); y: raiz.m(50)
+            x: raiz.m(922 + raiz.dxDerecha); y: raiz.m(50)
             width: raiz.m(26); height: raiz.m(25)
             conteo: raiz.conteoNotificaciones
             urgente: panelNotificaciones.urgente
@@ -308,16 +331,16 @@ Item {
             tamFuente: raiz.fuente(17)
         }
         MouseArea {
-            x: raiz.m(870); y: raiz.m(40); width: raiz.m(90); height: raiz.m(95)
+            x: raiz.m(870 + raiz.dxDerecha); y: raiz.m(40); width: raiz.m(90); height: raiz.m(95)
             onClicked: { raiz.campanaPulsada(); panelNotificaciones.abrir() }
         }
 
         Icono {
-            caja: [1043, 64, 57, 58]; tinta: [4.0, 4.0, 44.0, 44.0]
+            caja: [1043 + raiz.dxDerecha, 64, 57, 58]; tinta: [4.0, 4.0, 44.0, 44.0]
             source: raiz.iconosColor + "engranaje.svg"   // variante blanca
         }
         MouseArea {
-            x: raiz.m(1025); y: raiz.m(45); width: raiz.m(95); height: raiz.m(95)
+            x: raiz.m(1025 + raiz.dxDerecha); y: raiz.m(45); width: raiz.m(95); height: raiz.m(95)
             onClicked: raiz.ajustesPulsado()
         }
     }
@@ -330,7 +353,8 @@ Item {
         id: tarjetaPrincipal
         objectName: "tarjetaPreciclo"
         x: raiz.m(19); y: raiz.m(177)
-        width: raiz.m(1159); height: barraInferior.y - raiz.m(10) - y
+        // horizontal: a lo ancho (márgenes de 19 a cada lado)
+        width: raiz.m(raiz.hz ? raiz.anchoMarco - 38 : 1159); height: barraInferior.y - raiz.m(10) - y
         radius: raiz.m(30)
         color: Colores.fondoTarjeta
     }
@@ -369,6 +393,19 @@ Item {
     Texto {
         cx: 599; bl: 308; tam: 36
         text: raiz.programa
+        // Ronda 2 (horizontal): el nombre no cruza los divisores de su recuadro
+        // (351..839) ni baja sobre la ayuda (línea base 352): hasta dos líneas en
+        // la franja 248..332 y la letra baja hasta Escala.fuenteMinima; nunca se
+        // recorta (D8-5.4). Con Binding (when: hz): en vertical no se toca nada.
+        Binding on width { when: raiz.hz; value: raiz.m(488 - 24) }
+        Binding on height { when: raiz.hz; value: raiz.m(84) }
+        Binding on y { when: raiz.hz; value: raiz.m(248) }
+        Binding on horizontalAlignment { when: raiz.hz; value: Text.AlignHCenter }
+        Binding on verticalAlignment { when: raiz.hz; value: Text.AlignVCenter }
+        Binding on wrapMode { when: raiz.hz; value: Text.WordWrap }
+        Binding on maximumLineCount { when: raiz.hz; value: 2 }
+        Binding on fontSizeMode { when: raiz.hz; value: Text.Fit }
+        Binding on minimumPixelSize { when: raiz.hz; value: Escala.fuenteMinima }
         color: raiz.datosVigentes ? raiz.paleta.programa : Colores.textoGuia
         font.family: Tipografia.familia
         font.weight: Tipografia.pesoBold
@@ -536,21 +573,25 @@ Item {
     }
 
     // ---- tarjeta de alarmas y avisos ----
+    // Horizontal: la tarjeta va en la columna derecha (_alX, _alY, _alW, _alH)
+    // con los mismos márgenes internos (47 / 48) que en vertical.
     Rectangle {
-        x: raiz.m(34); y: raiz.m(655); width: raiz.m(1130); height: raiz.m(944)
+        x: raiz.m(raiz.hz ? raiz._alX : 34); y: raiz.m(raiz.hz ? raiz._alY : 655)
+        width: raiz.m(raiz.hz ? raiz._alW : 1130); height: raiz.m(raiz.hz ? raiz._alH : 944)
         radius: raiz.m(30)
         color: Colores.fondoTarjeta
         border.width: raiz.m(2); border.color: raiz.paleta.bordeTarjeta
     }
     Texto {
-        lx: 81; bl: 717; tam: 27
+        lx: raiz.hz ? raiz._alX + 47 : 81; bl: raiz.hz ? raiz._alY + 62 : 717; tam: 27
         text: raiz.textos.alarmasTitulo
         color: raiz.paleta.tituloAlarmas
         font.family: Tipografia.familia
         font.weight: Tipografia.pesoBold
     }
     Rectangle {
-        x: raiz.m(81); y: raiz.m(737); width: raiz.m(1116 - 81); height: raiz.m(2)
+        x: raiz.m(raiz.hz ? raiz._alX + 47 : 81); y: raiz.m(raiz.hz ? raiz._alY + 82 : 737)
+        width: raiz.m(raiz.hz ? raiz._alW - 95 : 1116 - 81); height: raiz.m(2)
         color: raiz.paleta.lineaAlarmas
     }
     // Zona del listado (PC-06): geometría fija, se puebla sin moverla.
@@ -566,8 +607,8 @@ Item {
     // motivo con que el backend rechazó el último comando de puerta.
     Item {
         id: zonaAlarmas
-        x: raiz.m(81); y: raiz.m(739)
-        width: raiz.m(1116 - 81); height: raiz.m(1598 - 739)
+        x: raiz.m(raiz.hz ? raiz._alX + 47 : 81); y: raiz.m(raiz.hz ? raiz._alY + 84 : 739)
+        width: raiz.m(raiz.hz ? raiz._alW - 95 : 1116 - 81); height: raiz.m(raiz.hz ? raiz._alH - 85 : 1598 - 739)
 
         Text {
             id: avisoSinConexion
@@ -667,7 +708,7 @@ Item {
     Texto {
         visible: raiz.conteoAlarmas === 0 && raiz.datosVigentes
                  && seguridadPreciclo.conteo === 0
-        cx: 598.5; bl: 1176; tam: 28
+        cx: raiz.hz ? raiz._alX + raiz._alW / 2 : 598.5; bl: raiz.hz ? raiz._alY + raiz._alH / 2 + 49 : 1176; tam: 28
         text: raiz.textos.sinAlarmas
         color: raiz.paleta.textoVacio
         font.family: Tipografia.familia
@@ -691,7 +732,7 @@ Item {
         enabled: raiz.datosVigentes
         opacity: enabled ? 1.0 : 0.4
 
-        x: raiz.m(caja[0]); y: raiz.m(caja[1])
+        x: raiz.m(caja[0]); y: raiz.m(caja[1] + raiz.dyAcciones)
         width: raiz.m(caja[2]); height: raiz.m(caja[3])
 
         Rectangle {
@@ -715,7 +756,7 @@ Item {
         Rectangle {
             id: circulo
             x: raiz.m(boton.circuloX - boton.caja[0])
-            y: raiz.m(1629) - boton.y
+            y: raiz.m(1629 + raiz.dyAcciones) - boton.y
             width: raiz.m(84); height: width; radius: width / 2
             color: "transparent"
             border.color: boton.colorTextoBoton; border.width: raiz.m(4)
@@ -725,7 +766,7 @@ Item {
         Text {
             objectName: "textoBotonAccion"
             x: raiz.m(boton.textoX) - boton.x
-            y: raiz.m(1676) - boton.y - baselineOffset
+            y: raiz.m(1676 + raiz.dyAcciones) - boton.y - baselineOffset
             width: boton.width - x - raiz.m(12)
             text: boton.texto
             color: boton.colorTextoBoton
@@ -781,7 +822,7 @@ Item {
     IndicadorPuerta {
         objectName: "indicadorPuertaPreciclo"
         visible: !raiz.puertaConActuador
-        x: raiz.m(41); y: raiz.m(1615); width: raiz.m(298); height: raiz.m(110)
+        x: raiz.m(41); y: raiz.m(1615 + raiz.dyAcciones); width: raiz.m(298); height: raiz.m(110)
         estadoPuerta: raiz.estadoPuerta
         // Falla del lado seguro: con el enlace al módulo E/S caído o sin tramas
         // válidas, /status.estado_puertas queda congelado o se calcula con la
@@ -793,7 +834,7 @@ Item {
     DeslizadorInicio {
         objectName: "deslizadorIniciarCiclo"
         // 10 % más ancho (302 → 332), conservando el borde derecho
-        x: raiz.m(815); y: raiz.m(1616); width: raiz.m(332); height: raiz.m(110)
+        x: raiz.m(815); y: raiz.m(1616 + raiz.dyAcciones); width: raiz.m(332); height: raiz.m(110)
         texto: raiz.textos.iniciar
         textoCompletado: raiz.textos.iniciando
         // Como tkinter (_upd_listo) pero oculto en vez de inactivo cuando el equipo
@@ -831,12 +872,15 @@ Item {
     // paro de emergencia activo. Colores PROVISIONALES (sin mockup).
     BotonAccion {
         objectName: "botonReconocerFalla"
-        caja: [845, 1616, 302, 110]
+        // Ronda 2 (horizontal): 100 px más ancho hacia la izquierda (en FALLA el
+        // deslizador de inicio no se muestra): «ACKNOWLEDGE FAULT» no cabía ni
+        // con la letra al mínimo
+        caja: raiz.hz ? [745, 1616, 402, 110] : [845, 1616, 302, 110]
         colorArriba: Colores.botonNaranjaArriba
         colorAbajo: Colores.botonNaranjaAbajo
         texto: raiz.textos.reconocerFalla
-        textoX: 980
-        circuloX: 866
+        textoX: raiz.hz ? 880 : 980
+        circuloX: raiz.hz ? 766 : 866
         visible: raiz.enFalla && raiz.datosVigentes
         enabled: !raiz.fallaOcupada
         onPulsado: raiz.reconocerFallaPulsado()

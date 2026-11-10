@@ -106,6 +106,13 @@ Item {
     function atras() { _salirCon(atrasPulsado) }
     function inicio() { _salirCon(inicioPulsado) }
 
+    // Tanda horizontal: en el lienzo 1920x1200 (Escala.horizontal) la barra
+    // flotante usa la escala del lienzo vertical (mismos px de diseño) y la
+    // tarjeta pone el avatar a la izquierda y el formulario a la derecha,
+    // arriba, para que los campos queden sobre el teclado en pantalla.
+    readonly property bool hz: Escala.horizontal
+    readonly property real escalaBarra: hz ? Escala.px(Escala.anchoVertical) / 1196 : raiz.width / 1196
+
     readonly property string iconos: "../../assets/iconos/color/"
 
     // Campo de contraseña: recuadro con candado y ojo, error en rojo debajo
@@ -123,6 +130,8 @@ Item {
                         : raiz.campoActivo === campo.nombre ? Colores.accionPrimario
                                                             : Colores.bordeCampo
             border.width: raiz.campoActivo === campo.nombre || raiz.error(campo.nombre) !== "" ? 2 : 1
+            // Ronda 2 (horizontal): en vertical el recuadro no fija color (blanco por defecto, también en oscuro: preexistente, pendiente de decisión); en horizontal toma Colores.fondoCampo (#FFFFFF en claro, igual que hoy)
+            Binding on color { when: raiz.hz; value: Colores.fondoCampo }
 
             IconoColor {
                 id: candado
@@ -197,7 +206,7 @@ Item {
             id: tarjetaContenido
             objectName: "tarjetaCambioClave"
             width: parent.width - Escala.px(48)
-            height: raiz.height - Escala.px(176) - raiz.width / 1196 * 201
+            height: raiz.height - Escala.px(176) - raiz.escalaBarra * 201
             anchors.horizontalCenter: parent.horizontalCenter
 
             contenido: [
@@ -208,8 +217,19 @@ Item {
 
                     Item { Layout.preferredHeight: Escala.px(60) }
 
-                    Column {
+                    // Vertical: encabezado y, 60 más abajo, el formulario (una columna).
+                    // Horizontal: encabezado en la mitad izquierda, formulario a la derecha.
+                    GridLayout {
+                        id: grilla
                         Layout.fillWidth: true
+                        columns: raiz.hz ? 2 : 1
+                        rowSpacing: Escala.px(60)
+                        columnSpacing: 0
+
+                    Column {
+                        Layout.fillWidth: !raiz.hz
+                        Layout.preferredWidth: raiz.hz ? grilla.width / 2 : -1
+                        Layout.alignment: raiz.hz ? Qt.AlignTop : 0
                         spacing: Escala.px(28)
 
                         Text {
@@ -246,11 +266,10 @@ Item {
                         }
                     }
 
-                    Item { Layout.preferredHeight: Escala.px(60) }
-
                     Column {
                         Layout.preferredWidth: Escala.px(756)
-                        Layout.alignment: Qt.AlignHCenter
+                        Layout.alignment: raiz.hz ? Qt.AlignLeft | Qt.AlignTop : Qt.AlignHCenter
+                        Layout.leftMargin: raiz.hz ? (grilla.width / 2 - Escala.px(756)) / 2 : 0
                         spacing: Escala.px(20)
 
                         CampoClave { nombre: "clave_actual"; marcador: I18n.t("sesion.clave_actual", I18n.lang) }
@@ -296,6 +315,7 @@ Item {
                             font.weight: Tipografia.pesoMedium
                         }
                     }
+                    }
 
                     Item { Layout.fillHeight: true }
                     Item { Layout.preferredHeight: Escala.px(24) }
@@ -308,7 +328,7 @@ Item {
     BarraInferiorMenu {
         id: barraInferior
         objectName: "barraInferiorCambioClave"
-        escala: raiz.width / 1196
+        escala: raiz.escalaBarra
         // D8-5.2: mismo x y ancho que la tarjeta de contenido de encima
         x: tarjetaContenido.x
         width: tarjetaContenido.width

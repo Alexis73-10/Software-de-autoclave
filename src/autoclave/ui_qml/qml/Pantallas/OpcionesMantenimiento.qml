@@ -222,9 +222,19 @@ Item {
         contentHeight: columnaMant.height + Escala.px(24)
         clip: true
         interactive: contentHeight > height
-    Column {
+    // Horizontal: dos bloques lado a lado (acciones y datos a la izquierda;
+    // registro e intervalos a la derecha); en vertical, uno debajo de otro con
+    // el mismo espacio que daba la columna única
+    Grid {
         id: columnaMant
         width: parent.width
+        columns: Escala.horizontal ? 2 : 1
+        rowSpacing: Escala.px(6)
+        columnSpacing: Escala.px(40)
+        readonly property real anchoBloque: Escala.horizontal ? (width - columnSpacing) / 2 : width
+    Column {
+        id: bloquePrincipal
+        width: columnaMant.anchoBloque
         spacing: Escala.px(6)
 
         // ── O2f (tanda 6): calibración atmosférica e impresiones ────────────
@@ -264,7 +274,7 @@ Item {
                                                           ? impresiones.estadoDe(claveOperacion) : "inactiva"
                 readonly property bool habilitado: raiz.edicionPermitida
                                                    && (claveOperacion === "" || !impresiones.operacionEnCurso)
-                width: columnaMant.width; height: Escala.px(88)
+                width: bloquePrincipal.width; height: Escala.px(88)
                 radius: Escala.px(12)
                 color: Colores.fondoSutil
                 border.color: Colores.bordeCampo
@@ -335,10 +345,15 @@ Item {
             font.family: Tipografia.familia
             font.pixelSize: Escala.fuente(22)
         }
+    }
+    Column {
+        id: bloqueRegistro
+        width: columnaMant.anchoBloque
+        spacing: Escala.px(6)
 
         Text {
             width: parent.width
-            topPadding: Escala.px(24)
+            topPadding: Escala.px(Escala.horizontal ? 0 : 24)
             text: I18n.t("opciones.mant_tipo", I18n.lang)
             color: Colores.textoSecundario
             font.family: Tipografia.familia
@@ -458,6 +473,7 @@ Item {
                 }
             }
         }
+    }
     }
     }
 

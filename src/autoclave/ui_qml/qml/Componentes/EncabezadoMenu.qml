@@ -32,7 +32,15 @@ Item {
     function m(v) { return v * escala }
     function fuente(v) { return Math.max(1, Math.round(m(v))) }
 
-    width: m(1196)
+    // Tanda horizontal: en el lienzo horizontal (Escala.horizontal) el marco mide
+    // 1920 px de lienzo (1913,6 del mockup): el logo queda a la izquierda, la hora
+    // y la fecha se centran (dxCentro) y la campana y el engranaje conservan su
+    // margen derecho (dxDerecha). En vertical los dos desplazamientos valen 0.
+    readonly property real anchoMarco: Escala.horizontal ? Escala.anchoHorizontal * 1196 / Escala.anchoVertical : 1196
+    readonly property real dxCentro: (anchoMarco - 1196) / 2
+    readonly property real dxDerecha: anchoMarco - 1196
+
+    width: m(anchoMarco)
     height: m(177)
 
     readonly property string _iconos: "../../assets/iconos/color/"
@@ -71,7 +79,7 @@ Item {
 
         Text {
             objectName: "horaMenu"
-            x: raiz.m(597.5) - width / 2
+            x: raiz.m(597.5 + raiz.dxCentro) - width / 2
             y: raiz.m(108) - baselineOffset
             text: reloj._dosDigitos(reloj._ahora.getHours()) + ":" +
                   reloj._dosDigitos(reloj._ahora.getMinutes())
@@ -82,7 +90,7 @@ Item {
         }
         Text {
             objectName: "fechaMenu"
-            x: raiz.m(598) - width / 2
+            x: raiz.m(598 + raiz.dxCentro) - width / 2
             y: raiz.m(141) - baselineOffset
             text: reloj._ahora.getDate() + " " +
                   (reloj._meses[reloj._ahora.getMonth()] ?? "") + "  -  " +
@@ -94,12 +102,12 @@ Item {
     }
 
     Icono {
-        caja: [888, 64, 51, 57]; tinta: [5.85, 4.0, 42.15, 44.0]
+        caja: [888 + raiz.dxDerecha, 64, 51, 57]; tinta: [5.85, 4.0, 42.15, 44.0]
         source: raiz._iconos + "campana.svg"   // variante blanca
     }
     InsigniaCampana {
         objectName: "insigniaCampana"
-        x: raiz.m(922); y: raiz.m(50)
+        x: raiz.m(922 + raiz.dxDerecha); y: raiz.m(50)
         width: raiz.m(26); height: raiz.m(25)
         conteo: raiz.conteoAlarmas
         urgente: raiz.urgente
@@ -112,19 +120,19 @@ Item {
     Icono {
         objectName: "engranajeEncabezado"
         visible: raiz.conEngranaje
-        caja: [1043, 64, 57, 58]; tinta: [4.0, 4.0, 44.0, 44.0]
+        caja: [1043 + raiz.dxDerecha, 64, 57, 58]; tinta: [4.0, 4.0, 44.0, 44.0]
         source: raiz._iconos + "engranaje.svg"   // variante blanca
     }
 
     MouseArea {
         objectName: "zonaEngranajeOpciones"
         enabled: raiz.conEngranaje
-        x: raiz.m(1020); y: raiz.m(40); width: raiz.m(100); height: raiz.m(95)
+        x: raiz.m(1020 + raiz.dxDerecha); y: raiz.m(40); width: raiz.m(100); height: raiz.m(95)
         onClicked: raiz.engranajePulsado()
     }
     MouseArea {
         objectName: "zonaCampana"
-        x: raiz.m(870); y: raiz.m(40); width: raiz.m(90); height: raiz.m(95)   // como PantallaPreciclo.qml
+        x: raiz.m(870 + raiz.dxDerecha); y: raiz.m(40); width: raiz.m(90); height: raiz.m(95)   // como PantallaPreciclo.qml
         onClicked: raiz.campanaPulsada()
     }
 }

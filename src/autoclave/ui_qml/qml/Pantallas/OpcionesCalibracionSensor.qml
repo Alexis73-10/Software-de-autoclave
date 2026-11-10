@@ -129,7 +129,11 @@ Item {
         Text {
             anchors.centerIn: parent
             text: boton.texto
-            color: Colores.textoSobreAccion
+            // horizontal: sobre un relleno que no es el de acción primaria, el
+            // tono de la tarjeta (blanco en claro, como antes; oscuro en el
+            // tema oscuro, donde el blanco no contrasta con naranja, verde o rojo)
+            color: Escala.horizontal && !Qt.colorEqual(boton.relleno, Colores.accionPrimario)
+                   ? Colores.fondoTarjeta : Colores.textoSobreAccion
             font.family: Tipografia.familia
             font.weight: Tipografia.pesoSemiBold
             font.pixelSize: Escala.fuente(22)
@@ -223,6 +227,19 @@ Item {
                 }
             }
 
+            // Horizontal: lectura, ganancia y punto bajo a la izquierda; punto
+            // alto, resultado y acciones a la derecha (en vertical, uno debajo
+            // de otro con el mismo espacio que daba la columna única)
+            Grid {
+                id: rejillaCal
+                width: parent.width
+                columns: Escala.horizontal ? 2 : 1
+                rowSpacing: Escala.px(14)
+                columnSpacing: Escala.px(40)
+                readonly property real anchoBloque: Escala.horizontal ? (width - columnSpacing) / 2 : width
+            Column {
+                width: rejillaCal.anchoBloque
+                spacing: Escala.px(14)
             // lectura en vivo
             Rectangle {
                 width: parent.width; height: Escala.px(120); radius: Escala.px(14)
@@ -321,6 +338,10 @@ Item {
                                              (v) => { raiz.lecturaBaja = Number(v); raiz.origenBajo = "escrita" })
                 onCapturar: { raiz.lecturaBaja = raiz.lectura.valor; raiz.origenBajo = "capturada" }
             }
+            }
+            Column {
+                width: rejillaCal.anchoBloque
+                spacing: Escala.px(14)
             BloquePunto {
                 titulo: I18n.t("io.ui.cal_punto_alto", I18n.lang)
                 clave: "alto"
@@ -402,6 +423,8 @@ Item {
                 onPulsado: raiz.aplicar(false)
             }
             Item { width: 1; height: Escala.px(10) }
+            }
+            }
         }
     }
 

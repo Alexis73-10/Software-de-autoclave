@@ -188,6 +188,16 @@ Item {
 
     // ── Presentación ─────────────────────────────────────────────────────
     readonly property string iconos: "../../assets/iconos/color/"
+    // Tanda horizontal: en el lienzo 1920x1200 (Escala.horizontal) la barra
+    // flotante usa la escala del lienzo vertical y el formulario va en tres
+    // columnas y dos filas (Nombre | Usuario | Rol; Contraseña | Confirmación |
+    // Estado), con los botones debajo a la derecha: la tarjeta deja ~655 px de
+    // diseño de alto útil (1200 − barra superior − barra flotante − pie).
+    readonly property bool hz: Escala.horizontal
+    readonly property real escalaBarra: hz ? Escala.px(Escala.anchoVertical) / 1196 : raiz.width / 1196
+    readonly property real _anchoCol: Escala.px(449)
+    readonly property real _xColB: Escala.px(381 + 449 + 48)
+    readonly property real _xColC: Escala.px(381 + 2 * (449 + 48))
 
     FondoApp { anchors.fill: parent }
 
@@ -227,6 +237,8 @@ Item {
             border.color: c.mensajeError !== "" ? Colores.peligroTexto
                         : raiz.campoActivo === c.nombre ? Colores.accionPrimario : Colores.bordeDivisor
             border.width: raiz.campoActivo === c.nombre || c.mensajeError !== "" ? 2 : 1
+            // Ronda 2 (horizontal): en vertical el recuadro no fija color (blanco por defecto, también en oscuro: preexistente, pendiente de decisión); en horizontal toma Colores.fondoCampo (#FFFFFF en claro, igual que hoy)
+            Binding on color { when: raiz.hz; value: Colores.fondoCampo }
 
             TextField {
                 id: entrada
@@ -285,7 +297,7 @@ Item {
         objectName: "tarjetaNuevoUsuario"
         x: Escala.px(24); y: Escala.px(176)
         width: parent.width - Escala.px(48)
-        height: raiz.height - Escala.px(176) - raiz.width / 1196 * 201
+        height: raiz.height - Escala.px(176) - raiz.escalaBarra * 201
 
         contenido: [
             Item {
@@ -354,7 +366,7 @@ Item {
                         id: campoNombre
                         nombre: "nombre"
                         x: Escala.px(381); y: Escala.px(184)
-                        width: Escala.px(707)
+                        width: raiz.hz ? raiz._anchoCol : Escala.px(707)
                         etiqueta: I18n.t("formulario.nombre_completo", I18n.lang)
                         marcador: I18n.t("usuarios.marcador_nombre", I18n.lang)
                         mensajeError: raiz.error("nombre")
@@ -365,7 +377,8 @@ Item {
                     Campo {
                         id: campoUsuario
                         nombre: "usuario"
-                        x: campoNombre.x; y: campoNombre.y + Escala.px(167)
+                        x: raiz.hz ? raiz._xColB : campoNombre.x
+                        y: raiz.hz ? campoNombre.y : campoNombre.y + Escala.px(167)
                         width: campoNombre.width
                         etiqueta: I18n.t("formulario.nombre_usuario", I18n.lang)
                         mensajeError: raiz.error("usuario")
@@ -376,7 +389,8 @@ Item {
                     Campo {
                         id: campoClave
                         nombre: "clave"
-                        x: campoNombre.x; y: campoUsuario.y + Escala.px(167)
+                        x: campoNombre.x
+                        y: raiz.hz ? campoNombre.y + Escala.px(167) : campoUsuario.y + Escala.px(167)
                         width: campoNombre.width
                         etiqueta: I18n.t("formulario.contrasena", I18n.lang)
                         marcador: I18n.t("usuarios.marcador_clave", I18n.lang)
@@ -391,7 +405,8 @@ Item {
                     Campo {
                         id: campoConfirmacion
                         nombre: "confirmacion"
-                        x: campoNombre.x; y: campoClave.y + Escala.px(167)
+                        x: raiz.hz ? raiz._xColB : campoNombre.x
+                        y: raiz.hz ? campoClave.y : campoClave.y + Escala.px(167)
                         width: campoNombre.width
                         etiqueta: I18n.t("formulario.confirmar_contrasena", I18n.lang)
                         conOjo: true
@@ -406,8 +421,9 @@ Item {
                     // ---- Rol: a todo el ancho (P-02), lista táctil sin teclado ----
                     Item {
                         id: filaRol
-                        x: Escala.px(61); y: Escala.px(868)
-                        width: Escala.px(1027); height: Escala.px(125)
+                        x: raiz.hz ? raiz._xColC : Escala.px(61)
+                        y: raiz.hz ? Escala.px(184) : Escala.px(868)
+                        width: raiz.hz ? raiz._anchoCol : Escala.px(1027); height: Escala.px(125)
 
                         Text {
                             text: I18n.t("formulario.rol", I18n.lang)
@@ -425,6 +441,8 @@ Item {
                             border.color: raiz.error("rol") !== "" ? Colores.peligroTexto
                                         : listaRoles.visible ? Colores.accionPrimario : Colores.bordeDivisor
                             border.width: listaRoles.visible || raiz.error("rol") !== "" ? 2 : 1
+                            // Ronda 2 (horizontal): en vertical el recuadro no fija color (blanco por defecto, también en oscuro: preexistente, pendiente de decisión); en horizontal toma Colores.fondoCampo (#FFFFFF en claro, igual que hoy)
+                            Binding on color { when: raiz.hz; value: Colores.fondoCampo }
 
                             Text {
                                 anchors.left: parent.left
@@ -472,7 +490,8 @@ Item {
                     // nuevo_usuario_sin_codigo.png) ----
                     Text {
                         id: etiquetaEstado
-                        x: filaRol.x; y: Escala.px(1047)
+                        x: raiz.hz ? raiz._xColC : filaRol.x
+                        y: raiz.hz ? Escala.px(351) : Escala.px(1047)
                         text: I18n.t("formulario.estado", I18n.lang)
                         color: Colores.textoPrimario
                         font.family: Tipografia.familia
@@ -482,7 +501,8 @@ Item {
                     Rectangle {
                         id: interruptor
                         objectName: "interruptorActivo"
-                        x: Escala.px(206); y: Escala.px(1091)
+                        x: raiz.hz ? raiz._xColC + Escala.px(145) : Escala.px(206)
+                        y: raiz.hz ? Escala.px(351 + 44) : Escala.px(1091)
                         width: Escala.px(73); height: Escala.px(39); radius: height / 2
                         color: raiz.activo ? Colores.accionPrimario : Colores.bordeCampo
                         Rectangle {
@@ -510,11 +530,14 @@ Item {
 
                     // ---- botones ----
                     Rectangle {
-                        x: filaRol.x; y: Escala.px(1177)
+                        x: raiz.hz ? raiz._xColC + raiz._anchoCol - Escala.px(508 + 73 + 433) : filaRol.x
+                        y: raiz.hz ? Escala.px(520) : Escala.px(1177)
                         width: Escala.px(433); height: Escala.px(97)
                         radius: Escala.px(8)
                         border.color: Colores.bordeDivisor; border.width: 1
                         opacity: raiz.guardando ? 0.4 : 1.0
+                        // Ronda 2 (horizontal): en vertical el recuadro no fija color (blanco por defecto, también en oscuro: preexistente, pendiente de decisión); en horizontal toma Colores.fondoTarjeta (#FFFFFF en claro, igual que hoy)
+                        Binding on color { when: raiz.hz; value: Colores.fondoTarjeta }
                         Text {
                             anchors.centerIn: parent
                             text: I18n.t("acciones.cancelar", I18n.lang)
@@ -530,7 +553,8 @@ Item {
                         }
                     }
                     Rectangle {
-                        x: Escala.px(567); y: Escala.px(1177)
+                        x: raiz.hz ? raiz._xColC + raiz._anchoCol - Escala.px(508) : Escala.px(567)
+                        y: raiz.hz ? Escala.px(520) : Escala.px(1177)
                         width: Escala.px(508); height: Escala.px(97)
                         objectName: "botonGuardarUsuario"
                         radius: Escala.px(8)
@@ -566,8 +590,9 @@ Item {
                     // Error que no es de un campo (permiso, sesión, sin conexión, ...)
                     Text {
                         objectName: "errorGeneral"
-                        x: filaRol.x; y: Escala.px(1290)
-                        width: Escala.px(1075) - filaRol.x
+                        x: raiz.hz ? campoNombre.x : filaRol.x
+                        y: raiz.hz ? Escala.px(630) : Escala.px(1290)
+                        width: raiz.hz ? raiz._xColC + raiz._anchoCol - campoNombre.x : Escala.px(1075) - filaRol.x
                         visible: text !== ""
                         text: raiz.error("general")
                         wrapMode: Text.WordWrap
@@ -594,6 +619,8 @@ Item {
                         radius: Escala.px(6)
                         border.color: Colores.bordeCampo; border.width: 1
                         clip: true
+                        // Ronda 2 (horizontal): en vertical el recuadro no fija color (blanco por defecto, también en oscuro: preexistente, pendiente de decisión); en horizontal toma Colores.fondoCampo (#FFFFFF en claro, igual que hoy)
+                        Binding on color { when: raiz.hz; value: Colores.fondoCampo }
                         Column {
                             id: columnaRoles
                             width: parent.width
@@ -633,7 +660,7 @@ Item {
     BarraInferiorMenu {
         id: barraInferior
         objectName: "barraInferiorNuevoUsuario"
-        escala: raiz.width / 1196
+        escala: raiz.escalaBarra
         // D8-5.2: mismo x y ancho que la tarjeta de contenido de encima
         x: tarjeta.x
         width: tarjeta.width

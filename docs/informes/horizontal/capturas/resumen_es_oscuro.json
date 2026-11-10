@@ -1,0 +1,1158 @@
+{
+ "intro": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "reposo": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "login": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "login_teclado": {
+  "problemas": [
+   {
+    "tipo": "cruza_divisor",
+    "divisor": 1352,
+    "texto": "Confirmar",
+    "obj": "",
+    "x": 1290,
+    "ancho": 183
+   }
+  ],
+  "fuera": [],
+  "avisos": []
+ },
+ "login_teclado_num": {
+  "problemas": [
+   {
+    "tipo": "cruza_divisor",
+    "divisor": 1352,
+    "texto": "Confirmar",
+    "obj": "",
+    "x": 1198,
+    "ancho": 183
+   }
+  ],
+  "fuera": [],
+  "avisos": []
+ },
+ "cambio_clave": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "nuevo_usuario": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "instalacion": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": [
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a16391db0cd46043e/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:97: TypeError: Property 'calcularModelo' of object QObject_QML_366(0x1f403c5de30) is not a function",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a16391db0cd46043e/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:1006:25: QML Grid: Grid contains more visible items (9) than rows*columns (5)"
+  ]
+ },
+ "preciclo_preparado": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "preciclo_alarma": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "ciclo_grafica": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "ciclo_completo": {
+  "problemas": [
+   {
+    "tipo": "sale_del_cuadro",
+    "cuadro": [
+     1244,
+     593
+    ],
+    "texto": "›",
+    "obj": "chevronFila",
+    "x": 1836,
+    "ancho": 12
+   }
+  ],
+  "fuera": [],
+  "avisos": []
+ },
+ "fin_fallido": {
+  "problemas": [
+   {
+    "tipo": "sale_del_cuadro",
+    "cuadro": [
+     1244,
+     593
+    ],
+    "texto": "›",
+    "obj": "chevronFila",
+    "x": 1836,
+    "ancho": 12
+   }
+  ],
+  "fuera": [],
+  "avisos": []
+ },
+ "ciclo_demo": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "menu": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "menu_ultimo_ciclo": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "menu_mantenimiento": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "menu_ciclos_hoy": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "menu_historial": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "reportes": {
+  "problemas": [],
+  "fuera": [
+   {
+    "obj": "cuerpoReportes|",
+    "x": 54,
+    "y": 527,
+    "w": 1812,
+    "h": 3360
+   },
+   {
+    "obj": "seccionCalendario|",
+    "x": 972,
+    "y": 527,
+    "w": 894,
+    "h": 1720
+   }
+  ],
+  "avisos": []
+ },
+ "reportes_abajo": {
+  "problemas": [],
+  "fuera": [
+   {
+    "obj": "cuerpoReportes|",
+    "x": 54,
+    "y": -2371,
+    "w": 1812,
+    "h": 3360
+   },
+   {
+    "obj": "seccionMantenimiento|",
+    "x": 54,
+    "y": -275,
+    "w": 593,
+    "h": 1066
+   },
+   {
+    "obj": "seccionAlarmas|",
+    "x": 663,
+    "y": -275,
+    "w": 593,
+    "h": 1066
+   },
+   {
+    "obj": "seccionOperadores|",
+    "x": 1273,
+    "y": -275,
+    "w": 593,
+    "h": 1066
+   }
+  ],
+  "avisos": []
+ },
+ "opciones": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "OpcionesParametrosCiclo": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "OpcionesParametrosEquipo": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "OpcionesUsuarios": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "OpcionesFechaHora": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "OpcionesInfoSistema": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "OpcionesBitacora": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "OpcionesCalibracionAtm": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "OpcionesCalibracionSensor": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": [
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a16391db0cd46043e/src/autoclave/ui_qml/qml/Pantallas/OpcionesCalibracionSensor.qml:216: TypeError: Cannot read property 'operacionEnCurso' of null",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a16391db0cd46043e/src/autoclave/ui_qml/qml/Pantallas/OpcionesCalibracionSensor.qml:217: TypeError: Cannot read property 'operacionEnCurso' of null",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a16391db0cd46043e/src/autoclave/ui_qml/qml/Pantallas/OpcionesCalibracionSensor.qml:296: TypeError: Cannot read property 'gain' of undefined",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a16391db0cd46043e/src/autoclave/ui_qml/qml/Pantallas/OpcionesCalibracionSensor.qml:311: TypeError: Cannot read property 'offset' of undefined",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a16391db0cd46043e/src/autoclave/ui_qml/qml/Pantallas/OpcionesCalibracionSensor.qml:324: TypeError: Cannot read property 'poly' of undefined",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a16391db0cd46043e/src/autoclave/ui_qml/qml/Pantallas/OpcionesCalibracionSensor.qml:184: TypeError: Cannot read property 'valido' of undefined",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a16391db0cd46043e/src/autoclave/ui_qml/qml/Pantallas/OpcionesCalibracionSensor.qml:184: TypeError: Cannot read property 'valido' of undefined",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a16391db0cd46043e/src/autoclave/ui_qml/qml/Pantallas/OpcionesCalibracionSensor.qml:35: TypeError: Cannot read property 'length' of undefined",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a16391db0cd46043e/src/autoclave/ui_qml/qml/Pantallas/OpcionesCalibracionSensor.qml:33: TypeError: Cannot read property 'presion' of null",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a16391db0cd46043e/src/autoclave/ui_qml/qml/Pantallas/OpcionesCalibracionSensor.qml:373: TypeError: Cannot read property 'valido' of undefined"
+  ]
+ },
+ "OpcionesConectividad": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "OpcionesRespaldo": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "OpcionesEntradasSalidas": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "OpcionesMantenimiento": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "OpcionesAvanzadas": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "OpcionesManejoCiclos": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "OpcionesReasignacion": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "opciones_equipo_maquina": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "teclado_alfa": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "teclado_num": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "intro_final": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "barra_reinicio": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "reposo_aviso": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "inst_activacion_auto": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": [
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a16391db0cd46043e/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:97: TypeError: Property 'calcularModelo' of object QObject_QML_3322(0x1f40c14e4f0) is not a function",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a16391db0cd46043e/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:1006:25: QML Grid: Grid contains more visible items (9) than rows*columns (5)",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a16391db0cd46043e/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:192: TypeError: Property 'normalizarOriginal' of object QObject_QML_3322(0x1f40c14e4f0) is not a function"
+  ]
+ },
+ "inst_equipo": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": [
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a16391db0cd46043e/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:97: TypeError: Property 'calcularModelo' of object QObject_QML_3393(0x1f409008590) is not a function",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a16391db0cd46043e/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:1006:25: QML Grid: Grid contains more visible items (9) than rows*columns (5)",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a16391db0cd46043e/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:97: TypeError: Property 'calcularModelo' of object QObject_QML_3393(0x1f409008590) is not a function"
+  ]
+ },
+ "inst_puertas": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": [
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a16391db0cd46043e/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:97: TypeError: Property 'calcularModelo' of object QObject_QML_3464(0x1f4075976e0) is not a function",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a16391db0cd46043e/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:1006:25: QML Grid: Grid contains more visible items (9) than rows*columns (5)",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a16391db0cd46043e/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:97: TypeError: Property 'calcularModelo' of object QObject_QML_3464(0x1f4075976e0) is not a function",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a16391db0cd46043e/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:97: TypeError: Property 'calcularModelo' of object QObject_QML_3464(0x1f4075976e0) is not a function"
+  ]
+ },
+ "inst_puertas_una": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": [
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a16391db0cd46043e/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:97: TypeError: Property 'calcularModelo' of object QObject_QML_3535(0x1f40c13d730) is not a function",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a16391db0cd46043e/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:1006:25: QML Grid: Grid contains more visible items (9) than rows*columns (5)",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a16391db0cd46043e/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:97: TypeError: Property 'calcularModelo' of object QObject_QML_3535(0x1f40c13d730) is not a function",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a16391db0cd46043e/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:97: TypeError: Property 'calcularModelo' of object QObject_QML_3535(0x1f40c13d730) is not a function"
+  ]
+ },
+ "inst_camara": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": [
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a16391db0cd46043e/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:97: TypeError: Property 'calcularModelo' of object QObject_QML_3606(0x1f409022660) is not a function",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a16391db0cd46043e/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:1006:25: QML Grid: Grid contains more visible items (9) than rows*columns (5)",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a16391db0cd46043e/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:97: TypeError: Property 'calcularModelo' of object QObject_QML_3606(0x1f409022660) is not a function",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a16391db0cd46043e/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:97: TypeError: Property 'calcularModelo' of object QObject_QML_3606(0x1f409022660) is not a function",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a16391db0cd46043e/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:97: TypeError: Property 'calcularModelo' of object QObject_QML_3606(0x1f409022660) is not a function",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a16391db0cd46043e/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:97: TypeError: Property 'calcularModelo' of object QObject_QML_3606(0x1f409022660) is not a function"
+  ]
+ },
+ "inst_enfriamiento": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": [
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a16391db0cd46043e/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:97: TypeError: Property 'calcularModelo' of object QObject_QML_3677(0x1f40759fa80) is not a function",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a16391db0cd46043e/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:1006:25: QML Grid: Grid contains more visible items (9) than rows*columns (5)",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a16391db0cd46043e/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:97: TypeError: Property 'calcularModelo' of object QObject_QML_3677(0x1f40759fa80) is not a function"
+  ]
+ },
+ "inst_vapor": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": [
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a16391db0cd46043e/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:97: TypeError: Property 'calcularModelo' of object QObject_QML_3748(0x1f40c1407f0) is not a function",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a16391db0cd46043e/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:1006:25: QML Grid: Grid contains more visible items (9) than rows*columns (5)",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a16391db0cd46043e/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:97: TypeError: Property 'calcularModelo' of object QObject_QML_3748(0x1f40c1407f0) is not a function"
+  ]
+ },
+ "inst_datos": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": [
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a16391db0cd46043e/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:97: TypeError: Property 'calcularModelo' of object QObject_QML_3819(0x1f408ffd880) is not a function",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a16391db0cd46043e/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:1006:25: QML Grid: Grid contains more visible items (9) than rows*columns (5)",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a16391db0cd46043e/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:97: TypeError: Property 'calcularModelo' of object QObject_QML_3819(0x1f408ffd880) is not a function"
+  ]
+ },
+ "inst_contrasenas": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": [
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a16391db0cd46043e/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:97: TypeError: Property 'calcularModelo' of object QObject_QML_3890(0x1f4075a7ae0) is not a function",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a16391db0cd46043e/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:1006:25: QML Grid: Grid contains more visible items (9) than rows*columns (5)",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a16391db0cd46043e/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:97: TypeError: Property 'calcularModelo' of object QObject_QML_3890(0x1f4075a7ae0) is not a function"
+  ]
+ },
+ "inst_resumen": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": [
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a16391db0cd46043e/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:97: TypeError: Property 'calcularModelo' of object QObject_QML_3961(0x1f40c1486b0) is not a function",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a16391db0cd46043e/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:1006:25: QML Grid: Grid contains more visible items (9) than rows*columns (5)",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a16391db0cd46043e/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:97: TypeError: Property 'calcularModelo' of object QObject_QML_3961(0x1f40c1486b0) is not a function",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a16391db0cd46043e/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:97: TypeError: Property 'calcularModelo' of object QObject_QML_3961(0x1f40c1486b0) is not a function",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a16391db0cd46043e/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:97: TypeError: Property 'calcularModelo' of object QObject_QML_3961(0x1f40c1486b0) is not a function",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a16391db0cd46043e/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:97: TypeError: Property 'calcularModelo' of object QObject_QML_3961(0x1f40c1486b0) is not a function"
+  ]
+ },
+ "inst_resumen_auto": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": [
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a16391db0cd46043e/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:97: TypeError: Property 'calcularModelo' of object QObject_QML_4032(0x1f40901a120) is not a function",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a16391db0cd46043e/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:1006:25: QML Grid: Grid contains more visible items (9) than rows*columns (5)",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a16391db0cd46043e/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:97: TypeError: Property 'calcularModelo' of object QObject_QML_4032(0x1f40901a120) is not a function",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a16391db0cd46043e/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:97: TypeError: Property 'calcularModelo' of object QObject_QML_4032(0x1f40901a120) is not a function",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a16391db0cd46043e/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:97: TypeError: Property 'calcularModelo' of object QObject_QML_4032(0x1f40901a120) is not a function",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a16391db0cd46043e/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:97: TypeError: Property 'calcularModelo' of object QObject_QML_4032(0x1f40901a120) is not a function",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a16391db0cd46043e/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:192: TypeError: Property 'normalizarOriginal' of object QObject_QML_4032(0x1f40901a120) is not a function",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a16391db0cd46043e/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:192: TypeError: Property 'normalizarOriginal' of object QObject_QML_4032(0x1f40901a120) is not a function"
+  ]
+ },
+ "inst_listo": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": [
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a16391db0cd46043e/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:97: TypeError: Property 'calcularModelo' of object QObject_QML_4103(0x1f4075977b0) is not a function",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a16391db0cd46043e/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:1006:25: QML Grid: Grid contains more visible items (9) than rows*columns (5)"
+  ]
+ },
+ "inst_teclado_codigo": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": [
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a16391db0cd46043e/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:97: TypeError: Property 'calcularModelo' of object QObject_QML_4174(0x1f40c1364a0) is not a function",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a16391db0cd46043e/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:1006:25: QML Grid: Grid contains more visible items (9) than rows*columns (5)"
+  ]
+ },
+ "inst_teclado_clave": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": [
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a16391db0cd46043e/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:97: TypeError: Property 'calcularModelo' of object QObject_QML_4245(0x1f4090265c0) is not a function",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a16391db0cd46043e/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:1006:25: QML Grid: Grid contains more visible items (9) than rows*columns (5)",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a16391db0cd46043e/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:97: TypeError: Property 'calcularModelo' of object QObject_QML_4245(0x1f4090265c0) is not a function"
+  ]
+ },
+ "login_teclado_clave": {
+  "problemas": [
+   {
+    "tipo": "cruza_divisor",
+    "divisor": 1352,
+    "texto": "Confirmar",
+    "obj": "",
+    "x": 1290,
+    "ancho": 183
+   }
+  ],
+  "fuera": [],
+  "avisos": []
+ },
+ "login_sin_bd": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "cambio_clave_teclado": {
+  "problemas": [
+   {
+    "tipo": "cruza_divisor",
+    "divisor": 1352,
+    "texto": "Confirmar",
+    "obj": "",
+    "x": 1290,
+    "ancho": 183
+   }
+  ],
+  "fuera": [],
+  "avisos": []
+ },
+ "nuevo_usuario_roles": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "nuevo_usuario_teclado": {
+  "problemas": [
+   {
+    "tipo": "cruza_divisor",
+    "divisor": 1352,
+    "texto": "Confirmar",
+    "obj": "",
+    "x": 1290,
+    "ancho": 183
+   }
+  ],
+  "fuera": [],
+  "avisos": []
+ },
+ "b_preciclo_puerta2": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "b_preciclo_puerta2_manual": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "b_preciclo_modo_prueba": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "b_preciclo_falla": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "b_preciclo_sin_conexion": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "b_preciclo_muchas_alarmas": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "b_preciclo_programa_largo": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "b_preciclo_selector": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "b_ciclo_pantalla_completa": {
+  "problemas": [
+   {
+    "tipo": "sale_del_cuadro",
+    "cuadro": [
+     1793,
+     58
+    ],
+    "texto": "kPa",
+    "obj": "",
+    "x": 1833,
+    "ancho": 38
+   },
+   {
+    "tipo": "cruza_divisor",
+    "divisor": 541,
+    "texto": "10",
+    "obj": "",
+    "x": 533,
+    "ancho": 20
+   },
+   {
+    "tipo": "sale_del_cuadro",
+    "cuadro": [
+     1514,
+     79
+    ],
+    "texto": "35",
+    "obj": "",
+    "x": 1573,
+    "ancho": 22
+   }
+  ],
+  "fuera": [],
+  "avisos": []
+ },
+ "b_ciclo_tiempos": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "b_ciclo_zoom_lupa": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "b_ciclo_sin_conexion": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "b_fin_fallido_grafica": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "b_fin_observaciones_pildora": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "b_fin_observaciones_panel": {
+  "problemas": [
+   {
+    "tipo": "sale_del_cuadro",
+    "cuadro": [
+     1244,
+     593
+    ],
+    "texto": "›",
+    "obj": "chevronFila",
+    "x": 1836,
+    "ancho": 12
+   }
+  ],
+  "fuera": [],
+  "avisos": []
+ },
+ "b_fin_estado_seguro_modal": {
+  "problemas": [
+   {
+    "tipo": "sale_del_cuadro",
+    "cuadro": [
+     1244,
+     593
+    ],
+    "texto": "›",
+    "obj": "chevronFila",
+    "x": 1836,
+    "ancho": 12
+   },
+   {
+    "tipo": "cruza_divisor",
+    "divisor": 789,
+    "texto": "Volver",
+    "obj": "",
+    "x": 728,
+    "ancho": 85
+   }
+  ],
+  "fuera": [],
+  "avisos": []
+ },
+ "b_ciclo_espera_entrega_ingeniero": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "b_ciclo_espera_entrega": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "menu_historial_ciclo": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "menu_ciclos_hoy_ciclo": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "menu_historial_destino": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "reportes_dia": {
+  "problemas": [],
+  "fuera": [
+   {
+    "obj": "cuerpoReportes|",
+    "x": 54,
+    "y": 283,
+    "w": 1812,
+    "h": 3360
+   },
+   {
+    "obj": "seccionCalendario|",
+    "x": 972,
+    "y": 283,
+    "w": 894,
+    "h": 1720
+   }
+  ],
+  "avisos": []
+ },
+ "reportes_panel": {
+  "problemas": [],
+  "fuera": [
+   {
+    "obj": "cuerpoReportes|",
+    "x": 54,
+    "y": -563,
+    "w": 1812,
+    "h": 3360
+   },
+   {
+    "obj": "seccionResultado|",
+    "x": 54,
+    "y": -21,
+    "w": 894,
+    "h": 321
+   },
+   {
+    "obj": "seccionProgramas|",
+    "x": 54,
+    "y": 830,
+    "w": 894,
+    "h": 518
+   },
+   {
+    "obj": "seccionCalendario|",
+    "x": 972,
+    "y": -563,
+    "w": 894,
+    "h": 1720
+   }
+  ],
+  "avisos": []
+ },
+ "reportes_medio": {
+  "problemas": [],
+  "fuera": [
+   {
+    "obj": "cuerpoReportes|",
+    "x": 54,
+    "y": -604,
+    "w": 1812,
+    "h": 3360
+   },
+   {
+    "obj": "seccionProgramas|",
+    "x": 54,
+    "y": 789,
+    "w": 894,
+    "h": 518
+   },
+   {
+    "obj": "seccionCalendario|",
+    "x": 972,
+    "y": -604,
+    "w": 894,
+    "h": 1720
+   }
+  ],
+  "avisos": []
+ },
+ "reportes_selector": {
+  "problemas": [],
+  "fuera": [
+   {
+    "obj": "cuerpoReportes|",
+    "x": 54,
+    "y": 283,
+    "w": 1812,
+    "h": 3360
+   },
+   {
+    "obj": "seccionCalendario|",
+    "x": 972,
+    "y": 283,
+    "w": 894,
+    "h": 1720
+   }
+  ],
+  "avisos": []
+ },
+ "reportes_anio": {
+  "problemas": [],
+  "fuera": [
+   {
+    "obj": "cuerpoReportes|",
+    "x": 54,
+    "y": 283,
+    "w": 1812,
+    "h": 3556
+   },
+   {
+    "obj": "seccionCalendario|",
+    "x": 972,
+    "y": 283,
+    "w": 894,
+    "h": 1916
+   }
+  ],
+  "avisos": []
+ },
+ "reportes_alarmas": {
+  "problemas": [],
+  "fuera": [
+   {
+    "obj": "cuerpoReportes|",
+    "x": 54,
+    "y": -1814,
+    "w": 1812,
+    "h": 3360
+   },
+   {
+    "obj": "seccionMantenimiento|",
+    "x": 54,
+    "y": 283,
+    "w": 593,
+    "h": 1066
+   },
+   {
+    "obj": "seccionAlarmas|",
+    "x": 663,
+    "y": 283,
+    "w": 593,
+    "h": 1066
+   },
+   {
+    "obj": "seccionOperadores|",
+    "x": 1273,
+    "y": 283,
+    "w": 593,
+    "h": 1066
+   }
+  ],
+  "avisos": []
+ },
+ "reportes_correo": {
+  "problemas": [],
+  "fuera": [
+   {
+    "obj": "cuerpoReportes|",
+    "x": 54,
+    "y": -2371,
+    "w": 1812,
+    "h": 3360
+   },
+   {
+    "obj": "seccionMantenimiento|",
+    "x": 54,
+    "y": -275,
+    "w": 593,
+    "h": 1066
+   },
+   {
+    "obj": "seccionAlarmas|",
+    "x": 663,
+    "y": -275,
+    "w": 593,
+    "h": 1066
+   },
+   {
+    "obj": "seccionOperadores|",
+    "x": 1273,
+    "y": -275,
+    "w": 593,
+    "h": 1066
+   }
+  ],
+  "avisos": []
+ },
+ "reportes_ciclo": {
+  "problemas": [],
+  "fuera": [
+   {
+    "obj": "cuerpoReportes|",
+    "x": 54,
+    "y": -562,
+    "w": 1812,
+    "h": 3360
+   },
+   {
+    "obj": "seccionResultado|",
+    "x": 54,
+    "y": -21,
+    "w": 894,
+    "h": 321
+   },
+   {
+    "obj": "seccionProgramas|",
+    "x": 54,
+    "y": 830,
+    "w": 894,
+    "h": 518
+   },
+   {
+    "obj": "seccionCalendario|",
+    "x": 972,
+    "y": -562,
+    "w": 894,
+    "h": 1720
+   }
+  ],
+  "avisos": []
+ },
+ "reportes_fallo": {
+  "problemas": [],
+  "fuera": [
+   {
+    "obj": "cuerpoReportes|",
+    "x": 54,
+    "y": 527,
+    "w": 1812,
+    "h": 3360
+   },
+   {
+    "obj": "seccionCalendario|",
+    "x": 972,
+    "y": 527,
+    "w": 894,
+    "h": 1720
+   }
+  ],
+  "avisos": []
+ },
+ "d_usuarios": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "d_parametros_ciclo": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "d_parametros_ciclo_fase": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "d_parametros_equipo": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "d_parametros_equipo_maquina": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "d_fecha_hora": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "d_info_sistema": {
+  "problemas": [],
+  "fuera": [
+   {
+    "obj": "grupoInfo_uso|",
+    "x": 285,
+    "y": 949,
+    "w": 770,
+    "h": 305
+   },
+   {
+    "obj": "grupoInfo_configuracion|",
+    "x": 1095,
+    "y": 949,
+    "w": 770,
+    "h": 389
+   }
+  ],
+  "avisos": []
+ },
+ "d_bitacora": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "d_mantenimiento": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "d_conectividad": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "d_respaldo": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "d_entradas_salidas": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "d_avanzadas": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "d_reasignacion": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "d_cajon": {
+  "problemas": [],
+  "fuera": [
+   {
+    "obj": "navegacionOpciones|",
+    "x": 54,
+    "y": 298,
+    "w": 562,
+    "h": 1112
+   }
+  ],
+  "avisos": []
+ },
+ "d_ciclo_sensores": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "d_ciclo_entradas": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "d_ciclo_ajuste": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "d_equipo_chaqueta": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "d_equipo_impresion": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "d_equipo_ajuste": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "d_usuarios_seleccion": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "d_usuarios_operadores": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "d_es_salidas": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "d_es_temperatura": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "d_es_presion": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "d_calibracion_atm": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "d_calibracion_sensor": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "d_bitacora_tipo": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "d_avanzadas_programa": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "e_notificaciones": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "e_detalle_alarma": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "e_equipo": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "e_equipo_apagar": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "e_modal_confirmacion": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "e_dialogo_confirmacion": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "e_modal_operador": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "e_main_sin_conexion": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "e_cambio_clave_teclado": {
+  "problemas": [
+   {
+    "tipo": "cruza_divisor",
+    "divisor": 1352,
+    "texto": "Confirmar",
+    "obj": "",
+    "x": 1290,
+    "ancho": 183
+   }
+  ],
+  "fuera": [],
+  "avisos": []
+ },
+ "e_nuevo_usuario_teclado": {
+  "problemas": [
+   {
+    "tipo": "cruza_divisor",
+    "divisor": 1352,
+    "texto": "Confirmar",
+    "obj": "",
+    "x": 1290,
+    "ancho": 183
+   }
+  ],
+  "fuera": [],
+  "avisos": []
+ }
+}

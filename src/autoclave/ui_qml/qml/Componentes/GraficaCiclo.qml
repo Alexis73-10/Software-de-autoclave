@@ -126,6 +126,15 @@ Item {
 
     function m(v) { return v * escala }
     function fuente(v) { return Math.max(1, Math.round(m(v))) }
+    // Tanda horizontal (9-nov): en el lienzo horizontal (Escala.horizontal) la
+    // tarjeta puede ser más ancha o más angosta que la del mockup (1129): dw es la
+    // diferencia en px del mockup y corre a la derecha todo lo que está anclado al
+    // borde derecho (botones, eje derecho, fin de la cuadrícula y de los datos,
+    // lupa); el área de trazado absorbe la diferencia. En vertical vale 0 y la
+    // geometría es la de siempre. Con la cabecera angosta (dw < 0) la leyenda baja
+    // a una fila propia bajo los botones y usa todo el ancho.
+    readonly property real dw: Escala.horizontal && escala > 0 ? width / escala - 1129 : 0
+    readonly property bool _cabeceraAngosta: dw < 0
     // alto sobrante respecto al mockup (794): lo absorbe el área de trazado
     readonly property real _extra: height - m(794)
     function yb(v) { return m(v) + _extra }
@@ -147,10 +156,11 @@ Item {
     readonly property var ejeDerecho: Ejes.ejeY(_maximo(series.filter(s => s.eje === "derecho").map(s => s.clave)))
 
     // área de trazado: x de datos 0..ejeX.maximo en 93..1035; cuadrícula 68..1059
+    // (en horizontal, 1035 + dw y 1059 + dw)
     readonly property real xDato0: m(93)
     // diámetro del punto del cursor; la reserva de la card parte de su radio
     readonly property real diametroPuntoCursor: m(18)
-    readonly property real xDato1: m(1035)
+    readonly property real xDato1: m(1035 + dw)
     readonly property real yArriba: m(279)
     readonly property real yAbajo: yb(709)
     // ---- ventana visible (ZOM-02) ----
@@ -279,9 +289,10 @@ Item {
     // cabe antes del botón Tiempos, se reduce la letra.
     Row {
         id: filaLeyenda
-        readonly property real disponible: raiz.m(840 - 88)
+        readonly property real disponible: raiz._cabeceraAngosta ? raiz.m(1129 + raiz.dw - 88 - 48)
+                                                                 : raiz.m(840 - 88 + raiz.dw)
         property real tam: 21
-        x: raiz.m(88); y: raiz.m(92)
+        x: raiz.m(88); y: raiz.m(raiz._cabeceraAngosta ? 108 : 92)
         spacing: raiz.m(28)
         onImplicitWidthChanged: if (implicitWidth > disponible && tam > 14) tam = tam - 1
         Repeater {
@@ -310,7 +321,7 @@ Item {
     Rectangle {
         id: botonTiempos
         visible: !raiz.modoPantallaCompleta
-        x: raiz.m(856); y: raiz.m(43); width: raiz.m(154); height: raiz.m(58)
+        x: raiz.m(856 + raiz.dw); y: raiz.m(43); width: raiz.m(154); height: raiz.m(58)
         radius: raiz.m(6)
         color: Colores.fondoTarjeta
         border.width: raiz.m(1.5); border.color: raiz.paleta.bordeBoton
@@ -324,10 +335,23 @@ Item {
             font.pixelSize: raiz.fuente(20)
         }
         Image {
+            visible: !Escala.horizontal
             x: raiz.m(116); y: raiz.m(24)
             width: raiz.m(14); height: width
             source: raiz.iconosColor + "chevron_abajo.svg"
             sourceSize.width: width; sourceSize.height: height
+        }
+        // Ronda 2 (horizontal): el chevrón negro del SVG casi no se ve en oscuro
+        // (1,29:1 sobre fondoTarjeta); en horizontal va teñido con textoNegro
+        // (negro en claro, claro en oscuro). Preexistente en el vertical oscuro,
+        // pendiente de decisión: el vertical no cambia.
+        IconoColor {
+            objectName: "chevronTiempos"
+            visible: Escala.horizontal
+            x: raiz.m(116); y: raiz.m(24)
+            width: raiz.m(14); height: width
+            source: raiz.iconosColor + "chevron_abajo.svg"
+            color: Colores.textoNegro
         }
         MouseArea {
             anchors.fill: parent
@@ -338,7 +362,7 @@ Item {
     // botón de pantalla completa
     Rectangle {
         visible: !raiz.modoPantallaCompleta
-        x: raiz.m(1037); y: raiz.m(43); width: raiz.m(58); height: raiz.m(58)
+        x: raiz.m(1037 + raiz.dw); y: raiz.m(43); width: raiz.m(58); height: raiz.m(58)
         radius: raiz.m(6)
         color: Colores.fondoTarjeta
         border.width: raiz.m(1.5); border.color: raiz.paleta.bordeBoton
@@ -354,7 +378,7 @@ Item {
     // botón CERRAR de la pantalla completa (PROVISIONAL: sin diseño; estilo del botón Tiempos)
     Rectangle {
         visible: raiz.modoPantallaCompleta
-        x: raiz.m(885); y: raiz.m(43); width: raiz.m(210); height: raiz.m(58)
+        x: raiz.m(885 + raiz.dw); y: raiz.m(43); width: raiz.m(210); height: raiz.m(58)
         radius: raiz.m(6)
         color: Colores.fondoTarjeta
         border.width: raiz.m(1.5); border.color: raiz.paleta.bordeBoton
@@ -370,7 +394,7 @@ Item {
     }
 
     Rectangle {
-        x: raiz.m(61); y: raiz.m(146); width: raiz.m(1069 - 61); height: raiz.m(2)
+        x: raiz.m(61); y: raiz.m(146); width: raiz.m(1069 - 61 + raiz.dw); height: raiz.m(2)
         color: raiz.paleta.separador
     }
 
@@ -381,7 +405,7 @@ Item {
         color: raiz.paleta.etiquetaEje
     }
     Texto {
-        lx: 1075; bl: 245; tam: 20
+        lx: 1075 + raiz.dw; bl: 245; tam: 20
         text: raiz._unidadEje("derecho", I18n.t("unidades.presion", I18n.lang))
         color: raiz.paleta.etiquetaEje
     }
@@ -400,7 +424,7 @@ Item {
             anchors.fill: parent
             Rectangle {
                 x: raiz.m(68); y: linea.yLinea - height / 2
-                width: raiz.m(1059 - 68); height: Math.max(1, raiz.m(1.2))
+                width: raiz.m(1059 - 68 + raiz.dw); height: Math.max(1, raiz.m(1.2))
                 color: Math.abs(linea.yLinea - raiz.yAbajo) < 0.5 ? raiz.paleta.eje : raiz.paleta.cuadricula
             }
             Text {
@@ -418,7 +442,7 @@ Item {
         delegate: Text {
             id: etiquetaDer
             required property var modelData
-            x: raiz.m(1075)
+            x: raiz.m(1075 + raiz.dw)
             y: raiz.yDe(etiquetaDer.modelData, "derecho") - height / 2 - raiz.m(3)
             text: raiz._etiqueta(etiquetaDer.modelData)
             color: raiz.paleta.etiquetaEje
@@ -430,7 +454,7 @@ Item {
     Rectangle {
         visible: raiz._conVentana
         x: raiz.m(68); y: raiz.yAbajo - height / 2
-        width: raiz.m(1059 - 68); height: Math.max(1, raiz.m(1.2))
+        width: raiz.m(1059 - 68 + raiz.dw); height: Math.max(1, raiz.m(1.2))
         color: raiz.paleta.eje
     }
 
@@ -459,7 +483,7 @@ Item {
         }
     }
     Text {
-        x: raiz.m(564) - width / 2
+        x: raiz.m(564 + raiz.dw / 2) - width / 2
         y: raiz.yb(779) - baselineOffset
         text: I18n.t("ciclo.grafica_eje_tiempo", I18n.lang)
         color: raiz.paleta.tituloEje
@@ -656,7 +680,7 @@ Item {
     MouseArea {
         id: toqueGrafica
         x: raiz.m(68); y: raiz.yArriba - raiz.m(20)
-        width: raiz.m(1059 - 68); height: raiz.yAbajo - y
+        width: raiz.m(1059 - 68 + raiz.dw); height: raiz.yAbajo - y
         preventStealing: true
         function mover(mx) {
             raiz._moverCursor(x + mx)
@@ -720,7 +744,7 @@ Item {
         id: lupa
         objectName: "lupaZoomGrafica"
         visible: raiz.zoomActivo
-        x: raiz.m(1059 - 6 - 56); y: raiz.yArriba + raiz.m(6)
+        x: raiz.m(1059 - 6 - 56 + raiz.dw); y: raiz.yArriba + raiz.m(6)
         width: raiz.m(56); height: width
         Rectangle {
             anchors.centerIn: parent
@@ -796,7 +820,7 @@ Item {
             // A11 (tanda 28): la posición la calcula ui_qml/domain/posicion_card.py
             // (a un costado del cursor, en un hueco sin curvas); aquí solo se dibuja.
             readonly property var pos: PosicionCard.posicionar(
-                [raiz.m(68), raiz.yArriba, raiz.m(1059), raiz.yAbajo],
+                [raiz.m(68), raiz.yArriba, raiz.m(1059 + raiz.dw), raiz.yAbajo],
                 cursor.xCursor, width, height,
                 raiz._curvasCerca(cursor.xCursor - width - raiz.m(40), cursor.xCursor + width + raiz.m(40)),
                 raiz.diametroPuntoCursor / 2 + raiz.m(8))

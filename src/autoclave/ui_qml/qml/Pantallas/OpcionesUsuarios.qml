@@ -244,12 +244,15 @@ Item {
         anchors.bottom: parent.bottom
         width: parent.width
 
+        // Horizontal: la lista a la izquierda, a todo el alto, y las acciones
+        // en una columna a la derecha
         ListView {
             id: listaUsuarios
             objectName: "listaUsuarios"
             anchors.top: parent.top
-            anchors.bottom: accionesUsuario.top; anchors.bottomMargin: Escala.px(12)
-            width: parent.width
+            anchors.bottom: Escala.horizontal ? parent.bottom : accionesUsuario.top
+            anchors.bottomMargin: Escala.horizontal ? 0 : Escala.px(12)
+            width: Escala.horizontal ? parent.width - accionesUsuario.width - Escala.px(24) : parent.width
             clip: true
             spacing: Escala.px(6)
             model: control.usuarios
@@ -298,8 +301,10 @@ Item {
 
         Column {
             id: accionesUsuario
-            anchors.bottom: parent.bottom
-            width: parent.width
+            anchors.bottom: Escala.horizontal ? undefined : parent.bottom
+            anchors.top: Escala.horizontal ? parent.top : undefined
+            x: Escala.horizontal ? parent.width - width : 0
+            width: Escala.horizontal ? Math.round(parent.width * 0.5) : parent.width
             spacing: Escala.px(10)
 
             Text {

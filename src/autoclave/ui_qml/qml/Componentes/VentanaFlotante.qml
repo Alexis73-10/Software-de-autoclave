@@ -18,6 +18,9 @@ Item {
     property string titulo: ""
     // Alto deseado de la tarjeta en px del mockup; se limita al alto disponible
     property real altoTarjeta: 1200
+    // Tanda horizontal: ancho de la tarjeta en px del mockup en el lienzo
+    // horizontal (centrada); 0 = todo el ancho menos los márgenes, como en vertical
+    property real anchoRecuadroHz: 0
     // Zona de contenido, debajo del título y su línea (ancho y alto en px reales)
     default property alias contenido: zona.data
     readonly property real anchoContenido: zona.width
@@ -76,13 +79,18 @@ Item {
     Rectangle {
         id: tarjeta
         objectName: "tarjetaVentana"
-        x: raiz.m(34)
+        x: Escala.horizontal && raiz.anchoRecuadroHz > 0
+           ? Math.max(raiz.m(34), (parent.width - raiz.m(raiz.anchoRecuadroHz)) / 2) : raiz.m(34)
         width: parent.width - 2 * x
         height: Math.min(raiz.m(raiz.altoTarjeta), parent.height - raiz.m(160))
         anchors.verticalCenter: parent.verticalCenter
         radius: raiz.m(26)
         color: Colores.fondoTarjeta
         opacity: compartido.opacidadContenido
+        // horizontal: la tarjeta es su propia capa (todo su contenido cabe en
+        // ella); así sus textos no se miden contra las tarjetas del Menú que
+        // quedan detrás del velo (revisión de textos de hor_capturas)
+        clip: Escala.horizontal
         MouseArea { anchors.fill: parent }   // no dejar pasar el toque al fondo
 
         Text {

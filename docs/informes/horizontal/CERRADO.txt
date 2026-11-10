@@ -1,0 +1,5 @@
+2026-11-09 Tanda horizontal cerrada en la rama `horizontal` (desde dev 839f7a66). Sin merge a dev ni push: el merge lo decide Cristian.
+Último commit de trabajo antes del cierre: 3814b476 (más el commit de este cierre).
+Suite completa (pytest tests -n 8): 12404 passed, 16 failed, 11 skipped, 15 xfailed. Las 16 fallas son las mismas de dev 839f7a66 y ninguna es de la interfaz.
+Vertical: 117 de 132 escenarios idénticos a dev píxel a píxel; los 15 restantes tienen animación o reloj y también difieren entre dos corridas de dev.
+Pendiente de decisión de Cristian: las DECISIÓN SIN CONFIRMAR y los contrastes del vertical oscuro, listados en R_informe.md. Pendiente de banco: rotación del monitor en Windows, táctiles, zoom con dos dedos y teclado.

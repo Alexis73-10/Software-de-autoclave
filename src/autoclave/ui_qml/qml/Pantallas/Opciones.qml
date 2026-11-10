@@ -66,7 +66,16 @@ Item {
 
     readonly property real anchoMockup: 1196
     readonly property real altoMockup: 1917
-    readonly property real escala: width / anchoMockup
+    // Tanda horizontal: en el lienzo horizontal la escala es la del lienzo
+    // vertical (mismos px de diseño); la tarjeta, el título y el contenido van
+    // a lo ancho (riel de iconos a la izquierda como en vertical, sección a la
+    // derecha con todo el ancho restante) y el título sube para ganar alto.
+    readonly property bool hz: Escala.horizontal
+    readonly property real escala: hz ? Escala.px(Escala.anchoVertical) / anchoMockup : width / anchoMockup
+    // ancho del marco en px del mockup (1196 en vertical; 1913,6 en horizontal)
+    readonly property real anchoMarco: width / escala
+    // borde superior del riel y del contenido (330 en vertical)
+    readonly property real _yContenido: hz ? 297 : 330
     function m(v) { return v * escala }
     function fuente(v) { return Math.max(1, Math.round(m(v))) }
 
@@ -293,7 +302,7 @@ Item {
         id: tarjetaOpciones
         objectName: "tarjetaOpciones"
         x: raiz.m(19); y: raiz.m(177)
-        width: raiz.m(1159); height: barra.y - raiz.m(10) - y
+        width: raiz.m(raiz.hz ? raiz.anchoMarco - 38 : 1159); height: barra.y - raiz.m(10) - y
         radius: raiz.m(30)
         color: Colores.fondoTarjeta
     }
@@ -301,7 +310,7 @@ Item {
     // ---- título: hamburguesa + sección activa (imagen 1a) ----
     // Tres trazos dibujados (no hay icono de hamburguesa en assets): 48 x 31 en (79, 253)
     Column {
-        x: raiz.m(79); y: raiz.m(253)
+        x: raiz.m(79); y: raiz.m(raiz.hz ? 221 : 253)
         spacing: raiz.m(10.5)
         Repeater {
             model: 3
@@ -314,14 +323,14 @@ Item {
     }
     MouseArea {
         objectName: "botonHamburguesa"
-        x: raiz.m(49); y: raiz.m(219); width: raiz.m(108); height: raiz.m(100)   // > 64 px (U-14)
+        x: raiz.m(49); y: raiz.m(raiz.hz ? 187 : 219); width: raiz.m(108); height: raiz.m(100)   // > 64 px (U-14)
         onClicked: raiz.alternarCajon()
     }
     Text {
         objectName: "tituloOpciones"
         x: raiz.m(160)
-        y: raiz.m(282) - baselineOffset
-        width: raiz.m(1140) - x
+        y: raiz.m(raiz.hz ? 250 : 282) - baselineOffset
+        width: raiz.m(raiz.hz ? raiz.anchoMarco - 56 : 1140) - x
         fontSizeMode: Text.HorizontalFit; minimumPixelSize: Escala.fuenteMinima
         text: raiz.seccionActiva !== "" ? raiz.nombreSeccion(raiz.seccionActiva).toUpperCase()
                                         : I18n.t("opciones.titulo", I18n.lang)
@@ -340,17 +349,22 @@ Item {
     // solo el ancho del riel plegado.
     readonly property real anchoRiel: m(96)
     readonly property real anchoRielAbierto: m(560)
+    // Horizontal: plegado, el riel va en dos columnas de iconos para que las
+    // once secciones quepan en el alto sin desplazarse; abierto, una columna
+    // con los nombres, como en vertical
+    readonly property bool _rielDoble: hz && !cajonAbierto
+    readonly property real anchoRielPlegado: hz ? anchoRiel * 2 + m(8) : anchoRiel
     Rectangle {
-        x: raiz.m(54) + raiz.anchoRiel + raiz.m(14); y: raiz.m(330)
+        x: raiz.m(54) + raiz.anchoRielPlegado + raiz.m(14); y: raiz.m(raiz._yContenido)
         width: raiz.m(2); height: contenido.height
         color: Colores.bordeDivisor
     }
     Rectangle {
         id: marcoRiel
         objectName: "cajonOpciones"
-        x: raiz.m(54); y: raiz.m(330)
+        x: raiz.m(54); y: raiz.m(raiz._yContenido)
         z: 10
-        width: raiz.cajonAbierto ? raiz.anchoRielAbierto : raiz.anchoRiel
+        width: raiz.cajonAbierto ? raiz.anchoRielAbierto : raiz.anchoRielPlegado
         height: contenido.height
         radius: raiz.m(18)
         color: raiz.cajonAbierto ? Colores.fondoTarjeta : "transparent"
@@ -369,11 +383,13 @@ Item {
             enabled: !raiz.navegacionBloqueada
             opacity: enabled ? 1 : 0.4
 
-            Column {
+            Grid {
                 id: columnaRiel
                 objectName: "navegacionOpciones"
                 width: parent.width
-                spacing: raiz.m(14)
+                columns: raiz._rielDoble ? 2 : 1
+                rowSpacing: raiz.m(14)
+                columnSpacing: raiz.m(8)
                 Repeater {
                     model: raiz.secciones
                     delegate: Item {
@@ -381,7 +397,7 @@ Item {
                         required property var modelData
                         readonly property bool activa: modelData.clave === raiz.seccionActiva
                         objectName: "entrada_" + modelData.clave
-                        width: columnaRiel.width
+                        width: raiz._rielDoble ? raiz.anchoRiel : columnaRiel.width
                         height: Math.max(raiz.m(88), textoRiel.visible ? textoRiel.contentHeight + raiz.m(28) : 0)
 
                         Rectangle {
@@ -406,7 +422,7 @@ Item {
                         Text {
                             id: textoRiel
                             objectName: "textoEntrada"
-                            visible: marcoRiel.width > raiz.anchoRiel + raiz.m(120)
+                            visible: !raiz._rielDoble && marcoRiel.width > raiz.anchoRiel + raiz.m(120)
                             x: raiz.anchoRiel
                             width: parent.width - x - raiz.m(12)
                             anchors.verticalCenter: parent.verticalCenter
@@ -430,8 +446,9 @@ Item {
     Item {
         id: contenido
         objectName: "contenidoOpciones"
-        x: raiz.m(54) + raiz.anchoRiel + raiz.m(30); y: raiz.m(330)
-        width: raiz.m(1088) - raiz.anchoRiel - raiz.m(30)
+        x: raiz.m(54) + raiz.anchoRielPlegado + raiz.m(30); y: raiz.m(raiz._yContenido)
+        // horizontal: hasta el margen derecho de 54 (como en vertical, 1142)
+        width: raiz.m(raiz.hz ? raiz.anchoMarco - 108 : 1088) - raiz.anchoRielPlegado - raiz.m(30)
         height: barra.y - y - raiz.m(30)
 
         // Solo lectura fuera de PREPARACION / PREPARADO (U-8): aviso fijo

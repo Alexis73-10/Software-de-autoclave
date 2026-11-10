@@ -104,6 +104,13 @@ Item {
         clave = ""
     }
 
+    // Tanda horizontal: en el lienzo 1920x1200 (Escala.horizontal) la barra
+    // flotante usa la escala del lienzo vertical (mismos px de diseño) y la
+    // tarjeta pone el avatar a la izquierda y el formulario a la derecha,
+    // arriba, para que los campos queden sobre el teclado en pantalla.
+    readonly property bool hz: Escala.horizontal
+    readonly property real escalaBarra: hz ? Escala.px(Escala.anchoVertical) / 1196 : raiz.width / 1196
+
     // Iconos del formulario: variante color/ (gris / azul del checkbox),
     // que es la que coincide con 05_PNG_REFERENCIA/pantalla_03_login.
     readonly property string iconos: "../../assets/iconos/color/"
@@ -118,7 +125,7 @@ Item {
             id: tarjetaContenido
             objectName: "tarjetaLogin"
             width: parent.width - Escala.px(48)   // 24 a cada lado
-            height: raiz.height - Escala.px(176) - raiz.width / 1196 * 201  // deja la barra flotante debajo
+            height: raiz.height - Escala.px(176) - raiz.escalaBarra * 201  // deja la barra flotante debajo
             anchors.horizontalCenter: parent.horizontalCenter
 
             contenido: [
@@ -127,10 +134,23 @@ Item {
                     anchors.margins: Escala.px(24)   // relleno_tarjeta
                     spacing: 0
 
-                    Item { Layout.preferredHeight: Escala.px(60) }  // margen fijo antes del título
+                    // horizontal: 40 (con la ayuda y el aviso sin base de datos abiertos el
+                    // formulario no cabe en el alto de la tarjeta con 60 y 28 entre filas)
+                    Item { Layout.preferredHeight: raiz.hz ? Escala.px(40) : Escala.px(60) }  // margen fijo antes del título
+
+                    // Vertical: encabezado y, 60 más abajo, el formulario (una columna).
+                    // Horizontal: encabezado en la mitad izquierda, formulario a la derecha.
+                    GridLayout {
+                        id: grilla
+                        Layout.fillWidth: true
+                        columns: raiz.hz ? 2 : 1
+                        rowSpacing: Escala.px(60)
+                        columnSpacing: 0
 
                     Column {
-                        Layout.fillWidth: true
+                        Layout.fillWidth: !raiz.hz
+                        Layout.preferredWidth: raiz.hz ? grilla.width / 2 : -1
+                        Layout.alignment: raiz.hz ? Qt.AlignTop : 0
                         spacing: Escala.px(28)
 
                         Text {
@@ -166,14 +186,13 @@ Item {
                         }
                     }
 
-                    Item { Layout.preferredHeight: Escala.px(60) }  // margen fijo antes del formulario
-
                     // Formulario angosto y centrado (756 de diseño, como la referencia).
                     // En un Layout el ancho se fija con preferredWidth: "width" lo pisa el layout.
                     Column {
                         Layout.preferredWidth: Escala.px(756)
-                        Layout.alignment: Qt.AlignHCenter
-                        spacing: Escala.px(28)
+                        Layout.alignment: raiz.hz ? Qt.AlignLeft | Qt.AlignTop : Qt.AlignHCenter
+                        Layout.leftMargin: raiz.hz ? (grilla.width / 2 - Escala.px(756)) / 2 : 0
+                        spacing: raiz.hz ? Escala.px(20) : Escala.px(28)
 
                         Rectangle {
                             width: parent.width; height: Escala.px(88); radius: Escala.px(6)
@@ -449,6 +468,7 @@ Item {
                             MouseArea { anchors.fill: parent; onClicked: raiz.inicioPulsado() }
                         }
                     }
+                    }
 
                     Item { Layout.fillHeight: true }   // espaciador elástico: el hueco queda abajo
 
@@ -462,7 +482,7 @@ Item {
     BarraInferiorMenu {
         id: barraInferior
         objectName: "barraInferiorLogin"
-        escala: raiz.width / 1196
+        escala: raiz.escalaBarra
         // D8-5.2: mismo x y ancho que la tarjeta de contenido de encima
         x: tarjetaContenido.x
         width: tarjetaContenido.width

@@ -153,6 +153,19 @@ Item {
                 }
             }
 
+            // Horizontal: exportar a la izquierda y restaurar a la derecha (en
+            // vertical, uno debajo de otro con el mismo espacio de la columna)
+            Grid {
+                id: rejillaRespaldo
+                width: parent.width
+                columns: Escala.horizontal ? 2 : 1
+                rowSpacing: Escala.px(8)
+                columnSpacing: Escala.px(40)
+                readonly property real anchoBloque: Escala.horizontal ? (width - columnSpacing) / 2 : width
+            Column {
+                id: bloqueExportar
+                width: rejillaRespaldo.anchoBloque
+                spacing: Escala.px(8)
             // ── exportar ──────────────────────────────────────────────
             Text {
                 width: parent.width
@@ -168,7 +181,7 @@ Item {
                 delegate: FilaInterruptor {
                     required property string modelData
                     objectName: "parte_" + modelData
-                    width: columna.width
+                    width: bloqueExportar.width
                     etiqueta: I18n.t("respaldo.parte_" + modelData, I18n.lang)
                     marcado: control.partes[modelData] === true
                     bloqueado: !raiz.edicionPermitida
@@ -183,11 +196,16 @@ Item {
                 habilitado: raiz.edicionPermitida && raiz.hayUsb && !control.guardando && !raiz.restaurando
                 onPulsado: control.exportar()
             }
+            }
+            Column {
+                id: bloqueRestaurar
+                width: rejillaRespaldo.anchoBloque
+                spacing: Escala.px(8)
 
             // ── restaurar ─────────────────────────────────────────────
             Text {
                 width: parent.width
-                topPadding: Escala.px(20)
+                topPadding: Escala.px(Escala.horizontal ? 16 : 20)
                 text: I18n.t("respaldo.restaurar_titulo", I18n.lang)
                 color: Colores.textoPrimario
                 font.family: Tipografia.familia
@@ -209,7 +227,7 @@ Item {
                     required property var modelData
                     readonly property bool elegida: control.seleccion === modelData.archivo
                     objectName: "respaldo_" + modelData.archivo
-                    width: columna.width
+                    width: bloqueRestaurar.width
                     height: Escala.px(104)
                     radius: Escala.px(12)
                     color: elegida ? Colores.accionFondoTenue : Colores.fondoSutil
@@ -253,7 +271,11 @@ Item {
                             anchors.centerIn: parent
                             text: fila.modelData.valido ? I18n.t("respaldo.valido", I18n.lang)
                                                         : I18n.t("respaldo.rechazado", I18n.lang)
-                            color: fila.modelData.valido ? Colores.textoSobreAccion : Colores.peligroTexto
+                            // horizontal: sobre el verde, el tono de la tarjeta (blanco
+                            // en claro, como antes; oscuro en el tema oscuro)
+                            color: fila.modelData.valido ? (Escala.horizontal ? Colores.fondoTarjeta
+                                                                              : Colores.textoSobreAccion)
+                                                         : Colores.peligroTexto
                             font.family: Tipografia.familia
                             font.weight: Tipografia.pesoSemiBold
                             font.pixelSize: Escala.fuente(20)
@@ -282,6 +304,8 @@ Item {
                 color: Colores.textoGuia
                 font.family: Tipografia.familia
                 font.pixelSize: Escala.fuente(20)
+            }
+            }
             }
         }
     }

@@ -268,7 +268,28 @@ Item {
 
     readonly property real anchoMockup: 1196
     readonly property real altoMockup: 1917
-    function m(v) { return v * raiz.width / anchoMockup }
+    // Tanda horizontal (9-nov): en el lienzo horizontal (Escala.horizontal) la
+    // escala es la del lienzo vertical (mismos px de diseño), no el ancho. Dos
+    // columnas: a la izquierda, con la geometría de siempre, la tarjeta de ciclo,
+    // la barra de fases, la tarjeta de parámetros y los relojes con la barra de
+    // progreso (anclados abajo con yb()); a la derecha, la gráfica (o el panel de
+    // fin de ciclo) a todo el alto. Cabecera y barra inferior a lo ancho. En
+    // vertical todo vale exactamente lo de antes (dxCentro y dxDerecha valen 0).
+    readonly property bool hz: Escala.horizontal
+    readonly property real _escalaHz: Escala.px(Escala.anchoVertical) / anchoMockup
+    // ancho del marco en px del mockup (1196 en vertical; 1913,6 en horizontal)
+    readonly property real anchoMarco: hz ? width / _escalaHz : anchoMockup
+    readonly property real dxCentro: (anchoMarco - anchoMockup) / 2
+    readonly property real dxDerecha: anchoMarco - anchoMockup
+    // rectángulo de la gráfica / panel de fin de ciclo (px del mockup); en
+    // horizontal, de la columna izquierda (que termina en 1180, el texto de
+    // progreso de la fase) al margen derecho (16, como en vertical)
+    readonly property real gx: hz ? 1192 : 33
+    readonly property real gy: hz ? 192 : 804
+    readonly property real gw: hz ? anchoMarco - 19 - 16 - gx : 1162 - 33
+    // borde inferior (yb): en horizontal, a 14 del de la tarjeta principal
+    readonly property real gyFin: hz ? 1722 : 1598
+    function m(v) { return hz ? v * _escalaHz : v * raiz.width / anchoMockup }
     function fuente(v) { return Math.max(1, Math.round(m(v))) }
     // alto sobrante respecto al mockup; lo absorbe la gráfica
     readonly property real extra: raiz.height - m(altoMockup)
@@ -352,7 +373,7 @@ Item {
         function _dosDigitos(n) { return n < 10 ? "0" + n : "" + n }
 
         Texto {
-            cx: 597.5; bl: 108; tam: 97
+            cx: 597.5 + raiz.dxCentro; bl: 108; tam: 97
             text: reloj._dosDigitos(reloj._ahora.getHours()) + ":" +
                   reloj._dosDigitos(reloj._ahora.getMinutes())
             color: Colores.textoSobreAccion
@@ -360,7 +381,7 @@ Item {
             font.weight: Tipografia.pesoBold
         }
         Texto {
-            cx: 598; bl: 141; tam: 26
+            cx: 598 + raiz.dxCentro; bl: 141; tam: 26
             text: reloj._ahora.getDate() + " " +
                   (reloj._meses[reloj._ahora.getMonth()] ?? "") + "  -  " +
                   reloj._ahora.getFullYear()
@@ -372,12 +393,12 @@ Item {
     Item {
         anchors.fill: parent
         Icono {
-            caja: [888, 64, 51, 57]; tinta: [5.85, 4.0, 42.15, 44.0]
+            caja: [888 + raiz.dxDerecha, 64, 51, 57]; tinta: [5.85, 4.0, 42.15, 44.0]
             source: raiz.iconosColor + "campana.svg"
         }
         InsigniaCampana {
             objectName: "insigniaCampana"
-            x: raiz.m(922); y: raiz.m(50)
+            x: raiz.m(922 + raiz.dxDerecha); y: raiz.m(50)
             width: raiz.m(26); height: raiz.m(25)
             conteo: raiz.conteoNotificaciones
             urgente: panelNotificaciones.urgente
@@ -387,16 +408,16 @@ Item {
             tamFuente: raiz.fuente(17)
         }
         MouseArea {
-            x: raiz.m(870); y: raiz.m(40); width: raiz.m(90); height: raiz.m(95)
+            x: raiz.m(870 + raiz.dxDerecha); y: raiz.m(40); width: raiz.m(90); height: raiz.m(95)
             onClicked: { raiz.campanaPulsada(); panelNotificaciones.abrir() }
         }
 
         Icono {
-            caja: [1043, 64, 57, 58]; tinta: [4.0, 4.0, 44.0, 44.0]
+            caja: [1043 + raiz.dxDerecha, 64, 57, 58]; tinta: [4.0, 4.0, 44.0, 44.0]
             source: raiz.iconosColor + "engranaje.svg"
         }
         MouseArea {
-            x: raiz.m(1025); y: raiz.m(45); width: raiz.m(95); height: raiz.m(95)
+            x: raiz.m(1025 + raiz.dxDerecha); y: raiz.m(45); width: raiz.m(95); height: raiz.m(95)
             onClicked: raiz.ajustesPulsado()
         }
     }
@@ -408,7 +429,8 @@ Item {
         // B1: termina 10 px sobre la barra flotante (no 30 como en Opciones):
         // la barra de progreso llega a y 1723 del lienzo y no se reubica (D-19)
         x: raiz.m(19); y: raiz.m(177)
-        width: raiz.m(1159); height: barraInferior.y - raiz.m(10) - y
+        // horizontal: a lo ancho (márgenes de 19 a cada lado)
+        width: raiz.m(raiz.hz ? raiz.anchoMarco - 38 : 1159); height: barraInferior.y - raiz.m(10) - y
         radius: raiz.m(30)
         color: Colores.fondoTarjeta
     }
@@ -441,6 +463,19 @@ Item {
     Texto {
         cx: 599; bl: 308; tam: 36
         text: raiz.sinLectura(raiz.programa)
+        // Ronda 2 (horizontal): el nombre no cruza los divisores de su recuadro
+        // (351..839) ni baja sobre la ayuda (línea base 352): hasta dos líneas en
+        // la franja 248..332 y la letra baja hasta Escala.fuenteMinima; nunca se
+        // recorta (D8-5.4). Con Binding (when: hz): en vertical no se toca nada.
+        Binding on width { when: raiz.hz; value: raiz.m(488 - 24) }
+        Binding on height { when: raiz.hz; value: raiz.m(84) }
+        Binding on y { when: raiz.hz; value: raiz.m(248) }
+        Binding on horizontalAlignment { when: raiz.hz; value: Text.AlignHCenter }
+        Binding on verticalAlignment { when: raiz.hz; value: Text.AlignVCenter }
+        Binding on wrapMode { when: raiz.hz; value: Text.WordWrap }
+        Binding on maximumLineCount { when: raiz.hz; value: 2 }
+        Binding on fontSizeMode { when: raiz.hz; value: Text.Fit }
+        Binding on minimumPixelSize { when: raiz.hz; value: Escala.fuenteMinima }
         color: raiz.datosVigentes ? raiz.paleta.programa : Colores.textoGuia
         font.family: Tipografia.familia
         font.weight: Tipografia.pesoBold
@@ -624,9 +659,9 @@ Item {
         id: graficaCiclo
         objectName: "graficaCicloEnCurso"
         visible: !raiz.panelVisible
-        x: raiz.m(33); y: raiz.m(804)
-        width: raiz.m(1162 - 33)
-        height: raiz.yb(1598) - y
+        x: raiz.m(raiz.gx); y: raiz.m(raiz.gy)
+        width: raiz.m(raiz.gw)
+        height: raiz.yb(raiz.gyFin) - y
         escala: raiz.m(1)
         datos: raiz.datosGrafica
         seriesEntradas: raiz.seriesGrafica
@@ -645,9 +680,9 @@ Item {
         id: panelFin
         objectName: "panelFinCiclo"
         visible: raiz.panelVisible
-        x: raiz.m(33); y: raiz.m(804)
-        width: raiz.m(1162 - 33)
-        height: raiz.yb(1598) - y
+        x: raiz.m(raiz.gx); y: raiz.m(raiz.gy)
+        width: raiz.m(raiz.gw)
+        height: raiz.yb(raiz.gyFin) - y
         escala: raiz.m(1)
         modo: raiz.modoFin !== "" ? raiz.modoFin : "fallo"
         subtitulo: raiz.subtituloFin()
@@ -668,9 +703,9 @@ Item {
     // el panel nunca los tape. El contenedor no toma toques.
     Item {
         id: capaAvisos
-        x: raiz.m(33); y: raiz.m(804)
-        width: raiz.m(1162 - 33)
-        height: raiz.yb(1598) - y
+        x: raiz.m(raiz.gx); y: raiz.m(raiz.gy)
+        width: raiz.m(raiz.gw)
+        height: raiz.yb(raiz.gyFin) - y
 
         // PROVISIONAL (sin diseño): aviso de sin conexión sobre el área de trazado,
         // mismo texto que PantallaPreciclo.qml; los datos de la gráfica quedan congelados.
@@ -681,7 +716,9 @@ Item {
             visible: !raiz.datosVigentes || raiz.estadoModuloEs !== "ok"
             anchors.horizontalCenter: parent.horizontalCenter
             y: raiz.m(170)
-            width: raiz.m(960); height: avisoSinConexion.implicitHeight + raiz.m(24)
+            // horizontal: la gráfica es más angosta; el aviso no tapa los rótulos de los ejes (x 68 y 1075 + dw)
+            width: raiz.hz ? Math.min(raiz.m(960), parent.width - raiz.m(140)) : raiz.m(960)
+            height: avisoSinConexion.implicitHeight + raiz.m(24)
             radius: raiz.m(10)
             color: Colores.fondoSutil
             border.width: raiz.m(1.5); border.color: raiz.paleta.bordeTarjeta
@@ -714,7 +751,7 @@ Item {
             anchors.horizontalCenter: parent.horizontalCenter
             y: marcoSinConexion.visible ? marcoSinConexion.y + marcoSinConexion.height + raiz.m(16)
                                         : raiz.m(170)
-            width: raiz.m(960)
+            width: raiz.hz ? Math.min(raiz.m(960), parent.width - raiz.m(140)) : raiz.m(960)
             height: seguridadCiclo.implicitHeight + raiz.m(32)
             radius: raiz.m(10)
             color: Colores.fondoTarjeta
@@ -743,9 +780,12 @@ Item {
         tipo: raiz.cargaNoEsteril ? "alarmas" : "observaciones"
         cantidad: raiz.cargaNoEsteril ? Math.max(1, raiz.fin.cantidad ?? 1) : (raiz.fin.cantidad ?? 0)
         segundos: regresoPanel.restante
-        x: graficaCiclo.x + raiz.m(856 - 16) - width
+        // Horizontal: la cabecera de la gráfica angosta no tiene lugar junto a
+        // «Tiempos»; la píldora va centrada en la columna izquierda, en el hueco
+        // entre la tarjeta de parámetros (y 784) y los relojes.
+        x: raiz.hz ? raiz.m(598.5) - width / 2 : graficaCiclo.x + raiz.m(856 - 16) - width
         // centro en y 58 de la gráfica: por encima de la fila de la leyenda (y 92)
-        y: graficaCiclo.y + raiz.m(58) - height / 2
+        y: raiz.hz ? (raiz.m(784) + raiz.yb(1608)) / 2 - height / 2 : graficaCiclo.y + raiz.m(58) - height / 2
         onPulsada: {
             if (raiz.cargaNoEsteril)
                 raiz.vistaGrafica = false
@@ -844,6 +884,10 @@ Item {
         y: raiz.yb(1746)
         escala: raiz.m(1)
         personalizada: true
+        // horizontal: la celda derecha (del separador de x 800 al borde) aloja el
+        // deslizador, CONFIRMAR, el indicador de espera y el botón forzado
+        readonly property real xCeldaDer: mx(800)
+        readonly property real anchoCeldaDer: width - xCeldaDer
 
         // Celda izquierda: icono de equipo, modelo y serie
         Item {
@@ -904,8 +948,9 @@ Item {
         Item {
             objectName: "indicadorEntrega"
             visible: raiz.esperandoEntrega
-            x: barraInferior.mx(650 - 34); y: raiz.m(1760 - 1746)
-            width: barraInferior.mx(1081 - 650); height: raiz.m(raiz.puedeForzar ? 50 : 100)
+            x: raiz.hz ? barraInferior.xCeldaDer + raiz.m(12) : barraInferior.mx(650 - 34); y: raiz.m(1760 - 1746)
+            width: raiz.hz ? barraInferior.anchoCeldaDer - raiz.m(24) : barraInferior.mx(1081 - 650)
+            height: raiz.m(raiz.puedeForzar ? 50 : 100)
             Rectangle {
                 anchors.fill: parent
                 radius: raiz.m(14)
@@ -930,8 +975,9 @@ Item {
         Item {
             objectName: "botonConfirmarForzado"
             visible: raiz.puedeForzar
-            x: barraInferior.mx(650 - 34); y: raiz.m(1814 - 1746)
-            width: barraInferior.mx(1081 - 650); height: raiz.m(46)
+            x: raiz.hz ? barraInferior.xCeldaDer + raiz.m(12) : barraInferior.mx(650 - 34); y: raiz.m(1814 - 1746)
+            width: raiz.hz ? barraInferior.anchoCeldaDer - raiz.m(24) : barraInferior.mx(1081 - 650)
+            height: raiz.m(46)
             enabled: raiz.datosVigentes && !raiz.comandoOcupado
             opacity: enabled ? 1.0 : 0.4
             Rectangle {
@@ -968,7 +1014,9 @@ Item {
             id: deslizadorCancelar
             objectName: "deslizadorCancelarCiclo"
             variante: "cancelar"
-            x: barraInferior.mx(846 - 34); y: raiz.m(1768 - 1746)
+            x: raiz.hz ? barraInferior.xCeldaDer + (barraInferior.anchoCeldaDer - width) / 2
+                       : barraInferior.mx(846 - 34)
+            y: raiz.m(1768 - 1746)
             width: raiz.m(235); height: raiz.m(88)
             textoEnDosLineas: true
             texto: raiz.textos.cancelar
@@ -999,7 +1047,9 @@ Item {
             id: botonCancelar
             objectName: "botonCancelarCiclo"
             // antes x 846, y 1768 de la pantalla; relativo a la barra (34, 1746)
-            x: barraInferior.mx(846 - 34); y: raiz.m(1768 - 1746)
+            x: raiz.hz ? barraInferior.xCeldaDer + (barraInferior.anchoCeldaDer - width) / 2
+                       : barraInferior.mx(846 - 34)
+            y: raiz.m(1768 - 1746)
             width: raiz.m(235); height: raiz.m(88)
             // ENT-09: terminado y sin entrega, el lugar lo ocupa el indicador de espera
             visible: raiz.terminado && !raiz.esperandoEntrega
@@ -1077,7 +1127,7 @@ Item {
         MouseArea { anchors.fill: parent }   // nada debajo recibe toques
         GraficaCiclo {
             x: raiz.m(33); y: raiz.m(40)
-            width: raiz.m(1162 - 33)
+            width: raiz.m(raiz.hz ? raiz.anchoMarco - 66 : 1162 - 33)
             height: parent.height - raiz.m(80)
             escala: raiz.m(1)
             modoPantallaCompleta: true

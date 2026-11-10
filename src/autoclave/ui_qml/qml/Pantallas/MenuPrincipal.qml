@@ -64,7 +64,18 @@ Item {
 
     readonly property real anchoMockup: 1196
     readonly property real altoMockup: 1917
-    readonly property real escala: width / anchoMockup
+    // Tanda horizontal: en el lienzo horizontal la escala es la del lienzo
+    // vertical (mismos px de diseño), no el ancho de la pantalla; las posiciones
+    // horizontales (hz) van en dos columnas: tarjetas de menú a la izquierda y
+    // Resumen del Sistema a la derecha (2 x 2), con la barra inferior a lo ancho.
+    readonly property bool hz: Escala.horizontal
+    readonly property real escala: hz ? Escala.px(Escala.anchoVertical) / anchoMockup : width / anchoMockup
+    // ancho del marco en px del mockup (1196 en vertical; 1913,6 en horizontal)
+    readonly property real anchoMarco: width / escala
+    // columna derecha (solo horizontal): de 1158 al margen derecho de 54
+    readonly property real _xDer: 1158
+    readonly property real _anchoDer: anchoMarco - 54 - _xDer
+    readonly property real _anchoResumenHz: (_anchoDer - 19) / 2
     function m(v) { return v * escala }
     function fuente(v) { return Math.max(1, Math.round(m(v))) }
     // Alto sobrante en px del mockup (0 en el marco de diseño) y su mitad
@@ -153,7 +164,9 @@ Item {
     // ======================= título =======================
     // Casa de contorno dibujada (en assets solo hay casa rellena): caja 57 x 57 en (567, 262)
     Shape {
-        x: raiz.m(567); y: raiz.m(262)
+        // horizontal: a la izquierda del título, sobre la columna de tarjetas
+        x: raiz.hz ? raiz.m(596.5) - tituloMenu.width / 2 - raiz.m(57 + 24) : raiz.m(567)
+        y: raiz.hz ? raiz.m(230) - raiz.m(57) + raiz.m(8) : raiz.m(262)
         width: raiz.m(57); height: raiz.m(57)
         preferredRendererType: Shape.CurveRenderer
         ShapePath {
@@ -185,16 +198,16 @@ Item {
         font.weight: Tipografia.pesoSemiBold
         font.pixelSize: raiz.fuente(39)
     }
-    Titulo { objectName: "tituloMenu"; cx: 596.5; bl: 390; text: I18n.t("menu.titulo", I18n.lang) }
+    Titulo { id: tituloMenu; objectName: "tituloMenu"; cx: 596.5 + (raiz.hz ? (57 + 24) / 2 : 0); bl: raiz.hz ? 238 : 390; text: I18n.t("menu.titulo", I18n.lang) }
 
     // ======================= tarjetas de menú =======================
     component Fila1: TarjetaMenu {
         escala: raiz.escala
-        y: raiz.m(499); height: raiz.m(320)
+        y: raiz.m(raiz.hz ? 290 : 499); height: raiz.m(320)
     }
     component Fila2: TarjetaMenu {
         escala: raiz.escala
-        y: raiz.m(843); width: raiz.m(349); height: raiz.m(320)
+        y: raiz.m(raiz.hz ? 644 : 843); width: raiz.m(349); height: raiz.m(320)
         tamTitulo: 25; tamDescripcion: 21
     }
 
@@ -264,17 +277,21 @@ Item {
         height: parent.height
         y: raiz.m(raiz._desfaseResumen)
 
-        Titulo { objectName: "tituloResumen"; cx: 598; bl: 1244; text: I18n.t("menu.resumen", I18n.lang) }
+        Titulo { objectName: "tituloResumen"; cx: raiz.hz ? raiz._xDer + raiz._anchoDer / 2 : 598; bl: raiz.hz ? 238 : 1244; text: I18n.t("menu.resumen", I18n.lang) }
 
+        // horizontal: 2 x 2 en la columna derecha (fila 0 arriba, 1 abajo)
         component Resumen: TarjetaResumen {
+            property int filaHz: 0
+            property int colHz: 0
             escala: raiz.escala
-            y: raiz.m(1295); height: raiz.m(330)
+            y: raiz.m(raiz.hz ? 290 + filaHz * 344 : 1295); height: raiz.m(330)
         }
+        function xHz(col) { return raiz.m(raiz._xDer + col * (raiz._anchoResumenHz + 19)) }
 
         // Solo informativa: se ve normal pero no es botón (decisión de Cristian, 2026-10-02)
         Resumen {
             objectName: "resumenCiclosTotales"
-            x: raiz.m(54); width: raiz.m(230)
+            x: raiz.hz ? bloqueResumen.xHz(0) : raiz.m(54); width: raiz.m(raiz.hz ? raiz._anchoResumenHz : 230)
             interactiva: false
             icono: raiz.iconosMono + "ciclos_totales.svg"
             tamIcono: 79
@@ -286,7 +303,8 @@ Item {
         }
         Resumen {
             objectName: "resumenMantenimiento"
-            x: raiz.m(300); width: raiz.m(293)
+            colHz: 1
+            x: raiz.hz ? bloqueResumen.xHz(1) : raiz.m(300); width: raiz.m(raiz.hz ? raiz._anchoResumenHz : 293)
             icono: raiz.iconosMono + "mantenimiento.svg"
             tamIcono: 73
             colorAcento: Colores.menuNaranja
@@ -300,7 +318,8 @@ Item {
         // Abre el listado de los ciclos terminados hoy; tocar uno muestra su gráfica y datos
         Resumen {
             objectName: "resumenCiclosHoy"
-            x: raiz.m(609); width: raiz.m(206)
+            filaHz: 1
+            x: raiz.hz ? bloqueResumen.xHz(0) : raiz.m(609); width: raiz.m(raiz.hz ? raiz._anchoResumenHz : 206)
             icono: raiz.iconosMono + "reloj.svg"
             iconoIncluyeAro: true
             colorAcento: Colores.menuMorado
@@ -311,7 +330,8 @@ Item {
         }
         Resumen {
             objectName: "resumenUltimoCiclo"
-            x: raiz.m(831); width: raiz.m(308)
+            filaHz: 1; colHz: 1
+            x: raiz.hz ? bloqueResumen.xHz(1) : raiz.m(831); width: raiz.m(raiz.hz ? raiz._anchoResumenHz : 308)
             icono: raiz.iconosMono + "reproducir.svg"
             iconoIncluyeAro: true
             colorAcento: Colores.menuAzul
@@ -336,7 +356,7 @@ Item {
         // D8-5.2: el Menú no tiene una tarjeta única; la barra mide lo mismo
         // que la grilla de tarjetas de encima (x 54 a 1139 del lienzo)
         x: raiz.m(54)
-        width: raiz.m(1139 - 54)
+        width: raiz.m(raiz.hz ? raiz.anchoMarco - 54 - 54 : 1139 - 54)
         y: parent.height - raiz.m(raiz.altoMockup - 1746)
         escala: raiz.escala
         inicioActivo: raiz.inicioActivo
@@ -413,6 +433,8 @@ Item {
         objectName: "ventanaMantenimiento"
         escala: raiz.escala
         altoTarjeta: 520
+        // horizontal: tres datos cortos; la tarjeta conserva el ancho vertical
+        anchoRecuadroHz: 1128
         titulo: I18n.t("menu.ventana_mantenimiento", I18n.lang)
         Column {
             width: parent.width
@@ -519,10 +541,12 @@ Item {
                     onClicked: { ventanaCiclosHoy.seleccion = null; raiz.historial?.limpiarGrafica() }
                 }
             }
+            // horizontal: Volver arriba de la columna de datos y la gráfica a todo el alto
             DetalleCiclo {
                 objectName: "detalleCicloHoy"
-                anchors.top: volver.bottom
-                anchors.topMargin: raiz.m(24)
+                anchors.top: raiz.hz ? parent.top : volver.bottom
+                anchors.topMargin: raiz.hz ? 0 : raiz.m(24)
+                reservaSuperiorHz: raiz.hz ? volver.height + raiz.m(24) : 0
                 anchors.bottom: parent.bottom
                 width: parent.width
                 escala: raiz.escala
@@ -713,8 +737,15 @@ Item {
                 onPulsado: ventanaHistorial.volverAlListado()
             }
             Row {
+                id: accionesCicloHistorial
                 anchors.right: parent.right
                 spacing: raiz.m(16)
+                // horizontal: debajo de Volver, en la columna de datos
+                states: State {
+                    when: raiz.hz
+                    AnchorChanges { target: accionesCicloHistorial; anchors.right: undefined; anchors.left: parent.left }
+                    PropertyChanges { accionesCicloHistorial.y: volverHistorial.height + raiz.m(16) }
+                }
                 BotonPildora {
                     objectName: "botonEnviarCiclo"
                     escala: raiz.escala
@@ -734,10 +765,12 @@ Item {
             }
             DetalleCiclo {
                 objectName: "detalleCicloHistorial"
-                anchors.top: volverHistorial.bottom
-                anchors.topMargin: raiz.m(24)
+                anchors.top: raiz.hz ? parent.top : volverHistorial.bottom
+                anchors.topMargin: raiz.hz ? 0 : raiz.m(24)
                 anchors.bottom: parent.bottom
-                anchors.bottomMargin: avisoHistorial.visible ? avisoHistorial.height + raiz.m(16) : 0
+                // horizontal: el aviso va abajo de la columna de datos y no le quita alto a la gráfica
+                anchors.bottomMargin: avisoHistorial.visible && !raiz.hz ? avisoHistorial.height + raiz.m(16) : 0
+                reservaSuperiorHz: raiz.hz ? accionesCicloHistorial.y + accionesCicloHistorial.height + raiz.m(24) : 0
                 width: parent.width
                 escala: raiz.escala
                 readonly property var c: ventanaHistorial.seleccion ?? ({})
@@ -764,6 +797,11 @@ Item {
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.bottom: parent.bottom
             anchors.bottomMargin: ventanaHistorial.seleccion === null ? raiz.m(84) : 0
+            // horizontal, con un ciclo abierto: a la izquierda, bajo los datos
+            states: State {
+                when: raiz.hz && ventanaHistorial.seleccion !== null
+                AnchorChanges { target: avisoHistorial; anchors.horizontalCenter: undefined; anchors.left: parent.left }
+            }
             trabajando: ventanaHistorial.accionEnCurso !== ""
             error: !trabajando && !ventanaHistorial.mensajeExito
             texto: ventanaHistorial.eligiendoDestino ? ""
