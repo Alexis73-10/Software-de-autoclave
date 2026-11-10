@@ -9,6 +9,30 @@ Una entrada por **entrega** (compilación con Setup que se instala en el equipo)
 
 <!-- entradas: las agrega compilar_entrega.py debajo de esta línea, la más nueva primero -->
 
+## 1.0.0-beta.2 — 2026-11-10
+
+- Etiqueta: `v1.0.0-beta.2` (commit `chore(ver): 1.0.0-beta.2`, sobre `d89577e`)
+- AppVerNum: `1.0.0.2002`
+- SHA-256 del Setup y del zip: en el mensaje de la etiqueta y en `entrega/v1.0.0-beta.2_2026-11-10/SHA256SUMS.txt` (solo existen después de compilar)
+- Commits desde `v1.0.0-beta.1`:
+  - 46334d95 docs(horizontal): informe, estado y CERRADO
+  - 3814b476 docs(horizontal): capturas horizontales (claro y oscuro) y comparación del vertical contra dev
+  - f03ea458 fix(ui): Opciones horizontal sin textos encogidos y con contraste en oscuro de botones y chips
+  - 4d347f5a fix(ui): contraste en oscuro de Reportes, calendario e Historial horizontales
+  - 64fc1016 fix(ui): Preciclo y Ciclo en curso horizontales sin textos fuera de su cuadro y chevrón visible en oscuro
+  - 6e0b1d1f fix(ui): teclado numérico y modales horizontales sin textos montados ni encogidos
+  - c8115488 fix(ui): sesión y asistente horizontales sin textos cortados y con contraste en oscuro
+  - 54a133fb test(banco): hor_capturas revisa desbordes de tinta (texto y cuadro); inventario horizontal
+  - 5fc6035e feat(ui): Opciones y todas sus secciones en horizontal
+  - 981a1de7 feat(ui): intro, asistente de instalación y pantallas de sesión en horizontal
+  - 04df7ade feat(ui): Menú principal, Historial, Detalle de ciclo y Reportes en horizontal
+  - a9806c4f feat(ui): modales, diálogos, panel del equipo y teclados en horizontal
+  - 598a6313 feat(ui): Preciclo y Ciclo en curso en horizontal (dos columnas, gráfica a la derecha)
+  - f6a1d6d2 test(ui): la orientación del lienzo sigue el tamaño real de la ventana raíz
+  - 05ad5093 test(banco): hor_capturas admite escenarios por grupo (hor_escenarios_*.py)
+  - 501a63f2 feat(ui): lienzo horizontal 1920x1200 junto al vertical, elegido por la orientación de la pantalla (base)
+
+
 ## 1.0.0-beta.1 — 2026-11-09
 
 - Etiqueta: `v1.0.0-beta.1` (commit `chore(ver): 1.0.0-beta.1`, sobre `c73a9ce`)
