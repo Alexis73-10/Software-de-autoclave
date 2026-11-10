@@ -56,6 +56,7 @@ Item {
                 }
                 MouseArea {
                     anchors.fill: parent
+                    anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height))   // tanda responsive: zona táctil mínima
                     enabled: segmento.libre
                     onClicked: raiz.elegido(segmento.modelData.valor)
                 }

@@ -38,10 +38,13 @@ Item {
         property: "factor"
         value: Escala.factorPara(host.width, host.height)
     }
+    Binding { target: Escala; property: "anchoLienzo"; value: Escala.anchoLienzoPara(host.width, host.height) }
+    Binding { target: Escala; property: "altoLienzo"; value: Escala.altoLienzoPara(host.width, host.height) }
 
+    // el lienzo mide lo mismo que el widget (sin franjas)
     Item {
-        width: Escala.px(Escala.anchoDiseno)
-        height: Escala.px(Escala.altoDiseno)
+        width: Escala.px(Escala.anchoLienzo)
+        height: Escala.px(Escala.altoLienzo)
         anchors.centerIn: parent
         clip: true
 

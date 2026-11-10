@@ -53,7 +53,7 @@ Column {
                     font.weight: Tipografia.pesoSemiBold
                     font.pixelSize: raiz.fuente(22)
                 }
-                MouseArea { anchors.fill: parent; onClicked: raiz.elegido(filtro.modelData[0]) }
+                MouseArea { anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); onClicked: raiz.elegido(filtro.modelData[0]) }
             }
         }
     }
@@ -80,7 +80,7 @@ Column {
             source: "../../assets/iconos/mono/chevron_derecha.svg"
             color: Colores.textoPrimario
         }
-        MouseArea { anchors.fill: parent; enabled: flecha.habilitada; onClicked: flecha.pulsada() }
+        MouseArea { anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); enabled: flecha.habilitada; onClicked: flecha.pulsada() }
     }
 
     Item {

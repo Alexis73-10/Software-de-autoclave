@@ -138,7 +138,7 @@ Item {
             font.weight: Tipografia.pesoSemiBold
             font.pixelSize: raiz.fuente(24)
         }
-        MouseArea { anchors.fill: parent; onClicked: raiz.verGraficaPulsado() }
+        MouseArea { anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); onClicked: raiz.verGraficaPulsado() }
     }
 
     Rectangle {

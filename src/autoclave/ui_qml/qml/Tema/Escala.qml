@@ -37,28 +37,34 @@ QtObject {
     // En horizontal es igual con el lienzo 1920x1200: más alto que 8:5 (p. ej. 4:3)
     // crece hacia abajo; más ancho (16:9), franjas laterales.
     property real altoLienzo: altoDiseno
+    // Ancho del lienzo en px de diseño (>= anchoDiseno), tanda responsive: en
+    // pantallas más anchas que el lienzo de diseño el lienzo crece a lo ancho.
+    property real anchoLienzo: anchoDiseno
 
     // ── Regla de proyección (tanda responsive, 10-nov) ────────────────────
-    // Una sola implementación para las dos orientaciones y para las 4 raíces:
-    // cada raíz solo enlaza factor = factorPara(ancho, alto) y, si su contenido
-    // admite alto flexible (Main), altoLienzo = altoLienzoPara(ancho, alto),
-    // con el tamaño real de su ventana en px LÓGICOS (los que entrega Qt 6 con
-    // la escala de Windows ya aplicada). Así el lienzo ocupa la misma fracción
-    // de la pantalla física a 100, 125, 150 o 200 %: la escala de Windows se
-    // compensa (no agranda la interfaz) y solo cambia la nitidez.
-    //   - Manda el lado que primero se llena: factor = min(ancho / anchoDiseno,
-    //     alto / altoDiseno) del lienzo de la orientación de ESE tamaño (no de
-    //     `horizontal`, que se enlaza aparte: sin estados intermedios al girar).
-    //   - Sobra alto: el lienzo crece hacia abajo (altoLienzo); las pantallas de
-    //     alto fijo se centran en AreaFija. Sobra ancho: franjas laterales del
-    //     color de fondo de la ventana (Colores.fondoMarinoOscuro, del tema).
-    //     Nunca se deforma ni se recorta el lienzo.
+    // Decisión de Cristian (10-nov): la interfaz se AJUSTA a la pantalla, sin
+    // barras ni franjas a los lados ni arriba o abajo, en cualquier proporción
+    // y escala de Windows. Una sola implementación para las dos orientaciones
+    // y las 4 raíces: cada raíz solo enlaza factor = factorPara(ancho, alto),
+    // anchoLienzo = anchoLienzoPara(ancho, alto) y altoLienzo =
+    // altoLienzoPara(ancho, alto) con el tamaño real de su ventana en px
+    // LÓGICOS (los que entrega Qt 6 con la escala de Windows ya aplicada).
+    //   - Un factor ÚNICO para letras, íconos, botones y zonas táctiles (nunca
+    //     se deforman): factor = min(ancho / anchoDiseno, alto / altoDiseno)
+    //     del lienzo de la orientación de ESE tamaño. Así el lienzo ocupa la
+    //     misma fracción de la pantalla física a 100, 125, 150 o 200 %: la
+    //     escala de Windows se compensa y solo cambia la nitidez.
+    //   - Lienzo lógico flexible en los DOS ejes: anchoLienzo = ancho / factor
+    //     y altoLienzo = alto / factor (>= los de diseño). El lienzo mide
+    //     siempre lo mismo que la ventana: lo que sobra en un eje lo reparten
+    //     las pantallas con anclajes y Layout (fondos, barras y paneles a todo
+    //     el ancho o alto, columnas y listas que crecen, gráficas más anchas).
     //   - Con un tamaño inválido (0, negativo, NaN o infinito: ventana aún sin
-    //     geometría) el factor vale 1 y el alto el de diseño, nunca 0 ni NaN.
+    //     geometría) el factor vale 1 y el lienzo el de diseño, nunca 0 ni NaN.
     //   - No hay factor mínimo: por debajo del tamaño mínimo soportado el lienzo
-    //     se sigue achicando entero (nada queda fuera de la pantalla); las zonas
-    //     táctiles conservan su mínimo con margenTactil*().
-    // A 1200x1920 y 1920x1200 al 100 % da exactamente factor 1 y el alto de
+    //     se sigue achicando (nada queda fuera de la pantalla); las zonas
+    //     táctiles conservan su mínimo con margenTactil().
+    // A 1200x1920 y 1920x1200 al 100 % da exactamente factor 1 y el lienzo de
     // diseño, como antes de esta tanda.
     function _medidaValida(v) { return typeof v === "number" && isFinite(v) && v > 0 }
     function anchoDisenoPara(ancho, alto) { return esHorizontal(ancho, alto) ? anchoHorizontal : anchoVertical }
@@ -73,6 +79,12 @@ QtObject {
         if (!_medidaValida(ancho) || !_medidaValida(alto))
             return altoD
         return Math.max(altoD, alto / factorPara(ancho, alto))
+    }
+    function anchoLienzoPara(ancho, alto) {
+        const anchoD = anchoDisenoPara(ancho, alto)
+        if (!_medidaValida(ancho) || !_medidaValida(alto))
+            return anchoD
+        return Math.max(anchoD, ancho / factorPara(ancho, alto))
     }
 
     // Escala de Windows de la pantalla de la ventana raíz (Screen.devicePixelRatio,

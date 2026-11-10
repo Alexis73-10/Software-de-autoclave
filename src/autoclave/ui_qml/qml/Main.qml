@@ -269,9 +269,15 @@ Window {
         property: "altoLienzo"
         value: Escala.altoLienzoPara(ventana.width, ventana.height)
     }
+    Binding {
+        target: Escala
+        property: "anchoLienzo"
+        value: Escala.anchoLienzoPara(ventana.width, ventana.height)
+    }
 
+    // Lienzo: mide lo mismo que la ventana (sin franjas, decisión de Cristian)
     Item {
-        width: Escala.px(Escala.anchoDiseno)
+        width: Escala.px(Escala.anchoLienzo)
         height: Escala.px(Escala.altoLienzo)
         anchors.centerIn: parent
         clip: true

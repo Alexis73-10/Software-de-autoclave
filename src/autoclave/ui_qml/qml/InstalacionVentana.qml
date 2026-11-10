@@ -36,7 +36,7 @@ Window {
     property bool introTerminada: false
 
     // Proyección del lienzo (tanda responsive): la regla vive en Escala. El
-    // asistente es de alto fijo: centrado, con franjas si sobra alto o ancho.
+    // lienzo mide lo mismo que la ventana (sin franjas).
     readonly property real dprPantalla: Screen.devicePixelRatio
     Binding { target: Escala; property: "dpr"; value: ventana.dprPantalla }
     Binding {
@@ -44,11 +44,13 @@ Window {
         property: "factor"
         value: Escala.factorPara(ventana.width, ventana.height)
     }
+    Binding { target: Escala; property: "anchoLienzo"; value: Escala.anchoLienzoPara(ventana.width, ventana.height) }
+    Binding { target: Escala; property: "altoLienzo"; value: Escala.altoLienzoPara(ventana.width, ventana.height) }
 
     Item {
         id: lienzo
-        width: Escala.px(Escala.anchoDiseno)
-        height: Escala.px(Escala.altoDiseno)
+        width: Escala.px(Escala.anchoLienzo)
+        height: Escala.px(Escala.altoLienzo)
         anchors.centerIn: parent
         clip: true
 

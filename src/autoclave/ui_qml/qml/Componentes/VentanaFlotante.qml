@@ -63,7 +63,7 @@ Item {
         anchors.fill: parent
         color: Colores.velo
         opacity: compartido.opacidadFondo
-        MouseArea { anchors.fill: parent; enabled: !raiz._cerrando; onClicked: raiz.cerrar() }
+        MouseArea { anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); enabled: !raiz._cerrando; onClicked: raiz.cerrar() }
     }
 
     ElementoCompartido {
@@ -129,7 +129,7 @@ Item {
                     color: Colores.textoPrimario
                 }
             }
-            MouseArea { anchors.fill: parent; onClicked: raiz.cerrar() }
+            MouseArea { anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); onClicked: raiz.cerrar() }
         }
 
         Rectangle {

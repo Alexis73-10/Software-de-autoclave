@@ -291,7 +291,7 @@ Item {
         MouseArea {
             id: zonaOcultar
             anchors.fill: parent
-            anchors.margins: -Escala.px(8)
+            anchors.margins: -(Escala.px(8) + Escala.margenTactil(Math.min(parent.width, parent.height) + 2 * Escala.px(8)))
             onClicked: raiz.ocultar()
         }
     }

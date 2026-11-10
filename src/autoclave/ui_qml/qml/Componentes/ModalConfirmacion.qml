@@ -54,7 +54,7 @@ Item {
         objectName: "fondoModalConfirmacion"
         anchors.fill: parent
         color: Colores.velo
-        MouseArea { anchors.fill: parent; onClicked: raiz._volver() }
+        MouseArea { anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); onClicked: raiz._volver() }
     }
 
     Rectangle {
@@ -196,7 +196,7 @@ Item {
                     font.weight: Tipografia.pesoSemiBold
                     font.pixelSize: Escala.fuente(Tipografia.botonEtiquetaTam)
                 }
-                MouseArea { anchors.fill: parent; onClicked: raiz._volver() }
+                MouseArea { anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); onClicked: raiz._volver() }
             }
             Rectangle {
                 objectName: "botonAccionModal"
@@ -216,7 +216,7 @@ Item {
                     font.weight: Tipografia.pesoSemiBold
                     font.pixelSize: Escala.fuente(Tipografia.botonEtiquetaTam)
                 }
-                MouseArea { anchors.fill: parent; onClicked: raiz._aceptar() }
+                MouseArea { anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); onClicked: raiz._aceptar() }
             }
         }
     }

@@ -75,7 +75,7 @@ Item {
             source: raiz._iconos + "back_icon.svg"
             color: Colores.iconoBarraMenu   // trazo #231F20 del SVG en claro
         }
-        MouseArea { anchors.fill: parent; onClicked: raiz.atrasPulsado() }
+        MouseArea { anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); onClicked: raiz.atrasPulsado() }
     }
 
     Item {
@@ -90,7 +90,7 @@ Item {
             source: raiz._iconos + "home_icon.svg"
             color: Colores.iconoBarraMenu   // trazo #231F20 del SVG en claro
         }
-        MouseArea { anchors.fill: parent; onClicked: raiz.inicioPulsado() }
+        MouseArea { anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); onClicked: raiz.inicioPulsado() }
     }
 
     // Cerrar sesión: celda central, solo si la pantalla lo habilita (OPCIONES)
@@ -104,7 +104,7 @@ Item {
             source: raiz._iconos + "logout_icon.svg"
             color: Colores.textoNegro   // trazo #000 del SVG en claro
         }
-        MouseArea { anchors.fill: parent; onClicked: raiz.cerrarSesionPulsado() }
+        MouseArea { anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); onClicked: raiz.cerrarSesionPulsado() }
     }
 
     // UI-VER (tanda 17): la barra ya no muestra la versión (solo Información

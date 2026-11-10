@@ -171,7 +171,7 @@ PanelModal {
                 font.weight: Tipografia.pesoBold
                 font.pixelSize: Escala.fuente(22)
             }
-            MouseArea { anchors.fill: parent; onClicked: confirmarApagar.abrir() }
+            MouseArea { anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); onClicked: confirmarApagar.abrir() }
         }
     }
 

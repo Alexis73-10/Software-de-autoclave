@@ -114,7 +114,7 @@ Item {
             font.weight: Tipografia.pesoBold
             font.pixelSize: Escala.fuente(26)
         }
-        MouseArea { anchors.fill: parent; onClicked: campo.tocado() }
+        MouseArea { anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); onClicked: campo.tocado() }
     }
 
     component BotonCal: Rectangle {
@@ -138,7 +138,7 @@ Item {
             font.weight: Tipografia.pesoSemiBold
             font.pixelSize: Escala.fuente(22)
         }
-        MouseArea { anchors.fill: parent; enabled: boton.habilitado; onClicked: boton.pulsado() }
+        MouseArea { anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); enabled: boton.habilitado; onClicked: boton.pulsado() }
     }
 
     // Un bloque de punto (bajo o alto)
@@ -214,7 +214,7 @@ Item {
                     }
                     // FASE 6: no se sale con una calibración en vuelo
                     opacity: raiz.controlador.operacionEnCurso ? 0.4 : 1.0
-                    MouseArea { anchors.fill: parent; enabled: !raiz.controlador.operacionEnCurso
+                    MouseArea { anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); enabled: !raiz.controlador.operacionEnCurso
                                 onClicked: raiz.volver() }
                 }
                 Text {

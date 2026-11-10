@@ -109,7 +109,8 @@ Item {
     // tarjeta pone el avatar a la izquierda y el formulario a la derecha,
     // arriba, para que los campos queden sobre el teclado en pantalla.
     readonly property bool hz: Escala.horizontal
-    readonly property real escalaBarra: hz ? Escala.px(Escala.anchoVertical) / 1196 : raiz.width / 1196
+    // tanda responsive: en vertical tampoco pasa la escala del ancho de diseño
+    readonly property real escalaBarra: hz ? Escala.px(Escala.anchoVertical) / 1196 : Math.min(raiz.width, Escala.px(Escala.anchoVertical)) / 1196
 
     // Iconos del formulario: variante color/ (gris / azul del checkbox),
     // que es la que coincide con 05_PNG_REFERENCIA/pantalla_03_login.
@@ -233,6 +234,7 @@ Item {
                             }
                             MouseArea {
                                 anchors.fill: parent
+                                anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height))   // tanda responsive: zona táctil mínima
                                 onClicked: raiz.editar("usuario")
                             }
                         }
@@ -268,7 +270,7 @@ Item {
 
                                 MouseArea {
                                     anchors.fill: parent
-                                    anchors.margins: -Escala.px(16)   // área táctil más grande que el icono
+                                    anchors.margins: -(Escala.px(16) + Escala.margenTactil(Math.min(parent.width, parent.height) + 2 * Escala.px(16)))   // área táctil más grande que el icono
                                     onClicked: campoClave.echoMode =
                                         campoClave.echoMode === TextInput.Password
                                             ? TextInput.Normal : TextInput.Password
@@ -343,7 +345,7 @@ Item {
                                 font.weight: Tipografia.pesoMedium
                             }
 
-                            TapHandler { onTapped: sesion.fijarRecordarUsuario(!recordarUsuario.marcado) }
+                            TapHandler { margin: Escala.margenTactil(Math.min(parent.width, parent.height)); onTapped: sesion.fijarRecordarUsuario(!recordarUsuario.marcado) }
                         }
 
                         Rectangle {
@@ -386,6 +388,7 @@ Item {
                             }
                             MouseArea {
                                 anchors.fill: parent
+                                anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height))   // tanda responsive: zona táctil mínima
                                 enabled: raiz.puedeIntentar
                                 onClicked: raiz.iniciarSesion()
                             }
@@ -416,7 +419,7 @@ Item {
                             color: Colores.accionPrimarioTexto
                             font.family: Tipografia.familia
                             font.pixelSize: Escala.fuente(22)
-                            TapHandler { onTapped: raiz.ayudaOlvidoVisible = !raiz.ayudaOlvidoVisible }
+                            TapHandler { margin: Escala.margenTactil(Math.min(parent.width, parent.height)); onTapped: raiz.ayudaOlvidoVisible = !raiz.ayudaOlvidoVisible }
                         }
                         // PROVISIONAL (sin diseño): ayuda en línea bajo el enlace
                         Text {
@@ -465,7 +468,7 @@ Item {
                                 font.weight: Tipografia.pesoSemiBold
                                 font.pixelSize: Escala.fuente(22)
                             }
-                            MouseArea { anchors.fill: parent; onClicked: raiz.inicioPulsado() }
+                            MouseArea { anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); onClicked: raiz.inicioPulsado() }
                         }
                     }
                     }

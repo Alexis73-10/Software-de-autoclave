@@ -27,6 +27,7 @@ Item {
     MouseArea {
         objectName: "areaFilaAlarma"
         anchors.fill: parent
+        anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height))   // tanda responsive: zona táctil mínima
         enabled: raiz.tocable
         onClicked: { Movimiento.registrarOrigen(raiz); raiz.pulsada() }
     }
@@ -68,7 +69,7 @@ Item {
             font.weight: Tipografia.pesoSemiBold
             font.pixelSize: Escala.fuente(22)
         }
-        MouseArea { anchors.fill: parent; onClicked: raiz.despejarPulsado() }
+        MouseArea { anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); onClicked: raiz.despejarPulsado() }
     }
     Rectangle {
         anchors.bottom: parent.bottom

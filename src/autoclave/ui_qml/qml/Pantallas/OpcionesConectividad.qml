@@ -108,7 +108,7 @@ Item {
             font.weight: Tipografia.pesoSemiBold
             font.pixelSize: Escala.fuente(26)
         }
-        MouseArea { anchors.fill: parent; enabled: boton.habilitado; onClicked: boton.pulsado() }
+        MouseArea { anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); enabled: boton.habilitado; onClicked: boton.pulsado() }
     }
 
     Flickable {
@@ -157,7 +157,7 @@ Item {
                     font.family: Tipografia.familia
                     font.pixelSize: Escala.fuente(22)
                 }
-                MouseArea { anchors.fill: parent; onClicked: control.limpiarMensaje() }
+                MouseArea { anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); onClicked: control.limpiarMensaje() }
             }
 
             // AJUSTES 2026-11-02 (paso 2, fase 4): envíos sin bloquear la pantalla
@@ -314,6 +314,7 @@ Item {
                         }
                         MouseArea {
                             anchors.fill: parent
+                            anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height))   // tanda responsive: zona táctil mínima
                             enabled: raiz.editable
                             onClicked: control.quitar(filaDest.index)
                         }

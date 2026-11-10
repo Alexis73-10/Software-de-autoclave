@@ -22,6 +22,8 @@ Window {
     // escala de Windows de la pantalla (zonas táctiles, tanda responsive)
     readonly property real dprPantalla: Screen.devicePixelRatio
     Binding { target: Escala; property: "dpr"; value: ventana.dprPantalla }
+    Binding { target: Escala; property: "anchoLienzo"; value: Escala.anchoLienzoPara(ventana.width, ventana.height) }
+    Binding { target: Escala; property: "altoLienzo"; value: Escala.altoLienzoPara(ventana.width, ventana.height) }
 
 
     Binding {
@@ -32,8 +34,8 @@ Window {
 
     Item {
         id: lienzo
-        width: Escala.px(Escala.anchoDiseno)
-        height: Escala.px(Escala.altoDiseno)
+        width: Escala.px(Escala.anchoLienzo)
+        height: Escala.px(Escala.altoLienzo)
         anchors.centerIn: parent
         clip: true
 

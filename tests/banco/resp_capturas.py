@@ -64,7 +64,7 @@ TACTIL_JS = r"""
             if (!t && it.parent) txt(it.parent, 0)
             return n + "|" + t
         }
-        function revisar(it, recorte) {
+        function revisar(it, recorte, extra) {
             const p = it.mapToItem(null, 0, 0)
             const w = it.width, h = it.height
             if (w >= W - 4 && h >= H - 4) return          // velos a pantalla completa
@@ -72,7 +72,7 @@ TACTIL_JS = r"""
             if (recorte && (p.x >= recorte.x + recorte.w || p.x + w <= recorte.x
                             || p.y >= recorte.y + recorte.h || p.y + h <= recorte.y)) return
             total += 1
-            const lado = Math.min(w, h) * dpr
+            const lado = (Math.min(w, h) + 2 * (extra || 0)) * dpr
             if (lado < minimo - 0.5)
                 malos.push({obj: nombre(it), lado_fisico: Math.round(lado * 10) / 10,
                             x: Math.round(p.x), y: Math.round(p.y), w: Math.round(w), h: Math.round(h)})
@@ -89,7 +89,7 @@ TACTIL_JS = r"""
                 for (let k = 0; k < recursos.length; ++k) {
                     const r = recursos[k]
                     if (r && r.gesturePolicy !== undefined && r.enabled !== false && h.width > 0)
-                        revisar(h, recorte)
+                        revisar(h, recorte, r.margin || 0)
                 }
                 let nr = recorte
                 if (h.clip) {
@@ -138,6 +138,17 @@ EXTRA_PY = r'''
         for o in por_nombre(win, "lienzo"):
             pp = o.mapToScene(QPointF(0, 0))
             lienzo_r = [round(pp.x(), 1), round(pp.y(), 1), round(o.width(), 1), round(o.height(), 1)]
+        sin_cubrir = None
+        try:
+            from PIL import Image as _Im
+            import numpy as _np
+            _a = _np.asarray(_Im.open(archivo).convert("RGB")).astype(_np.int16)
+            _m = (_a[:, :, 0] >= 250) & (_a[:, :, 1] <= 5) & (_a[:, :, 2] >= 250)
+            sin_cubrir = {"px": int(_m.sum()), "fraccion": round(float(_m.mean()), 6),
+                          "bordes": {"arriba": int(_m[0].sum()), "abajo": int(_m[-1].sum()),
+                                     "izquierda": int(_m[:, 0].sum()), "derecha": int(_m[:, -1].sum())}}
+        except Exception as _e:
+            sin_cubrir = {"error": repr(_e)}
         try:
             esc = engine.singletonInstance("Tema", "Escala")
             escala_v = {"factor": esc.property("factor"), "altoLienzo": esc.property("altoLienzo"),
@@ -188,6 +199,13 @@ def guion(raiz: Path) -> str:
                                'Escala.factorPara(ventana.width, ventana.height) }')
         s = s.replace(viejo_a, 'Binding { target: Escala; property: "altoLienzo"; value: '
                                'Escala.altoLienzoPara(ventana.width, ventana.height) }')
+        if "function anchoLienzoPara" in escala:
+            s = s.replace('            width: Escala.px(Escala.anchoDiseno); height: Escala.px(Escala.altoLienzo)',
+                          '            width: Escala.px(Escala.anchoLienzo); height: Escala.px(Escala.altoLienzo)', 1)
+            s = s.replace('Binding { target: Escala; property: "factor";',
+                          'Binding { target: Escala; property: "anchoLienzo"; value: '
+                          'Escala.anchoLienzoPara(ventana.width, ventana.height) }\n'
+                          '            Binding { target: Escala; property: "factor";', 1)
         if "property real dpr" in escala:
             s = s.replace('Binding { target: Escala; property: "factor";',
                           'property real _dprResp: Screen.devicePixelRatio\n'
@@ -201,12 +219,18 @@ def guion(raiz: Path) -> str:
     s = s.replace(marca_env, '    """ % (W, H, BIND_HZ, extra, _area_fija(cuerpo))\n', 1)
     s = s.replace("def envolver(cuerpo, extra=\"\"):", AREA_FIJA_PY + "\ndef envolver(cuerpo, extra=\"\"):", 1)
     s = s.replace("function fueraDelLienzo(raiz, W, H) {", TACTIL_JS + "\nfunction fueraDelLienzo(raiz, W, H) {", 1)
+    # Criterio «sin barras»: la ventana se pinta de un color centinela (magenta
+    # puro, que ningún tema usa); todo px de ese color en la captura es ventana
+    # sin cubrir por la pantalla
+    s = s.replace("    win.show()\n", "    win.show()\n    from PySide6.QtGui import QColor as _QC\n"
+                  "    win.setColor(_QC(255, 0, 255))\n", 1)
     marca = '    print("captura", nombre, len(problemas), "problemas", len(fuera), "fuera")\n'
     assert marca in s
     s = s.replace(marca, textwrap.indent(textwrap.dedent(EXTRA_PY), "    ") + marca, 1)
     s = s.replace('    return {"problemas": problemas, "fuera": fuera,',
                   '    return {"problemas": problemas, "fuera": fuera, "tactiles": tactiles,\n'
-                  '            "lienzo": lienzo_r, "fuente_min": fmin, "escala": escala_v, "dpr": dpr,', 1)
+                  '            "lienzo": lienzo_r, "fuente_min": fmin, "escala": escala_v, "dpr": dpr,\n'
+                  '            "sin_cubrir": sin_cubrir,', 1)
     return s
 
 
@@ -278,6 +302,7 @@ def analizar(destino: Path, tema: str = "claro") -> dict:
                 "tactiles_bajo_minimo": len(t.get("malos", [])), "tactiles_total": t.get("total"),
                 "tactiles": t.get("malos", [])[:30],
                 "fuente_min": r.get("fuente_min"), "lienzo": r.get("lienzo"), "escala_qml": r.get("escala"),
+                "sin_cubrir": r.get("sin_cubrir"),
             }
         tabla[clave] = fila
     salida = destino / f"analisis_{tema}.json"
@@ -288,7 +313,8 @@ def analizar(destino: Path, tema: str = "claro") -> dict:
         errores = [k for k, e in fila["escenarios"].items() if "error" in e]
         fmin = min((e["fuente_min"]["px_fisico"] for e in fila["escenarios"].values()
                     if e.get("fuente_min")), default=None)
-        print(f"{clave:16s} nuevos={n:4d} tactiles<min={t:4d} letra_min_fisica={fmin} errores={errores}")
+        sc = [k for k, e in fila["escenarios"].items() if (e.get("sin_cubrir") or {}).get("px")]
+        print(f"{clave:16s} nuevos={n:4d} tactiles<min={t:4d} letra_min_fisica={fmin} sin_cubrir={sc} errores={errores}")
     return tabla
 
 

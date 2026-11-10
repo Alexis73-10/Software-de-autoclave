@@ -208,6 +208,7 @@ Item {
         MouseArea {
             id: area
             anchors.fill: parent
+            anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height))   // tanda responsive: zona táctil mínima
             enabled: boton.habilitado
             onClicked: boton.pulsado()
             onPressed: boton.presionado()
@@ -324,7 +325,7 @@ Item {
             font.family: Tipografia.familia
             font.pixelSize: Escala.fuente(21)
         }
-        MouseArea { anchors.fill: parent; onClicked: control.limpiarMensaje() }
+        MouseArea { anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); onClicked: control.limpiarMensaje() }
     }
 
     SelectorSegmentos {

@@ -1,10 +1,11 @@
 """Tanda responsive (10-nov): regla de proyección del lienzo (Tema/Escala.qml).
 
 - Tabla de tamaños (px físicos) y escalas de Windows (100 a 200 %): factor,
-  alto del lienzo, orientación y escala física según la regla del informe
-  (manda el lado que primero se llena; sobra alto -> crece el lienzo; sobra
-  ancho -> franjas). La escala física (factor x dpr) no depende de la escala
-  de Windows para una misma resolución física.
+  ancho y alto del lienzo, orientación y escala física según la regla del
+  informe (factor único = el lado que primero se llena; el lienzo crece en el
+  otro eje hasta medir lo mismo que la ventana: sin franjas, decisión de
+  Cristian). La escala física (factor x dpr) no depende de la escala de
+  Windows para una misma resolución física.
 - 1200x1920 y 1920x1200 al 100 %: exactamente factor 1, alto de diseño y sin
   márgenes táctiles (nada cambia respecto a dev).
 - Ventana de 0x0, negativa, NaN o infinita y ventanas muy chicas: sin NaN ni
@@ -60,7 +61,7 @@ _SCRIPT = textwrap.dedent(r'''
             const f = Escala.factorPara(w, h)
             Escala.factor = f
             const r = {horizontal: Escala.esHorizontal(w, h), factor: f,
-                       altoLienzo: Escala.altoLienzoPara(w, h),
+                       altoLienzo: Escala.altoLienzoPara(w, h), anchoLienzo: Escala.anchoLienzoPara(w, h),
                        anchoDiseno: Escala.anchoDisenoPara(w, h), altoDiseno: Escala.altoDisenoPara(w, h),
                        escalaFisica: Escala.escalaFisica, soportado: Escala.soportado(w, h, d),
                        margenes: {}}
@@ -132,10 +133,12 @@ def test_tabla_de_tamanos_y_escalas(tabla, w, h):
         assert r["factor"] * r["altoDiseno"] <= lh + 1e-6
         assert (abs(r["factor"] * r["anchoDiseno"] - lw) < 1e-6
                 or abs(r["factor"] * r["altoDiseno"] - lh) < 1e-6)
-        # sobra alto -> crece el lienzo hasta llenar el alto; sobra ancho -> franjas
-        assert r["factor"] * r["altoLienzo"] == pytest.approx(max(lh, r["factor"] * r["altoDiseno"]))
+        # sin franjas (decisión de Cristian): el lienzo mide lo mismo que la ventana
+        assert r["factor"] * r["altoLienzo"] == pytest.approx(lh)
+        assert r["factor"] * r["anchoLienzo"] == pytest.approx(lw)
+        assert r["anchoLienzo"] >= r["anchoDiseno"] - 1e-9 and r["altoLienzo"] >= r["altoDiseno"] - 1e-9
         fisicas.append(r["escalaFisica"])
-        for v in [r["factor"], r["altoLienzo"], r["escalaFisica"], *r["margenes"].values()]:
+        for v in [r["factor"], r["altoLienzo"], r["anchoLienzo"], r["escalaFisica"], *r["margenes"].values()]:
             assert math.isfinite(v)
     # misma resolución física -> misma escala física a cualquier escala de Windows
     assert max(fisicas) - min(fisicas) < 1e-9
@@ -147,6 +150,7 @@ def test_tamanos_de_diseno_exactos(tabla, clave, factor, alto):
     r = tabla[clave]
     assert r["factor"] == factor
     assert r["altoLienzo"] == alto
+    assert r["anchoLienzo"] == (1920.0 if alto == 1200.0 else 1200.0)
     assert r["escalaFisica"] == 1.0
     assert all(m == 0 for m in r["margenes"].values())
 
@@ -156,6 +160,7 @@ def test_medidas_invalidas_sin_nan(tabla):
         r = tabla[clave]
         assert r["factor"] == 1.0, clave
         assert r["altoLienzo"] in (1200.0, 1920.0), clave
+        assert r["anchoLienzo"] in (1200.0, 1920.0), clave
         assert all(m == 0 for m in r["margenes"].values()), clave
     for clave in ("uno", "chica_h", "chica_v"):
         r = tabla[clave]
@@ -199,12 +204,12 @@ RAICES = ("Main.qml", "InstalacionVentana.qml", "ReposoInstalacionVentana.qml", 
 @pytest.mark.parametrize("raiz", RAICES)
 def test_las_raices_solo_enlazan_la_regla(raiz):
     texto = (QML / raiz).read_text(encoding="utf-8")
-    assert "Escala.factorPara(" in texto
+    assert "Escala.factorPara(" in texto and "Escala.anchoLienzoPara(" in texto and "Escala.altoLienzoPara(" in texto
     assert 'property: "dpr"' in texto and "Screen.devicePixelRatio" in texto
     # sin fórmulas propias de factor o alto del lienzo
     assert not re.search(r"Math\.(min|max)\([^)]*Escala\.(anchoDiseno|altoDiseno)", texto)
-    if raiz == "Main.qml":
-        assert "Escala.altoLienzoPara(" in texto
+    # el lienzo de la raíz mide lo que la ventana (sin franjas)
+    assert "Escala.px(Escala.anchoLienzo)" in texto and "Escala.px(Escala.altoLienzo)" in texto
 
 
 _SCRIPT_CALIENTE = textwrap.dedent(r'''
@@ -230,7 +235,7 @@ _SCRIPT_CALIENTE = textwrap.dedent(r'''
         for w, h in ((1200, 1920), (1920, 1200), (1280, 720), (720, 1280), (1600, 1200), (1920, 1200)):
             v.setProperty("width", w); v.setProperty("height", h)
             QTest.qWait(60)
-            pasos.append({k: esc.property(k) for k in ("horizontal", "factor", "altoLienzo", "dpr")})
+            pasos.append({k: esc.property(k) for k in ("horizontal", "factor", "altoLienzo", "anchoLienzo", "dpr")})
         salida[raiz] = pasos
         v.close(); eng.deleteLater(); QTest.qWait(30)
     print("RESULTADO=" + json.dumps(salida))
@@ -252,7 +257,8 @@ def test_las_raices_siguen_el_tamano_en_caliente():
         assert pasos[3]["factor"] == pytest.approx(0.6)
         assert pasos[4]["factor"] == pytest.approx(1600 / 1920)
         assert all(s["dpr"] > 0 for s in pasos)
-    main = r["Main.qml"]
-    assert main[0]["altoLienzo"] == 1920 and main[1]["altoLienzo"] == 1200
-    assert main[3]["altoLienzo"] == pytest.approx(1280 / 0.6)     # 9:16: crece el lienzo
-    assert main[4]["altoLienzo"] == pytest.approx(1200 / (1600 / 1920))   # 4:3 horizontal
+    for raiz, pasos in r.items():
+        assert pasos[0]["altoLienzo"] == 1920 and pasos[1]["altoLienzo"] == 1200, raiz
+        assert pasos[2]["anchoLienzo"] == pytest.approx(1280 / 0.6), raiz           # 16:9: crece a lo ancho
+        assert pasos[3]["altoLienzo"] == pytest.approx(1280 / 0.6), raiz            # 9:16: crece a lo alto
+        assert pasos[4]["altoLienzo"] == pytest.approx(1200 / (1600 / 1920)), raiz  # 4:3 horizontal

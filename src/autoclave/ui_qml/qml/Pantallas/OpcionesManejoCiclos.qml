@@ -138,7 +138,7 @@ Item {
                 font.family: Tipografia.familia
                 font.pixelSize: Escala.fuente(20)
             }
-            MouseArea { anchors.fill: parent; onClicked: control.limpiarMensaje() }
+            MouseArea { anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); onClicked: control.limpiarMensaje() }
         }
 
         // Operación crítica en vuelo (FASE 6): procesando / verificando
@@ -301,7 +301,7 @@ Item {
         visible: false
         anchors.fill: parent
         color: Colores.velo   // PROVISIONAL: misma atenuación que DialogoConfirmacion
-        MouseArea { anchors.fill: parent; onClicked: panelCrear.visible = false }
+        MouseArea { anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); onClicked: panelCrear.visible = false }
 
         Rectangle {
             anchors.centerIn: parent
@@ -363,7 +363,7 @@ Item {
                             width: parent.width; height: Escala.px(1)
                             color: Colores.bordeDivisor
                         }
-                        MouseArea { anchors.fill: parent; onClicked: raiz.elegirBase(chip.modelData.numero) }
+                        MouseArea { anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); onClicked: raiz.elegirBase(chip.modelData.numero) }
                     }
                 }
                 BotonFormulario {

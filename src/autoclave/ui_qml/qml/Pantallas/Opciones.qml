@@ -71,7 +71,10 @@ Item {
     // a lo ancho (riel de iconos a la izquierda como en vertical, sección a la
     // derecha con todo el ancho restante) y el título sube para ganar alto.
     readonly property bool hz: Escala.horizontal
-    readonly property real escala: hz ? Escala.px(Escala.anchoVertical) / anchoMockup : width / anchoMockup
+    // Tanda responsive: en vertical la escala no pasa la del ancho de diseño; el
+    // ancho de más (_dxV, px del mockup) lo toman la tarjeta y el contenido
+    readonly property real escala: hz ? Escala.px(Escala.anchoVertical) / anchoMockup : Math.min(width, Escala.px(Escala.anchoVertical)) / anchoMockup
+    readonly property real _dxV: hz ? 0 : (width - Math.min(width, Escala.px(Escala.anchoVertical))) / escala
     // ancho del marco en px del mockup (1196 en vertical; 1913,6 en horizontal)
     readonly property real anchoMarco: width / escala
     // borde superior del riel y del contenido (330 en vertical)
@@ -302,7 +305,7 @@ Item {
         id: tarjetaOpciones
         objectName: "tarjetaOpciones"
         x: raiz.m(19); y: raiz.m(177)
-        width: raiz.m(raiz.hz ? raiz.anchoMarco - 38 : 1159); height: barra.y - raiz.m(10) - y
+        width: raiz.m(raiz.hz ? raiz.anchoMarco - 38 : 1159 + raiz._dxV); height: barra.y - raiz.m(10) - y
         radius: raiz.m(30)
         color: Colores.fondoTarjeta
     }
@@ -330,7 +333,7 @@ Item {
         objectName: "tituloOpciones"
         x: raiz.m(160)
         y: raiz.m(raiz.hz ? 250 : 282) - baselineOffset
-        width: raiz.m(raiz.hz ? raiz.anchoMarco - 56 : 1140) - x
+        width: raiz.m(raiz.hz ? raiz.anchoMarco - 56 : 1140 + raiz._dxV) - x
         fontSizeMode: Text.HorizontalFit; minimumPixelSize: Escala.fuenteMinima
         text: raiz.seccionActiva !== "" ? raiz.nombreSeccion(raiz.seccionActiva).toUpperCase()
                                         : I18n.t("opciones.titulo", I18n.lang)
@@ -435,6 +438,7 @@ Item {
                         }
                         MouseArea {
                             anchors.fill: parent
+                            anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height))   // tanda responsive: zona táctil mínima
                             onClicked: raiz.elegirSeccion(icono.modelData.clave)
                         }
                     }
@@ -448,7 +452,7 @@ Item {
         objectName: "contenidoOpciones"
         x: raiz.m(54) + raiz.anchoRielPlegado + raiz.m(30); y: raiz.m(raiz._yContenido)
         // horizontal: hasta el margen derecho de 54 (como en vertical, 1142)
-        width: raiz.m(raiz.hz ? raiz.anchoMarco - 108 : 1088) - raiz.anchoRielPlegado - raiz.m(30)
+        width: raiz.m(raiz.hz ? raiz.anchoMarco - 108 : 1088 + raiz._dxV) - raiz.anchoRielPlegado - raiz.m(30)
         height: barra.y - y - raiz.m(30)
 
         // Solo lectura fuera de PREPARACION / PREPARADO (U-8): aviso fijo
@@ -676,7 +680,7 @@ Item {
         opacity: raiz.cajonAbierto ? 1 : 0
         visible: opacity > 0
         Behavior on opacity { NumberAnimation { duration: 180 } }
-        MouseArea { anchors.fill: parent; onClicked: raiz.cerrarCajon() }
+        MouseArea { anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); onClicked: raiz.cerrarCajon() }
     }
 
     // ======================= ventanas =======================

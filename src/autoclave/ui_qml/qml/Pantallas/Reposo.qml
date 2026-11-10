@@ -98,5 +98,5 @@ Item {
         }
     }
 
-    MouseArea { anchors.fill: parent; enabled: raiz.tactil; onClicked: raiz.tocado() }
+    MouseArea { anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); enabled: raiz.tactil; onClicked: raiz.tocado() }
 }

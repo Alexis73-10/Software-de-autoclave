@@ -104,7 +104,7 @@ Rectangle {
         radius: raiz.m(20)
         color: zonaOpcion.pressed ? Colores.fondoSutil : Colores.fondoTarjeta
         border.width: raiz.m(2); border.color: Colores.bordeDivisor
-        MouseArea { id: zonaOpcion; anchors.fill: parent; onClicked: opcion.tocada() }
+        MouseArea { id: zonaOpcion; anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); onClicked: opcion.tocada() }
     }
 
     Column {

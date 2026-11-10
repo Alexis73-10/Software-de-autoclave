@@ -138,7 +138,7 @@ PanelModal {
                 width: parent.width; height: Escala.px(2)
                 color: Colores.bordeDivisor
             }
-            MouseArea { anchors.fill: parent; onClicked: g.expandido = !g.expandido }
+            MouseArea { anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); onClicked: g.expandido = !g.expandido }
         }
 
         SeccionEstadoSeguro {

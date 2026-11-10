@@ -56,6 +56,7 @@ Item {
         }
         MouseArea {
             anchors.fill: parent
+            anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height))   // tanda responsive: zona táctil mínima
             onClicked: raiz.tocado()
         }
         IconoColor {
@@ -69,7 +70,7 @@ Item {
             color: Colores.textoSecundario   // OSC-17 (ojo_ocultar tenía además un trazo #031225)
             MouseArea {
                 anchors.fill: parent
-                anchors.margins: -Escala.px(16)
+                anchors.margins: -(Escala.px(16) + Escala.margenTactil(Math.min(parent.width, parent.height) + 2 * Escala.px(16)))
                 onClicked: raiz.ojoTocado()
             }
         }

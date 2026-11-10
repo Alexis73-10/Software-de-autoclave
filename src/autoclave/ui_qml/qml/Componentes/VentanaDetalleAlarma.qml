@@ -148,7 +148,7 @@ Item {
             anchors.fill: parent
             color: Colores.velo
             opacity: compartido.opacidadFondo
-            MouseArea { anchors.fill: parent; enabled: raiz.abierta; onClicked: raiz.cerrar() }
+            MouseArea { anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); enabled: raiz.abierta; onClicked: raiz.cerrar() }
         }
 
         ElementoCompartido {
@@ -345,6 +345,6 @@ Item {
             font.weight: Tipografia.pesoSemiBold
             font.pixelSize: Escala.fuente(Tipografia.botonEtiquetaTam)
         }
-        MouseArea { anchors.fill: parent; onClicked: b.pulsado() }
+        MouseArea { anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); onClicked: b.pulsado() }
     }
 }

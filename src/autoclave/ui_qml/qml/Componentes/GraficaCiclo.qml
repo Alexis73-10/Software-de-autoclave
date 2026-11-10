@@ -355,6 +355,7 @@ Item {
         }
         MouseArea {
             anchors.fill: parent
+            anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height))   // tanda responsive: zona táctil mínima
             onClicked: { desplegable.abierto = !desplegable.abierto; raiz.tiemposPulsado() }
         }
     }
@@ -372,7 +373,7 @@ Item {
             source: raiz.iconosColor + "pantalla_completa.svg"
             color: Colores.textoNegro   // OSC-06: oscuro en claro, claro en oscuro
         }
-        MouseArea { anchors.fill: parent; onClicked: raiz.pantallaCompletaPulsado() }
+        MouseArea { anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); onClicked: raiz.pantallaCompletaPulsado() }
     }
 
     // botón CERRAR de la pantalla completa (PROVISIONAL: sin diseño; estilo del botón Tiempos)
@@ -390,7 +391,7 @@ Item {
             font.weight: Tipografia.pesoSemiBold
             font.pixelSize: raiz.fuente(20)
         }
-        MouseArea { anchors.fill: parent; onClicked: raiz.cerrarPulsado() }
+        MouseArea { anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); onClicked: raiz.cerrarPulsado() }
     }
 
     Rectangle {
@@ -758,7 +759,7 @@ Item {
             source: raiz.iconosColor + "lupa.svg"
             color: Colores.graficaZoomIcono
         }
-        MouseArea { anchors.fill: parent; onClicked: raiz.restablecerVista() }
+        MouseArea { anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); onClicked: raiz.restablecerVista() }
     }
 
     // ---- cursor y globo de valores ----
@@ -920,6 +921,7 @@ Item {
     MouseArea {
         visible: desplegable.abierto
         anchors.fill: parent
+        anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height))   // tanda responsive: zona táctil mínima
         onClicked: desplegable.abierto = false
     }
     Rectangle {

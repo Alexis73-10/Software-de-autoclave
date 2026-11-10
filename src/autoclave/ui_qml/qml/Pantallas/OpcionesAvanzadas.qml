@@ -73,7 +73,7 @@ Item {
                     font.pixelSize: Escala.fuente(Tipografia.botonEtiquetaTam)
                     font.weight: seg.activo ? Tipografia.pesoBold : Tipografia.pesoSemiBold
                 }
-                MouseArea { anchors.fill: parent; onClicked: raiz.elegirSegmento(seg.modelData.valor) }
+                MouseArea { anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); onClicked: raiz.elegirSegmento(seg.modelData.valor) }
             }
         }
     }

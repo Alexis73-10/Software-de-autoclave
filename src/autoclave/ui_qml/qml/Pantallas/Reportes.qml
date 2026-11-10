@@ -45,7 +45,10 @@ Item {
     // tres columnas (mantenimiento, alarmas, operadores) y las acciones debajo,
     // a todo el ancho. Sigue desplazándose.
     readonly property bool hz: Escala.horizontal
-    readonly property real escala: hz ? Escala.px(Escala.anchoVertical) / anchoMockup : width / anchoMockup
+    // Tanda responsive: en vertical la escala no pasa la del ancho de diseño; el
+    // ancho de más (_dxV, px del mockup) lo toman el contenido y la barra
+    readonly property real escala: hz ? Escala.px(Escala.anchoVertical) / anchoMockup : Math.min(width, Escala.px(Escala.anchoVertical)) / anchoMockup
+    readonly property real _dxV: hz ? 0 : (width - Math.min(width, Escala.px(Escala.anchoVertical))) / escala
     readonly property real anchoMarco: width / escala
     function m(v) { return v * escala }
     function fuente(v) { return Math.max(1, Math.round(m(v))) }
@@ -194,7 +197,7 @@ Item {
         id: barra
         objectName: "barraInferiorReportes"
         x: raiz.m(54)
-        width: raiz.m(raiz.hz ? raiz.anchoMarco - 54 - 54 : 1139 - 54)
+        width: raiz.m(raiz.hz ? raiz.anchoMarco - 54 - 54 : 1139 - 54 + raiz._dxV)
         y: parent.height - raiz.m(171)
         escala: raiz.escala
         personalizada: true
@@ -234,7 +237,7 @@ Item {
                 font.weight: Tipografia.pesoSemiBold
                 font.pixelSize: raiz.fuente(26)
             }
-            MouseArea { anchors.fill: parent; onClicked: raiz.inicioPulsado() }
+            MouseArea { anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); onClicked: raiz.inicioPulsado() }
         }
         Item {
             objectName: "botonSalirReportes"
@@ -270,7 +273,7 @@ Item {
                 font.weight: Tipografia.pesoSemiBold
                 font.pixelSize: raiz.fuente(26)
             }
-            MouseArea { anchors.fill: parent; onClicked: raiz.salirPulsado() }
+            MouseArea { anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); onClicked: raiz.salirPulsado() }
         }
     }
 
@@ -310,7 +313,7 @@ Item {
         id: desplazable
         objectName: "contenidoReportes"
         x: raiz.m(54); y: raiz.m(262)
-        width: raiz.m(raiz.hz ? raiz.anchoMarco - 54 - 54 : 1139 - 54)
+        width: raiz.m(raiz.hz ? raiz.anchoMarco - 54 - 54 : 1139 - 54 + raiz._dxV)
         height: barra.y - y - raiz.m(16)
         contentWidth: width
         contentHeight: columna.height + raiz.m(24)
@@ -606,6 +609,7 @@ Item {
                                         }
                                         MouseArea {
                                             anchors.fill: parent
+                                            anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height))   // tanda responsive: zona táctil mínima
                                             onClicked: { raiz.mensaje = ""; raiz.rd?.abrirFallo(filaCausa.modelData.causa) }
                                         }
                                     }

@@ -113,6 +113,7 @@ Item {
         }
         MouseArea {
             anchors.fill: parent
+            anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height))   // tanda responsive: zona táctil mínima
             onClicked: raiz.alarmaElegida(fp.modelData)
         }
     }
@@ -204,7 +205,7 @@ Item {
                     font.weight: Tipografia.pesoSemiBold
                     font.pixelSize: raiz.fuente(22)
                 }
-                MouseArea { anchors.fill: parent; onClicked: raiz.abrirTodas() }
+                MouseArea { anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); onClicked: raiz.abrirTodas() }
             }
         }
     }
@@ -221,7 +222,7 @@ Item {
         Rectangle {
             anchors.fill: parent
             color: Colores.velo
-            MouseArea { anchors.fill: parent; onClicked: raiz.cerrarTodas() }
+            MouseArea { anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); onClicked: raiz.cerrarTodas() }
         }
         Rectangle {
             id: tarjeta
@@ -278,7 +279,7 @@ Item {
                         font.weight: Tipografia.pesoBold
                         font.pixelSize: raiz.fuente(32)
                     }
-                    MouseArea { anchors.fill: parent; enabled: raiz.pagina > 1; onClicked: raiz.pagina -= 1 }
+                    MouseArea { anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); enabled: raiz.pagina > 1; onClicked: raiz.pagina -= 1 }
                 }
                 Text {
                     objectName: "textoPaginaAlarmas"
@@ -308,7 +309,7 @@ Item {
                         font.weight: Tipografia.pesoBold
                         font.pixelSize: raiz.fuente(32)
                     }
-                    MouseArea { anchors.fill: parent; enabled: raiz.pagina < raiz.paginas; onClicked: raiz.pagina += 1 }
+                    MouseArea { anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); enabled: raiz.pagina < raiz.paginas; onClicked: raiz.pagina += 1 }
                 }
                 Rectangle {
                     objectName: "botonCerrarTodasAlarmas"
@@ -325,7 +326,7 @@ Item {
                         font.weight: Tipografia.pesoSemiBold
                         font.pixelSize: raiz.fuente(22)
                     }
-                    MouseArea { anchors.fill: parent; onClicked: raiz.cerrarTodas() }
+                    MouseArea { anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); onClicked: raiz.cerrarTodas() }
                 }
             }
         }
