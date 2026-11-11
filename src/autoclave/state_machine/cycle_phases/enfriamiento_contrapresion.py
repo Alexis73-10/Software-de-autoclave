@@ -83,6 +83,13 @@ ENFR_TIMEOUT_PRESURIZACION = "ENFR_TIMEOUT_PRESURIZACION"
 ENFR_CONTRAPRESION_BAJA = "ENFR_CONTRAPRESION_BAJA"            # fallo
 ENFR_AVISO_CONTRAPRESION = "ENFR_AVISO_CONTRAPRESION"          # aviso no bloqueante
 
+# Ajuste 10-nov: margen de FALLO sobre Psat(T) (kPa), propio de CIC-24. El
+# aviso CIC-25 y la reposición de aire siguen con MARGEN_CONTRAPRESION_LIQUIDO
+# (30 kPa); el fallo solo llega si la presión baja del margen de fallo (nunca
+# mayor que el de aviso). Opcional en `params` (sin él, el defecto).
+MARGEN_FALLO_CONTRAPRESION_DEFECTO = 10.0   # DECISIÓN SIN CONFIRMAR
+CLAVE_MARGEN_FALLO = "margen_fallo_contrapresion"
+
 PARAMETROS = (
     "presion_camara_enfriamiento",
     "presion_despresurizacion_chaqueta",
@@ -142,6 +149,10 @@ class EnfriamientoContrapresion:
             if valores[nombre] <= 0:
                 raise ValueError(f"{nombre} debe ser > 0")
 
+        margen_fallo = _numero(params.get(CLAVE_MARGEN_FALLO)) if params is not None else None
+        if margen_fallo is None or margen_fallo < 0:
+            margen_fallo = MARGEN_FALLO_CONTRAPRESION_DEFECTO
+        self._margen_fallo = min(margen_fallo, MARGEN_CONTRAPRESION_LIQUIDO)
         self._presion_obj = valores["presion_camara_enfriamiento"]
         self._margen_chaqueta = valores["presion_despresurizacion_chaqueta"]
         self._tope_b_s = valores["timeout_despresurizacion_chaqueta"] * 60.0
@@ -163,6 +174,7 @@ class EnfriamientoContrapresion:
         self._cond_a = False
         self._cond_b = False
         self._t_bajo_desde: float | None = None
+        self._t_bajo_fallo_desde: float | None = None
         self._fallo: str | None = None
         self._tope: str | None = None
 
@@ -236,6 +248,11 @@ class EnfriamientoContrapresion:
                 self._tope = codigo_tope
 
         # --- LIQ-02 ---
+        # Aviso (CIC-25): bajo P_min = Psat(T) + MARGEN_CONTRAPRESION_LIQUIDO.
+        # Fallo (CIC-24, ajuste 10-nov): bajo Psat(T) + margen_fallo_contrapresion
+        # (el líquido solo corre riesgo de hervir cerca de Psat(T)); cada uno
+        # con su propio conteo. Sin lectura de T o de presión, ambos cuentan
+        # como bajo el mínimo (falla cerrada).
         p_min = None
         aviso = False
         bajo_s = 0.0
@@ -247,11 +264,19 @@ class EnfriamientoContrapresion:
                     self._t_bajo_desde = now
                 bajo_s = now - self._t_bajo_desde
                 aviso = bajo_s >= TIEMPO_AVISO_CONTRAPRESION_S
-                if not self._solo_aviso and bajo_s >= TIEMPO_FALLO_CONTRAPRESION_S:
-                    self._fallo = ENFR_CONTRAPRESION_BAJA
-                    return self._resultado_fallo(p_min, bajo_s)
             else:
                 self._t_bajo_desde = None
+            p_fallo = self._presion_fallo(temp_principal)
+            bajo_fallo = p_fallo is None or p_cam is None or p_cam < p_fallo
+            if bajo_fallo:
+                if self._t_bajo_fallo_desde is None:
+                    self._t_bajo_fallo_desde = now
+                bajo_fallo_s = now - self._t_bajo_fallo_desde
+                if not self._solo_aviso and bajo_fallo_s >= TIEMPO_FALLO_CONTRAPRESION_S:
+                    self._fallo = ENFR_CONTRAPRESION_BAJA
+                    return self._resultado_fallo(p_fallo, bajo_fallo_s)
+            else:
+                self._t_bajo_fallo_desde = None
 
         # Tras un tope (solo_aviso) la contrapresión se mantiene, pero ni la
         # lenta (carga posiblemente caliente) ni el agua de chaqueta
@@ -295,6 +320,16 @@ class EnfriamientoContrapresion:
             return None
         try:
             return p_saturacion_kpa(t) + MARGEN_CONTRAPRESION_LIQUIDO
+        except ValueError:
+            return None
+
+    def _presion_fallo(self, temp_principal) -> float | None:
+        """Psat(T) + margen de fallo; None sin lectura o fuera de rango."""
+        t = _numero(temp_principal)
+        if t is None:
+            return None
+        try:
+            return p_saturacion_kpa(t) + self._margen_fallo
         except ValueError:
             return None
 

@@ -480,7 +480,7 @@ DEFINICIONES: tuple[DefinicionAlarma, ...] = (
        "Base de datos no disponible: los ciclos se registran solo en el respaldo y en "
        "el ticket, sin operador. Opciones, calibración y usuarios no están disponibles.",
        "Llame a servicio técnico para revisar la base de datos."),
-    _d(MANTENIMIENTO_VENCIDO, _AV, False, _A, "Mantenimiento vencido",
+    _d(MANTENIMIENTO_VENCIDO, _AV, False, _A, "Mantenimiento vencido - Solicite servicio técnico",
        "{motivo}",
        "Programe el mantenimiento con servicio técnico. El equipo puede seguir operando."),
     _d(IMPRESORA_DESCONECTADA, _AV, False, _A, "Impresora no conectada",

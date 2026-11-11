@@ -283,8 +283,8 @@ _SCRIPT = textwrap.dedent(r"""
 
     pantalla, progreso, comandos, teclado = (obj("pantalla"), obj("progresoFalso"),
                                              obj("comandosFalsos"), obj("tecladoFalso"))
-    boton, indicador, forzado = obj("botonCancelarCiclo"), obj("indicadorEntrega"), obj("botonConfirmarForzado")
-    modal_forzar, modal_confirmar, aviso = obj("modalConfirmarForzado"), obj("modalConfirmarCiclo"), obj("avisoComando")
+    boton, indicador = obj("botonCancelarCiclo"), obj("indicadorEntrega")
+    modal_confirmar, aviso = obj("modalConfirmarCiclo"), obj("avisoComando")
 
     def pulsar(item):
         c = item.mapToScene(item.boundingRect().center())
@@ -301,7 +301,7 @@ _SCRIPT = textwrap.dedent(r"""
     def estado():
         return {"boton": boton.isVisible(), "deslizador": deslizador.isVisible(),
                 "indicador": indicador.isVisible(),
-                "forzado": forzado.isVisible(), "texto": obj("textoEntrega").property("text")}
+                "texto": obj("textoEntrega").property("text")}
 
     def aceptar(modal):
         pulsar([o for o in modal.findChildren(QQuickItem) if o.objectName() == "botonAccionModal"][0])
@@ -313,23 +313,13 @@ _SCRIPT = textwrap.dedent(r"""
     poner(progreso, resultado="fallo", revisionFin=1)
     r["esperando"] = estado()
     r["toque_indicador"] = (pulsar(indicador), modal_confirmar.property("visible"))[1]
-    # ingeniero, forzable: aparece el botón forzado
+    # beta.2: el botón de confirmación forzada ya no existe en la pantalla
     poner(comandos, rolIngeniero=True)
-    r["ingeniero_no_forzable"] = estado()
     poner(progreso, forzable=True)
     r["ingeniero_forzable"] = estado()
-    pulsar(forzado)
-    r["modal_forzar"] = modal_forzar.property("visible")
-    r["nota_modal"] = modal_forzar.property("nota")
-    aceptar(modal_forzar)
-    r["teclado"] = [teclado.property("llamadas"), teclado.property("ocultar")]
-    r["claves_antes"] = comandos.property("nClaves")
-    QMetaObject.invokeMethod(teclado, "entregar", Q_ARG("QVariant", "mi-clave"))
-    QTest.qWait(40)
-    r["claves"] = [comandos.property("nClaves"), comandos.property("ultimaClave")]
-    # técnico (no ingeniero): sin botón forzado
+    r["forzado_existe"] = [o for o in ventana.findChildren(QObject)
+                           if o.objectName() in ("botonConfirmarForzado", "modalConfirmarForzado")] != []
     poner(comandos, rolIngeniero=False)
-    r["tecnico"] = estado()
     # entrega: aparece CONFIRMAR con su modal, sin indicador
     poner(progreso, entregada=True, revisionFin=2)
     r["entregada"] = estado()
@@ -374,32 +364,22 @@ def test_mientras_corre_hay_cancelar_y_no_indicador(r):
 
 def test_con_resultado_sin_entrega_indicador_en_lugar_de_confirmar(r):
     e = r["esperando"]
-    assert e["indicador"] is True and e["boton"] is False and e["forzado"] is False
+    assert e["indicador"] is True and e["boton"] is False
     assert e["deslizador"] is False
     # ESP-01 (tanda 34): la barra inferior no lleva el motivo
-    assert e["texto"] == "Esperando cámara segura"
+    assert e["texto"] == "Terminando"
     assert r["toque_indicador"] is False   # no es botón
 
 
-def test_forzado_solo_para_ingeniero_y_si_es_forzable(r):
-    assert r["ingeniero_no_forzable"]["forzado"] is False
-    assert r["ingeniero_forzable"]["forzado"] is True and r["ingeniero_forzable"]["indicador"] is True
-    assert r["tecnico"]["forzado"] is False
-
-
-def test_forzado_pide_advertencia_y_contrasena_por_el_teclado_de_accion(r):
-    assert r["modal_forzar"] is True
-    assert "Esperando cámara segura" in r["nota_modal"]
-    # ESP-01: el modal forzado conserva el motivo completo
-    assert "Temperatura 92 °C, máximo 80 °C" in r["nota_modal"]
-    assert r["teclado"] == [1, True]
-    assert r["claves_antes"] == 0
-    assert r["claves"] == [1, "mi-clave"]
+def test_sin_confirmacion_forzada_en_la_pantalla(r):
+    # beta.2 (10-nov, Cristian): se retiró el botón y su modal (el backend lo conserva)
+    assert r["forzado_existe"] is False
+    assert r["ingeniero_forzable"]["indicador"] is True
 
 
 def test_entregada_aparece_confirmar_con_su_modal(r):
     e = r["entregada"]
-    assert e["boton"] is True and e["indicador"] is False and e["forzado"] is False
+    assert e["boton"] is True and e["indicador"] is False
     assert r["modal_confirmar"] is True
 
 

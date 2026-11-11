@@ -282,7 +282,9 @@ def test_no_armada_antes_de_a():
 def test_aviso_a_10_s_y_fallo_a_60_s():
     c, r = _comp()
     _armar(c, r)
-    bajo = P_MIN - 5
+    # ajuste 10-nov: el fallo es bajo Psat(T) + 10 kPa (margen_fallo_contrapresion);
+    # el aviso sigue siendo bajo P_min = Psat(T) + 30 kPa
+    bajo = P_MIN - 25
     res = _tick(c, pc=bajo, pj=ATM)
     assert res.armada and not res.aviso_contrapresion
     assert math.isclose(res.presion_minima, P_MIN)
@@ -419,12 +421,12 @@ def test_mb_fase_sin_cambio_lenta_abierta_hasta_el_fallo():
     60 s, CIC-24 (FALLO con todo apagado)."""
     c, r = _comp(modo_5=True, solo_aviso=False)
     _armar(c, r)
-    _tick(c, pc=P_MIN - 5, pj=ATM)
+    _tick(c, pc=P_MIN - 25, pj=ATM)
     r.avanzar(10)
-    res = _tick(c, pc=P_MIN - 5, pj=ATM)
+    res = _tick(c, pc=P_MIN - 25, pj=ATM)
     assert res.aviso_contrapresion and res.descompresion_lenta_on
     r.avanzar(50)
-    res = _tick(c, pc=P_MIN - 5, pj=ATM)
+    res = _tick(c, pc=P_MIN - 25, pj=ATM)
     assert res.fallo == ENFR_CONTRAPRESION_BAJA and not res.descompresion_lenta_on
 
 

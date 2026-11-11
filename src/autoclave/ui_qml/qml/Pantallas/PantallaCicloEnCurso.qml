@@ -91,24 +91,13 @@ Item {
     // dato, no entregada). Tras un paro soltado, la confirmación del estado seguro
     // sigue disponible sin esperar la entrega (ENT-05).
     property bool entregada: progreso?.entregada ?? false
-    property bool forzable: progreso?.forzable ?? false
     readonly property bool puedeConfirmar: terminado && (entregada || ackEstadoSeguro)
     readonly property bool esperandoEntrega: terminado && !puedeConfirmar
-    // el backend declara posible la confirmación forzada y la sesión es de ingeniero
-    readonly property bool puedeForzar: esperandoEntrega && forzable && (comandos?.rolIngeniero ?? false)
-    property string textoEntrega: (esperandoEntrega && progreso && progreso.textoEntrega && progreso.revisionFin >= 0)
-                                  ? progreso.textoEntrega(I18n.lang) : ""
-    // ESP-01 (tanda 34): la barra inferior muestra solo «Esperando condiciones de
-    // apertura: m:ss» (espera fija tras COMPLETADO) o «Esperando cámara segura»,
-    // nunca el motivo (que sigue en textoEntrega para la nota del modal forzado).
-    // Falla cerrada: todo lo que no sea la espera fija da el mensaje sin motivo.
-    readonly property string textoIndicadorEntrega: {
-        const prefijoEspera = I18n.t("ciclo.entrega_espera", I18n.lang, { tiempo: "" })
-        return (prefijoEspera !== "" && textoEntrega.startsWith(prefijoEspera))
-               ? textoEntrega : I18n.t("ciclo.entrega_sin_motivo", I18n.lang)
-    }
+    // Beta.2 (10-nov, Cristian): mientras la cámara no está entregada la barra
+    // inferior dice solo «Terminando» (el motivo está en la fila NO ABRIR de la
+    // campana). El botón «Confirmar sin condiciones seguras» se retiró de esta
+    // pantalla (el backend lo conserva; se ofrecerá en otra parte).
     onVisibleChanged: if (visible) refrescarRol()
-    onForzableChanged: refrescarRol()
     Component.onCompleted: refrescarRol()
     function refrescarRol() { if (comandos && comandos.refrescarRol) comandos.refrescarRol() }
     // D8-2.16: todo ciclo terminado que no fue COMPLETADO (falla segura)
@@ -137,15 +126,14 @@ Item {
     // se envía con el texto de otra situación
     onResultadoChanged: {
         vistaGrafica = false; verObservaciones = false
-        modalConfirmar.cerrar(); modalEstadoSeguro.cerrar(); modalForzar.cerrar()
+        modalConfirmar.cerrar(); modalEstadoSeguro.cerrar()
     }
     readonly property bool ackEstadoSeguro: puente?.ackConfirmaEstadoSeguro ?? false
     onAckEstadoSeguroChanged: modalConfirmar.cerrar()
     // ENT-09: si la cámara deja de estar entregada, un modal de CONFIRMAR abierto se cierra
     onPuedeConfirmarChanged: if (!puedeConfirmar) { modalConfirmar.cerrar(); modalEstadoSeguro.cerrar() }
-    onPuedeForzarChanged: if (!puedeForzar) modalForzar.cerrar()
     readonly property bool modalAbierto: modalConfirmar.abierto
-                                         || modalEstadoSeguro.abierto || modalForzar.abierto || avisoComando.visible
+                                         || modalEstadoSeguro.abierto || avisoComando.visible
     property bool comandoOcupado: comandos?.ocupado ?? false
     property string errorComando: comandos?.error ?? ""
     // D8-2.15 (tanda 8): clave del catálogo del aviso de una cancelación
@@ -975,7 +963,7 @@ Item {
             visible: raiz.esperandoEntrega
             x: raiz.hz ? barraInferior.xCeldaDer + raiz.m(12) : barraInferior.mx(650 - 34); y: raiz.m(1760 - 1746)
             width: raiz.hz ? barraInferior.anchoCeldaDer - raiz.m(24) : barraInferior.mx(1081 - 650)
-            height: raiz.m(raiz.puedeForzar ? 50 : 100)
+            height: raiz.m(100)
             Rectangle {
                 anchors.fill: parent
                 radius: raiz.m(14)
@@ -986,7 +974,7 @@ Item {
                 objectName: "textoEntrega"
                 anchors.fill: parent
                 anchors.margins: raiz.m(8)
-                text: raiz.textoIndicadorEntrega
+                text: I18n.t("ciclo.terminando", I18n.lang)
                 color: Colores.advertenciaTexto
                 font.family: Tipografia.familia
                 font.weight: Tipografia.pesoMedium
@@ -997,35 +985,6 @@ Item {
                 verticalAlignment: Text.AlignVCenter
             }
         }
-        Item {
-            objectName: "botonConfirmarForzado"
-            visible: raiz.puedeForzar
-            x: raiz.hz ? barraInferior.xCeldaDer + raiz.m(12) : barraInferior.mx(650 - 34); y: raiz.m(1814 - 1746)
-            width: raiz.hz ? barraInferior.anchoCeldaDer - raiz.m(24) : barraInferior.mx(1081 - 650)
-            height: raiz.m(46)
-            enabled: raiz.datosVigentes && !raiz.comandoOcupado
-            opacity: enabled ? 1.0 : 0.4
-            Rectangle {
-                anchors.fill: parent
-                radius: raiz.m(14)
-                color: Colores.peligroFondo
-                border.width: raiz.m(2); border.color: Colores.peligroTexto
-            }
-            Text {
-                anchors.fill: parent
-                anchors.margins: raiz.m(8)
-                text: I18n.t("ciclo.confirmar_forzado", I18n.lang)
-                color: Colores.peligroTexto
-                font.family: Tipografia.familia
-                font.weight: Tipografia.pesoMedium
-                font.pixelSize: raiz.fuente(16)
-                fontSizeMode: Text.HorizontalFit; minimumPixelSize: Escala.fuenteMinima
-                horizontalAlignment: Text.AlignHCenter
-                verticalAlignment: Text.AlignVCenter
-            }
-            MouseArea { anchors.fill: parent; anchors.margins: -Escala.margenTactil(Math.min(parent.width, parent.height)); onClicked: modalForzar.abrir() }
-        }
-
         // CAN-02 (tanda 34): mientras el ciclo no termina, CANCELAR CICLO es un
         // deslizador rojo (DeslizadorInicio, variante "cancelar") en el lugar del
         // botón de antes (mockup: x 846..1081, y 1768..1856). Solo el arrastre
@@ -1216,25 +1175,6 @@ Item {
             }
             raiz.confirmarPulsado()
             raiz.comandos?.confirmar()
-        }
-    }
-
-    // ENT-04/09 (tanda 31): confirmación forzada del ingeniero. Advertencia y, al aceptar,
-    // contraseña con el teclado en pantalla de acción (una sola entrega al Confirmar con
-    // texto); el backend reautentica y decide (403 / 409 se muestran en el aviso).
-    ModalConfirmacion {
-        id: modalForzar
-        objectName: "modalConfirmarForzado"
-        titulo: I18n.t("ciclo.modal_forzar_titulo", I18n.lang)
-        cuerpo: I18n.t("ciclo.modal_forzar_cuerpo", I18n.lang)
-        nota: raiz.textoEntrega
-        textoAccion: I18n.t("ciclo.modal_forzar_accion", I18n.lang)
-        colorAccion: Colores.peligroTexto
-        onAceptado: {
-            if (!raiz.teclado || !raiz.puedeForzar)
-                return
-            raiz.teclado.abrirAlfanumericoAccion(I18n.t("ciclo.forzar_clave_titulo", I18n.lang), "", 64, true,
-                                                 (clave) => raiz.comandos?.confirmarForzado(String(clave)))
         }
     }
 

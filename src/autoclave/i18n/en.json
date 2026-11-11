@@ -435,6 +435,7 @@
     "entrega_motivo": "Waiting for safe chamber: {motivo}",
     "entrega_sin_motivo": "Waiting for safe chamber",
     "entrega_espera": "Waiting for opening conditions: {tiempo}",
+    "terminando": "Finishing",
     "confirmar_forzado": "Confirm without safe conditions",
     "modal_forzar_titulo": "Confirm without safe conditions",
     "modal_forzar_cuerpo": "The chamber is not yet in safe conditions to open. Confirming now hands over the chamber without verifying it: it is recorded in the audit log and on the ticket. Your Engineer password will be requested.",
@@ -1310,7 +1311,7 @@
       "accion": "Call technical service to check the database."
     },
     "SIS-04": {
-      "titulo": "Maintenance overdue",
+      "titulo": "Maintenance overdue - Request technical service",
       "plantilla": "{motivo}",
       "accion": "Schedule maintenance with technical service. The unit can keep operating."
     },
@@ -1577,6 +1578,8 @@
       "modo": "How pressure is released after sterilization. See the description of the chosen mode.",
       "tiempo_pre_despresurizacion": "Wait before starting to depressurize.",
       "presion_fin_descompresion": "Modes 1 to 5: depressurization ends when the chamber drops to the unit's atmospheric pressure + this value (kPa), so it does not wait for the residual steam to condense. Mode 0 does not use it. The DO NOT OPEN warning and the preparation venting still apply afterwards; each mode's time limit does not change.",
+      "escape_lento_on": "Modes 2, 3 and 5: seconds the slow exhaust stays open on each pulse during depressurization. With the slow exhaust closed time at 0 it stays open continuously. Pulsing the valve reduces the load on the air compressor.",
+      "escape_lento_off": "Modes 2, 3 and 5: seconds the slow exhaust stays closed between pulses during depressurization. 0 = continuously open (no pulses). A high value lengthens depressurization; the mode's time limit does not change.",
       "modo_1": {
         "timeout": "Maximum time of mode 1; if exceeded, the cycle fails."
       },
@@ -1593,7 +1596,8 @@
         "temperatura_enfriamiento": "Main probe temperature at which the load counts as cooled (3 consecutive readings at or below this value). Then the compressed air and the water close, the jacket drain stays open and the fast exhaust opens down to atmospheric.",
         "presion_despresurizacion_chaqueta": "Kilopascals above the unit's atmospheric pressure. When cooling starts the jacket drain opens; the jacket counts as depressurized when its pressure drops to atmospheric + this value. Jacket water opens only with the jacket depressurized and the chamber at the cooling chamber pressure.",
         "timeout_despresurizacion_chaqueta": "Maximum time, in minutes, for the jacket to become depressurized when cooling starts. If exceeded, the cycle fails.",
-        "timeout_presurizacion_enfriamiento": "Maximum time, in minutes, for the compressed air to bring the chamber to the cooling chamber pressure when cooling starts. If exceeded, the cycle fails."
+        "timeout_presurizacion_enfriamiento": "Maximum time, in minutes, for the compressed air to bring the chamber to the cooling chamber pressure when cooling starts. If exceeded, the cycle fails.",
+        "margen_fallo_contrapresion": "Kilopascals above the load's saturation pressure (from the Principal probe) below which, for 60 s in a row, cooling fails (insufficient back-pressure). Above this value but below Psat + 30 kPa only the low back-pressure warning is shown. Maximum 30 kPa."
       },
       "modo_5": {
         "timeout": "Maximum time of mode 5; if exceeded, the cycle fails.",
@@ -1602,6 +1606,7 @@
         "presion_despresurizacion_chaqueta": "Kilopascals above the unit's atmospheric pressure. When cooling starts the jacket drain opens; the jacket counts as depressurized when its pressure drops to atmospheric + this value. Jacket water opens only with the jacket depressurized and the chamber at the cooling chamber pressure.",
         "timeout_despresurizacion_chaqueta": "Maximum time, in minutes, for the jacket to become depressurized when cooling starts. If exceeded, the cycle fails.",
         "timeout_presurizacion_enfriamiento": "Maximum time, in minutes, for the compressed air to bring the chamber to the cooling chamber pressure when cooling starts. If exceeded, the cycle fails.",
+        "margen_fallo_contrapresion": "Kilopascals above the load's saturation pressure (from the Principal probe) below which, for 60 s in a row, cooling fails (insufficient back-pressure). Above this value but below Psat + 30 kPa only the low back-pressure warning is shown. Maximum 30 kPa.",
         "descompresion_lenta_rapida": "When cooling ends, keeps the slow exhaust open down to the switch-to-fast-exhaust pressure and then opens the fast exhaust. Disabled, it opens the fast exhaust directly.",
         "presion_cambio": "Only with slow then fast depressurization enabled: absolute chamber pressure at which the slow exhaust closes and the fast one opens. Must be lower than the cooling chamber pressure."
       }
@@ -2161,6 +2166,8 @@
       "modo": "Exhaust mode",
       "tiempo_pre_despresurizacion": "Wait before exhaust",
       "presion_fin_descompresion": "End-of-depressurization pressure",
+      "escape_lento_on": "Slow exhaust open time (depressurization)",
+      "escape_lento_off": "Slow exhaust closed time (depressurization)",
       "modo_1": {
         "timeout": "Mode 1 time limit"
       },
@@ -2177,7 +2184,8 @@
         "temperatura_enfriamiento": "Cooling temperature",
         "presion_despresurizacion_chaqueta": "Depressurized jacket pressure",
         "timeout_despresurizacion_chaqueta": "Jacket depressurization time limit",
-        "timeout_presurizacion_enfriamiento": "Cooling pressurization time limit"
+        "timeout_presurizacion_enfriamiento": "Cooling pressurization time limit",
+        "margen_fallo_contrapresion": "Back-pressure failure margin over Psat"
       },
       "modo_5": {
         "timeout": "Mode 5 time limit",
@@ -2186,6 +2194,7 @@
         "presion_despresurizacion_chaqueta": "Depressurized jacket pressure",
         "timeout_despresurizacion_chaqueta": "Jacket depressurization time limit",
         "timeout_presurizacion_enfriamiento": "Cooling pressurization time limit",
+        "margen_fallo_contrapresion": "Back-pressure failure margin over Psat",
         "descompresion_lenta_rapida": "Slow then fast depressurization",
         "presion_cambio": "Switch-to-fast-exhaust pressure"
       }

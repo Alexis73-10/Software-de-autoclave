@@ -155,8 +155,7 @@ _SCRIPT = textwrap.dedent(r"""
     panel.setProperty("visible", False)
     QTest.qWait(100)
 
-    # modal forzado: conserva el motivo completo en la nota
-    r["nota_forzado"] = obj("modalConfirmarForzado").property("nota")
+    r["forzado_existe"] = obj("botonConfirmarForzado") is not None or obj("modalConfirmarForzado") is not None
 
     # espera fija tras COMPLETADO: «Esperando condiciones de apertura: m:ss»
     progreso.setProperty("texto", "Esperando condiciones de apertura: 2:05")
@@ -191,7 +190,7 @@ def test_sin_avisos_qml(r):
 
 def test_barra_inferior_sin_el_motivo(r):
     assert r["indicador"] is True
-    assert r["barra"] == "Esperando cámara segura"
+    assert r["barra"] == "Terminando"
     assert "92" not in r["barra"] and "máximo" not in r["barra"]
 
 
@@ -218,13 +217,15 @@ def test_tocar_la_fila_abre_su_detalle(r):
     assert "92" in todo and "80" in todo, todo
 
 
-def test_modal_forzado_conserva_el_motivo(r):
-    assert MOTIVO_ES in r["nota_forzado"]
+def test_sin_boton_ni_modal_de_confirmacion_forzada(r):
+    # beta.2 (10-nov, Cristian): el botón se retiró de la pantalla
+    assert r["forzado_existe"] is False
 
 
 def test_espera_fija_se_muestra_con_su_tiempo(r):
-    assert r["barra_espera"] == "Esperando condiciones de apertura: 2:05"
+    # beta.2: la barra dice solo «Terminando», también en la espera fija
+    assert r["barra_espera"] == "Terminando"
 
 
 def test_sin_texto_falla_cerrada_al_mensaje_sin_motivo(r):
-    assert r["barra_vacia"] == "Esperando cámara segura"
+    assert r["barra_vacia"] == "Terminando"

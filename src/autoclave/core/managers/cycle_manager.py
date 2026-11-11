@@ -243,6 +243,76 @@ def _migrar_t32(parameters: dict, agregadas) -> bool:
     return cambio
 
 
+# Ajuste 10-nov: escape_lento_on/off de descompresion (después de
+# presion_fin_descompresion) y margen_fallo_contrapresion de modo_4/modo_5
+# (antes de `timeout`). Solo agrega con el defecto, con auditoría y .bak, sin
+# SIS-06; idempotente; nunca cambia un valor existente.
+_HOJAS_DESC_AJ10 = (
+    ("escape_lento_on",
+     {"value": catalogo_parametros.ESCAPE_LENTO_ON_DESCOMPRESION_DEFECTO, "type": "int",
+      "unit": "seg", "min": 1, "max": 1000}, "seg"),
+    ("escape_lento_off",
+     {"value": catalogo_parametros.ESCAPE_LENTO_OFF_DESCOMPRESION_DEFECTO, "type": "int",
+      "unit": "seg", "min": 0, "max": 1000}, "seg"),
+)
+_HOJA_MARGEN_FALLO = (
+    "margen_fallo_contrapresion",
+    {"value": catalogo_parametros.MARGEN_FALLO_CONTRAPRESION_DEFECTO, "type": "float",
+     "unit": "kPa", "clase": "diferencia", "min": 0, "max": 30}, "kPa")
+
+
+def _insertar(seccion: dict, nuevas: list, ancla: str | None, antes_de: str | None) -> None:
+    """Reconstruye `seccion` con las hojas nuevas después de `ancla` o, si no
+    está, antes de `antes_de` o al final."""
+    nuevo, puestas = {}, False
+    for k, v in seccion.items():
+        if antes_de is not None and k == antes_de and ancla not in seccion and not puestas:
+            nuevo.update(nuevas)
+            puestas = True
+        nuevo[k] = v
+        if ancla is not None and k == ancla:
+            nuevo.update(nuevas)
+            puestas = True
+    if not puestas:
+        nuevo.update(nuevas)
+    seccion.clear()
+    seccion.update(nuevo)
+
+
+def _agregar_claves_aj10nov(parameters: dict, agregadas) -> bool:
+    """Ajuste 10-nov: agrega con su defecto los parámetros nuevos de
+    descompresión que falten (pulsos del escape lento y margen de fallo de la
+    contrapresión de los modos 4 y 5)."""
+    desc = parameters.get("descompresion")
+    if not isinstance(desc, dict):
+        return False
+    origen = catalogo_parametros.ORIGEN_MIGRACION_AJ_10NOV
+    registros = []
+
+    def _agregar(seccion, prefijo, items, ancla, antes_de):
+        faltan = [(c, h, u) for c, h, u in items if c not in seccion]
+        if not faltan:
+            return
+        _insertar(seccion, [(c, copy.deepcopy(h)) for c, h, _ in faltan], ancla, antes_de)
+        for clave, hoja, unidad in faltan:
+            logger.warning("Programa sin descompresion.%s%s: agregado con el defecto %r %s (%s)",
+                           prefijo, clave, hoja["value"], unidad, origen)
+            registros.append({"fase": "descompresion", "parametro": f"{prefijo}{clave}",
+                              "anterior": None, "nuevo": hoja["value"], "unidad": unidad,
+                              "origen": origen})
+
+    _agregar(desc, "", _HOJAS_DESC_AJ10, "presion_fin_descompresion", "modo_1")
+    for modo in ("modo_4", "modo_5"):
+        seccion = desc.get(modo)
+        if isinstance(seccion, dict):
+            _agregar(seccion, f"{modo}.", (_HOJA_MARGEN_FALLO,), None, "timeout")
+    if not registros:
+        return False
+    if agregadas is not None:
+        agregadas.extend(registros)
+    return True
+
+
 def _retirar_sin_efecto(parameters: dict, agregadas) -> bool:
     """9-nov: quita de un programa viejo la sección «estabilizacion» (la
     estabilización se fusionó en CALENTAMIENTO) y globals.enfriar_chaqueta_secado,
@@ -404,6 +474,7 @@ def migrar_parametros(parameters, correcciones: list | None = None,
     cambio = _agregar_claves_a12(parameters, agregadas) or cambio
     cambio = _agregar_clave_t29_03(parameters, agregadas) or cambio
     cambio = _migrar_t32(parameters, agregadas) or cambio
+    cambio = _agregar_claves_aj10nov(parameters, agregadas) or cambio
     cambio = _retirar_sin_efecto(parameters, agregadas) or cambio
     cambio = _agregar_clave_liquido_cal(parameters, agregadas) or cambio
     for fase, clave in _PRESION_ADD:

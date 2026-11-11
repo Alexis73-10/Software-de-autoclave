@@ -435,6 +435,7 @@
     "entrega_motivo": "Esperando cámara segura: {motivo}",
     "entrega_sin_motivo": "Esperando cámara segura",
     "entrega_espera": "Esperando condiciones de apertura: {tiempo}",
+    "terminando": "Terminando",
     "confirmar_forzado": "Confirmar sin condiciones seguras",
     "modal_forzar_titulo": "Confirmar sin condiciones seguras",
     "modal_forzar_cuerpo": "La cámara aún no está en condiciones seguras de apertura. Confirmar ahora entrega la cámara sin verificarla: queda registrado en la bitácora y en el ticket. Se pedirá su contraseña de Ingeniero.",
@@ -1310,7 +1311,7 @@
       "accion": "Llame a servicio técnico para revisar la base de datos."
     },
     "SIS-04": {
-      "titulo": "Mantenimiento vencido",
+      "titulo": "Mantenimiento vencido - Solicite servicio técnico",
       "plantilla": "{motivo}",
       "accion": "Programe el mantenimiento con servicio técnico. El equipo puede seguir operando."
     },
@@ -1577,6 +1578,8 @@
       "modo": "Estrategia para llevar la cámara desde la presión de esterilización hasta P ≤ P_atm + rango atmosférico (parámetros del equipo). Ver la descripción de cada modo. Con carga líquida solo se admiten los modos 4, 5 y 0. El modo se lee al iniciar la fase. Al terminar, si la cámara queda bajo P_atm − rango, se abre la entrada de aire atmosférico para romper el vacío.",
       "tiempo_pre_despresurizacion": "Espera, en segundos, con las válvulas de descompresión, el aire comprimido y el agua de chaqueta cerrados, antes de iniciar el modo. El tiempo límite del modo empieza después de esta espera. 0 = sin espera.",
       "presion_fin_descompresion": "Modos 1 a 5: la descompresión termina cuando la cámara baja a la presión atmosférica del equipo + este valor (kPa). Así no se espera a que el vapor residual se condense. El modo 0 no lo usa. Después siguen rigiendo el aviso NO ABRIR y el venteo de preparación; el tiempo límite de cada modo no cambia.",
+      "escape_lento_on": "Modos 2, 3 y 5: segundos que el escape lento permanece abierto en cada pulso durante la descompresión. Con «Tiempo cerrado del escape lento» en 0 queda abierto de forma continua. Pulsar la válvula reduce la carga sobre el compresor de aire.",
+      "escape_lento_off": "Modos 2, 3 y 5: segundos que el escape lento permanece cerrado entre pulsos durante la descompresión. 0 = abierto de forma continua (sin pulsos). Un valor alto alarga la descompresión; el tiempo límite del modo no cambia.",
       "modo_1": {
         "timeout": "Tiempo máximo, en minutos, para llegar a P ≤ P_atm + rango atmosférico con el escape rápido abierto, contado tras la espera previa. Si vence, el ciclo falla."
       },
@@ -1593,7 +1596,8 @@
         "temperatura_enfriamiento": "Temperatura de la sonda Principal que da por enfriada la carga (3 lecturas consecutivas en o por debajo de este valor). Al cumplirse se cierran el aire comprimido y el agua, el drenaje de chaqueta sigue abierto y se abre el escape rápido hasta la atmosférica.",
         "presion_despresurizacion_chaqueta": "Kilopascales sobre la presión atmosférica del equipo. Al empezar el enfriamiento se abre el drenaje de chaqueta; la chaqueta se da por despresurizada cuando su presión baja a la atmosférica + este valor. El agua de chaqueta solo se abre con la chaqueta despresurizada y la cámara en «Presión de cámara durante el enfriamiento».",
         "timeout_despresurizacion_chaqueta": "Tiempo máximo, en minutos, para que la chaqueta quede despresurizada al empezar el enfriamiento. Si vence, el ciclo falla.",
-        "timeout_presurizacion_enfriamiento": "Tiempo máximo, en minutos, para que el aire comprimido lleve la cámara a «Presión de cámara durante el enfriamiento» al empezar el enfriamiento. Si vence, el ciclo falla."
+        "timeout_presurizacion_enfriamiento": "Tiempo máximo, en minutos, para que el aire comprimido lleve la cámara a «Presión de cámara durante el enfriamiento» al empezar el enfriamiento. Si vence, el ciclo falla.",
+        "margen_fallo_contrapresion": "Kilopascales sobre la presión de saturación de la carga (según la sonda Principal) por debajo de los cuales, durante 60 s seguidos, el enfriamiento falla (contrapresión insuficiente). Por encima de este valor pero bajo Psat + 30 kPa solo se muestra el aviso de contrapresión baja. Máximo 30 kPa."
       },
       "modo_5": {
         "timeout": "Tiempo máximo, en minutos, de todo el modo 5 (enfriamiento y despresurización final), contado tras la espera previa. Si vence, el ciclo falla y el registro indica la etapa en la que ocurrió.",
@@ -1602,6 +1606,7 @@
         "presion_despresurizacion_chaqueta": "Kilopascales sobre la presión atmosférica del equipo. Al empezar el enfriamiento se abre el drenaje de chaqueta; la chaqueta se da por despresurizada cuando su presión baja a la atmosférica + este valor. El agua de chaqueta solo se abre con la chaqueta despresurizada y la cámara en «Presión de cámara durante el enfriamiento».",
         "timeout_despresurizacion_chaqueta": "Tiempo máximo, en minutos, para que la chaqueta quede despresurizada al empezar el enfriamiento. Si vence, el ciclo falla.",
         "timeout_presurizacion_enfriamiento": "Tiempo máximo, en minutos, para que el aire comprimido lleve la cámara a «Presión de cámara durante el enfriamiento» al empezar el enfriamiento. Si vence, el ciclo falla.",
+        "margen_fallo_contrapresion": "Kilopascales sobre la presión de saturación de la carga (según la sonda Principal) por debajo de los cuales, durante 60 s seguidos, el enfriamiento falla (contrapresión insuficiente). Por encima de este valor pero bajo Psat + 30 kPa solo se muestra el aviso de contrapresión baja. Máximo 30 kPa.",
         "descompresion_lenta_rapida": "Al terminar el enfriamiento, mantiene abierto el escape lento hasta «Presión de cambio al escape rápido» y luego abre el escape rápido. Desactivada, abre el escape rápido directamente.",
         "presion_cambio": "Solo con «Descompresión lenta y luego rápida» activa: presión absoluta de cámara a la que se cierra el escape lento y se abre el rápido. Debe ser menor que «Presión de cámara durante el enfriamiento»."
       }
@@ -2161,6 +2166,8 @@
       "modo": "Modo de descompresión",
       "tiempo_pre_despresurizacion": "Espera antes de descomprimir",
       "presion_fin_descompresion": "Presión de fin de descompresión",
+      "escape_lento_on": "Tiempo abierto del escape lento (descompresión)",
+      "escape_lento_off": "Tiempo cerrado del escape lento (descompresión)",
       "modo_1": {
         "timeout": "Tiempo límite del modo 1"
       },
@@ -2177,7 +2184,8 @@
         "temperatura_enfriamiento": "Temperatura de enfriamiento",
         "presion_despresurizacion_chaqueta": "Presión de chaqueta despresurizada",
         "timeout_despresurizacion_chaqueta": "Tiempo límite de despresurización de chaqueta",
-        "timeout_presurizacion_enfriamiento": "Tiempo límite de presurización para el enfriamiento"
+        "timeout_presurizacion_enfriamiento": "Tiempo límite de presurización para el enfriamiento",
+        "margen_fallo_contrapresion": "Margen de fallo de contrapresión sobre Psat"
       },
       "modo_5": {
         "timeout": "Tiempo límite del modo 5",
@@ -2186,6 +2194,7 @@
         "presion_despresurizacion_chaqueta": "Presión de chaqueta despresurizada",
         "timeout_despresurizacion_chaqueta": "Tiempo límite de despresurización de chaqueta",
         "timeout_presurizacion_enfriamiento": "Tiempo límite de presurización para el enfriamiento",
+        "margen_fallo_contrapresion": "Margen de fallo de contrapresión sobre Psat",
         "descompresion_lenta_rapida": "Descompresión lenta y luego rápida",
         "presion_cambio": "Presión de cambio al escape rápido"
       }

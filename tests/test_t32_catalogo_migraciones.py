@@ -241,10 +241,11 @@ def test_migracion_agrega_y_retira():
     assert migrar_parametros(p, corr, agregadas=agregadas) is True
     assert corr == []
     desc = p["descompresion"]
+    # ajuste 10-nov: margen_fallo_contrapresion ya viene en el programa de fábrica
     assert list(desc["modo_4"]) == ["presion_camara_enfriamiento", "temperatura_enfriamiento",
-                                    *LIQ01, "timeout"]
+                                    "margen_fallo_contrapresion", *LIQ01, "timeout"]
     assert list(desc["modo_5"]) == ["presion_camara_enfriamiento", "temperatura_enfriamiento",
-                                    *LIQ01, *LIQ03, "timeout"]
+                                    "margen_fallo_contrapresion", *LIQ01, *LIQ03, "timeout"]
     assert desc["modo_4"]["presion_despresurizacion_chaqueta"]["value"] == 20.0
     assert desc["modo_5"]["descompresion_lenta_rapida"]["value"] is False
     assert desc["modo_5"]["presion_cambio"]["value"] == 150
@@ -279,8 +280,9 @@ def test_programa_sin_modos_de_enfriamiento_no_recibe_nada():
     p = {"descompresion": {"modo": {"value": 1}}}
     agregadas = []
     migrar_parametros(p, agregadas=agregadas)
-    assert p == {"descompresion": {"modo": {"value": 1}, "presion_fin_descompresion":
-                                   p["descompresion"]["presion_fin_descompresion"]}}
+    # sin modo_4/modo_5 la tanda 32 no agrega nada; el ajuste 10-nov agrega los pulsos
+    assert set(p["descompresion"]) == {"modo", "presion_fin_descompresion",
+                                       "escape_lento_on", "escape_lento_off"}
     assert [a for a in agregadas if a["origen"] == "migración tanda 32"] == []
 
 

@@ -198,7 +198,8 @@ def test_contrapresion_baja_sostenida_falla_con_cic_24(reloj):
     am = AlarmManager()
     fase, estado, set_do = _fase(alarmas=am)
     _armar(fase, estado, reloj)
-    estado.sensores_pres["pres_camara"] = 120.0
+    # ajuste 10-nov: el fallo es bajo Psat(T) + margen_fallo_contrapresion (10 kPa)
+    estado.sensores_pres["pres_camara"] = 105.0
     reloj.t += 1
     fase.update()
     reloj.t += 30

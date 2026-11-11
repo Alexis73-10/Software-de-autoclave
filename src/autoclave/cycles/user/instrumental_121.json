@@ -609,6 +609,20 @@
                 "min": 2,
                 "max": 20
             },
+            "escape_lento_on": {
+                "value": 1,
+                "type": "int",
+                "unit": "seg",
+                "min": 1,
+                "max": 1000
+            },
+            "escape_lento_off": {
+                "value": 0,
+                "type": "int",
+                "unit": "seg",
+                "min": 0,
+                "max": 1000
+            },
             "modo_1": {
                 "timeout": {
                     "value": 10,
@@ -683,6 +697,14 @@
                     "min": 1,
                     "max": 15
                 },
+                "margen_fallo_contrapresion": {
+                    "value": 10.0,
+                    "type": "float",
+                    "unit": "kPa",
+                    "clase": "diferencia",
+                    "min": 0,
+                    "max": 30
+                },
                 "timeout": {
                     "value": 120,
                     "type": "int",
@@ -742,6 +764,14 @@
                     "clase": "absoluto",
                     "min": 0,
                     "max": 500
+                },
+                "margen_fallo_contrapresion": {
+                    "value": 10.0,
+                    "type": "float",
+                    "unit": "kPa",
+                    "clase": "diferencia",
+                    "min": 0,
+                    "max": 30
                 },
                 "timeout": {
                     "value": 120,

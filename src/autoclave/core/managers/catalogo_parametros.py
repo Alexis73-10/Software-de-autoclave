@@ -81,6 +81,15 @@ DESCOMPRESION_LENTA_RAPIDA_DEFECTO = False
 PRESION_CAMBIO_MODO_5_DEFECTO = 150                # kPa absolutos (1–400, como modo_3)
 PARAMETROS_RETIRADOS_T32 = ("tiempo_apertura_chaqueta", "tiempo_cierre_chaqueta")
 ORIGEN_MIGRACION_T32 = "migración tanda 32"
+# Ajuste 10-nov: pulsos del escape lento en descompresión (como calentamiento y
+# esterilización; defecto 1 s abierto / 0 s cerrado = abierta continua, sin
+# cambio funcional) y margen de FALLO de la contrapresión sobre Psat(T) para
+# CIC-24 (kPa, diferencia, 0–30; defecto DECISIÓN SIN CONFIRMAR). El aviso
+# CIC-25 y la reposición de aire siguen con MARGEN_CONTRAPRESION_LIQUIDO.
+ESCAPE_LENTO_ON_DESCOMPRESION_DEFECTO = 1      # seg (int, 1–1000)
+ESCAPE_LENTO_OFF_DESCOMPRESION_DEFECTO = 0     # seg (int, 0–1000)
+MARGEN_FALLO_CONTRAPRESION_DEFECTO = 10.0      # kPa (diferencia, 0–30)
+ORIGEN_MIGRACION_AJ_10NOV = "migración ajuste 10-nov (pulsos de escape lento, margen de fallo)"
 # 9-nov: retiro de parámetros de programa que ningún módulo del control leía
 # (la sección «estabilizacion» entera, fusionada en CALENTAMIENTO, y
 # globals.enfriar_chaqueta_secado). ciclos_multiples NO se retira: es una
@@ -266,6 +275,14 @@ for _m in _MODOS_ENFRIAMIENTO:
            "LIQ-01 (tanda 32): tiempo límite de la despresurización de chaqueta")
     _poner("descompresion", f"{_m}.timeout_presurizacion_enfriamiento", 1, 15,
            "LIQ-01 (tanda 32): tiempo límite de la presurización de cámara")
+# ── Ajuste 10-nov ──────────────────────────────────────────────────────────
+_poner("descompresion", "escape_lento_on", 1, 1000,
+       "Ajuste 10-nov: segundos abierto del escape lento en cada pulso (descompresión)")
+_poner("descompresion", "escape_lento_off", 0, 1000,
+       "Ajuste 10-nov: segundos cerrado del escape lento en cada pulso (0 = continua)")
+for _m in _MODOS_ENFRIAMIENTO:
+    _poner("descompresion", f"{_m}.margen_fallo_contrapresion", 0, 30,
+           "Ajuste 10-nov: margen sobre Psat(T) bajo el cual la contrapresión da FALLO CIC-24")
 # modo 0 de descompresión se conserva (enfriamiento natural, decisión 1.2)
 _poner("descompresion", "modo", 0, 5, "modo 0 conservado (enfriamiento natural)")
 

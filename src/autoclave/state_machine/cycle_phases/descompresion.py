@@ -10,6 +10,7 @@ from autoclave.core.runtime import vigencia_ai
 from autoclave.state_machine.alarms.catalogo import CIC_22, CIC_23, CIC_24, CIC_25
 from autoclave.state_machine.cycle_phases import enfriamiento_contrapresion as enfr
 from autoclave.state_machine.cycle_phases.base_fase import BaseFase, FaseResult
+from autoclave.state_machine.cycle_phases.pulso_escape_lento import PulsoEscapeLento
 from autoclave.state_machine.cycle_phases.valvula_reposo import abrir_valvula_modo
 from autoclave.core.runtime.lectura import carga_enfriada
 
@@ -31,6 +32,8 @@ _DEFECTOS_ENFRIAMIENTO = {
     "presion_despresurizacion_chaqueta": 20.0,
     "timeout_despresurizacion_chaqueta": 3.0,
     "timeout_presurizacion_enfriamiento": 3.0,
+    # Ajuste 10-nov: margen de fallo CIC-24 sobre Psat(T) (DECISIÓN SIN CONFIRMAR)
+    enfr.CLAVE_MARGEN_FALLO: enfr.MARGEN_FALLO_CONTRAPRESION_DEFECTO,
 }
 # LIQ-03: presión de cambio lenta → rápida del modo 5 (kPa abs) sin un valor válido
 PRESION_CAMBIO_DEFECTO = 150.0
@@ -68,8 +71,9 @@ def parametros_enfriamiento(cycle, modo_key: str) -> dict:
         except Exception:
             crudo = None
         v = _numero(crudo)
-        valido = v is not None and (v >= 0 if nombre == "presion_despresurizacion_chaqueta"
-                                    else v > 0)
+        valido = v is not None and (
+            v >= 0 if nombre in ("presion_despresurizacion_chaqueta", enfr.CLAVE_MARGEN_FALLO)
+            else v > 0)
         if not valido:
             if crudo is not None:
                 logger.error("Enfriamiento con contrapresión: %s.%s=%r no válido; se usa %g",
@@ -140,7 +144,10 @@ def valores_alarma_enfriamiento(codigo_enfr: str, params: dict, modo, p_atm: flo
     if codigo_enfr == enfr.ENFR_TIMEOUT_PRESURIZACION:
         return {"objetivo": params["presion_camara_enfriamiento"],
                 "minutos": f"{params['timeout_presurizacion_enfriamiento']:g}", "modo": modo}
-    return {"margen": f"{MARGEN_CONTRAPRESION_LIQUIDO:g}",
+    # CIC-24 (ajuste 10-nov): el margen que se informa es el de fallo, no el de aviso
+    margen_fallo = min(params.get(enfr.CLAVE_MARGEN_FALLO, enfr.MARGEN_FALLO_CONTRAPRESION_DEFECTO),
+                       MARGEN_CONTRAPRESION_LIQUIDO)
+    return {"margen": f"{margen_fallo:g}",
             "segundos": int(enfr.TIEMPO_FALLO_CONTRAPRESION_S), "modo": modo}
 
 
@@ -220,6 +227,8 @@ class DescompresionFase(BaseFase):
         self._enfr_params = None
         self._desc_lenta_primero = False
         self._presion_cambio = PRESION_CAMBIO_DEFECTO
+        # Ajuste 10-nov: pulsos del escape lento (escape_lento_on/off)
+        self._pulso_lenta = PulsoEscapeLento(ahora=lambda: time.monotonic())
         aviso = getattr(self, "_aviso", None)
         if aviso is not None:
             aviso.despejar(getattr(self, "alarm_manager", None))
@@ -323,7 +332,26 @@ class DescompresionFase(BaseFase):
             margen = self._rango_atm()
         return p <= self._pres_atm() + margen
 
+    def _lenta(self, quiere_abierta: bool) -> None:
+        """Ajuste 10-nov: la lenta que antes iba abierta continua se pulsa con
+        `descompresion.escape_lento_on/off` (seg). Cerrada si la fase no la
+        quiere; con off = 0 (defecto) queda abierta continua como antes."""
+        pulso = getattr(self, "_pulso_lenta", None)
+        if pulso is None:
+            pulso = self._pulso_lenta = PulsoEscapeLento(ahora=lambda: time.monotonic())
+        t_on = t_off = None
+        if quiere_abierta:
+            t_on = self.cycle.get_param("descompresion", "escape_lento_on", default=None)
+            t_off = self.cycle.get_param("descompresion", "escape_lento_off", default=None)
+        if pulso.decidir(quiere_abierta, t_on, t_off):
+            self.set_do.descompresion_lenta_on()
+        else:
+            self.set_do.descompresion_lenta_off()
+
     def _apagar_todo(self):
+        pulso = getattr(self, "_pulso_lenta", None)
+        if pulso is not None:
+            pulso.reiniciar()
         self.set_do.descompresion_rapida_off()
         self.set_do.descompresion_lenta_off()
         self.set_do.descompresion_chaqueta_off()
@@ -357,7 +385,7 @@ class DescompresionFase(BaseFase):
         return FaseResult.EN_CURSO
 
     def _tick_modo_2(self) -> FaseResult:
-        self.set_do.descompresion_lenta_on()
+        self._lenta(True)
         if self._en_presion_fin():
             return self._finalizar()
         return FaseResult.EN_CURSO
@@ -365,10 +393,10 @@ class DescompresionFase(BaseFase):
     def _tick_modo_3(self) -> FaseResult:
         if self._sub_etapa == "lenta":
             presion_cambio = self.cycle.get_param("descompresion", "modo_3", "presion_cambio", default=150)
-            self.set_do.descompresion_lenta_on()
+            self._lenta(True)
             p = self._pres_camara()
             if p is not None and p <= presion_cambio:
-                self.set_do.descompresion_lenta_off()
+                self._lenta(False)
                 self._sub_etapa = "rapida"
         else:
             self.set_do.descompresion_rapida_on()
@@ -436,10 +464,7 @@ class DescompresionFase(BaseFase):
         else:
             self.set_do.descompresion_chaqueta_off()
         if use_lenta:
-            if res.descompresion_lenta_on:
-                self.set_do.descompresion_lenta_on()
-            else:
-                self.set_do.descompresion_lenta_off()
+            self._lenta(res.descompresion_lenta_on)
         if res.agua_chaqueta_on:
             self.set_do.agua_chaqueta_on()
         else:
@@ -466,13 +491,13 @@ class DescompresionFase(BaseFase):
             self._desc_lenta_primero = activa
             self._presion_cambio = cambio
             if activa:
-                self.set_do.descompresion_lenta_on()
+                self._lenta(True)
                 self.set_do.descompresion_rapida_off()
                 logger.info("DescompresionFase: modo 5, descompresión por la lenta hasta %.1f kPa "
                             "y luego la rápida (LIQ-03)", cambio)
             else:
                 if use_lenta:
-                    self.set_do.descompresion_lenta_off()
+                    self._lenta(False)
                 self.set_do.descompresion_rapida_on()
             self._sub_etapa = "descompresion"
             self.estado.descompresion_enfriando = False   # T30-02
@@ -505,14 +530,14 @@ class DescompresionFase(BaseFase):
             # LIQ-03: lenta abierta y rápida cerrada hasta presion_cambio; sin
             # lectura de presión (o con la trama AI vencida, revisión de la
             # tanda 32) no se cambia a la rápida
-            self.set_do.descompresion_lenta_on()
+            self._lenta(True)
             self.set_do.descompresion_rapida_off()
             ai_vigente, _ = vigencia_ai.leer(self.estado)
             p = _numero(self._pres_camara()) if ai_vigente else None
             if p is not None and 0 < p <= self._presion_cambio:
                 logger.info("DescompresionFase: %.1f kPa <= %.1f kPa, de la lenta a la rápida "
                             "(LIQ-03)", p, self._presion_cambio)
-                self.set_do.descompresion_lenta_off()
+                self._lenta(False)
                 self.set_do.descompresion_rapida_on()
                 self._desc_lenta_primero = False
             elif self._en_presion_fin():
