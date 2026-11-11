@@ -9,6 +9,21 @@ Una entrada por **entrega** (compilación con Setup que se instala en el equipo)
 
 <!-- entradas: las agrega compilar_entrega.py debajo de esta línea, la más nueva primero -->
 
+## 1.0.0-beta.3 — 2026-11-10
+
+- Etiqueta: `v1.0.0-beta.3` (commit `chore(ver): 1.0.0-beta.3`, sobre `cfe4c93`)
+- AppVerNum: `1.0.0.2003`
+- SHA-256 del Setup y del zip: en el mensaje de la etiqueta y en `entrega/v1.0.0-beta.3_2026-11-10/SHA256SUMS.txt` (solo existen después de compilar)
+- Commits desde `v1.0.0-beta.2`:
+  - cfe4c933 feat(control): agrega pulso_escape_lento (importado por descompresion) y su prueba
+  - ef04d191 feat(ui): barra "Terminando" sin confirmación forzada, aviso de mantenimiento con servicio técnico y ajustes de la tanda 32
+  - 04a21fa0 docs(responsive): informe, capturas, comparaciones con dev, estado y CERRADO
+  - 1f906975 fix(ui): nombre del programa sin ancho fijo tras girar de horizontal a vertical en caliente
+  - 1335a9d5 feat(ui): interfaz sin franjas en cualquier proporción y zonas táctiles mínimas
+  - bfe05c80 docs(responsive): diagnóstico de dev a 19 tamaños (franjas, escala por ancho, redondeo, zonas táctiles, DPI, dos pantallas)
+  - 871d4a5a feat(ui): regla única de proyección del lienzo en Escala (factorPara, altoLienzoPara, dpr)
+
+
 ## 1.0.0-beta.2 — 2026-11-10
 
 - Etiqueta: `v1.0.0-beta.2` (commit `chore(ver): 1.0.0-beta.2`, sobre `d89577e`)
