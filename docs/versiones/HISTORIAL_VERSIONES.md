@@ -9,6 +9,15 @@ Una entrada por **entrega** (compilación con Setup que se instala en el equipo)
 
 <!-- entradas: las agrega compilar_entrega.py debajo de esta línea, la más nueva primero -->
 
+## 1.0.0-beta.4 — 2026-11-13
+
+- Etiqueta: `v1.0.0-beta.4` (commit `chore(ver): 1.0.0-beta.4`, sobre `4216748`)
+- AppVerNum: `1.0.0.2004`
+- SHA-256 del Setup y del zip: en el mensaje de la etiqueta y en `entrega/v1.0.0-beta.4_2026-11-13/SHA256SUMS.txt` (solo existen después de compilar)
+- Commits desde `v1.0.0-beta.3`:
+  - 4216748a feat(control): aire de reposo, entrega manual sin espera fija, vaciado de chaqueta y barra de espera (ajustes 12-nov)
+
+
 ## 1.0.0-beta.3 — 2026-11-10
 
 - Etiqueta: `v1.0.0-beta.3` (commit `chore(ver): 1.0.0-beta.3`, sobre `cfe4c93`)
