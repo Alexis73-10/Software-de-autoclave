@@ -222,12 +222,19 @@ def test_secuencia_5_5_hasta_30_s(reloj):
     p.mantener_chaqueta.assert_called_once()
 
 
-def test_cierre_de_puerta_antes_de_30_s_corta(reloj):
+def test_cierre_de_puerta_antes_de_30_s_no_corta(reloj):
+    """12-nov (Cristian): cerrar la puerta no corta el vaciado; termina a los
+    30 s y luego retoma mantener_chaqueta()."""
     p, estado, set_do, _ = _preparado(puertas=(0, 1))
     _abrir(p)
     assert set_do.salidas["descompresion_chaqueta"] is True
     reloj[0] += 12
     estado.sensores_di["puerta_1_cerrada"] = 1
+    p.run()
+    assert estado.vaciado_chaqueta.estado == vc.EN_CURSO
+    assert set_do.salidas["vapor_chaqueta"] is True
+    p.mantener_chaqueta.assert_not_called()
+    reloj[0] += 18
     p.run()
     assert estado.vaciado_chaqueta.estado == vc.HECHO
     assert set_do.salidas["descompresion_chaqueta"] is False
@@ -245,7 +252,7 @@ def test_fin_deja_vapor_off_sin_esperar_al_confirmador(reloj):
                                                   "rango_presion_chaqueta": 30.0}[k]
     _abrir(p)
     assert set_do.salidas["vapor_chaqueta"] is True
-    estado.sensores_di["puerta_1_cerrada"] = 1
+    reloj[0] += 30                               # fin por tiempo
     for _ in range(3):
         p.run()
         assert set_do.salidas["vapor_chaqueta"] is False
@@ -255,6 +262,7 @@ def test_una_sola_vez_por_ciclo(reloj):
     p, estado, set_do, _ = _preparado(puertas=(0, 1))
     _abrir(p)
     estado.sensores_di["puerta_1_cerrada"] = 1
+    reloj[0] += 30                               # fin por tiempo (cerrar no corta)
     p.run()
     estado.sensores_di["puerta_1_cerrada"] = 0
     for _ in range(5):

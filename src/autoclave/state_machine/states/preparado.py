@@ -193,10 +193,8 @@ class preparado_state:
             vaciado.terminar("datos de puerta no vigentes")
             self._apagar_salidas_vaciado()
             return True
-        if puertas == "cerradas":
-            vaciado.terminar("puerta cerrada")
-            self._apagar_salidas_vaciado()
-            return True
+        # 12-nov (Cristian): cerrar la puerta ya no corta el vaciado; corre sus
+        # _DURACION_S completos y luego retoma mantener_chaqueta()
         transcurrido = vaciado.transcurrido(ahora)
         if vaciado_chaqueta.terminado(transcurrido):
             vaciado.terminar("tiempo cumplido")
@@ -374,16 +372,21 @@ class preparado_state:
         # T29-08 (tanda 29, DECISIÓN SIN CONFIRMAR en los detalles): con todas
         # las puertas instaladas confirmadas cerradas (DI vigentes) el aire
         # atmosférico queda abierto mientras la presión esté en banda o por
-        # debajo; se cierra en el mismo tick con sobrepresión, sin lectura o
-        # con la trama AI vencida. Con alguna puerta abierta o sin dato de
-        # puerta, como antes.
+        # debajo; se cierra en el mismo tick con sobrepresión (12-nov: sin
+        # lectura o con la trama AI vencida queda abierto). Con alguna puerta
+        # abierta o sin dato de puerta, como antes.
         puertas = puertas_confirmadas_cerradas(self.estado, self.profile, self._di_vigentes)
         ai_vigente, _ = vigencia_ai.leer(self.estado)
 
-        # Sin dato (antes de la primera trama): sin órdenes y no lista (E0-3);
-        # T29-08: el aire abierto por la regla de puertas se cierra
+        # Sin dato (antes de la primera trama): sin órdenes y no lista (E0-3).
+        # 12-nov (Cristian): con las puertas confirmadas cerradas el aire queda
+        # abierto (la toma tiene una check en serie: no sale vapor); si no, el
+        # aire abierto por la regla de puertas se cierra (T29-08)
         if not lectura_valida(presion_camara):
-            self._cerrar_aire_reposo(puertas)
+            if puertas:
+                self._abrir_aire_reposo()
+            else:
+                self._cerrar_aire_reposo(False)
             self._sostenida_pre03.reset()
             self._sostenida_pre04.reset()
             cerrar_lenta_propia(self, self.set_do)      # T1: lenta propia, cerrada
@@ -393,12 +396,14 @@ class preparado_state:
         max_p = pres_atm + rango
 
         if min_p <= presion_camara <= max_p:
-            if puertas and ai_vigente:
+            if puertas:
                 self.set_do.aire_admosferico_camara_on()
                 self._confirmador_aire_camara.reset()
                 self._aire_reposo = True
-            elif not ai_vigente and (puertas or self._aire_reposo):
-                # presión posiblemente congelada: el aire de la regla, cerrado ya
+            elif not ai_vigente and self._aire_reposo:
+                # presión posiblemente congelada con alguna puerta abierta: el
+                # aire de la regla, cerrado ya (12-nov: con puertas cerradas
+                # queda abierto, rama anterior)
                 self._cerrar_aire_reposo(True)
             elif self._confirmador_aire_camara.confirmar(True):
                 self.set_do.aire_admosferico_camara_off()
@@ -433,6 +438,13 @@ class preparado_state:
                 self.alarm_manager.activar(PRE_04, pres=presion_camara, maximo=max_p)
 
         return False
+
+    def _abrir_aire_reposo(self) -> None:
+        """12-nov (Cristian): puertas confirmadas cerradas y presión en banda
+        o sin lectura (también con la trama AI vencida): aire abierto."""
+        self.set_do.aire_admosferico_camara_on()
+        self._confirmador_aire_camara.reset()
+        self._aire_reposo = True
 
     def _cerrar_aire_reposo(self, puertas_cerradas: bool) -> None:
         """T29-08: sin lectura de presión válida, el aire atmosférico se cierra

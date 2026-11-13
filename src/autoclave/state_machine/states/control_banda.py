@@ -4,6 +4,7 @@ import time
 from dataclasses import dataclass
 
 from autoclave.installation.profile import numero_puertas
+from autoclave.core.runtime.lectura import lectura_valida
 
 
 @dataclass(frozen=True)
@@ -112,6 +113,36 @@ def puertas_confirmadas_cerradas(estado, profile, di_vigentes) -> bool:
     except Exception:
         logger.exception("No se pudo leer si las puertas están cerradas; se toman como abiertas")
         return False
+
+
+def _referencia_positiva(valor) -> bool:
+    return (not isinstance(valor, bool) and isinstance(valor, (int, float))
+            and math.isfinite(valor) and valor > 0)
+
+
+def aire_reposo(pres, ai_vigente, config, puertas_cerradas):
+    """12-nov (Cristian): fin de ciclo (espera de confirmación tras COMPLETADO,
+    FALLO o CANCELADO) con todas las puertas instaladas confirmadas cerradas:
+    el aire atmosférico queda abierto también en la banda atmosférica y solo
+    se cierra con sobrepresión (lectura vigente sobre atm + rango_presion_atm),
+    caso en el que manda el escape. Sin lectura o con la trama AI vencida queda
+    abierto: la toma lleva una válvula check en serie que no deja salir vapor
+    y así nunca queda vacío en la cámara.
+    True = abrir, False = cerrar, None = la regla no aplica (alguna puerta
+    abierta o sin dato de puerta, o sin presión atmosférica de referencia
+    configurada): rige la lógica anterior."""
+    if puertas_cerradas is not True:
+        return None
+    try:
+        atm = config.get("presion_admosferica")
+        rango = config.get("rango_presion_atm")
+    except Exception:
+        return None
+    if not (_referencia_positiva(atm) and _referencia_positiva(rango)):
+        return None
+    if ai_vigente is True and lectura_valida(pres) and pres > atm + rango:
+        return False
+    return True
 
 
 # T1 (tanda 5, D-19 de planeacion_fin_de_ciclo_y_puertas.md): con carga líquida

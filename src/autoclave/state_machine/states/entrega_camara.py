@@ -11,7 +11,8 @@
 # - FALLO / CANCELADO (ENT-01): entregada cuando la cámara es segura, con datos
 #   vigentes y sin sellado, en LECTURAS_ENTREGA lecturas de tramas AI distintas
 #   seguidas (como _DEBOUNCE_LECTURAS de protocolo_fallo).
-# - COMPLETADO (ENT-02): primero la espera fija `tiempo_espera_apertura` desde
+# - COMPLETADO (ENT-02): primero la espera fija `tiempo_espera_apertura` (solo con
+#   la apertura automática activa desde el 12-nov; si no, espera 0) desde
 #   el COMPLETADO; después, el mismo criterio. Pasado `timeout_temperatura`
 #   tras la espera, `timeout_vencido` queda en True (CicloState activa CIC-07
 #   una vez) y se sigue esperando.

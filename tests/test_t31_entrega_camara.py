@@ -137,7 +137,7 @@ _CONFIG = {"presion_admosferica": 101.3, "rango_presion_atm": 20.0, "temp_max_ap
 
 
 def _ciclo(resultado=CicloResultado.FALLO, temp=25.0, pres=101.3, tiempo_espera=60,
-           timeout_min=30):
+           timeout_min=30, apertura_automatica=False):
     estado = MagicMock()
     estado.sensores_temp = {"temp_camara": temp}
     estado.sensores_pres = {"pres_camara": pres}
@@ -153,7 +153,9 @@ def _ciclo(resultado=CicloResultado.FALLO, temp=25.0, pres=101.3, tiempo_espera=
             return default
         return {("finalizacion", "tiempo_espera_apertura"): tiempo_espera,
                 ("finalizacion", "temp_max_apertura"): 80.0,
-                ("finalizacion", "timeout_temperatura"): timeout_min}.get((seccion, nombre), default)
+                ("finalizacion", "timeout_temperatura"): timeout_min,
+                ("finalizacion", "apertura_automatica"): apertura_automatica,
+                }.get((seccion, nombre), default)
 
     cycle.get_param.side_effect = _get_param
     cycle.copia.return_value = cycle
@@ -238,8 +240,10 @@ def test_ciclostate_sellado_no_entrega():
 def test_ciclostate_completado_espera_y_cic07_una_vez(monkeypatch):
     t = [5000.0]
     _reloj(monkeypatch, t)
+    # 12-nov (opción B): la espera fija solo rige con la apertura automática
     ciclo, estado, _, alarmas = _ciclo(CicloResultado.COMPLETADO, temp=95.0,
-                                       tiempo_espera=60, timeout_min=1)
+                                       tiempo_espera=60, timeout_min=1,
+                                       apertura_automatica=True)
     ciclo.run()
     assert estado.entrega_camara["espera_restante_s"] == 60
     t[0] += 60 + 59
@@ -585,3 +589,17 @@ def test_cliente_acknowledge_compatible_y_rechazo():
     assert servicio.acknowledge_cycle(forzar=True, clave="k") is False
     assert servicio.backend.post.call_args.kwargs["body"] == {"forzar": True, "clave": "k"}
     assert servicio.ultimo_rechazo_ack() == (409, {"codigo": "camara_no_entregada", "detail": "d"})
+
+
+@pytest.mark.req("ENT-02")
+def test_ciclostate_completado_manual_sin_espera_fija(monkeypatch):
+    """12-nov (Cristian, opción B): sin apertura automática la confirmación
+    manual no espera tiempo_espera_apertura; se entrega con las condiciones."""
+    t = [5000.0]
+    _reloj(monkeypatch, t)
+    ciclo, estado, _, _ = _ciclo(CicloResultado.COMPLETADO, temp=60.0, tiempo_espera=600)
+    for _ in range(3):
+        t[0] += 0.5
+        ciclo.run()
+    assert not estado.entrega_camara["espera_restante_s"]
+    assert estado.entrega_camara["entregada"] is True

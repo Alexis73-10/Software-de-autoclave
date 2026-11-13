@@ -11,8 +11,9 @@
 # en pulsos de _PULSO_S abierta / _PULSO_S cerrada durante _DURACION_S. La
 # apertura se confirma con _TICKS_APERTURA ticks seguidos de puerta abierta
 # (un tick sin dato o con todas cerradas reinicia la cuenta). Al
-# cumplirse, con todas las puertas cerradas o ante una cancelación pasa a
-# HECHO (descompresion_chaqueta OFF) y no se repite en ese ciclo.
+# cumplirse los _DURACION_S o ante una cancelación pasa a HECHO
+# (descompresion_chaqueta OFF) y no se repite en ese ciclo. Cerrar la puerta
+# no lo corta (12-nov, Cristian; antes terminaba con todas las puertas cerradas).
 #
 # Vive en estado.vaciado_chaqueta (EstadoAutoclave), no en la StateMachine,
 # porque set_active_cycle la reconstruye. CicloState.reset() lo vuelve a

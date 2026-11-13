@@ -92,13 +92,16 @@ def test_preparado_run_toma_la_vigencia_del_tick():
 
 
 @pytest.mark.parametrize("pres", [None, float("nan")])
-def test_preparado_sin_lectura_cierra_el_aire_en_el_mismo_tick(pres):
+def test_preparado_sin_lectura_deja_el_aire_abierto(pres):
+    """12-nov (Cristian): con las puertas cerradas, sin lectura el aire queda
+    abierto (check en serie); antes se cerraba en el mismo tick."""
     obj, _, set_do = _preparado()
     obj.mantener_presion_camara()
     set_do.aire_admosferico_camara_off.reset_mock()
     obj.estado.sensores_pres["pres_camara"] = pres
     assert obj.mantener_presion_camara() is False
-    set_do.aire_admosferico_camara_off.assert_called_once()
+    set_do.aire_admosferico_camara_off.assert_not_called()
+    set_do.aire_admosferico_camara_on.assert_called()
 
 
 def test_preparado_sobrepresion_cierra_el_aire_y_ventea():
@@ -112,15 +115,16 @@ def test_preparado_sobrepresion_cierra_el_aire_y_ventea():
     assert (set_do.descompresion_rapida_on.called or set_do.descompresion_lenta_on.called)
 
 
-def test_preparado_trama_ai_vencida_cierra_el_aire():
+def test_preparado_trama_ai_vencida_deja_el_aire_abierto():
+    """12-nov (Cristian): trama AI vencida con puertas cerradas = aire abierto."""
     obj, _, set_do = _preparado()
     obj.mantener_presion_camara()
     obj.estado.lectura_ai = lambda: (False, None)
     vars(obj.estado)["lectura_ai"] = obj.estado.lectura_ai
     set_do.aire_admosferico_camara_on.reset_mock()
     obj.mantener_presion_camara()
-    set_do.aire_admosferico_camara_on.assert_not_called()
-    set_do.aire_admosferico_camara_off.assert_called_once()
+    set_do.aire_admosferico_camara_on.assert_called()
+    set_do.aire_admosferico_camara_off.assert_not_called()
 
 
 def test_preparacion_puertas_cerradas_en_banda_aire_abierto():
@@ -137,12 +141,15 @@ def test_preparacion_puerta_abierta_comportamiento_anterior():
     set_do.aire_admosferico_camara_off.assert_called_once()
 
 
-def test_preparacion_sin_lectura_cierra_y_no_ordena_venteo():
+def test_preparacion_sin_lectura_aire_abierto_y_no_ordena_venteo():
+    """12-nov (Cristian): sin lectura y con puertas cerradas, aire abierto."""
     obj, _, set_do = _preparacion()
     obj.igualar_presion_camara()
+    set_do.aire_admosferico_camara_on.reset_mock()
     obj.estado.sensores_pres["pres_camara"] = None
     assert obj.igualar_presion_camara() == (False, None)
-    set_do.aire_admosferico_camara_off.assert_called_once()
+    set_do.aire_admosferico_camara_off.assert_not_called()
+    set_do.aire_admosferico_camara_on.assert_called_once()
 
 
 def test_preparacion_sin_lectura_puerta_abierta_sin_orden_como_antes():

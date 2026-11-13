@@ -169,6 +169,15 @@ Ver `docs/mis_plans/planeacion_control_cascada_chaqueta.md` (CAS-01..05) e infor
 - **Parámetros retirados (sin efecto):** sección `estabilizacion` entera (fusionada en CALENTAMIENTO), `globals.enfriar_chaqueta_secado` y el parámetro de equipo `timeout_chaqueta`. Se quitaron de los JSON de fábrica y de usuario, del catálogo, de `global_params.json` y de i18n; un programa instalado con esas claves se migra al cargar (`cycle_manager._retirar_sin_efecto`, auditoría `param_ciclo_cambio` con origen «retiro de parámetros sin sentido (9-nov)», `.bak`, sin SIS-06). Prueba: `tests/test_retiro_parametros_sin_efecto.py`.
 - **`ciclos_multiples` se conserva** (bool, `true` en los 6 programas de fábrica, sin efecto todavía): plan en `docs/mis_plans/planeacion_ciclos_multiples.md`, con las decisiones pendientes de Cristian.
 
+## Ajustes 12-nov: barra de espera, entrega manual, aire de reposo y vaciado de chaqueta
+
+Pedidos de Cristian, sin revisión de seguridad ni banco; riesgo y trazabilidad sin actualizar (pendiente).
+
+- **Barra inferior de Ciclo en curso:** `indicadorEntrega` («Terminando») va siempre en la celda derecha (del separador de x 800 al borde, margen 12 px), también en vertical; antes empezaba en x 616 y tapaba la celda central.
+- **Entrega sin espera fija en confirmación manual (opción B):** `CicloState._crear_entrega` usa `finalizacion.tiempo_espera_apertura` solo con `apertura_automatica` true; si no, espera 0 (ENT-02 corregido). El parámetro sigue oculto en equipos de puertas simples.
+- **Aire de reposo (`control_banda.aire_reposo`):** con todas las puertas confirmadas cerradas (DI vigentes) y presión atmosférica de referencia configurada, el aire atmosférico queda abierto en banda, en vacío, sin lectura y con la trama AI vencida; solo lo cierra la sobrepresión (lectura vigente sobre atm + `rango_presion_atm`), y ahí manda el escape. La toma lleva una válvula check en serie (no sale vapor). Rige en la espera tras COMPLETADO (`_mantener_valvula_reposo`; el escape del modo sigue abierto en banda), en `ProtocoloFallo` (banda, vacío, sin lectura fuera del enfriamiento con contrapresión, líquido sin contrapresión y ruptura del secado tras fallo; `di_vigentes` lo fija CicloState antes de `update()`, por defecto False = lógica anterior; sellado D8-2.10 y enfriamiento 4/5 sin cambio) y, para T29-08, en PREPARADO/PREPARACION/FALLA sin lectura o con la AI vencida (antes se cerraba). Con alguna puerta abierta, como antes. Pruebas: `tests/test_aire_reposo_fin_ciclo.py`.
+- **Vaciado de chaqueta:** cerrar la puerta ya no lo corta; corre sus 30 s y luego retoma `mantener_chaqueta()` (`preparado._vaciado_chaqueta`).
+
 ## PAM: presión añadida como margen de trabajo (9-nov)
 
 Ver `docs/mis_plans/planeacion_presion_add_margen.md` (PAM-01..06); riesgos HAZ-PAM-01..03; trazabilidad REQ-96..REQ-101; banco: bloque PAM (PAM-00, comparar la Principal contra patrón, es el primer paso). Rama `pam-presion-add-margen`, sin unir a `dev`; entrega no compilada. Decisiones sin confirmar en `AJUSTES.md` (9-nov).

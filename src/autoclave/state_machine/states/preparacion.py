@@ -373,7 +373,8 @@ class preparacion_state:
             # T29-08 (tanda 29, DECISIÓN SIN CONFIRMAR en los detalles): con
             # todas las puertas instaladas confirmadas cerradas (DI vigentes)
             # el aire atmosférico queda abierto en banda y por debajo; se
-            # cierra en el mismo tick con sobrepresión o sin lectura. Con
+            # cierra en el mismo tick con sobrepresión (12-nov: sin lectura
+            # queda abierto). Con
             # alguna puerta abierta o sin dato de puerta, como antes.
             puertas = puertas_confirmadas_cerradas(self.estado, self.profile, self.di_vigentes)
             # Sin dato (antes de la primera trama): sin órdenes (E0-3)
@@ -382,8 +383,14 @@ class preparacion_state:
             # que usa este lazo vía nivelar_presion_camara)
             ai_vigente, _ = vigencia_ai.leer(self.estado)
             if not lectura_valida(presion_camara) or not ai_vigente:
-                # T29-08: salvo cerrar el aire que abrió la regla de puertas
-                if puertas or self._aire_reposo:
+                # 12-nov (Cristian): con las puertas confirmadas cerradas el
+                # aire queda abierto (check en serie: no sale vapor); con alguna
+                # puerta abierta se cierra el que abrió la regla (T29-08)
+                if puertas:
+                    self.set_do.aire_admosferico_camara_on()
+                    self._confirmador_aire_camara.reset()
+                    self._aire_reposo = True
+                elif self._aire_reposo:
                     self.set_do.aire_admosferico_camara_off()
                     self._confirmador_aire_camara.reset()
                     self._aire_reposo = False

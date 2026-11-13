@@ -42,6 +42,7 @@ from autoclave.state_machine.states.vaciado_chaqueta import VaciadoChaqueta, lim
 # Tanda 31 (ENT-01/02/12): entrega de la cámara tras el resultado
 from autoclave.state_machine.states.entrega_camara import EntregaCamara
 from autoclave.core.runtime import vigencia_ai
+from autoclave.state_machine.states.control_banda import aire_reposo, puertas_confirmadas_cerradas
 from autoclave.state_machine.alarms.catalogo import CIC_15, CIC_16, CIC_17
 # s3 (tanda 16): corte único de la chaqueta (D-CHQ / SAF-09) y su aviso VCH-CHQ
 from autoclave.state_machine.alarms.catalogo import CIC_18
@@ -836,7 +837,13 @@ class CicloState:
         cámara cae en vacío por enfriamiento, abre aire atmosférico; si no,
         mantiene la válvula de descompresión del modo configurado."""
         pres = self.estado.sensores_pres.get("pres_camara")
+        # 12-nov (Cristian): con las puertas confirmadas cerradas el aire
+        # atmosférico queda abierto en banda y sin lectura; solo la
+        # sobrepresión lo cierra (control_banda.aire_reposo)
+        regla_aire = self._regla_aire_reposo(pres)
         if not lectura_valida(pres):
+            if regla_aire is True:
+                self.set_do.aire_admosferico_camara_on()
             return
         atm   = self.config.get("presion_admosferica") or 101.3
         rango = self.config.get("rango_presion_atm")   or 20.0
@@ -845,11 +852,26 @@ class CicloState:
             cerrar_valvulas_descompresion(self.set_do)
             self.set_do.aire_admosferico_camara_on()
         else:
-            self.set_do.aire_admosferico_camara_off()
+            if regla_aire is True:
+                self.set_do.aire_admosferico_camara_on()
+            else:
+                self.set_do.aire_admosferico_camara_off()
             modo = self.cycle.get_param("descompresion", "modo", default=0) or 0
             liquido = self.cycle.get_param("globals", "tipo_carga", default="solido") == "liquido"
             abrir_valvula_modo(self.set_do, modo, liquido=liquido,
                                enfriada=self._principal_enfriada(modo))
+
+    def _regla_aire_reposo(self, pres):
+        """control_banda.aire_reposo con las puertas del perfil (DI vigentes)
+        y la vigencia de la trama AI. Un error = la regla no aplica (None)."""
+        try:
+            puertas = puertas_confirmadas_cerradas(self.estado, self.profile,
+                                                   self.datos_vigentes is True)
+            ai_vigente, _ = vigencia_ai.leer(self.estado)
+            return aire_reposo(pres, ai_vigente, self.config, puertas)
+        except Exception:
+            logger.exception("CicloState: no se pudo evaluar el aire de reposo")
+            return None
 
     def _armar_vaciado_chaqueta(self) -> None:
         """Al confirmar un COMPLETADO de carga líquida (tipo de carga ilegible
@@ -1059,9 +1081,16 @@ class CicloState:
         espera = timeout_s = None
         if self._resultado_pendiente == CicloResultado.COMPLETADO:
             # mismos parámetros y defectos que _mantener_apertura_automatica
-            espera = self.cycle.get_param("finalizacion", "tiempo_espera_apertura", default=60)
-            if espera is None:
-                espera = 60
+            # 12-nov (Cristian, opción B): la espera fija tiempo_espera_apertura
+            # solo rige con la apertura automática activa; en la confirmación
+            # manual la cámara se entrega en cuanto se cumplen las condiciones
+            if self.cycle.get_param("finalizacion", "apertura_automatica",
+                                    default=False) is True:
+                espera = self.cycle.get_param("finalizacion", "tiempo_espera_apertura", default=60)
+                if espera is None:
+                    espera = 60
+            else:
+                espera = 0
             timeout_min = self.cycle.get_param("finalizacion", "timeout_temperatura", default=30)
             if timeout_min is None:
                 timeout_min = 30
@@ -1219,6 +1248,8 @@ class CicloState:
                 self._mantener_valvula_reposo()
                 self._mantener_apertura_automatica()
             else:
+                # 12-nov: el protocolo mira las puertas para el aire de reposo
+                self._protocolo.di_vigentes = self.datos_vigentes is True
                 self._protocolo.update()
             self._mantener_drenaje()
             # Tanda 31 (ENT-01/02): después del protocolo de este tick

@@ -146,6 +146,9 @@ class ProtocoloFallo:
         # puertas) y gestor de alarmas (agua de la bomba). Los fija quien crea
         # el protocolo; sin perfil no hay secado tras fallo (falla cerrada).
         self.profile = None
+        # 12-nov: vigencia de las DI (la fija CicloState antes de update());
+        # sin ella la regla del aire de reposo no aplica (lógica anterior)
+        self.di_vigentes = False
         self.alarm_manager = None
         self.reset()
 
@@ -806,6 +809,23 @@ class ProtocoloFallo:
     # Estrategia de válvulas según el modo de descompresión del ciclo
     # ------------------------------------------------------------------
 
+    def _regla_aire_reposo(self, pres):
+        """12-nov (Cristian), control_banda.aire_reposo: con las puertas
+        confirmadas cerradas el aire atmosférico queda abierto en banda, en
+        vacío y sin lectura; solo la sobrepresión lo cierra. None = no aplica.
+        Import diferido: control_banda está en states (evita un ciclo de
+        imports). Un error = None."""
+        try:
+            from autoclave.state_machine.states.control_banda import (
+                aire_reposo, puertas_confirmadas_cerradas)
+            puertas = puertas_confirmadas_cerradas(self.estado, self.profile,
+                                                   getattr(self, "di_vigentes", False) is True)
+            return aire_reposo(pres, getattr(self, "_ai_vigente_tick", False),
+                               self.config, puertas)
+        except Exception:
+            logger.exception("Protocolo fallo: no se pudo evaluar el aire de reposo")
+            return None
+
     def _referencia_atm_configurada(self) -> bool:
         """S9, revisión ★ pasada 3 (b): presión atmosférica de referencia y
         su brecha configuradas (números finitos, positivos). Sin ellas el
@@ -892,11 +912,16 @@ class ProtocoloFallo:
                         # vacío seguidas (contadas en update())
                         self.set_do.descompresion_lenta_off()
                         self.set_do.descompresion_chaqueta_off()
-                        if (self._lecturas_vacio >= _DEBOUNCE_LECTURAS
-                                and self._referencia_atm_configurada()):
+                        if ((self._lecturas_vacio >= _DEBOUNCE_LECTURAS
+                                and self._referencia_atm_configurada())
+                                or self._regla_aire_reposo(pres) is True):
                             self.set_do.aire_admosferico_camara_on()
                     else:
-                        self.set_do.aire_admosferico_camara_off()
+                        # 12-nov: con puertas cerradas, abierto salvo sobrepresión
+                        if self._regla_aire_reposo(pres) is True:
+                            self.set_do.aire_admosferico_camara_on()
+                        else:
+                            self.set_do.aire_admosferico_camara_off()
                         self.set_do.descompresion_lenta_on()
                     return
             if self._sub_etapa == "descompresion_lenta":
@@ -1356,8 +1381,12 @@ class ProtocoloFallo:
         self._apagar_vacio()
         segundos = self._secado_t_fin - self._secado_t0
         if pres >= atm - rango:
-            # en la banda (o por encima: el aire se cierra siempre con presión)
-            self.set_do.aire_admosferico_camara_off()
+            # en la banda (o por encima: el aire se cierra siempre con presión);
+            # 12-nov: con puertas cerradas queda abierto salvo sobrepresión
+            if self._regla_aire_reposo(pres) is True:
+                self.set_do.aire_admosferico_camara_on()
+            else:
+                self.set_do.aire_admosferico_camara_off()
             self._secado_fase = None
             if self._vacio_logrado:
                 self._fijar_secado(SECADO_HECHO, None, segundos)
@@ -1497,6 +1526,11 @@ class ProtocoloFallo:
                 # SAF-02 de T5: sin presión no se inyecta aire comprimido
                 self.set_do.aire_comprimido_camara_off()
                 self._t_aire_comprimido = None
+            # 12-nov (Cristian): sin lectura y con puertas cerradas el aire
+            # atmosférico queda abierto (check en serie: no sale vapor); no en
+            # el enfriamiento con contrapresión de líquidos, que manda solo
+            if not enfriando and self._regla_aire_reposo(pres) is True:
+                self.set_do.aire_admosferico_camara_on()
             return
 
         # S9, revisión ★ SAF-03: lecturas de vacío seguidas (3 antes de abrir
@@ -1533,14 +1567,19 @@ class ProtocoloFallo:
             self.set_do.descompresion_rapida_off()
             self.set_do.descompresion_lenta_off()
             self.set_do.descompresion_chaqueta_off()
-            if (self._lecturas_vacio >= _DEBOUNCE_LECTURAS
-                    and self._referencia_atm_configurada()):
+            if ((self._lecturas_vacio >= _DEBOUNCE_LECTURAS
+                    and self._referencia_atm_configurada())
+                    or self._regla_aire_reposo(pres) is True):
                 self.set_do.aire_admosferico_camara_on()
         else:
-            # Rango normal → mantener la válvula de descompresión del modo,
-            # aire atmosférico cerrado (evita cerrar en falso si la cámara
-            # todavía tiene algo de presión residual, no vacío)
-            self.set_do.aire_admosferico_camara_off()
+            # Rango normal → mantener la válvula de descompresión del modo.
+            # 12-nov (Cristian): con las puertas confirmadas cerradas el aire
+            # atmosférico queda abierto (antes se cerraba en la banda); con
+            # alguna puerta abierta o sin dato de puerta, cerrado como antes
+            if self._regla_aire_reposo(pres) is True:
+                self.set_do.aire_admosferico_camara_on()
+            else:
+                self.set_do.aire_admosferico_camara_off()
             # A13 (tanda 28): primera llegada a la banda atmosférica con el
             # secado pendiente: se decide aquí si corre (antes de que el estado
             # seguro cuente sus lecturas)

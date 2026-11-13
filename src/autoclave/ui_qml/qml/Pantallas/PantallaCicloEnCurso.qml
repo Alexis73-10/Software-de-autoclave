@@ -961,8 +961,11 @@ Item {
         Item {
             objectName: "indicadorEntrega"
             visible: raiz.esperandoEntrega
-            x: raiz.hz ? barraInferior.xCeldaDer + raiz.m(12) : barraInferior.mx(650 - 34); y: raiz.m(1760 - 1746)
-            width: raiz.hz ? barraInferior.anchoCeldaDer - raiz.m(24) : barraInferior.mx(1081 - 650)
+            // 12-nov (Cristian): en las dos orientaciones dentro de la celda derecha
+            // (del separador de x 800 al borde, margen 12); antes en vertical
+            // empezaba en x 616 y tapaba la mitad de la celda central
+            x: barraInferior.xCeldaDer + raiz.m(12); y: raiz.m(1760 - 1746)
+            width: barraInferior.anchoCeldaDer - raiz.m(24)
             height: raiz.m(100)
             Rectangle {
                 anchors.fill: parent
