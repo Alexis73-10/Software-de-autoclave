@@ -42,6 +42,8 @@ _SCRIPT = textwrap.dedent(r'''
     from autoclave.ui_qml import sesion_backend
     from autoclave.ui_qml.bridge import i18n_qml
     from autoclave.cliente.session_manager import SessionManager
+    sys.path.insert(0, cfg_raiz := os.environ.get('RV_RAIZ', '.'))
+    from tests.helpers.solapes_qml import FUNCION_SOLAPES, ANIMADOS, INSIGNIAS
 
     cfg = json.loads(sys.argv[1])
     i18n.cargar()
@@ -116,9 +118,22 @@ _SCRIPT = textwrap.dedent(r'''
     from PySide6.QtCore import QMetaObject, Q_RETURN_ARG
     _r = json.loads(QMetaObject.invokeMethod(w, "revisar", Q_RETURN_ARG("QVariant")))
     malos, vistos = _r["malos"], _r["vistos"]
+    # RV etapa A: solapes entre elementos (clave aparte, no cambia `malos`)
+    from PySide6.QtQml import QQmlComponent
+    from PySide6.QtCore import Q_ARG
+    _comp = QQmlComponent(engine)
+    _comp.setData(("import QtQuick" + chr(10) + "QtObject {" + chr(10) + FUNCION_SOLAPES + chr(10) + "}" + chr(10)).encode("utf-8"),
+                  QUrl.fromLocalFile(QML_DIR + "/_rv_solapes_i4.qml"))
+    _rev = _comp.create()
+    solapes = []
+    if _rev is not None:
+        solapes = json.loads(QMetaObject.invokeMethod(_rev, "solapesDesde", Q_RETURN_ARG("QVariant"),
+                             Q_ARG("QVariant", w.contentItem()), Q_ARG("QVariant", cfg["ancho"]),
+                             Q_ARG("QVariant", cfg["alto"]), Q_ARG("QVariant", list(ANIMADOS)),
+                                                          Q_ARG("QVariant", list(INSIGNIAS))))
     if cfg.get("captura"):
         w.grabWindow().save(cfg["captura"])
-    print("RESULTADO=" + json.dumps({"malos": malos, "vistos": vistos, "avisos": avisos[:20]}, ensure_ascii=False))
+    print("RESULTADO=" + json.dumps({"malos": malos, "solapes": solapes, "vistos": vistos, "avisos": avisos[:20]}, ensure_ascii=False))
 ''')
 
 
@@ -127,7 +142,7 @@ def revisar(pantalla: str, idioma: str, captura: bool = False, carpeta: Path | N
     # V8b (tanda 8): carpeta y prefijo de la captura configurables
     archivo = str((carpeta or CAPTURAS) / f"{prefijo}_{idioma}_{pantalla}.png") if captura else ""
     cfg = {"pantalla": pantalla, "idioma": idioma, "ancho": ANCHO, "alto": ALTO, "captura": archivo}
-    env = {**os.environ, "QT_QPA_PLATFORM": "offscreen",
+    env = {**os.environ, "QT_QPA_PLATFORM": "offscreen", "RV_RAIZ": str(RAIZ),
            "PYTHONPATH": str(RAIZ / "src") + os.pathsep + str(RAIZ)}
     p = subprocess.run([sys.executable, "-X", "utf8", "-c", _SCRIPT, json.dumps(cfg)],
                        capture_output=True, text=True, encoding="utf-8", env=env, cwd=RAIZ,
@@ -138,7 +153,23 @@ def revisar(pantalla: str, idioma: str, captura: bool = False, carpeta: Path | N
 
 
 if __name__ == "__main__":
-    for idioma in ("es", "en"):
+    # RV: --destino e --idiomas opcionales; deja resumen_i4_<idioma>.json
+    import argparse
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--destino", default=None)
+    ap.add_argument("--idiomas", nargs="+", default=["es", "en"])
+    a = ap.parse_args()
+    carpeta = Path(a.destino) if a.destino else None
+    if carpeta:
+        carpeta.mkdir(parents=True, exist_ok=True)
+    for idioma in a.idiomas:
+        resumen = {}
         for nombre in PANTALLAS:
-            r = revisar(nombre, idioma, captura=True)
-            print(idioma, nombre, json.dumps(r["malos"], ensure_ascii=False))
+            r = revisar(nombre, idioma, captura=True, carpeta=carpeta)
+            resumen[nombre] = {"malos": r["malos"], "solapes": r.get("solapes", []),
+                               "avisos": r["avisos"]}
+            print(idioma, nombre, json.dumps(r["malos"], ensure_ascii=False),
+                  len(r.get("solapes", [])), "solapes")
+        if carpeta:
+            (carpeta / f"resumen_i4_{idioma}.json").write_text(
+                json.dumps(resumen, ensure_ascii=False, indent=1), encoding="utf-8")

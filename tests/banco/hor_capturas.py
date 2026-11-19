@@ -42,6 +42,7 @@ _SCRIPT = textwrap.dedent(r'''
     from autoclave.ui_qml.bridge import i18n_qml
     from autoclave.cliente.session_manager import SessionManager
     from tests.helpers.textos_caben_qml import FUNCION_REVISAR
+    from tests.helpers.solapes_qml import FUNCION_SOLAPES, ANIMADOS, INSIGNIAS
 
     cfg = json.loads(sys.argv[1])
     tema, destino = cfg["tema"], cfg["destino"]
@@ -397,7 +398,7 @@ _SCRIPT = textwrap.dedent(r'''
         archivo = os.path.join(destino, f"hor_{tema}_{nombre}.png")
         win.grabWindow().save(archivo)
         comp = QQmlComponent(engine)
-        comp.setData(("import QtQuick\nQtObject {\n" + FUNCION_REVISAR + FUERA + "\n}\n").encode("utf-8"),
+        comp.setData(("import QtQuick\nQtObject {\n" + FUNCION_REVISAR + FUERA + FUNCION_SOLAPES + "\n}\n").encode("utf-8"),
                      QUrl.fromLocalFile(QML_DIR + "/_revisor_hor.qml"))
         rev = comp.create()
         problemas, fuera = [], []
@@ -412,7 +413,15 @@ _SCRIPT = textwrap.dedent(r'''
             problemas += json.loads(QMetaObject.invokeMethod(rev, "desbordesTexto", Q_RETURN_ARG("QVariant"),
                                                              Q_ARG("QVariant", win.contentItem()),
                                                              Q_ARG("QVariant", W), Q_ARG("QVariant", H)))
-        print("captura", nombre, len(problemas), "problemas", len(fuera), "fuera")
+            # RV etapa A: solapes entre elementos (tests/helpers/solapes_qml.py)
+            solapes = json.loads(QMetaObject.invokeMethod(rev, "solapesDesde", Q_RETURN_ARG("QVariant"),
+                                                          Q_ARG("QVariant", win.contentItem()),
+                                                          Q_ARG("QVariant", W), Q_ARG("QVariant", H),
+                                                          Q_ARG("QVariant", list(ANIMADOS)),
+                                                          Q_ARG("QVariant", list(INSIGNIAS))))
+            problemas += solapes
+        print("captura", nombre, len(problemas), "problemas", len(fuera), "fuera",
+              sum(1 for x in problemas if x.get("tipo") == "solape"), "solapes")
         win.close(); engine.deleteLater(); QTest.qWait(50)
         return {"problemas": problemas, "fuera": fuera,
                 "avisos": [a for a in avisos if "Binding loop" not in a][:10]}
