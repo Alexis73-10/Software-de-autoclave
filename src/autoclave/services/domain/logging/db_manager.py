@@ -500,6 +500,42 @@ def _avisos_con_corte(texto) -> str:
     return _valores_fallo_json({"sin_datos_s": sin_datos_s, "avisos": avisos})
 
 
+def _lote_e_impresion(carga) -> tuple:
+    """(lote_carga, impresion_carga) para la fila del ciclo; (None, None) sin carga."""
+    if not isinstance(carga, dict) or not carga.get("lote"):
+        return (None, None)
+    return (str(carga["lote"]), str(carga.get("impresion") or "") or None)
+
+
+def _carga_de_respaldo(carga) -> dict | None:
+    """RCB-04.4: carga del encabezado del respaldo, revisada con las mismas
+    reglas que el inicio (un respaldo dañado no escribe una carga inválida:
+    se descarta con aviso en el log y el ciclo se importa igual). Nunca lanza."""
+    if carga is None:
+        return None
+    try:
+        from autoclave.core.runtime import registro_carga as rc
+        elementos = carga.get("elementos") or []
+        validada = rc.validar_carga({"lote": carga.get("lote"),
+                                     "elementos": [{"codigo": e.get("codigo"),
+                                                    "cantidad": e.get("cantidad"),
+                                                    "manual": e.get("manual") is True}
+                                                   for e in elementos]})
+        if validada is None:
+            return None
+        nombres = {e.get("codigo"): e.get("nombre") for e in elementos}
+        salida = []
+        for e in validada["elementos"]:
+            nombre = nombres.get(e["codigo"])
+            nombre = nombre if isinstance(nombre, str) and nombre else None
+            salida.append({**e, "nombre": nombre, "en_catalogo": nombre is not None})
+        return {"lote": validada["lote"], "impresion": carga.get("impresion"),
+                "elementos": salida}
+    except Exception:
+        logger.exception("Respaldo con una carga ilegible: se importa el ciclo sin carga")
+        return None
+
+
 def _valores_fallo_json(valores) -> str:
     """'' sin parámetros; JSON (sin NaN) si los hay. Nunca lanza."""
     if not isinstance(valores, dict) or not valores:
@@ -1063,11 +1099,15 @@ class DbManager:
         programa_json: str | None = None,
         serie_original: str | None = None,
         modelo_original: str | None = None,
+        carga: dict | None = None,
     ) -> int:
         """Inserta un nuevo ciclo y retorna su ID. `serie_original` y
         `modelo_original` solo los trae un equipo instalado por automatización
-        (NULL en fabricación)."""
+        (NULL en fabricación). RCB-04.3: `carga` ({"lote", "elementos",
+        "impresion"}, ya resuelta) se escribe en la misma transacción que la
+        fila del ciclo (lote, modo de impresión y una fila por código)."""
         with self._lock:
+          try:
             cur = self._conn.execute(
                 """
                 INSERT INTO ciclos
@@ -1097,8 +1137,43 @@ class DbManager:
                     modelo_original,
                 ),
             )
+            self._insertar_carga(cur.lastrowid, carga)
             self._conn.commit()
             return cur.lastrowid
+          except Exception:
+            self._conn.rollback()
+            raise
+
+    def _insertar_carga(self, ciclo_id: int, carga: dict | None) -> None:
+        """Con _lock tomado y dentro de la transacción del ciclo (RCB-05)."""
+        if not isinstance(carga, dict) or not carga.get("lote"):
+            return
+        lote, impresion = _lote_e_impresion(carga)
+        self._conn.execute("UPDATE ciclos SET lote_carga=?, impresion_carga=? WHERE id=?",
+                           (lote, impresion, ciclo_id))
+        for orden, e in enumerate(carga.get("elementos") or []):
+            self._conn.execute(
+                "INSERT INTO ciclo_carga (ciclo_id, codigo, nombre, en_catalogo, cantidad, "
+                "manual, orden) VALUES (?,?,?,?,?,?,?)",
+                (ciclo_id, str(e["codigo"]), e.get("nombre"), 1 if e.get("en_catalogo") else 0,
+                 int(e["cantidad"]), 1 if e.get("manual") else 0, orden))
+
+    def get_carga_ciclo(self, ciclo_id: int) -> dict | None:
+        """RCB-07: carga de un ciclo ({"lote", "impresion", "elementos"}) o
+        None si el ciclo no tiene carga."""
+        with self._lock:
+            fila = self._conn.execute("SELECT lote_carga, impresion_carga FROM ciclos WHERE id=?",
+                                      (ciclo_id,)).fetchone()
+            if fila is None or not fila["lote_carga"]:
+                return None
+            elementos = self._conn.execute(
+                "SELECT codigo, nombre, en_catalogo, cantidad, manual FROM ciclo_carga "
+                "WHERE ciclo_id=? ORDER BY orden, id", (ciclo_id,)).fetchall()
+        return {"lote": fila["lote_carga"], "impresion": fila["impresion_carga"],
+                "elementos": [{"codigo": e["codigo"], "nombre": e["nombre"],
+                               "en_catalogo": bool(e["en_catalogo"]),
+                               "cantidad": e["cantidad"], "manual": bool(e["manual"])}
+                              for e in elementos]}
 
     def cerrar_ciclo(self, ciclo_id: int, resultado: str, motivo_fallo: str | None = None,
                      codigo_fallo: str | None = None, f0_final: float | None = None,
@@ -1160,6 +1235,7 @@ class DbManager:
         uuid_ciclo = encabezado.get("uuid")
         if not uuid_ciclo:
             raise ValueError("respaldo sin uuid")
+        carga = _carga_de_respaldo(encabezado.get("carga"))
         with self._lock:
             fila = self._conn.execute("SELECT id, fecha_fin FROM ciclos WHERE uuid=?",
                                       (uuid_ciclo,)).fetchone()
@@ -1218,6 +1294,7 @@ class DbManager:
                     ),
                 )
                 ciclo_id = cur.lastrowid
+                self._insertar_carga(ciclo_id, carga)   # RCB-04.4
                 for l in lecturas:
                     self._insertar_lectura_respaldo(ciclo_id, l)
                 self._conn.commit()

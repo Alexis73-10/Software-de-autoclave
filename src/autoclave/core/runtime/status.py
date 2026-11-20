@@ -185,6 +185,11 @@ class EstadoAutoclave:
         # Lo fija el backend junto con START_CICLO y lo toma el CycleLogger al
         # crear el ciclo. "" = sin sesión.
         self.operador_inicio: str = ""
+        # RCB-04.3 (registro de la carga): carga del inicio ya validada y
+        # resuelta contra el catálogo ({"lote", "elementos", "impresion"}) o
+        # None. Como operador_inicio: la fija el backend junto con START_CICLO
+        # (siempre, también en None) y la consume el CycleLogger al crear el ciclo.
+        self.carga_inicio = None
         # Avisos del ciclo que van al pie del ticket (SAF-04 de T3)
         self.avisos_ciclo: list = []
         # A13 (tanda 28): resultado del secado tras fallo del protocolo de

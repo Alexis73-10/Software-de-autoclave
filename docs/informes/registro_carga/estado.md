@@ -6,8 +6,8 @@ Rama: `registro-carga` (desde `dev` 75189880, 1.0.0-beta.4). Pruebas en el workt
 |---|---|---|
 | 1. Migración v15 | Hecho | 8a631100 |
 | 2. Parámetros del programa | Hecho | d9c62568 |
-| 3. Catálogo en el backend | Hecho | (ver git log) |
-| 4. Inicio con carga | Pendiente | |
+| 3. Catálogo en el backend | Hecho | a8da98be |
+| 4. Inicio con carga | Hecho | (ver git log) |
 | 5. Tirilla, PDF, correo, detalle | Pendiente | |
 | 6. Historial (búsqueda inversa) | Pendiente | |
 | 7. UI | Pendiente | |

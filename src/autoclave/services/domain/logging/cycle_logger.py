@@ -256,6 +256,7 @@ class CycleLogger:
         self._activo            = False
         self._operador          = ""      # O1: respaldo/ticket del ciclo en curso
         self._operador_ticket   = ""      # O1: usuario real (sin la leyenda de sin BD)
+        self._carga             = None    # RCB-04.3: carga del ciclo en curso (resuelta)
         self._ciclo_inicio      = None    # time.time() al iniciar
         # Reloj monotónico del último registro (None = registrar ya). Intervalos
         # y tiempo transcurrido con monotonic: un salto del reloj de pared no
@@ -506,6 +507,16 @@ class CycleLogger:
         except Exception:
             pass
         self._operador_ticket = "" if self.sin_base_de_datos else operador
+        # RCB-04.3: carga del inicio, ya resuelta por el backend; se consume
+        # como el operador (un ciclo que arranca por otra vía no hereda la de
+        # un inicio anterior). Va a la base (misma transacción), al respaldo y
+        # al ticket.
+        carga = getattr(self.estado, "carga_inicio", None)
+        try:
+            self.estado.carga_inicio = None
+        except Exception:
+            pass
+        self._carga = carga if isinstance(carga, dict) and carga.get("lote") else None
         self._operador = "SIN OPERADOR / SIN BD" if self.sin_base_de_datos else operador
         datos_ciclo = dict(
             numero      = numero,
@@ -521,6 +532,9 @@ class CycleLogger:
             programa_json = programa_json,
             operador    = operador,
         )
+        # RCB-04.3/04.4: solo con carga (sin ella el encabezado queda como antes)
+        if self._carga is not None:
+            datos_ciclo["carga"] = self._carga
         # Instalación por automatización: identidad original del equipo. Solo se
         # agrega si existe, para que un ciclo de fabricación quede idéntico
         # (columnas NULL y encabezado del respaldo sin claves nuevas).
@@ -579,6 +593,8 @@ class CycleLogger:
                 "sin_registro":          self.sin_base_de_datos,
                 "operador":              operador,
             }
+            if self._carga is not None:
+                meta["carga"] = self._carga          # RCB-06.1
             # Automatización: el encabezado en vivo muestra la identidad original
             # (solo si existe; en fabricación el meta queda como antes)
             for _clave in ("serie_original", "modelo_original"):

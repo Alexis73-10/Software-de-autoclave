@@ -2653,5 +2653,9 @@
     "err_propio_rol": "Nobody can change their own role.",
     "err_rol_invalido": "The chosen role is not valid.",
     "aviso_voluntario": "Enter your current password and the new one"
+  },
+  "registro_carga": {
+    "err_invalida": "The load is not valid: check the lot and the items.",
+    "err_requerida": "This program requires recording the load: read the lot and at least one item."
   }
 }

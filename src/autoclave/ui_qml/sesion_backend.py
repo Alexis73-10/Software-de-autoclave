@@ -250,6 +250,7 @@ _CLAVES_RESTAURAR = {
     "calibracion_implausible": "respaldo.err_calibracion",
     "calibracion_otro_enlace": "respaldo.err_calibracion_otro_enlace",
     "asignacion_io_invalida": "respaldo.err_asignacion",
+    "catalogo_carga_invalido": "respaldo.err_invalido",   # RCB-08.6
     "archivo_invalido": "respaldo.err_invalido",
     "confirmacion_requerida": "respaldo.err_confirmacion",
 }
@@ -259,6 +260,10 @@ _CLAVES_INICIO_CICLO = {
     "operador_requerido": "operador_ciclo.err_requerido",
     "operador_invalido": "operador_ciclo.err_invalido",
     "operador_no_verificable": "operador_ciclo.err_no_verificable",
+    # RCB-04.2 (registro de la carga): 409 si el programa exige la carga y
+    # falta; 422 si no cumple las reglas (sin ciclo en los dos casos)
+    "carga_requerida": "registro_carga.err_requerida",
+    "carga_invalida": "registro_carga.err_invalida",
 }
 # Tanda 31 (ENT-03): 409 de POST /cycle/acknowledge sin la cámara entregada.
 # El motivo vigente (valor y límite, como NO ABRIR) viene en el cuerpo

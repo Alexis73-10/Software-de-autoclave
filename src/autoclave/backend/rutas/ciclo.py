@@ -266,6 +266,9 @@ def start_cycle(body: dict | None = Body(default=None),
     operador_lista = None
     if sesion_operador is None:
         operador_lista = _operador_de_la_lista(body)
+    # RCB-04.3: catálogo activo leído antes del lock (la base no se consulta
+    # con el lock de la máquina tomado); la resolución va bajo el lock
+    catalogo_carga = _catalogo_carga_activo(body)
 
     # S2 (revisión): la validación del programa y START_CICLO van juntas bajo
     # el lock de la máquina: un /cycle/select concurrente no puede cambiar el
@@ -276,13 +279,21 @@ def start_cycle(body: dict | None = Body(default=None),
         # activo ni con el ALL_OFF de su salida sin confirmar (la máquina está
         # pausada: START_CICLO quedaría pendiente y el ciclo arrancaría solo)
         rechazo = _rechazo_salidas_pendientes() or _validar_inicio(estado)
-        if rechazo is None:
+        carga, rechazo_carga = (None, None) if rechazo is not None else _carga_del_inicio(
+            body, catalogo_carga)
+        if rechazo is None and rechazo_carga is None:
             if sesion_operador is not None:
                 operador = sesion_operador.usuario
             else:
                 operador = operador_lista["nombre"] if operador_lista else ""
             estado.operador_inicio = operador
+            # RCB-04.1/04.3: la carga va con este mismo inicio (None si no hay);
+            # se fija siempre para que nunca quede la de un inicio anterior
+            estado.carga_inicio = carga
             estado.set_flag("START_CICLO", True)
+    if rechazo_carga is not None:
+        status, codigo, motivo, extra = rechazo_carga
+        _rechazar(status, codigo, motivo, "/cycle/start", extra=extra)
     if rechazo is not None:
         if rechazo[0] is None:
             raise HTTPException(status_code=409, detail=rechazo[1])
@@ -296,10 +307,61 @@ def start_cycle(body: dict | None = Body(default=None),
                "programa": getattr(getattr(context.control_loop, "cycle", None), "id", None)}
     if operador_lista:
         detalle["operador_id"] = operador_lista["id"]
+    if carga is not None:
+        # RCB-04.6: lote y cantidad de elementos, sin la lista
+        from autoclave.core.runtime import registro_carga as rc
+        detalle["lote"] = carga["lote"]
+        detalle["n_elementos"] = rc.total_elementos(carga)
     _auditar("ciclo_iniciado", sesion_operador,
              usuario="" if sesion_operador is not None else operador,
              entidad="/cycle/start", valor_nuevo=operador or "—", detalle=detalle)
     return {"ok": True, "action": "START_CICLO"}
+
+
+CARGA_REQUERIDA = "carga_requerida"
+CARGA_INVALIDA = "carga_invalida"
+
+
+def _catalogo_carga_activo(body) -> dict:
+    """RCB-04.3: {codigo: nombre} del catálogo activo, solo si el inicio trae
+    carga. Sin base o ante un error, {} (los códigos quedan «sin catálogo»;
+    el nombre no decide nada del ciclo). Nunca lanza."""
+    if not (isinstance(body, dict) and body.get("carga")):
+        return {}
+    if getattr(context, "sin_base_de_datos", False) is True:
+        return {}
+    try:
+        catalogo = context.db.catalogo_carga_activo()
+        return catalogo if isinstance(catalogo, dict) else {}
+    except Exception:
+        logger.exception("/cycle/start: no se pudo leer el catálogo de carga")
+        return {}
+
+
+def _carga_del_inicio(body, catalogo: dict):
+    """RCB-04.2: (carga resuelta | None, None) o (None, rechazo) con rechazo =
+    (status, código, texto, extra). 422 carga_invalida si la carga no cumple
+    las reglas; 409 carga_requerida si el programa la exige y falta el lote o
+    no hay al menos un elemento. Llamar bajo bloqueo_maquina(). Falla
+    cerrada: un error al leer el programa o al validar rechaza."""
+    from autoclave.core.managers import catalogo_parametros as cp
+    from autoclave.core.runtime import registro_carga as rc
+    try:
+        cruda = body.get("carga") if isinstance(body, dict) else None
+        try:
+            carga = rc.validar_carga(cruda)
+        except rc.CargaInvalida as e:
+            return None, (422, CARGA_INVALIDA, _i18n_t("registro_carga.err_invalida"),
+                          {"motivo": e.motivo, "campo": e.campo})
+        programa = getattr(context.control_loop, "cycle", None)
+        parametros = getattr(programa, "parameters", None)
+        if cp.registro_carga_obligatorio(parametros) and not rc.tiene_lote_y_elementos(carga):
+            return None, (409, CARGA_REQUERIDA, _i18n_t("registro_carga.err_requerida"), None)
+        return rc.resolver(carga, catalogo, cp.impresion_carga(parametros)), None
+    except Exception:
+        logger.exception("/cycle/start: no se pudo validar la carga")
+        return None, (422, CARGA_INVALIDA, _i18n_t("registro_carga.err_invalida"),
+                      {"motivo": "error", "campo": ""})
 
 
 OPERADOR_REQUERIDO = "operador_requerido"

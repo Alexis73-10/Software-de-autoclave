@@ -2653,5 +2653,9 @@
     "err_propio_rol": "Nadie puede cambiar su propio rol.",
     "err_rol_invalido": "El rol elegido no es válido.",
     "aviso_voluntario": "Escriba su contraseña actual y la nueva"
+  },
+  "registro_carga": {
+    "err_invalida": "La carga no es válida: revise el lote y los elementos.",
+    "err_requerida": "Este programa exige registrar la carga: lea el lote y al menos un elemento."
   }
 }
