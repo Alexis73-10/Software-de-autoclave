@@ -299,12 +299,12 @@ def test_migracion_v14_agrega_fecha_resultado_idempotente(tmp_path, monkeypatch)
         db.cerrar_ciclo(i, "COMPLETADO")
         db.close()
     db = DbManager(db_path=ruta)
-    assert db.get_version_esquema() == dbm.ESQUEMA_VERSION == 14
+    assert db.get_version_esquema() == dbm.ESQUEMA_VERSION
     fila = db.get_ciclo(i)
     assert fila["fecha_resultado"] is None and fila["resultado"] == "COMPLETADO"
     db.close()
     db = DbManager(db_path=ruta)
-    assert db.get_version_esquema() == 14
+    assert db.get_version_esquema() == dbm.ESQUEMA_VERSION
     db.close()
 
 

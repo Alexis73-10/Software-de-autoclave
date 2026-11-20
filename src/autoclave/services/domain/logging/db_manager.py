@@ -453,6 +453,41 @@ def _migracion_v14(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE ciclos ADD COLUMN fecha_resultado TEXT")
 
 
+def _migracion_v15(conn: sqlite3.Connection) -> None:
+    """RCB-05 (registro de la carga con lector, 19-nov): catálogo código →
+    nombre (`catalogo_carga`, baja lógica), carga de cada ciclo
+    (`ciclo_carga`, una fila por código con su cantidad y la copia del nombre
+    al iniciar), lote del ciclo (`ciclos.lote_carga`) y el modo de impresión
+    vigente al iniciar (`ciclos.impresion_carga`, RCB-06.4). Aditiva e
+    idempotente; las filas anteriores quedan en NULL (sin carga)."""
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS catalogo_carga ("
+        " id INTEGER PRIMARY KEY AUTOINCREMENT,"
+        " codigo TEXT UNIQUE NOT NULL,"
+        " nombre TEXT NOT NULL,"
+        " activo INTEGER NOT NULL DEFAULT 1,"
+        " creado TEXT, modificado TEXT, modificado_por TEXT)")
+    conn.execute("CREATE TRIGGER IF NOT EXISTS catalogo_carga_sin_delete BEFORE DELETE ON catalogo_carga "
+                 "BEGIN SELECT RAISE(ABORT, 'el catálogo de carga no se borra'); END")
+    columnas = {f[1] for f in conn.execute("PRAGMA table_info(ciclos)")}
+    for columna in ("lote_carga", "impresion_carga"):
+        if columna not in columnas:
+            conn.execute(f"ALTER TABLE ciclos ADD COLUMN {columna} TEXT")
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS ciclo_carga ("
+        " id INTEGER PRIMARY KEY AUTOINCREMENT,"
+        " ciclo_id INTEGER NOT NULL REFERENCES ciclos(id),"
+        " codigo TEXT NOT NULL,"
+        " nombre TEXT,"
+        " en_catalogo INTEGER NOT NULL,"
+        " cantidad INTEGER NOT NULL,"
+        " manual INTEGER NOT NULL DEFAULT 0,"
+        " orden INTEGER NOT NULL)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_ciclo_carga_ciclo ON ciclo_carga(ciclo_id)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_ciclo_carga_codigo ON ciclo_carga(codigo)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_ciclos_lote_carga ON ciclos(lote_carga)")
+
+
 def _avisos_con_corte(texto) -> str:
     """ENT-07: `avisos_ticket` (JSON) con el aviso de entrega no registrada
     por corte de energía agregado una vez. Nunca lanza."""
@@ -490,6 +525,7 @@ _MIGRACIONES = (
     (12, _migracion_v12),
     (13, _migracion_v13),
     (14, _migracion_v14),
+    (15, _migracion_v15),
 )
 
 ESQUEMA_VERSION = _MIGRACIONES[-1][0]
