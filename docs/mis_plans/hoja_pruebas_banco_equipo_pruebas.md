@@ -3515,3 +3515,49 @@ Precondiciones: PAM-00 y T33-01 (calibración de la Principal y de `pres_chaquet
 - **Criterio:** Aprobado si Prion aparece una sola vez, sin tocar los demás, y no reaparece tras borrarlo.
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+## Bloque RCB. Registro de la carga con lector de código de barras (19-nov)
+
+Precondiciones: lector USB elegido por Especifika (HID, sufijo Enter) conectado a la pantalla de la puerta 1; catálogo con al menos 5 elementos. Riesgos HAZ-RCB-01..05.
+
+### RCB-B1 — Lectura de lote y elementos con el lector real
+- **Modo:** Sin vapor  ·  **Origen:** RCB-01, RCB-02, RCB-09; HAZ-RCB-01
+- **Pasos:** en Preciclo (puerta 1) tocar «Carga», leer el lote y luego varios elementos (uno repetido 3 veces, uno fuera del catálogo). Probar «−1», «Cambiar lote», «Escribir código» y «Vaciar». Cerrar con «Listo» e iniciar el ciclo.
+- **Criterio:** Aprobado si el lote y las cantidades coinciden con las lecturas, el código fuera del catálogo aparece «sin catálogo», el botón muestra el resumen y, tras iniciar, el borrador queda vacío y el ciclo guarda la carga (Historial).
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### RCB-B2 — Símbolos con la distribución de la estación
+- **Modo:** Sin vapor  ·  **Origen:** RCB-01.5; HAZ-RCB-05
+- **Pasos:** leer etiquetas con `-`, `/` y `_` con el lector configurado como lo dejará Especifika y con Windows en español Latinoamérica.
+- **Criterio:** Aprobado si el código leído es idéntico al impreso en la etiqueta.
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### RCB-B3 — Lector con el foco en otra pantalla o campo
+- **Modo:** Sin vapor  ·  **Origen:** RCB-01.2; HAZ-RCB-03
+- **Pasos:** con la ventana de carga cerrada, leer una etiqueta en Preciclo, en el Login, en un campo de Opciones con el teclado en pantalla abierto y en la pantalla de la puerta 2.
+- **Criterio:** Aprobado si ninguna lectura cambia la carga, ningún campo envía nada sin Confirmar y no aparece texto en campos de contraseña. Anotar lo observado para la aceptación de Cristian.
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### RCB-B4 — Tirilla real con 20 elementos
+- **Modo:** Sin vapor (ciclo corto)  ·  **Origen:** RCB-06
+- **Pasos:** registrar un lote y 20 elementos (nombres largos) con `impresion_carga` = `lote_elementos`; correr el ciclo; reimprimir después de cambiar el programa a `lote`.
+- **Criterio:** Aprobado si la tirilla muestra 15 elementos partidos sin recortar y «... y 5 más (ver reporte)», y la reimpresión sigue con el modo guardado del ciclo.
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### RCB-B5 — CSV desde USB real
+- **Modo:** Sin vapor  ·  **Origen:** RCB-08.3
+- **Pasos:** con un ingeniero, importar un CSV UTF-8 con BOM y separador `;` (con altas, un cambio de nombre y dos líneas inválidas) desde una USB; revisar la vista previa y aplicar.
+- **Criterio:** Aprobado si la vista previa coincide con el archivo, solo se aplican las líneas válidas y la bitácora tiene una fila `catalogo_carga_importado` con los conteos.
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### RCB-B6 — Ciclo fallido con carga
+- **Modo:** Sin vapor (cancelación)  ·  **Origen:** RCB-D9, RCB-06.3, RCB-07.1; HAZ-RCB-02
+- **Pasos:** iniciar un ciclo con carga y cancelarlo; revisar la tirilla, el PDF y el correo del ciclo y su detalle en Historial; iniciar el ciclo siguiente.
+- **Criterio:** Aprobado si las cuatro salidas dicen «CARGA NO ESTÉRIL», la carga queda ligada al ciclo cancelado y el ciclo siguiente no la hereda.
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
