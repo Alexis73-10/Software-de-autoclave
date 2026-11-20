@@ -5,3 +5,4 @@
 
 from tests.banco.rv_flujos_base import *  # noqa: F401,F403
 from tests.banco.rv_flujos_ciclo import *  # noqa: F401,F403
+from tests.banco.rv_flujos_opciones import *  # noqa: F401,F403

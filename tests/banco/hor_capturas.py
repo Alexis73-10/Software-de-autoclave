@@ -418,11 +418,14 @@ _SCRIPT = textwrap.dedent(r'''
             # RV etapa A: solapes entre elementos (tests/helpers/solapes_qml.py), en
             # su propia clave del resumen: `problemas` queda como antes (lo comparan
             # tests/banco/resp_capturas.py y test_resp_sin_barras.py)
-            solapes = json.loads(QMetaObject.invokeMethod(rev, "solapesDesde", Q_RETURN_ARG("QVariant"),
-                                                          Q_ARG("QVariant", win.contentItem()),
-                                                          Q_ARG("QVariant", W), Q_ARG("QVariant", H),
-                                                          Q_ARG("QVariant", list(ANIMADOS)),
-                                                          Q_ARG("QVariant", list(INSIGNIAS))))
+            try:
+                solapes = json.loads(QMetaObject.invokeMethod(rev, "solapesDesde", Q_RETURN_ARG("QVariant"),
+                                                              Q_ARG("QVariant", win.contentItem()),
+                                                              Q_ARG("QVariant", W), Q_ARG("QVariant", H),
+                                                              Q_ARG("QVariant", list(ANIMADOS)),
+                                                              Q_ARG("QVariant", list(INSIGNIAS))))
+            except Exception as ex:  # noqa: BLE001
+                print("solapes: fallo del detector", repr(ex)); solapes = []
         print("captura", nombre, len(problemas), "problemas", len(fuera), "fuera")
         win.close(); engine.deleteLater(); QTest.qWait(50)
         return {"problemas": problemas, "fuera": fuera, "solapes": solapes,

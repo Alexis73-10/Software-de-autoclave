@@ -242,23 +242,32 @@ class Arnes:
                                QPointF(x + dx, y + dy).toPoint())
         QTest.qWait(700)
 
+    def _tecla(self, ch):
+        for it in self.items():
+            t = it.property("texto")
+            if isinstance(t, str) and len(t) == 1 and t.lower() == ch.lower() and self.visible(it):
+                return it
+        return None
+
     def teclear(self, texto):
-        # teclado en pantalla: cada carácter es una Tecla con ese texto
+        """Escribe con el teclado en pantalla: busca la tecla por su texto; si no
+        está, cambia de capa (?123/ABC); si la mayúscula no coincide, toca Aa."""
         for ch in texto:
-            tecla = None
             if ch == " ":
-                tecla = self.buscar(nombre="teclaEspacio")
-            else:
-                for it in self.items():
-                    if self.visible(it) and it.property("texto") == ch:
-                        tecla = it
-                        break
-            if tecla is None:
-                cand = [(it.property("texto"), it.isVisible(), round(it.opacity(), 2),
-                         tuple(round(v) for v in self.centro(it)))
-                        for it in self.items() if isinstance(it.property("texto"), str)][:8]
-                self.nota(f"sin tecla para {ch!r}; candidatas {cand}")
+                self.tocar(self.buscar(nombre="teclaEspacio"))
                 continue
+            tecla = self._tecla(ch)
+            if tecla is None and self.buscar(nombre="teclaCapa") is not None:
+                self.tocar(self.buscar(nombre="teclaCapa"))
+                tecla = self._tecla(ch)
+            if tecla is None:
+                vistas = sorted({it.property("texto") for it in self.items()
+                                 if isinstance(it.property("texto"), str) and self.visible(it)})
+                self.nota(f"sin tecla para {ch!r}; visibles {vistas[:40]}")
+                continue
+            if ch.isalpha() and tecla.property("texto") != ch and self.buscar(nombre="teclaAa") is not None:
+                self.tocar(self.buscar(nombre="teclaAa"))
+                tecla = self._tecla(ch) or tecla
             self.tocar(tecla)
 
     def nota(self, texto):

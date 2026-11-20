@@ -1,0 +1,53 @@
+[
+ {
+  "flujo": "ciclo_cancelar_es",
+  "paso": 1,
+  "nombre": "cancelado",
+  "captura": "ciclo_cancelar_es\\01_cancelado.png",
+  "esperado": "ciclo cancelado sin modal",
+  "ok": true,
+  "avisos": []
+ },
+ {
+  "flujo": "ciclo_cancelar_es",
+  "paso": 1,
+  "nota": "toque_desviado: centro de botonVerGrafica lo recibe QQuickItem:detectorToques (padre )"
+ },
+ {
+  "flujo": "ciclo_cancelar_es",
+  "paso": 2,
+  "nombre": "ver_grafica",
+  "captura": "ciclo_cancelar_es\\02_ver_grafica.png",
+  "esperado": "la gráfica reemplaza al panel",
+  "ok": true,
+  "avisos": []
+ },
+ {
+  "flujo": "ciclo_cancelar_es",
+  "paso": 2,
+  "nota": "toque_desviado: centro de CONFIRMAR lo recibe QQuickItem:detectorToques (padre )"
+ },
+ {
+  "flujo": "ciclo_cancelar_es",
+  "paso": 3,
+  "nombre": "modal_confirmar",
+  "captura": "ciclo_cancelar_es\\03_modal_confirmar.png",
+  "esperado": "modal de confirmación",
+  "ok": true,
+  "avisos": []
+ },
+ {
+  "flujo": "ciclo_cancelar_es",
+  "paso": 3,
+  "nota": "toque_desviado: centro de botonAccionModal lo recibe QQuickItem:detectorToques (padre )"
+ },
+ {
+  "flujo": "ciclo_cancelar_es",
+  "paso": 4,
+  "nombre": "confirmado",
+  "captura": "ciclo_cancelar_es\\04_confirmado.png",
+  "esperado": "regresa a Preciclo",
+  "ok": true,
+  "avisos": []
+ }
+]

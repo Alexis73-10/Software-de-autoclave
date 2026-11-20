@@ -1,0 +1,64 @@
+[
+ {
+  "flujo": "usuarios_es",
+  "paso": 1,
+  "nombre": "usuarios",
+  "captura": "usuarios_es\\01_usuarios.png",
+  "esperado": "lista de usuarios",
+  "ok": true,
+  "avisos": [
+   "This plugin does not support raise()"
+  ]
+ },
+ {
+  "flujo": "usuarios_es",
+  "paso": 2,
+  "nombre": "nuevo_usuario",
+  "captura": "usuarios_es\\02_nuevo_usuario.png",
+  "esperado": "formulario de nuevo usuario",
+  "ok": true,
+  "avisos": []
+ },
+ {
+  "flujo": "usuarios_es",
+  "paso": 2,
+  "nota": "toque_desviado: centro de campoRol lo recibe QQuickItem: (padre )"
+ },
+ {
+  "flujo": "usuarios_es",
+  "paso": 2,
+  "nota": "el primer toque en Rol cerró el teclado; segundo toque"
+ },
+ {
+  "flujo": "usuarios_es",
+  "paso": 3,
+  "nombre": "roles",
+  "captura": "usuarios_es\\03_roles.png",
+  "esperado": "lista de roles abierta",
+  "ok": true,
+  "avisos": []
+ },
+ {
+  "flujo": "usuarios_es",
+  "paso": 4,
+  "nombre": "formulario_lleno",
+  "captura": "usuarios_es\\04_formulario_lleno.png",
+  "esperado": "formulario completo",
+  "ok": true,
+  "avisos": []
+ },
+ {
+  "flujo": "usuarios_es",
+  "paso": 5,
+  "nombre": "usuario_creado",
+  "captura": "usuarios_es\\05_usuario_creado.png",
+  "esperado": "vuelve a Usuarios con el usuario nuevo",
+  "ok": false,
+  "avisos": []
+ },
+ {
+  "flujo": "usuarios_es",
+  "paso": 5,
+  "nota": "no se encontró la fila del usuario nuevo"
+ }
+]

@@ -1,0 +1,88 @@
+[
+ {
+  "flujo": "login_es",
+  "paso": 1,
+  "nombre": "menu",
+  "captura": "login_es\\01_menu.png",
+  "esperado": "Menú Principal por el engranaje",
+  "ok": true,
+  "avisos": []
+ },
+ {
+  "flujo": "login_es",
+  "paso": 2,
+  "nombre": "login",
+  "captura": "login_es\\02_login.png",
+  "esperado": "pantalla de login",
+  "ok": true,
+  "avisos": []
+ },
+ {
+  "flujo": "login_es",
+  "paso": 3,
+  "nombre": "teclado_usuario",
+  "captura": "login_es\\03_teclado_usuario.png",
+  "esperado": "teclado alfanumérico abierto sin tapar el campo",
+  "ok": true,
+  "avisos": []
+ },
+ {
+  "flujo": "login_es",
+  "paso": 4,
+  "nombre": "escrito_y_borrado",
+  "captura": "login_es\\04_escrito_y_borrado.png",
+  "esperado": "valor «ing1» en el teclado",
+  "ok": true,
+  "avisos": []
+ },
+ {
+  "flujo": "login_es",
+  "paso": 5,
+  "nombre": "cancelado",
+  "captura": "login_es\\05_cancelado.png",
+  "esperado": "teclado cerrado, campo vacío",
+  "ok": true,
+  "avisos": []
+ },
+ {
+  "flujo": "login_es",
+  "paso": 6,
+  "nombre": "clave_incorrecta",
+  "captura": "login_es\\06_clave_incorrecta.png",
+  "esperado": "mensaje de usuario o contraseña incorrectos",
+  "ok": true,
+  "avisos": []
+ },
+ {
+  "flujo": "login_es",
+  "paso": 7,
+  "nombre": "bloqueo",
+  "captura": "login_es\\07_bloqueo.png",
+  "esperado": "mensaje de usuario bloqueado tras varios intentos",
+  "ok": true,
+  "avisos": []
+ },
+ {
+  "flujo": "login_es",
+  "paso": 7,
+  "nota": "toque_desviado: centro de botonIniciarSesion lo recibe QQuickItem:vistaPrograma (padre parametrosCiclo)"
+ },
+ {
+  "flujo": "login_es",
+  "paso": 8,
+  "nombre": "opciones",
+  "captura": "login_es\\08_opciones.png",
+  "esperado": "Opciones tras el login correcto",
+  "ok": true,
+  "avisos": []
+ },
+ {
+  "flujo": "login_es",
+  "paso": 9,
+  "nombre": "cerrar_sesion",
+  "captura": "login_es\\09_cerrar_sesion.png",
+  "esperado": "sale de Opciones al cerrar sesión",
+  "ok": true,
+  "avisos": []
+ }
+]

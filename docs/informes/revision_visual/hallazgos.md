@@ -4,7 +4,7 @@ Etapa C, 19-nov. Fuente: capturas offscreen de `base/` (137 escenarios × 8 comb
 
 Detectores en `base/` (las 8 combinaciones): 144 solapes, 80 sale_del_cuadro, 76 cruza_divisor, 54 encogido, 2 no_cabe_al_minimo, 2 tinta_ancho y 248 «fuera del lienzo»; la I4 a 1024 × 1638, sin truncados ni solapes. Casi todos son falsos positivos (ver al final) o se agrupan en las entradas de abajo.
 
-Resumen: 38 hallazgos (4 ALTA, 11 MEDIA, 23 BAJA): 10 de categoría 1 y 28 de categoría 2 (RV-14, RV-15, RV-24, RV-25 y RV-26 pasaron a la 2 en la etapa D, al implementarlos o ampliarlos); 6 grupos de falsos positivos. RV-38 se encontró en la etapa D; 6 grupos de falsos positivos. La pasada de íconos en ventana real (B2) agregó RV-37 y no encontró otros íconos ausentes, deformados ni sin contraste.
+Resumen: 38 hallazgos (4 ALTA, 11 MEDIA, 23 BAJA): 9 de categoría 1 y 29 de categoría 2 (RV-06, RV-14, RV-15, RV-24, RV-25 y RV-26 pasaron a la 2 en la etapa D, al implementarlos o ampliarlos); 6 grupos de falsos positivos. RV-38 se encontró en la etapa D; 6 grupos de falsos positivos. La pasada de íconos en ventana real (B2) agregó RV-37 y no encontró otros íconos ausentes, deformados ni sin contraste.
 
 Categorías: 1 = corrección de maquetación (se corrige en la etapa D); 2 = decisión de Cristian; FP = falso positivo.
 
@@ -67,7 +67,7 @@ Categorías: 1 = corrección de maquetación (se corrige en la etapa D); 2 = dec
 - Evidencia: `base/1200x1920_es/hor_claro_d_parametros_ciclo_fase.png`, zona 150,1690,1200,1730.
 - Origen: visual.
 - QML: `Pantallas/OpcionesParametrosCiclo.qml:497-529` (lista y `pieSeccion`).
-- Categoría 1.
+- Categoría 2: en la etapa D se probó un margen de 16 px entre la lista y la leyenda; el revisor independiente (etapa F) notó que así desaparece la fila asomada, que es la única pista de que hay más parámetros abajo. Se revirtió. Recomendación: un indicador de desplazamiento en la lista y luego el margen.
 
 ### RV-07. Preciclo en vertical: el rótulo de «RECONOCER FALLA» se encoge al mínimo
 - Escenario `b_preciclo_falla`; 1200x1920; los dos temas; es (172 → 156 px) y en (202 → 156 px, no cabe ni al mínimo).

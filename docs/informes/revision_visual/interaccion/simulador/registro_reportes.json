@@ -1,0 +1,81 @@
+[
+ {
+  "flujo": "reportes_es",
+  "paso": 1,
+  "nombre": "historial",
+  "captura": "reportes_es\\01_historial.png",
+  "esperado": "ventana de Historial",
+  "ok": true,
+  "avisos": [
+   "This plugin does not support raise()"
+  ]
+ },
+ {
+  "flujo": "reportes_es",
+  "paso": 2,
+  "nombre": "detalle",
+  "captura": "reportes_es\\02_detalle.png",
+  "esperado": "detalle del ciclo",
+  "ok": true,
+  "avisos": []
+ },
+ {
+  "flujo": "reportes_es",
+  "paso": 2,
+  "nota": "no accionado por seguridad: envío por correo"
+ },
+ {
+  "flujo": "reportes_es",
+  "paso": 3,
+  "nombre": "reportes",
+  "captura": "reportes_es\\03_reportes.png",
+  "esperado": "Reportes",
+  "ok": true,
+  "avisos": []
+ },
+ {
+  "flujo": "reportes_es",
+  "paso": 4,
+  "nombre": "vista_Día",
+  "captura": "reportes_es\\04_vista_Día.png",
+  "esperado": "vista Día",
+  "ok": true,
+  "avisos": []
+ },
+ {
+  "flujo": "reportes_es",
+  "paso": 5,
+  "nombre": "vista_Semana",
+  "captura": "reportes_es\\05_vista_Semana.png",
+  "esperado": "vista Semana",
+  "ok": true,
+  "avisos": []
+ },
+ {
+  "flujo": "reportes_es",
+  "paso": 6,
+  "nombre": "vista_Mes",
+  "captura": "reportes_es\\06_vista_Mes.png",
+  "esperado": "vista Mes",
+  "ok": true,
+  "avisos": []
+ },
+ {
+  "flujo": "reportes_es",
+  "paso": 7,
+  "nombre": "vista_Año",
+  "captura": "reportes_es\\07_vista_Año.png",
+  "esperado": "vista Año",
+  "ok": true,
+  "avisos": []
+ },
+ {
+  "flujo": "reportes_es",
+  "paso": 8,
+  "nombre": "volver",
+  "captura": "reportes_es\\08_volver.png",
+  "esperado": "vuelve con Inicio",
+  "ok": false,
+  "avisos": []
+ }
+]

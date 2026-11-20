@@ -1,0 +1,31 @@
+[
+ {
+  "flujo": "standby_es",
+  "paso": 1,
+  "nombre": "principal",
+  "captura": "standby_es\\01_principal.png",
+  "esperado": "Preciclo",
+  "ok": true,
+  "avisos": [
+   "This plugin does not support raise()"
+  ]
+ },
+ {
+  "flujo": "standby_es",
+  "paso": 2,
+  "nombre": "reposo",
+  "captura": "standby_es\\02_reposo.png",
+  "esperado": "Reposo por inactividad",
+  "ok": false,
+  "avisos": []
+ },
+ {
+  "flujo": "standby_es",
+  "paso": 3,
+  "nombre": "despierta",
+  "captura": "standby_es\\03_despierta.png",
+  "esperado": "vuelve a Preciclo al tocar",
+  "ok": true,
+  "avisos": []
+ }
+]

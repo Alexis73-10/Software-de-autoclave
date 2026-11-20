@@ -1,0 +1,66 @@
+[
+ {
+  "flujo": "preciclo_es",
+  "paso": 1,
+  "nombre": "preciclo",
+  "captura": "preciclo_es\\01_preciclo.png",
+  "esperado": "Preciclo con el deslizador de inicio",
+  "ok": true,
+  "avisos": []
+ },
+ {
+  "flujo": "preciclo_es",
+  "paso": 2,
+  "nombre": "selector_programa",
+  "captura": "preciclo_es\\02_selector_programa.png",
+  "esperado": "selector de programas abierto",
+  "ok": true,
+  "avisos": []
+ },
+ {
+  "flujo": "preciclo_es",
+  "paso": 3,
+  "nombre": "programa_elegido",
+  "captura": "preciclo_es\\03_programa_elegido.png",
+  "esperado": "selector cerrado tras elegir",
+  "ok": true,
+  "avisos": []
+ },
+ {
+  "flujo": "preciclo_es",
+  "paso": 4,
+  "nombre": "campana",
+  "captura": "preciclo_es\\04_campana.png",
+  "esperado": "panel de notificaciones abierto",
+  "ok": true,
+  "avisos": []
+ },
+ {
+  "flujo": "preciclo_es",
+  "paso": 4,
+  "nota": "sin botón de puerta visible (puerta sin actuador)"
+ },
+ {
+  "flujo": "preciclo_es",
+  "paso": 5,
+  "nombre": "deslizador_incompleto",
+  "captura": "preciclo_es\\05_deslizador_incompleto.png",
+  "esperado": "la manija regresa y no inicia el ciclo",
+  "ok": true,
+  "avisos": []
+ },
+ {
+  "flujo": "preciclo_es",
+  "paso": 6,
+  "nombre": "deslizador_completo",
+  "captura": "preciclo_es\\06_deslizador_completo.png",
+  "esperado": "inicia el ciclo",
+  "ok": true,
+  "avisos": [
+   "Mouse event at 1203, 1677 occurs outside target window (1200x1920).",
+   "Mouse event at 1221, 1677 occurs outside target window (1200x1920).",
+   "Mouse event at 1239, 1677 occurs outside target window (1200x1920).",
+   "Mouse event at 1239, 1677 occurs outside target window (1200x1920)."
+  ]
+ }
+]

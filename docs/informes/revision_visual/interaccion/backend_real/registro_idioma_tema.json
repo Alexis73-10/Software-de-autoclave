@@ -1,0 +1,83 @@
+[
+ {
+  "flujo": "idioma_es",
+  "paso": 0,
+  "nota": "toque_desviado: centro de botonIniciarSesion lo recibe QQuickItem:vistaPrograma (padre parametrosCiclo)"
+ },
+ {
+  "flujo": "idioma_es",
+  "paso": 1,
+  "nombre": "maquina",
+  "captura": "idioma_es\\01_maquina.png",
+  "esperado": "configuración de la máquina",
+  "ok": true,
+  "avisos": [
+   "This plugin does not support raise()"
+  ]
+ },
+ {
+  "flujo": "idioma_es",
+  "paso": 1,
+  "nota": "toque_desviado: centro de Oscuro lo recibe QQuickItem: (padre )"
+ },
+ {
+  "flujo": "idioma_es",
+  "paso": 2,
+  "nombre": "dialogo_tema",
+  "captura": "idioma_es\\02_dialogo_tema.png",
+  "esperado": "confirmación del cambio de tema",
+  "ok": true,
+  "avisos": []
+ },
+ {
+  "flujo": "idioma_es",
+  "paso": 3,
+  "nombre": "tema_oscuro",
+  "captura": "idioma_es\\03_tema_oscuro.png",
+  "esperado": "tema oscuro aplicado",
+  "ok": true,
+  "avisos": []
+ },
+ {
+  "flujo": "idioma_es",
+  "paso": 3,
+  "nota": "toque_desviado: centro de English lo recibe QQuickItem: (padre )"
+ },
+ {
+  "flujo": "idioma_es",
+  "paso": 4,
+  "nombre": "dialogo_idioma",
+  "captura": "idioma_es\\04_dialogo_idioma.png",
+  "esperado": "confirmación del cambio",
+  "ok": true,
+  "avisos": []
+ },
+ {
+  "flujo": "idioma_es",
+  "paso": 5,
+  "nombre": "idioma_ingles",
+  "captura": "idioma_es\\05_idioma_ingles.png",
+  "esperado": "textos en inglés",
+  "ok": true,
+  "avisos": []
+ },
+ {
+  "flujo": "idioma_es",
+  "paso": 5,
+  "nota": "toque_desviado: centro de Light lo recibe QQuickItem: (padre )"
+ },
+ {
+  "flujo": "idioma_es",
+  "paso": 5,
+  "nota": "toque_desviado: centro de Español lo recibe QQuickItem: (padre )"
+ },
+ {
+  "flujo": "idioma_es",
+  "paso": 6,
+  "nombre": "vuelta_espanol",
+  "captura": "idioma_es\\06_vuelta_espanol.png",
+  "esperado": "de vuelta a español y tema claro",
+  "ok": true,
+  "avisos": []
+ }
+]

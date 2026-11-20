@@ -1,0 +1,121 @@
+[
+ {
+  "flujo": "menu_es",
+  "paso": 1,
+  "nombre": "menu",
+  "captura": "menu_es\\01_menu.png",
+  "esperado": "Menú Principal",
+  "ok": true,
+  "avisos": [
+   "This plugin does not support raise()"
+  ]
+ },
+ {
+  "flujo": "menu_es",
+  "paso": 2,
+  "nombre": "resumenUltimoCiclo",
+  "captura": "menu_es\\02_resumenUltimoCiclo.png",
+  "esperado": "abre ventanaUltimoCiclo",
+  "ok": true,
+  "avisos": []
+ },
+ {
+  "flujo": "menu_es",
+  "paso": 3,
+  "nombre": "resumenUltimoCiclo_cerrada",
+  "captura": "menu_es\\03_resumenUltimoCiclo_cerrada.png",
+  "esperado": "vuelve al menú",
+  "ok": true,
+  "avisos": []
+ },
+ {
+  "flujo": "menu_es",
+  "paso": 4,
+  "nombre": "resumenMantenimiento",
+  "captura": "menu_es\\04_resumenMantenimiento.png",
+  "esperado": "abre ventanaMantenimiento",
+  "ok": true,
+  "avisos": []
+ },
+ {
+  "flujo": "menu_es",
+  "paso": 5,
+  "nombre": "resumenMantenimiento_cerrada",
+  "captura": "menu_es\\05_resumenMantenimiento_cerrada.png",
+  "esperado": "vuelve al menú",
+  "ok": true,
+  "avisos": []
+ },
+ {
+  "flujo": "menu_es",
+  "paso": 6,
+  "nombre": "resumenCiclosHoy",
+  "captura": "menu_es\\06_resumenCiclosHoy.png",
+  "esperado": "abre ventanaCiclosHoy",
+  "ok": true,
+  "avisos": []
+ },
+ {
+  "flujo": "menu_es",
+  "paso": 7,
+  "nombre": "resumenCiclosHoy_cerrada",
+  "captura": "menu_es\\07_resumenCiclosHoy_cerrada.png",
+  "esperado": "vuelve al menú",
+  "ok": true,
+  "avisos": []
+ },
+ {
+  "flujo": "menu_es",
+  "paso": 8,
+  "nombre": "tarjetaHistorial",
+  "captura": "menu_es\\08_tarjetaHistorial.png",
+  "esperado": "abre ventanaHistorial",
+  "ok": true,
+  "avisos": []
+ },
+ {
+  "flujo": "menu_es",
+  "paso": 9,
+  "nombre": "tarjetaHistorial_cerrada",
+  "captura": "menu_es\\09_tarjetaHistorial_cerrada.png",
+  "esperado": "vuelve al menú",
+  "ok": true,
+  "avisos": []
+ },
+ {
+  "flujo": "menu_es",
+  "paso": 10,
+  "nombre": "tarjetaInformacion",
+  "captura": "menu_es\\10_tarjetaInformacion.png",
+  "esperado": "abre panelEquipoMenu",
+  "ok": true,
+  "avisos": []
+ },
+ {
+  "flujo": "menu_es",
+  "paso": 11,
+  "nombre": "tarjetaInformacion_cerrada",
+  "captura": "menu_es\\11_tarjetaInformacion_cerrada.png",
+  "esperado": "vuelve al menú",
+  "ok": true,
+  "avisos": []
+ },
+ {
+  "flujo": "menu_es",
+  "paso": 12,
+  "nombre": "reportes",
+  "captura": "menu_es\\12_reportes.png",
+  "esperado": "pantalla de Reportes",
+  "ok": true,
+  "avisos": []
+ },
+ {
+  "flujo": "menu_es",
+  "paso": 13,
+  "nombre": "volver",
+  "captura": "menu_es\\13_volver.png",
+  "esperado": "vuelve a la pantalla principal con Inicio",
+  "ok": false,
+  "avisos": []
+ }
+]

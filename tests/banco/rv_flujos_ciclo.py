@@ -7,6 +7,16 @@ from tests.banco.rv_flujos_base import (CAMPANA, QTestWait, _hay, _principal, al
                                         despertar, volver_principal)
 
 
+def _cerrar_panel(h):
+    """El panel de notificaciones se cierra con su botón CERRAR."""
+    b = h.buscar(texto="CERRAR") or h.buscar(texto="CLOSE") or h.buscar(texto="Cerrar") or h.buscar(texto="Close")
+    if b is not None:
+        h.tocar(b)
+    else:
+        h.tocar_en(60, 1000, "fuera del panel")
+    QTestWait(h, 500)
+
+
 def _ancho(it):
     return it.width() if it is not None else 0
 
@@ -59,7 +69,7 @@ def flujo_preciclo(h, status):
         ok = h.esperar(lambda: _hay(h, "tarjetaDetalleAlarma"), 3)
         h.captura("detalle_alarma", esperado="detalle de la alarma", ok=ok)
         h.tocar(h.buscar(nombre="botonCerrarDetalle"))
-    h.tocar_en(60, 1000, "fuera del panel")
+    _cerrar_panel(h)
     h.esperar(lambda: not _hay(h, "grupoAlarmas", "textoSinNotificaciones"), 3)
     p = h.buscar(nombre="botonPuertaPreciclo")
     if p is not None:
@@ -104,7 +114,7 @@ def flujo_ciclo(h, status):
     h.tocar_en(*CAMPANA, descripcion="campana")
     ok = h.esperar(lambda: _hay(h, "grupoAlarmas", "grupoAvisos", "textoSinNotificaciones"), 3)
     h.captura("campana_ciclo", esperado="panel de notificaciones", ok=ok)
-    h.tocar_en(60, 1000, "fuera del panel")
+    _cerrar_panel(h)
     QTestWait(h, 600)
     c, mc = _manija_cancelar(h)
     if mc is not None:
@@ -196,3 +206,18 @@ def flujo_standby(h, status):
     h.tocar_en(600, 960, "reposo")
     ok = h.esperar(lambda: _principal(h), 8)
     h.captura("despierta", esperado="vuelve a Preciclo al tocar", ok=ok)
+
+
+def flujo_confirmar_fin(h, status):
+    """Ciclo terminado en el simulador (CICLO COMPLETADO): CONFIRMAR con su modal."""
+    despertar(h)
+    ok = h.esperar(lambda: _hay(h, "tarjetaCicloEnCurso"), 10)
+    h.captura("terminado", esperado="Ciclo en curso terminado con CONFIRMAR", ok=ok)
+    b = h.buscar(texto="CONFIRMAR") or h.buscar(texto="CONFIRM")
+    h.tocar(b)
+    ok = h.esperar(lambda: _hay(h, "tarjetaModalConfirmacion"), 3)
+    h.captura("modal_confirmar", esperado="modal de confirmación", ok=ok)
+    h.tocar(h.buscar(nombre="botonAccionModal"))
+    ok = h.esperar(lambda: status().get("machine_state") != "CICLO", 6)
+    QTestWait(h, 1500)
+    h.captura("confirmado", esperado="regresa a Preciclo tras confirmar", ok=ok and _hay(h, "tarjetaPreciclo"))
