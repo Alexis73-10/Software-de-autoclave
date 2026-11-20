@@ -114,6 +114,18 @@ class RegistroCarga(QObject):
         """Inicio aceptado o standby: el borrador no pasa a otro ciclo."""
         self.vaciar()
 
+    def seguir_estado(self, estado) -> None:
+        """HAZ-RCB-01 (revisión SAF-01): al entrar la máquina en CICLO el
+        borrador se vacía aunque la respuesta 200 del inicio no haya llegado
+        (plazo vencido, conexión cortada): el backend ya tomó la carga con
+        ese inicio y el borrador no debe pasar al ciclo siguiente. Solo en la
+        transición: lo que se lea durante el ciclo queda para el próximo."""
+        anterior = getattr(self, "_estado_previo", None)
+        self._estado_previo = estado
+        if estado == "CICLO" and anterior != "CICLO" and not self._b.vacio():
+            logger.info("Máquina en CICLO: se vacía el borrador de la carga")
+            self.limpiar()
+
     def para_inicio(self) -> dict | None:
         return self._b.para_inicio()
 

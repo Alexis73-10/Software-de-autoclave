@@ -324,3 +324,34 @@ def test_qml_sin_colores_literales_ni_elide():
         texto = (RAIZ_QML / nombre).read_text(encoding="utf-8")
         codigo = "\n".join(l.split("//")[0] for l in texto.splitlines())
         assert not re.search(r'"#[0-9A-Fa-f]{3,8}"|Qt\.rgba|elide', codigo), nombre
+
+
+def test_sin_respuesta_del_inicio_el_borrador_se_vacia_al_entrar_en_ciclo(qt):
+    # HAZ-RCB-01, revisión SAF-01: el POST vence (False sin código) pero el
+    # backend ya arrancó el ciclo con la carga; al verse CICLO el borrador se
+    # vacía y no pasa al ciclo siguiente
+    from autoclave.ui_qml.bridge.registro_carga_qml import RegistroCarga
+    r = RegistroCarga(None, None)
+    r.seguir_estado("PREPARADO")
+    r.leer("LT"); r.leer("A1")
+    ui = MagicMock()
+    ui.start_cycle.return_value = False
+    ui.ultimo_rechazo_inicio.return_value = None
+    c = _comando(ui, r)
+    c.iniciar()
+    assert not r.vacio                      # sin respuesta: aún se conserva
+    r.seguir_estado("CICLO")
+    assert r.vacio
+    # lo leído durante el ciclo queda para el próximo
+    r.leer("LT2")
+    r.seguir_estado("CICLO")
+    assert r.lote == "LT2"
+    r.seguir_estado("PREPARADO")
+    assert r.lote == "LT2"
+
+
+def test_app_conecta_el_estado_de_la_maquina_al_borrador():
+    from pathlib import Path
+    fuente = Path(__file__).resolve().parents[1].joinpath(
+        "src", "autoclave", "ui_qml", "app.py").read_text(encoding="utf-8")
+    assert "registro_carga.seguir_estado(puente.machineState)" in fuente

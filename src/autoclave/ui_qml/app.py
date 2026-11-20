@@ -303,6 +303,10 @@ def main(argv=None) -> int:
         # RCB-02.5: el borrador se limpia al entrar en standby
         standby.activoChanged.connect(
             lambda: registro_carga.limpiar() if standby.activo else None)
+        # HAZ-RCB-01 (revisión SAF-01): y al entrar en CICLO, aunque no haya
+        # llegado la respuesta del inicio
+        puente.machineStateChanged.connect(
+            lambda: registro_carga.seguir_estado(puente.machineState))
     progreso = ProgresoCiclo(backend)
     comandos_en_curso = ComandosCicloEnCurso(puente, ui_service)
     # Resumen del Sistema del Menú Principal: solo lectura; sondea solo mientras el menú está visible
