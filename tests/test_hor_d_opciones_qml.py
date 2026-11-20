@@ -116,7 +116,7 @@ def _correr(ancho, alto):
 def test_horizontal_riel_en_dos_columnas_y_contenido_a_lo_ancho():
     r = _correr(1920, 1200)
     assert r["avisos"] == []
-    assert r["entradas"] == 11
+    assert r["entradas"] == 12                # 11 + Catálogo de carga (RCB-08.1)
     assert len(r["xs"]) == 2                 # dos columnas de iconos
     assert r["riel_cabe"]                    # sin desplazarse
     # misma escala que el lienzo vertical (mismos px de diseño)
@@ -130,7 +130,7 @@ def test_horizontal_riel_en_dos_columnas_y_contenido_a_lo_ancho():
 def test_vertical_riel_en_una_columna():
     r = _correr(1200, 1920)
     assert r["avisos"] == []
-    assert r["entradas"] == 11
+    assert r["entradas"] == 12                # 11 + Catálogo de carga (RCB-08.1)
     assert len(r["xs"]) == 1
     x0, _, x1, _ = r["contenido"]
     assert abs(x1 - 1142 * 1200 / 1196) < 2

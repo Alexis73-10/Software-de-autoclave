@@ -609,7 +609,7 @@ class AccionesCiclos(QObject):
                 (i18n.t("exportacion.fin"),
                  f"{fin}  {hora_fin}" if fin != dominio.SIN_DATO else dominio.SIN_DATO),
                 (i18n.t("exportacion.resultado"), resultado),
-            ] + self._campo_lote(ciclo) + [
+            ] + AccionesCiclos._campo_lote(ciclo) + [
                 # I4 (tanda 6): unidades del documento en la cabecera
                 (i18n.t("exportacion.unidades"), unidades_pdf.rotulo_unidades(p.temperatura, p.presion)),
             ] + self._campo_motivo(ciclo),

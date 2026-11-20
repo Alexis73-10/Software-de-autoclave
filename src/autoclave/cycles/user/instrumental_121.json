@@ -66,20 +66,8 @@
                 ],
                 "unit": ""
             },
-            "registro_carga_obligatorio": {
-                "value": false,
-                "type": "bool"
-            },
-            "impresion_carga": {
-                "value": "lote_elementos",
-                "type": "enum",
-                "options": [
-                    "ninguna",
-                    "lote",
-                    "lote_elementos"
-                ],
-                "unit": ""
-            }
+            "registro_carga_obligatorio": {"value": false, "type": "bool"},
+            "impresion_carga": {"value": "lote_elementos", "type": "enum", "options": ["ninguna", "lote", "lote_elementos"], "unit": ""}
         },
         "precalentamiento": {
             "tiempo_precalentamiento": {
@@ -505,8 +493,7 @@
                 "unit": "°C",
                 "clase": "diferencia",
                 "min": 0,
-                "max": 2,
-                "migrado_t28_m3": true
+                "max": 2
             },
             "brecha_error_temperatura": {
                 "value": 0.1,
@@ -530,8 +517,7 @@
                 "unit": "kPa",
                 "clase": "diferencia",
                 "min": 0,
-                "max": 20,
-                "migrado_cri": true
+                "max": 20
             },
             "timeout_excursion_referencia": {
                 "value": 5,

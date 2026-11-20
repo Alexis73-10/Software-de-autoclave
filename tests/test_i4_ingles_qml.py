@@ -53,6 +53,9 @@ _LISTA_BLANCA = {
     "Pantallas/OpcionesParametrosCiclo.qml": {
         " <font color='#808080'>": "marcado HTML", "</font>": "marcado HTML",
     },
+    "Pantallas/OpcionesCatalogoCarga.qml": {
+        "<br><b>": "marcado HTML (nota de ayuda, RCB-08)",
+    },
 }
 _EXCLUIDOS = ("Pruebas/",)
 
