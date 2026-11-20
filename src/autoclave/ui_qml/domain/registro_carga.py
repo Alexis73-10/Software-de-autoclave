@@ -85,3 +85,139 @@ def lineas_cuerpo_correo(ciclos, t=_t_defecto) -> list[str]:
             linea += " " + t("exportacion.cuerpo_carga_no_esteril")
         lineas.append(linea)
     return lineas
+
+
+# ── Borrador de la ventana «Carga del ciclo» (RCB-02, RCB-09) ──────────────
+
+PASO_LOTE = "lote"
+PASO_ELEMENTOS = "elementos"
+
+AVISO_OK = "ok"
+AVISO_ERROR = "error"
+
+
+class BorradorCarga:
+    """Carga en preparación en la pantalla de carga, solo en memoria (RCB-02.5:
+    no se guarda en disco antes del inicio). Dos pasos (RCB-02.1): el primero
+    acepta el lote (una lectura válida que no esté en el catálogo activo); el
+    segundo, elementos (cada lectura suma 1, RCB-D5). Cada operación devuelve
+    (tipo de aviso, clave i18n, parámetros) para que la UI lo muestre; una
+    lectura rechazada no cambia nada."""
+
+    def __init__(self):
+        self.catalogo: dict[str, str] = {}
+        self.lote: str = ""
+        self.elementos: list[dict] = []     # {"codigo", "cantidad", "manual"} en orden de lectura
+        self.ultimo: str = ""               # código de la última lectura aceptada
+
+    # ── estado ────────────────────────────────────────────────────────────
+    @property
+    def paso(self) -> str:
+        return PASO_ELEMENTOS if self.lote else PASO_LOTE
+
+    def vacio(self) -> bool:
+        return not self.lote and not self.elementos
+
+    def total_unidades(self) -> int:
+        return sum(e["cantidad"] for e in self.elementos)
+
+    def nombre_de(self, codigo: str):
+        return self.catalogo.get(codigo) if isinstance(self.catalogo, dict) else None
+
+    def fijar_catalogo(self, elementos) -> None:
+        """{codigo: nombre} de los activos, de GET /carga/catalogo?activos=true."""
+        catalogo = {}
+        for e in elementos or []:
+            if isinstance(e, dict) and isinstance(e.get("codigo"), str) \
+                    and isinstance(e.get("nombre"), str) and e.get("activo") is not False:
+                catalogo[e["codigo"]] = e["nombre"]
+        self.catalogo = catalogo
+
+    # ── lecturas ──────────────────────────────────────────────────────────
+    def leer(self, texto, manual: bool = False) -> tuple[str, str, dict]:
+        codigo, motivo = rc.validar_codigo(texto)
+        if motivo:
+            return AVISO_ERROR, "registro_carga.aviso_lectura_invalida", {}
+        if not self.lote:
+            if self.nombre_de(codigo) is not None:
+                return AVISO_ERROR, "registro_carga.aviso_es_elemento", {}
+            self.lote = codigo
+            self.ultimo = ""
+            return AVISO_OK, "registro_carga.aviso_lote", {"codigo": codigo}
+        if codigo == self.lote and self.nombre_de(codigo) is None:
+            # DECISIÓN SIN CONFIRMAR: leer otra vez el lote no lo suma como elemento
+            return AVISO_ERROR, "registro_carga.aviso_es_lote", {}
+        existente = next((e for e in self.elementos if e["codigo"] == codigo), None)
+        if existente is None:
+            if len(self.elementos) >= rc.MAX_CODIGOS:
+                return AVISO_ERROR, "registro_carga.aviso_max_codigos", {}
+            existente = {"codigo": codigo, "cantidad": 0, "manual": False}
+            self.elementos.append(existente)
+        elif existente["cantidad"] >= rc.MAX_CANTIDAD:
+            return AVISO_ERROR, "registro_carga.aviso_max_cantidad", {}
+        existente["cantidad"] += 1
+        existente["manual"] = existente["manual"] or bool(manual)
+        self.ultimo = codigo
+        nombre = self.nombre_de(codigo) or codigo
+        return AVISO_OK, "registro_carga.aviso_elemento", {
+            "nombre": f"{codigo} · {nombre} ({existente['cantidad']})" if nombre != codigo
+            else f"{codigo} ({existente['cantidad']})"}
+
+    def quitar_uno(self, codigo: str) -> None:
+        """«−1»: con cantidad 1 la fila desaparece (RCB-02.3)."""
+        for i, e in enumerate(self.elementos):
+            if e["codigo"] == codigo:
+                e["cantidad"] -= 1
+                if e["cantidad"] <= 0:
+                    del self.elementos[i]
+                    if self.ultimo == codigo:
+                        self.ultimo = ""
+                return
+
+    def cambiar_lote(self) -> None:
+        """RCB-02.2: borra el lote y vuelve al paso 1 sin borrar los elementos."""
+        self.lote = ""
+
+    def vaciar(self) -> None:
+        self.lote = ""
+        self.elementos = []
+        self.ultimo = ""
+
+    # ── salida ────────────────────────────────────────────────────────────
+    def para_inicio(self) -> dict | None:
+        """Cuerpo `carga` de POST /cycle/start; None si no hay nada. Un
+        borrador con elementos y sin lote se envía igual y el backend lo
+        rechaza (422 carga_invalida): no se descarta en silencio."""
+        if self.vacio():
+            return None
+        return {"lote": self.lote,
+                "elementos": [{"codigo": e["codigo"], "cantidad": e["cantidad"],
+                               "manual": e["manual"]} for e in self.elementos]}
+
+    def filas(self) -> list[dict]:
+        """Filas para la lista de la ventana (orden de lectura)."""
+        return [{"codigo": e["codigo"], "nombre": self.nombre_de(e["codigo"]) or "",
+                 "enCatalogo": self.nombre_de(e["codigo"]) is not None,
+                 "cantidad": e["cantidad"], "manual": e["manual"],
+                 "ultimo": e["codigo"] == self.ultimo} for e in self.elementos]
+
+
+def resumen_boton(borrador: BorradorCarga, t=_t_defecto) -> str:
+    """Texto del botón «Carga» de Preciclo (RCB-09.1)."""
+    if borrador.vacio():
+        return t("registro_carga.resumen_sin")
+    if not borrador.lote:
+        return t("registro_carga.sin_lote") + " · " + t(
+            "registro_carga.total", codigos=len(borrador.elementos),
+            unidades=borrador.total_unidades())
+    return t("registro_carga.resumen", lote=borrador.lote, n=borrador.total_unidades())
+
+
+def carga_requerida_falta(parametros_programa, borrador: BorradorCarga) -> bool:
+    """RCB-09.1: el programa exige la carga y falta el lote o un elemento."""
+    from autoclave.core.managers import catalogo_parametros as cp
+    try:
+        exige = cp.registro_carga_obligatorio(parametros_programa)
+    except Exception:
+        exige = False
+    return bool(exige and not (borrador.lote and borrador.elementos))

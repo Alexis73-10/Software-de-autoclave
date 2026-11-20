@@ -29,6 +29,8 @@ Window {
     property QtObject puente: null
     property QtObject comandosPuerta: null
     property QtObject comandoCiclo: null
+    // RCB-09: borrador de la carga (solo la pantalla de carga; null en la otra)
+    property QtObject registroCarga: null
     // selectorCiclo: cambio de programa desde Preciclo (B6, tanda 4)
     property QtObject selectorCiclo: null
     // comandoFalla: RECONOCER FALLA de la pantalla de preciclo (T-16)
@@ -436,6 +438,8 @@ Window {
                 comandoFalla: ventana.comandoFalla
                 infoEquipo: ventana.infoEquipo
                 comandosSistema: ventana.comandosSistema
+                registroCarga: ventana.registroCarga      // RCB-09
+                teclado: panelTeclado
                 onPuertaPulsada: ventana.comandosPuerta?.alternar()
                 onIniciarCicloPulsado: ventana.comandoCiclo?.iniciar()
                 onIniciarSinRegistroPulsado: ventana.comandoCiclo?.iniciarSinRegistro()

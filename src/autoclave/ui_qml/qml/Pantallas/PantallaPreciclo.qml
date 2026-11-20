@@ -41,6 +41,21 @@ Item {
     property QtObject infoEquipo: null
     // ComandosSistema (E5): Apagar equipo en el panel de equipo
     property QtObject comandosSistema: null
+    // RCB-09 (registro de la carga): borrador de la carga; solo lo tiene la
+    // pantalla de carga (puerta 1). null = sin botón «Carga» ni ventana.
+    property QtObject registroCarga: null
+    property QtObject teclado: null
+    readonly property bool conCarga: registroCarga !== null
+    readonly property bool cargaRequerida: registroCarga?.requerida ?? false
+    readonly property string mensajeCarga: comandoCiclo?.mensajeCargaClave ?? ""
+    // el programa (y sus parámetros, GET /cycle) puede cambiar: se revisa si
+    // exige la carga cada vez que llegan datos del ciclo
+    Connections {
+        target: raiz.puente
+        enabled: raiz.registroCarga !== null
+        function onDatosCicloChanged() { raiz.registroCarga?.revisarRequerida() }
+    }
+    Component.onCompleted: registroCarga?.revisarRequerida()
 
     // ---- datos del backend ----
     // "?." evita TypeError si no hay puente o al destruir la pantalla
@@ -637,6 +652,7 @@ Item {
             id: avisoSinConexion
             objectName: "avisoSinConexion"
             visible: !raiz.datosVigentes || raiz.estadoModuloEs !== "ok" || raiz.mensajePuerta !== ""
+                     || raiz.mensajeCarga !== ""
             width: parent.width
             height: visible ? implicitHeight : 0
             topPadding: raiz.m(12)
@@ -646,6 +662,8 @@ Item {
                   ? I18n.t("sistema.modulo_es_desconectada_valores", I18n.lang)
                 : raiz.estadoModuloEs !== "ok"
                   ? I18n.t("sistema.modulo_es_sin_datos_valores", I18n.lang)
+                // RCB-09.3: rechazo del inicio por la carga (409/422)
+                : raiz.mensajeCarga !== "" ? I18n.t(raiz.mensajeCarga, I18n.lang)
                 : raiz.mensajePuerta
             wrapMode: Text.WordWrap
             color: Colores.textoSecundario
@@ -855,11 +873,83 @@ Item {
         numeroPuerta: raiz.puerta
     }
 
+    // RCB-09.1: botón «Carga» entre la puerta y INICIAR, solo en la pantalla de
+    // carga. Muestra el resumen del borrador; en ámbar si el programa exige la
+    // carga y falta. Sigue disponible con el modo prueba (RCB-09.4).
+    Rectangle {
+        id: botonCarga
+        objectName: "botonCargaPreciclo"
+        visible: raiz.conCarga
+        x: raiz.m(365); y: raiz.m(1615 + raiz.dyAcciones)
+        width: raiz.m((raiz.hz ? 720 : 790 + raiz._dxV) - 365); height: raiz.m(110)
+        radius: raiz.m(14)
+        color: raiz.cargaRequerida ? Colores.advertenciaFondo : Colores.puertaCerradaFondo
+        border.width: raiz.m(2)
+        border.color: raiz.cargaRequerida ? Colores.advertencia : Colores.puertaCerradaBorde
+        opacity: raiz.cicloOcupado ? 0.4 : 1
+        readonly property color colorTexto: raiz.cargaRequerida ? Colores.advertenciaTexto
+                                                                : Colores.puertaCerradaTexto
+        // ícono de código de barras (barras verticales)
+        Row {
+            id: iconoBarras
+            x: raiz.m(22)
+            anchors.verticalCenter: parent.verticalCenter
+            spacing: raiz.m(3)
+            Repeater {
+                model: [4, 2, 6, 2, 3, 6, 2, 4, 2, 5]
+                Rectangle {
+                    required property var modelData
+                    width: raiz.m(modelData); height: raiz.m(40)
+                    color: botonCarga.colorTexto
+                }
+            }
+        }
+        Column {
+            x: iconoBarras.x + iconoBarras.width + raiz.m(16)
+            width: botonCarga.width - x - raiz.m(14)
+            anchors.verticalCenter: parent.verticalCenter
+            spacing: raiz.m(2)
+            Text {
+                width: parent.width
+                text: I18n.t("registro_carga.boton", I18n.lang).toUpperCase()
+                color: botonCarga.colorTexto
+                font.family: Tipografia.familia
+                font.weight: Tipografia.pesoBold
+                font.pixelSize: raiz.fuente(22)
+                fontSizeMode: Text.HorizontalFit
+                minimumPixelSize: Math.min(raiz.fuente(22), Escala.fuenteMinima)
+            }
+            Text {
+                objectName: "resumenCargaPreciclo"
+                width: parent.width
+                text: raiz.cargaRequerida && (raiz.registroCarga?.vacio ?? true)
+                      ? I18n.t("registro_carga.requerida_inicio", I18n.lang)
+                      : (raiz.registroCarga?.resumen ?? "")
+                color: botonCarga.colorTexto
+                font.family: Tipografia.familia
+                font.weight: Tipografia.pesoMedium
+                font.pixelSize: raiz.fuente(18)
+                fontSizeMode: Text.HorizontalFit
+                minimumPixelSize: Math.min(raiz.fuente(18), Escala.fuenteMinima)
+            }
+        }
+        MouseArea {
+            anchors.fill: parent
+            enabled: !raiz.cicloOcupado
+            onClicked: {
+                raiz.comandoCiclo?.limpiarMensajeCarga()
+                ventanaCarga.abrir()
+            }
+        }
+    }
+
     DeslizadorInicio {
         objectName: "deslizadorIniciarCiclo"
         // 10 % más ancho (302 → 332), conservando el borde derecho
         x: raiz.m(815 + raiz._dxV); y: raiz.m(1616 + raiz.dyAcciones); width: raiz.m(332); height: raiz.m(110)
-        texto: raiz.textos.iniciar
+        // RCB-09.1: si el programa exige la carga y falta, el deslizador dice el motivo
+        texto: raiz.cargaRequerida ? I18n.t("registro_carga.requerida_inicio", I18n.lang)
+                                   : raiz.textos.iniciar
         textoCompletado: raiz.textos.iniciando
         // Como tkinter (_upd_listo) pero oculto en vez de inactivo cuando el equipo
         // no está listo; mientras se envía la orden no acepta otro arrastre.
@@ -868,7 +958,12 @@ Item {
         visible: raiz.inicioCicloVisible && raiz.datosVigentes
         enabled: raiz.datosVigentes && !raiz.cicloOcupado
         onCompletado: {
-            if (raiz.puente?.sinBaseDatos ?? false)
+            // RCB-09.1: con la carga exigida y sin registrar no se pide el
+            // inicio: se abre la ventana de la carga (el backend también
+            // rechazaría con 409 carga_requerida)
+            if (raiz.cargaRequerida)
+                ventanaCarga.abrir()
+            else if (raiz.puente?.sinBaseDatos ?? false)
                 confirmarSinRegistro.abrir()
             else
                 raiz.iniciarCicloPulsado()
@@ -1049,6 +1144,16 @@ Item {
         ocupado: raiz.cicloOcupado
         onAceptado: (operadorId) => raiz.comandoCiclo?.iniciarConOperador(operadorId)
         onCancelado: raiz.comandoCiclo?.cancelarOperador()
+    }
+    // RCB-09.2: ventana «Carga del ciclo» (captura del lector solo con ella abierta)
+    VentanaCarga {
+        id: ventanaCarga
+        objectName: "ventanaCargaPreciclo"
+        z: 100
+        escala: raiz.m(1)
+        registro: raiz.registroCarga
+        teclado: raiz.teclado
+        requerida: raiz.cargaRequerida
     }
     // B6 (tanda 4), PROVISIONAL (sin diseño): selector de ciclo. Lista de los
     // programas habilitados; los 3 más usados primero con la marca "Más usado".

@@ -34,6 +34,7 @@ from autoclave.ui_qml.bridge.comandos_ciclo import ComandoIniciarCiclo
 from autoclave.ui_qml.bridge.comandos_falla import ComandoReconocerFalla
 from autoclave.ui_qml.bridge.comandos_ciclo_en_curso import ComandosCicloEnCurso
 from autoclave.ui_qml.bridge.comandos_puerta import ComandosPuerta
+from autoclave.ui_qml.bridge.registro_carga_qml import RegistroCarga
 from autoclave.ui_qml.bridge.selector_ciclo import SelectorCiclo
 from autoclave.ui_qml.bridge.comandos_sistema import ComandosSistema
 from autoclave.ui_qml.bridge.puente_instalacion import (
@@ -286,7 +287,10 @@ def main(argv=None) -> int:
     puente = UiBridge(ui_service, door=args.door)
     comandos_puerta = ComandosPuerta(
         puente, DoorCommandService(backend_client=backend, source_door=args.door))
-    comando_ciclo = ComandoIniciarCiclo(puente, ui_service)
+    # RCB-09 (registro de la carga): borrador de la carga, solo en la pantalla
+    # de carga (puerta 1, DECISIÓN SIN CONFIRMAR); en la otra, None
+    registro_carga = RegistroCarga(backend, ui_service) if args.door == 1 else None
+    comando_ciclo = ComandoIniciarCiclo(puente, ui_service, registro_carga=registro_carga)
     selector_ciclo = SelectorCiclo(backend, door=args.door, ui_service=ui_service)   # B6: cambio de programa en Preciclo
     comando_falla = ComandoReconocerFalla(puente, ui_service)   # T-16
     # E5: Confirmar y llevar a estado seguro; Apagar equipo (solo puerta 1)
@@ -295,6 +299,10 @@ def main(argv=None) -> int:
     ajustes = LanzadorAjustes()
     standby = Standby(ui_service, backend, mantener_despierto=lambda: ajustes.abierto,
                       registrar_suspension=True)       # O2e: suspension_entra/_sale
+    if registro_carga is not None:
+        # RCB-02.5: el borrador se limpia al entrar en standby
+        standby.activoChanged.connect(
+            lambda: registro_carga.limpiar() if standby.activo else None)
     progreso = ProgresoCiclo(backend)
     comandos_en_curso = ComandosCicloEnCurso(puente, ui_service)
     # Resumen del Sistema del Menú Principal: solo lectura; sondea solo mientras el menú está visible
@@ -331,6 +339,7 @@ def main(argv=None) -> int:
         "puente": puente,
         "comandosPuerta": comandos_puerta,
         "comandoCiclo": comando_ciclo,
+        "registroCarga": registro_carga,
         "selectorCiclo": selector_ciclo,
         "comandoFalla": comando_falla,
         "comandosSistema": comandos_sistema,
