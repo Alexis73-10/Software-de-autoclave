@@ -453,6 +453,41 @@ def _migracion_v14(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE ciclos ADD COLUMN fecha_resultado TEXT")
 
 
+def _migracion_v15(conn: sqlite3.Connection) -> None:
+    """RCB-05 (registro de la carga con lector, 19-nov): catálogo código →
+    nombre (`catalogo_carga`, baja lógica), carga de cada ciclo
+    (`ciclo_carga`, una fila por código con su cantidad y la copia del nombre
+    al iniciar), lote del ciclo (`ciclos.lote_carga`) y el modo de impresión
+    vigente al iniciar (`ciclos.impresion_carga`, RCB-06.4). Aditiva e
+    idempotente; las filas anteriores quedan en NULL (sin carga)."""
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS catalogo_carga ("
+        " id INTEGER PRIMARY KEY AUTOINCREMENT,"
+        " codigo TEXT UNIQUE NOT NULL,"
+        " nombre TEXT NOT NULL,"
+        " activo INTEGER NOT NULL DEFAULT 1,"
+        " creado TEXT, modificado TEXT, modificado_por TEXT)")
+    conn.execute("CREATE TRIGGER IF NOT EXISTS catalogo_carga_sin_delete BEFORE DELETE ON catalogo_carga "
+                 "BEGIN SELECT RAISE(ABORT, 'el catálogo de carga no se borra'); END")
+    columnas = {f[1] for f in conn.execute("PRAGMA table_info(ciclos)")}
+    for columna in ("lote_carga", "impresion_carga"):
+        if columna not in columnas:
+            conn.execute(f"ALTER TABLE ciclos ADD COLUMN {columna} TEXT")
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS ciclo_carga ("
+        " id INTEGER PRIMARY KEY AUTOINCREMENT,"
+        " ciclo_id INTEGER NOT NULL REFERENCES ciclos(id),"
+        " codigo TEXT NOT NULL,"
+        " nombre TEXT,"
+        " en_catalogo INTEGER NOT NULL,"
+        " cantidad INTEGER NOT NULL,"
+        " manual INTEGER NOT NULL DEFAULT 0,"
+        " orden INTEGER NOT NULL)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_ciclo_carga_ciclo ON ciclo_carga(ciclo_id)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_ciclo_carga_codigo ON ciclo_carga(codigo)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_ciclos_lote_carga ON ciclos(lote_carga)")
+
+
 def _avisos_con_corte(texto) -> str:
     """ENT-07: `avisos_ticket` (JSON) con el aviso de entrega no registrada
     por corte de energía agregado una vez. Nunca lanza."""
@@ -463,6 +498,42 @@ def _avisos_con_corte(texto) -> str:
                for a in avisos):
         avisos = [*avisos, {"clave": CLAVE_ENTREGA_NO_REGISTRADA}]
     return _valores_fallo_json({"sin_datos_s": sin_datos_s, "avisos": avisos})
+
+
+def _lote_e_impresion(carga) -> tuple:
+    """(lote_carga, impresion_carga) para la fila del ciclo; (None, None) sin carga."""
+    if not isinstance(carga, dict) or not carga.get("lote"):
+        return (None, None)
+    return (str(carga["lote"]), str(carga.get("impresion") or "") or None)
+
+
+def _carga_de_respaldo(carga) -> dict | None:
+    """RCB-04.4: carga del encabezado del respaldo, revisada con las mismas
+    reglas que el inicio (un respaldo dañado no escribe una carga inválida:
+    se descarta con aviso en el log y el ciclo se importa igual). Nunca lanza."""
+    if carga is None:
+        return None
+    try:
+        from autoclave.core.runtime import registro_carga as rc
+        elementos = carga.get("elementos") or []
+        validada = rc.validar_carga({"lote": carga.get("lote"),
+                                     "elementos": [{"codigo": e.get("codigo"),
+                                                    "cantidad": e.get("cantidad"),
+                                                    "manual": e.get("manual") is True}
+                                                   for e in elementos]})
+        if validada is None:
+            return None
+        nombres = {e.get("codigo"): e.get("nombre") for e in elementos}
+        salida = []
+        for e in validada["elementos"]:
+            nombre = nombres.get(e["codigo"])
+            nombre = nombre if isinstance(nombre, str) and nombre else None
+            salida.append({**e, "nombre": nombre, "en_catalogo": nombre is not None})
+        return {"lote": validada["lote"], "impresion": carga.get("impresion"),
+                "elementos": salida}
+    except Exception:
+        logger.exception("Respaldo con una carga ilegible: se importa el ciclo sin carga")
+        return None
 
 
 def _valores_fallo_json(valores) -> str:
@@ -490,6 +561,7 @@ _MIGRACIONES = (
     (12, _migracion_v12),
     (13, _migracion_v13),
     (14, _migracion_v14),
+    (15, _migracion_v15),
 )
 
 ESQUEMA_VERSION = _MIGRACIONES[-1][0]
@@ -1027,11 +1099,15 @@ class DbManager:
         programa_json: str | None = None,
         serie_original: str | None = None,
         modelo_original: str | None = None,
+        carga: dict | None = None,
     ) -> int:
         """Inserta un nuevo ciclo y retorna su ID. `serie_original` y
         `modelo_original` solo los trae un equipo instalado por automatización
-        (NULL en fabricación)."""
+        (NULL en fabricación). RCB-04.3: `carga` ({"lote", "elementos",
+        "impresion"}, ya resuelta) se escribe en la misma transacción que la
+        fila del ciclo (lote, modo de impresión y una fila por código)."""
         with self._lock:
+          try:
             cur = self._conn.execute(
                 """
                 INSERT INTO ciclos
@@ -1061,8 +1137,54 @@ class DbManager:
                     modelo_original,
                 ),
             )
+            self._insertar_carga(cur.lastrowid, carga)
             self._conn.commit()
             return cur.lastrowid
+          except Exception:
+            self._conn.rollback()
+            raise
+
+    def _insertar_carga(self, ciclo_id: int, carga: dict | None) -> None:
+        """Con _lock tomado y dentro de la transacción del ciclo (RCB-05)."""
+        if not isinstance(carga, dict) or not carga.get("lote"):
+            return
+        lote, impresion = _lote_e_impresion(carga)
+        self._conn.execute("UPDATE ciclos SET lote_carga=?, impresion_carga=? WHERE id=?",
+                           (lote, impresion, ciclo_id))
+        for orden, e in enumerate(carga.get("elementos") or []):
+            self._conn.execute(
+                "INSERT INTO ciclo_carga (ciclo_id, codigo, nombre, en_catalogo, cantidad, "
+                "manual, orden) VALUES (?,?,?,?,?,?,?)",
+                (ciclo_id, str(e["codigo"]), e.get("nombre"), 1 if e.get("en_catalogo") else 0,
+                 int(e["cantidad"]), 1 if e.get("manual") else 0, orden))
+
+    def buscar_ciclos_por_carga(self, texto: str, limite: int = 500) -> list:
+        """RCB-07.3: ciclos cuyo lote es `texto` o que tienen ese código en su
+        carga; coincidencia exacta sin distinguir mayúsculas, más recientes
+        primero."""
+        with self._lock:
+            return self._conn.execute(
+                "SELECT * FROM ciclos WHERE lote_carga = ? COLLATE NOCASE OR id IN ("
+                " SELECT ciclo_id FROM ciclo_carga WHERE codigo = ? COLLATE NOCASE) "
+                "ORDER BY fecha_inicio DESC, id DESC LIMIT ?",
+                (texto, texto, int(limite))).fetchall()
+
+    def get_carga_ciclo(self, ciclo_id: int) -> dict | None:
+        """RCB-07: carga de un ciclo ({"lote", "impresion", "elementos"}) o
+        None si el ciclo no tiene carga."""
+        with self._lock:
+            fila = self._conn.execute("SELECT lote_carga, impresion_carga FROM ciclos WHERE id=?",
+                                      (ciclo_id,)).fetchone()
+            if fila is None or not fila["lote_carga"]:
+                return None
+            elementos = self._conn.execute(
+                "SELECT codigo, nombre, en_catalogo, cantidad, manual FROM ciclo_carga "
+                "WHERE ciclo_id=? ORDER BY orden, id", (ciclo_id,)).fetchall()
+        return {"lote": fila["lote_carga"], "impresion": fila["impresion_carga"],
+                "elementos": [{"codigo": e["codigo"], "nombre": e["nombre"],
+                               "en_catalogo": bool(e["en_catalogo"]),
+                               "cantidad": e["cantidad"], "manual": bool(e["manual"])}
+                              for e in elementos]}
 
     def cerrar_ciclo(self, ciclo_id: int, resultado: str, motivo_fallo: str | None = None,
                      codigo_fallo: str | None = None, f0_final: float | None = None,
@@ -1124,6 +1246,7 @@ class DbManager:
         uuid_ciclo = encabezado.get("uuid")
         if not uuid_ciclo:
             raise ValueError("respaldo sin uuid")
+        carga = _carga_de_respaldo(encabezado.get("carga"))
         with self._lock:
             fila = self._conn.execute("SELECT id, fecha_fin FROM ciclos WHERE uuid=?",
                                       (uuid_ciclo,)).fetchone()
@@ -1182,6 +1305,7 @@ class DbManager:
                     ),
                 )
                 ciclo_id = cur.lastrowid
+                self._insertar_carga(ciclo_id, carga)   # RCB-04.4
                 for l in lecturas:
                     self._insertar_lectura_respaldo(ciclo_id, l)
                 self._conn.commit()
@@ -1867,6 +1991,105 @@ class DbManager:
                                (1 if activo else 0, id_))
             self._conn.commit()
         return {**dict(row), "activo": bool(row["activo"])}
+
+    # ── Catálogo de carga (RCB-08, 19-nov) ───────────────────────────────
+    # Baja lógica: un código no se borra ni se reutiliza para otra fila; darlo
+    # de alta otra vez lo reactiva con su nombre nuevo.
+
+    def listar_catalogo_carga(self, solo_activos: bool = False) -> list[dict]:
+        where = "WHERE activo=1 " if solo_activos else ""
+        with self._lock:
+            filas = self._conn.execute(
+                f"SELECT * FROM catalogo_carga {where}ORDER BY nombre COLLATE NOCASE, codigo"
+            ).fetchall()
+        return [dict(f) for f in filas]
+
+    def catalogo_carga_activo(self) -> dict[str, str]:
+        """{codigo: nombre} de los elementos activos (RCB-04.3)."""
+        with self._lock:
+            filas = self._conn.execute(
+                "SELECT codigo, nombre FROM catalogo_carga WHERE activo=1").fetchall()
+        return {f["codigo"]: f["nombre"] for f in filas}
+
+    def catalogo_carga_por_codigo(self) -> dict[str, dict]:
+        """{codigo: {"nombre", "activo"}} de todo el catálogo (vista previa del CSV)."""
+        with self._lock:
+            filas = self._conn.execute(
+                "SELECT codigo, nombre, activo FROM catalogo_carga").fetchall()
+        return {f["codigo"]: {"nombre": f["nombre"], "activo": bool(f["activo"])} for f in filas}
+
+    def get_elemento_catalogo(self, id_: int) -> dict | None:
+        with self._lock:
+            fila = self._conn.execute("SELECT * FROM catalogo_carga WHERE id=?", (id_,)).fetchone()
+        return dict(fila) if fila else None
+
+    def alta_catalogo_carga(self, codigo: str, nombre: str, usuario: str) -> tuple[str, dict | None]:
+        """("alta", None), ("reactivado", fila anterior) si el código estaba de
+        baja, o ("existe", fila) si está activo (sin cambios)."""
+        ahora = datetime.now().isoformat(timespec="seconds")
+        with self._lock:
+            fila = self._conn.execute("SELECT * FROM catalogo_carga WHERE codigo=?",
+                                      (codigo,)).fetchone()
+            if fila is not None and fila["activo"]:
+                return "existe", dict(fila)
+            if fila is not None:
+                self._conn.execute(
+                    "UPDATE catalogo_carga SET nombre=?, activo=1, modificado=?, modificado_por=? "
+                    "WHERE id=?", (nombre, ahora, usuario or "", fila["id"]))
+                self._conn.commit()
+                return "reactivado", dict(fila)
+            self._conn.execute(
+                "INSERT INTO catalogo_carga (codigo, nombre, activo, creado, modificado, "
+                "modificado_por) VALUES (?,?,1,?,?,?)", (codigo, nombre, ahora, ahora, usuario or ""))
+            self._conn.commit()
+            return "alta", None
+
+    def modificar_catalogo_carga(self, id_: int, usuario: str, nombre: str | None = None,
+                                 activo: bool | None = None) -> dict | None:
+        """Fila anterior (None si no existe) y aplica el nombre y/o el estado."""
+        ahora = datetime.now().isoformat(timespec="seconds")
+        with self._lock:
+            fila = self._conn.execute("SELECT * FROM catalogo_carga WHERE id=?", (id_,)).fetchone()
+            if fila is None:
+                return None
+            nuevo_nombre = fila["nombre"] if nombre is None else nombre
+            nuevo_activo = fila["activo"] if activo is None else (1 if activo else 0)
+            self._conn.execute(
+                "UPDATE catalogo_carga SET nombre=?, activo=?, modificado=?, modificado_por=? "
+                "WHERE id=?", (nuevo_nombre, nuevo_activo, ahora, usuario or "", id_))
+            self._conn.commit()
+        return dict(fila)
+
+    def aplicar_catalogo_carga(self, filas: list[tuple[str, str]], usuario: str) -> dict:
+        """RCB-08.3/08.6: altas, cambios de nombre y reactivaciones en una sola
+        transacción (todo o nada). Devuelve los conteos."""
+        ahora = datetime.now().isoformat(timespec="seconds")
+        conteo = {"altas": 0, "cambios": 0, "reactivados": 0}
+        with self._lock:
+            try:
+                self._conn.execute("BEGIN IMMEDIATE")
+                for codigo, nombre in filas:
+                    fila = self._conn.execute(
+                        "SELECT id, nombre, activo FROM catalogo_carga WHERE codigo=?",
+                        (codigo,)).fetchone()
+                    if fila is None:
+                        self._conn.execute(
+                            "INSERT INTO catalogo_carga (codigo, nombre, activo, creado, "
+                            "modificado, modificado_por) VALUES (?,?,1,?,?,?)",
+                            (codigo, nombre, ahora, ahora, usuario or ""))
+                        conteo["altas"] += 1
+                        continue
+                    if fila["nombre"] == nombre and fila["activo"]:
+                        continue
+                    self._conn.execute(
+                        "UPDATE catalogo_carga SET nombre=?, activo=1, modificado=?, "
+                        "modificado_por=? WHERE id=?", (nombre, ahora, usuario or "", fila["id"]))
+                    conteo["cambios" if fila["nombre"] != nombre else "reactivados"] += 1
+                self._conn.commit()
+            except Exception:
+                self._conn.rollback()
+                raise
+        return conteo
 
     def seed_admin_if_empty(self) -> None:
         """Con la tabla vacía crea las cuentas del sistema `Admin` e

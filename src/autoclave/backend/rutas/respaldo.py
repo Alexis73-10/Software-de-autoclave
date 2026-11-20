@@ -48,6 +48,36 @@ class _RestaurarBody(BaseModel):
 
 
 _lock_respaldo = threading.Lock()
+# RCB-08.6 (registro de la carga): archivo del catálogo de carga en el respaldo
+_CATALOGO_CARGA_EN_RESPALDO = "catalogo_carga.json"
+
+
+def _catalogo_carga_del_respaldo(datos: dict) -> list[tuple[str, str]] | None:
+    """RCB-08.6: (código, nombre) de los elementos activos del catálogo del
+    respaldo, validados con las reglas del alta. None si el respaldo no lo
+    trae. Lanza ValueError si el archivo o alguna fila no es válida (falla
+    cerrada: no se restaura nada). DECISIÓN SIN CONFIRMAR: restaurar agrega,
+    renombra y reactiva; no da de baja lo que el respaldo no trae ni lo que
+    trae de baja."""
+    from autoclave.core.runtime import registro_carga as rc
+    crudo = datos.get(_CATALOGO_CARGA_EN_RESPALDO)
+    if crudo is None:
+        return None
+    lista = json.loads(crudo.decode("utf-8"))
+    if not isinstance(lista, list) or len(lista) > rc.MAX_FILAS_CSV:
+        raise ValueError("catálogo de carga inválido")
+    filas, vistos = [], set()
+    for e in lista:
+        if not isinstance(e, dict) or not isinstance(e.get("activo"), bool):
+            raise ValueError("catálogo de carga inválido")
+        codigo, m1 = rc.validar_codigo(e.get("codigo"))
+        nombre, m2 = rc.validar_nombre(e.get("nombre"))
+        if m1 or m2 or codigo in vistos:
+            raise ValueError("catálogo de carga inválido")
+        vistos.add(codigo)
+        if e["activo"]:
+            filas.append((codigo, nombre))
+    return filas
 
 
 def _fabrica(cfg) -> dict:
@@ -159,6 +189,10 @@ def post_backup_export(body: _ExportarBody,
         contenido["parametros.json"] = json.dumps(params, ensure_ascii=False).encode("utf-8")
         for f in sorted(_carpeta_programas_usuario().glob("*.json")):
             contenido[f"programas/{f.name}"] = f.read_bytes()
+        # RCB-08.6: el catálogo de carga va con los parámetros (está en la base)
+        contenido[_CATALOGO_CARGA_EN_RESPALDO] = json.dumps(
+            [{"codigo": f["codigo"], "nombre": f["nombre"], "activo": bool(f["activo"])}
+             for f in context.db.listar_catalogo_carga()], ensure_ascii=False).encode("utf-8")
     if body.usuarios:
         contenido["usuarios.json"] = json.dumps(_usuarios_sin_hash(), ensure_ascii=False).encode("utf-8")
     if body.historial:
@@ -271,6 +305,12 @@ def post_backup_restore(body: _RestaurarBody,
                      detalle={"archivo": body.archivo, "motivo": "asignacion_io_invalida",
                               "errores": e.errores})
             raise RechazoApi(422, "asignacion_io_invalida", "Respaldo inválido")
+    try:
+        catalogo_carga = _catalogo_carga_del_respaldo(datos)
+    except (ValueError, UnicodeDecodeError):
+        _auditar("respaldo_rechazado", sesion, entidad=entidad,
+                 detalle={"archivo": body.archivo, "motivo": "catalogo_carga_invalido"})
+        raise RechazoApi(422, "catalogo_carga_invalido", "Respaldo inválido")
     aplicado = {"calibracion": False, "parametros": [], "parametros_omitidos": [], "programas": []}
     with _lock_respaldo:
       try:
@@ -309,6 +349,9 @@ def post_backup_restore(body: _RestaurarBody,
             aplicado["parametros"].append(clave)
         if asignacion_io is not None:
             aplicado.update(_reasignacion.restaurar_respaldo(asignacion_io, sesion, entidad))
+        if catalogo_carga is not None:
+            aplicado["catalogo_carga"] = context.db.aplicar_catalogo_carga(catalogo_carga,
+                                                                           sesion.usuario)
       finally:
         # SAF-03: se audita siempre lo que sí se aplicó, también si falla a medias
         _auditar("respaldo_restaurado", sesion, entidad=entidad,

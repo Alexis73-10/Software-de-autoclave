@@ -530,7 +530,8 @@ def test_historial_marcar_imprimir_y_enviar(r):
 
 def test_historial_abre_el_ciclo_con_sus_acciones(r):
     assert r["hist_titulo"] == "CICLO 90"
-    assert r["hist_pedido_grafica"] == ["/cycle/history/90/graph"]
+    # RCB-07.2: además de la curva, la carga del ciclo para su detalle
+    assert r["hist_pedido_grafica"] == ["/cycle/history/90/graph", "/cycle/history/90/ticket"]
     assert r["hist_detalle"] is True
     assert r["hist_impreso_detalle"] == {"ids": [90]}
     assert r["hist_volvio"] is True

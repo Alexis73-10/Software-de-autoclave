@@ -231,7 +231,8 @@ class UIServiceBackend:
     # ACCIONES DE CICLO
     # ==============================
 
-    def start_cycle(self, confirmar_sin_registro: bool = False, operador_id: int | None = None) -> bool:
+    def start_cycle(self, confirmar_sin_registro: bool = False, operador_id: int | None = None,
+                    carga: dict | None = None) -> bool:
         """Envía POST /cycle/start. Retorna True si tuvo éxito. Sin base de
         datos (T8) el backend exige `confirmar_sin_registro` en cada ciclo.
         T30-01: `operador_id` = operador elegido sin sesión. El rechazo HTTP
@@ -248,6 +249,9 @@ class UIServiceBackend:
                 cuerpo["confirmar_sin_registro"] = True
             if operador_id is not None:
                 cuerpo["operador_id"] = operador_id
+            # RCB-04.1: la carga va en el mismo inicio (nunca en una ruta aparte)
+            if carga is not None:
+                cuerpo["carga"] = carga
             if cuerpo:
                 self.backend.post(path="/cycle/start", body=cuerpo, **extra)
             else:

@@ -34,6 +34,9 @@ _SOLO_INGENIERO = frozenset({ROL_INGENIERO})
 # Secciones de solo lectura para todos: no muestran el aviso de edición bloqueada
 SECCIONES_LECTURA = frozenset({"fecha_hora", "info_sistema", "bitacora"})
 _SOLO_LECTURA_POR_ROL = {"parametros_sistema": frozenset({ROL_ADMIN})}
+# Secciones que quien las ve edita en cualquier estado (el backend no exige
+# estar fuera de CICLO): el catálogo de carga (RCB-08; DECISIÓN SIN CONFIRMAR)
+_EDICION_EN_CUALQUIER_ESTADO = frozenset({"catalogo_carga"})
 
 
 @dataclass(frozen=True)
@@ -63,6 +66,9 @@ SECCIONES = (
     Seccion("bitacora",           "historial.svg",          _TODOS),
     # O2h (tanda 6): respaldo y restauración, técnico e ingeniero
     Seccion("respaldo",           "carpeta.svg",            _TECNICOS),
+    # RCB-08.1 (registro de la carga, 19-nov): catálogo de carga, ingeniero y
+    # admin (el backend exige el mismo rol en las escrituras)
+    Seccion("catalogo_carga",     "programas.svg",          _GESTION_USUARIOS),
 )
 
 _POR_CLAVE = {s.clave: s for s in SECCIONES}
@@ -95,6 +101,8 @@ def edicion_permitida(estado_maquina: str | None, rol: str | None = None,
         return True          # nada que editar: sin aviso de bloqueo
     if rol in _SOLO_LECTURA_POR_ROL.get(seccion, ()):
         return False
+    if seccion in _EDICION_EN_CUALQUIER_ESTADO:
+        return puede_ver(seccion, rol)
     if rol in _EDICION_SIEMPRE:
         return True
     return estado_maquina in ESTADOS_EDICION

@@ -14,7 +14,8 @@ from autoclave.ui_qml.domain import permisos_opciones as po
 def test_admin_ve_parametros_del_equipo():
     assert po.puede_ver("parametros_sistema", "admin")
     assert [s.clave for s in po.secciones_visibles("admin")] == [
-        "parametros_sistema", "usuarios", "conectividad", *COMUNES_T6]
+        "parametros_sistema", "usuarios", "conectividad", *COMUNES_T6,
+        "catalogo_carga"]   # RCB-08.1
 
 
 @pytest.mark.parametrize("estado", ["PREPARACION", "PREPARADO", "FALLA", "CICLO"])

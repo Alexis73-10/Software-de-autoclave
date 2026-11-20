@@ -30,6 +30,9 @@ logger = logging.getLogger(__name__)
 _RUTA = "/cycle/start"
 _CODIGOS_OPERADOR = frozenset({"operador_requerido", "operador_invalido",
                                "operador_no_verificable"})
+# RCB-09.3 (registro de la carga): rechazos del inicio por la carga; la
+# pantalla muestra su texto y el borrador NO se limpia
+_CODIGOS_CARGA = frozenset({"carga_requerida", "carga_invalida"})
 
 
 def _en_hilo(tarea) -> None:
@@ -41,11 +44,17 @@ class ComandoIniciarCiclo(QObject):
     eleccionChanged = Signal()
     _terminado = Signal(object)   # emitida desde el hilo de trabajo (dict)
 
-    def __init__(self, puente, ui_service, parent=None, ejecutar=_en_hilo):
+    mensajeCargaChanged = Signal()
+
+    def __init__(self, puente, ui_service, parent=None, ejecutar=_en_hilo, registro_carga=None):
         super().__init__(parent)
         self._puente = puente
         self._ui = ui_service
         self._ejecutar = ejecutar
+        # RCB-04.1/09.3: borrador de la carga de esta pantalla (solo la de
+        # carga lo tiene); su carga va en el cuerpo de /cycle/start
+        self._registro_carga = registro_carga
+        self._mensaje_carga = ""
         self._ocupado = False
         self._eligiendo = False
         self._operadores: list[dict] = []
@@ -94,16 +103,26 @@ class ComandoIniciarCiclo(QObject):
         logger.info("Iniciando ciclo%s%s...", " sin registro en la base" if sin_registro else "",
                     " con operador elegido" if operador_id is not None else "")
         self._fijar_ocupado(True)
+        self._fijar_mensaje_carga("")
+        # RCB-04.1: la carga del borrador, tomada en el hilo de la GUI
+        carga = None
+        if self._registro_carga is not None:
+            try:
+                carga = self._registro_carga.para_inicio()
+            except Exception:
+                logger.exception("No se pudo leer el borrador de la carga")
+                carga = None
+        extra = {"carga": carga} if carga is not None else {}
 
         def tarea():
             resultado = {"ok": False, "codigo": None, "operadores": None}
             try:
                 if sin_registro:
-                    ok = self._ui.start_cycle(confirmar_sin_registro=True)
+                    ok = self._ui.start_cycle(confirmar_sin_registro=True, **extra)
                 elif operador_id is not None:
-                    ok = self._ui.start_cycle(operador_id=operador_id)
+                    ok = self._ui.start_cycle(operador_id=operador_id, **extra)
                 else:
-                    ok = self._ui.start_cycle()
+                    ok = self._ui.start_cycle(**extra)
                 resultado["ok"] = bool(ok)
                 if not ok:
                     resultado["codigo"] = self._codigo_rechazo()
@@ -123,7 +142,7 @@ class ComandoIniciarCiclo(QObject):
         if not (isinstance(rechazo, tuple) and len(rechazo) == 2 and isinstance(rechazo[0], int)):
             return None
         causa = sesion_backend.interpretar(rechazo[0], rechazo[1], _RUTA).causa
-        return causa if causa in _CODIGOS_OPERADOR else None
+        return causa if causa in _CODIGOS_OPERADOR | _CODIGOS_CARGA else None
 
     def _al_terminar(self, resultado) -> None:
         self._fijar_ocupado(False)
@@ -132,10 +151,23 @@ class ComandoIniciarCiclo(QObject):
             logger.info("Inicio de ciclo aceptado por el backend")
             self._fijar_eleccion(False, [])
             self._fijar_mensaje("")
+            # RCB-02.5 / HAZ-RCB-01: la carga ya va con este ciclo; el
+            # borrador no pasa al siguiente
+            if self._registro_carga is not None:
+                try:
+                    self._registro_carga.limpiar()
+                except Exception:
+                    logger.exception("No se pudo limpiar el borrador de la carga")
             return
         logger.warning("Backend rechazó el inicio del ciclo")
         codigo = resultado.get("codigo")
         ya_eligiendo = self._eligiendo
+        if codigo in _CODIGOS_CARGA:
+            # RCB-09.3: texto propio y el borrador se conserva
+            self._fijar_eleccion(False, self._operadores)
+            self._fijar_mensaje("")
+            self._fijar_mensaje_carga(sesion_backend.clave_mensaje(codigo, _RUTA))
+            return
         if codigo in ("operador_requerido", "operador_invalido"):
             lista = resultado.get("operadores")
             if isinstance(lista, list) and lista:
@@ -168,6 +200,20 @@ class ComandoIniciarCiclo(QObject):
         if clave != self._mensaje_clave:
             self._mensaje_clave = clave
             self.eleccionChanged.emit()
+
+    def _fijar_mensaje_carga(self, clave: str) -> None:
+        if clave != self._mensaje_carga:
+            self._mensaje_carga = clave
+            self.mensajeCargaChanged.emit()
+
+    @Slot()
+    def limpiarMensajeCarga(self) -> None:
+        self._fijar_mensaje_carga("")
+
+    @Property(str, notify=mensajeCargaChanged)
+    def mensajeCargaClave(self) -> str:
+        """RCB-09.3: clave i18n del rechazo del inicio por la carga ("" sin rechazo)."""
+        return self._mensaje_carga
 
     def _fijar_ocupado(self, valor: bool) -> None:
         if valor != self._ocupado:

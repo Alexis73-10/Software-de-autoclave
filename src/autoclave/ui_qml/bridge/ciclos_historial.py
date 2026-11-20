@@ -4,6 +4,8 @@
 # Principal (planeacion_menu_principal_ui_qml.md): consulta de SOLO LECTURA a
 #   GET /cycle/list?periodo=dia|semana|mes&terminados=...[&fecha=...]  -> filas del listado
 #   GET /cycle/history/{id}/graph                                     -> curva del ciclo elegido
+#   GET /cycle/history?carga=<texto>   -> búsqueda inversa por lote o código (RCB-07.3)
+#   GET /cycle/history/{id}/ticket     -> carga del ciclo elegido para su detalle (RCB-07.2)
 # fuera del hilo de la GUI (patrón de InfoEquipo / ResumenSistema). Se consulta
 # bajo demanda (al abrir la ventana o cambiar de periodo), sin sondeo.
 #
@@ -20,7 +22,9 @@ from datetime import date
 
 from PySide6.QtCore import Property, QObject, Signal, Slot
 
+from autoclave.core.runtime import registro_carga as rc
 from autoclave.core.runtime.progreso_ciclo import FASES_UI
+from autoclave.ui_qml.domain import registro_carga as dominio_carga
 from autoclave.ui_qml.domain import resumen_sistema as dominio
 from autoclave.ui_qml.domain.ciclo_en_curso import AcumuladorGrafica
 from autoclave.ui_qml.domain.navegador_periodo import NavegadorPeriodo
@@ -43,8 +47,11 @@ class CiclosHistorial(QObject):
     graficaChanged = Signal()
     periodoChanged = Signal()
     seleccionChanged = Signal()
+    busquedaCargaChanged = Signal()
+    cargaCicloChanged = Signal()
     _lista_recibida = Signal(int, str, object)     # emitidas desde el hilo de trabajo
     _grafica_recibida = Signal(int, object)
+    _carga_recibida = Signal(int, object)
 
     def __init__(self, backend_client, parent=None, ejecutar=_en_hilo, hoy=date.today):
         super().__init__(parent)
@@ -62,8 +69,11 @@ class CiclosHistorial(QObject):
         self._grafica_disponible = False
         self._datos_grafica = dict(_GRAFICA_VACIA)
         self._fases_grafica: list = []
+        self._busqueda_carga = ""
+        self._carga_ciclo: dict = {}
         self._lista_recibida.connect(self._al_recibir_lista)
         self._grafica_recibida.connect(self._al_recibir_grafica)
+        self._carga_recibida.connect(self._al_recibir_carga)
 
     # ── listado ──────────────────────────────────────────────────────────
 
@@ -103,11 +113,39 @@ class CiclosHistorial(QObject):
 
     def _pedir_periodo(self) -> None:
         n = self._navegador
+        self._fijar_busqueda("")
         self.periodoChanged.emit()
         self._pedir_lista(n.periodo, {"periodo": n.periodo, "terminados": "false",
                                       "fecha": n.fecha.isoformat()})
 
-    def _pedir_lista(self, periodo: str, params: dict) -> None:
+    # ── búsqueda inversa por la carga (RCB-07.3) ─────────────────────────
+
+    @Slot(str, result=bool)
+    def buscarCarga(self, texto: str) -> bool:
+        """Ciclos cuyo lote es `texto` o que tienen ese código en su carga
+        (exacta, sin distinguir mayúsculas). False sin pedir nada si el texto
+        no cumple las reglas de lectura."""
+        buscado, motivo = rc.validar_codigo(texto)
+        if motivo:
+            return False
+        self._fijar_busqueda(buscado)
+        self._pedir_lista("carga", {"carga": buscado}, ruta="/cycle/history")
+        return True
+
+    @Slot()
+    def limpiarBusquedaCarga(self) -> None:
+        """Vuelve al listado del periodo que se estaba viendo."""
+        if self._busqueda_carga:
+            if getattr(self._navegador, "fecha", None) is None:
+                self._navegador.ir_al_actual(PERIODOS[0])
+            self._pedir_periodo()
+
+    def _fijar_busqueda(self, texto: str) -> None:
+        if texto != self._busqueda_carga:
+            self._busqueda_carga = texto
+            self.busquedaCargaChanged.emit()
+
+    def _pedir_lista(self, periodo: str, params: dict, ruta: str = "/cycle/list") -> None:
         self._pedido_lista += 1
         pedido = self._pedido_lista
         self._fijar_cargando(True)
@@ -115,7 +153,7 @@ class CiclosHistorial(QObject):
 
         def tarea():
             try:
-                respuesta = self._backend.get("/cycle/list", params=params)
+                respuesta = self._backend.get(ruta, params=params)
             except Exception as e:
                 logger.debug("listado de ciclos no disponible: %s", e)
                 respuesta = None
@@ -182,10 +220,41 @@ class CiclosHistorial(QObject):
 
         self._ejecutar(tarea)
 
+    @Slot(int)
+    def cargarCarga(self, ciclo_id: int) -> None:
+        """RCB-07.2: carga del ciclo elegido para su detalle (llamar después
+        de cargarGrafica, que descarta la del ciclo anterior)."""
+        if ciclo_id < 0:
+            return
+        pedido = self._pedido_grafica
+
+        def tarea():
+            try:
+                ciclo = self._backend.get(f"/cycle/history/{ciclo_id}/ticket").get("ciclo")
+            except Exception as e:
+                logger.debug("carga del ciclo %s no disponible: %s", ciclo_id, e)
+                ciclo = None
+            self._carga_recibida.emit(pedido, ciclo)
+
+        self._ejecutar(tarea)
+
+    def _al_recibir_carga(self, pedido: int, ciclo) -> None:
+        if pedido != self._pedido_grafica:
+            return
+        seccion = None
+        if isinstance(ciclo, dict):
+            seccion = dominio_carga.seccion_carga(ciclo.get("carga"), ciclo.get("resultado"),
+                                                  ciclo.get("operador"))
+        self._carga_ciclo = seccion or {}
+        self.cargaCicloChanged.emit()
+
     @Slot()
     def limpiarGrafica(self) -> None:
         """Al volver a la lista: descarta la curva mostrada y la que esté en camino."""
         self._pedido_grafica += 1
+        if self._carga_ciclo:
+            self._carga_ciclo = {}
+            self.cargaCicloChanged.emit()
         if self._grafica_disponible or self._datos_grafica["t_min"]:
             self._grafica_disponible = False
             self._datos_grafica = dict(_GRAFICA_VACIA)
@@ -210,6 +279,17 @@ class CiclosHistorial(QObject):
         (COMPLETADO / CANCELADO / FALLO o ""), resultado_detalle, operador y
         no_conforme (P4, tanda 16)."""
         return self._ciclos
+
+    @Property(str, notify=busquedaCargaChanged)
+    def busquedaCarga(self) -> str:
+        """RCB-07.3: lote o código buscado ("" = listado por periodo)."""
+        return self._busqueda_carga
+
+    @Property("QVariantMap", notify=cargaCicloChanged)
+    def cargaCiclo(self) -> dict:
+        """RCB-07.2: sección de la carga del ciclo abierto ({} sin carga):
+        titulo, resumen, columnas, filas, nota y no_esteril."""
+        return self._carga_ciclo
 
     @Property(bool, notify=ciclosChanged)
     def truncado(self) -> bool:

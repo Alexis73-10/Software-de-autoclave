@@ -387,6 +387,40 @@ def _agregar_clave_liquido_cal(parameters: dict, agregadas) -> bool:
     return True
 
 
+def _agregar_claves_rcb(parameters: dict, agregadas, impresion_defecto=None) -> bool:
+    """RCB-03 (registro de la carga, 19-nov): agrega a `globals` los
+    parámetros `registro_carga_obligatorio` (false) e `impresion_carga`
+    (`impresion_defecto` o, sin él, «lote_elementos») si faltan. Cada agregado
+    va a `agregadas` (auditoría param_ciclo_cambio con origen «registro de
+    carga (RCB)», .bak, sin SIS-06). Solo agrega; idempotente."""
+    cp = catalogo_parametros
+    seccion = parameters.get("globals")
+    if not isinstance(seccion, dict):
+        return False
+    impresion = (impresion_defecto if impresion_defecto in cp.IMPRESION_CARGA_OPCIONES
+                 else cp.IMPRESION_CARGA_DEFECTO)
+    hojas = (
+        ("registro_carga_obligatorio",
+         {"value": cp.REGISTRO_CARGA_OBLIGATORIO_DEFECTO, "type": "bool"}),
+        ("impresion_carga",
+         {"value": impresion, "type": "enum", "options": list(cp.IMPRESION_CARGA_OPCIONES),
+          "unit": ""}),
+    )
+    cambio = False
+    for clave, hoja in hojas:
+        if clave in seccion:
+            continue
+        seccion[clave] = copy.deepcopy(hoja)
+        cambio = True
+        logger.warning("Programa sin globals.%s: agregado con el defecto %r (%s)", clave,
+                       hoja["value"], cp.ORIGEN_MIGRACION_RCB)
+        if agregadas is not None:
+            agregadas.append({"fase": "globals", "parametro": clave, "anterior": None,
+                              "nuevo": hoja["value"], "unidad": "",
+                              "origen": cp.ORIGEN_MIGRACION_RCB})
+    return cambio
+
+
 def _migrar_modo_solido(parameters: dict, correcciones, modo_fabrica=None) -> bool:
     """T29-05 (tanda 29): un programa con carga sólida y descompresión 4 o 5
     (enfriamiento de líquidos) pasa a `modo_fabrica` (el del programa de
@@ -444,7 +478,8 @@ def _agregar_claves_t28(parameters: dict) -> bool:
 
 def migrar_parametros(parameters, correcciones: list | None = None,
                       no_migradas: list | None = None, recuperacion: bool = False,
-                      agregadas: list | None = None, modo_fabrica=None) -> bool:
+                      agregadas: list | None = None, modo_fabrica=None,
+                      impresion_carga_defecto=None) -> bool:
     """Migra en el sitio los parámetros de un programa viejo. Devuelve True si
     cambió algo. `correcciones` (opcional) recibe un dict por cada migración
     correctiva (C-04.4 y P2 de la tanda 16): fase, parametro, anterior, nuevo,
@@ -460,7 +495,8 @@ def migrar_parametros(parameters, correcciones: list | None = None,
     tanda 32, los agregados y retiros de los modos 4 y 5 (LIQ-01/LIQ-03).
     `modo_fabrica` (T29-05): modo de descompresión del programa de fábrica
     del mismo número, para la migración de un sólido con modo 4 o 5 (solo con
-    `recuperacion`)."""
+    `recuperacion`). `impresion_carga_defecto` (RCB-03): defecto de
+    `impresion_carga` si falta (por programa; sin él, «lote_elementos»)."""
     cambio = _migrar_rango_calentamiento(parameters)
     if not isinstance(parameters, dict):
         return cambio
@@ -477,6 +513,7 @@ def migrar_parametros(parameters, correcciones: list | None = None,
     cambio = _agregar_claves_aj10nov(parameters, agregadas) or cambio
     cambio = _retirar_sin_efecto(parameters, agregadas) or cambio
     cambio = _agregar_clave_liquido_cal(parameters, agregadas) or cambio
+    cambio = _agregar_claves_rcb(parameters, agregadas, impresion_carga_defecto) or cambio
     for fase, clave in _PRESION_ADD:
         hoja = parameters.get(fase, {}).get(clave) if isinstance(parameters.get(fase), dict) else None
         if not isinstance(hoja, dict):
@@ -754,7 +791,9 @@ class Cycle:
         self.migraciones_agregadas: list[dict] = []
         migrar_parametros(parameters, self.migraciones_correctivas,
                           self.migraciones_no_aplicadas, recuperacion=migrar_recuperacion,
-                          agregadas=self.migraciones_agregadas, modo_fabrica=modo_fabrica)
+                          agregadas=self.migraciones_agregadas, modo_fabrica=modo_fabrica,
+                          impresion_carga_defecto=catalogo_parametros.impresion_carga_defecto(
+                              cycle_id))
         self.parameters = parameters
         # Indicativo del ciclo ("cycle_number" del JSON), único entre ciclos.
         # None si falta, no es entero positivo o está repetido.
@@ -1175,7 +1214,9 @@ class CycleManager:
                 # R1-P3, C-04.4, P2 (tanda 16), M3 y A12 (tanda 28), T29-03/05
                 migrar_parametros(respaldo, correcciones, no_aplicadas, recuperacion=True,
                                   agregadas=agregadas,
-                                  modo_fabrica=self._modo_solido_fabrica(cycle.number))
+                                  modo_fabrica=self._modo_solido_fabrica(cycle.number),
+                                  impresion_carga_defecto=catalogo_parametros
+                                  .impresion_carga_defecto(cycle.id))
                 if not catalogo_parametros.errores_programa(respaldo):
                     logger.error("Programa %s fuera del catálogo (%s); se usa %s",
                                  cycle.id, "; ".join(errores), os.path.basename(bak))

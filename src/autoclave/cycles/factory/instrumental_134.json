@@ -18,7 +18,9 @@
             "rango_presion_chaqueta": {"value":50, "type":"int", "unit":"kPa", "clase": "diferencia", "min":0, "max":100},
             "delta_temp_chaqueta": {"value":1.5, "type":"float", "unit":"°C", "clase": "diferencia", "min":0, "max":5},
             "margen_flujo_chaqueta": {"value":15.0, "type":"float", "unit":"kPa", "clase": "diferencia", "min":0, "max":40},
-            "tipo_carga": {"value":"solido", "type":"enum", "options":["solido","liquido"], "unit":""}
+            "tipo_carga": {"value":"solido", "type":"enum", "options":["solido","liquido"], "unit":""},
+            "registro_carga_obligatorio": {"value": false, "type": "bool"},
+            "impresion_carga": {"value": "lote_elementos", "type": "enum", "options": ["ninguna", "lote", "lote_elementos"], "unit": ""}
         },
         "precalentamiento": {
             "tiempo_precalentamiento": { "value": 0, "type":"int", "unit": "min", "min": 0, "max": 3600 },

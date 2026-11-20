@@ -20,7 +20,7 @@ from autoclave.backend.arranque.secuencia import ejecutar_arranque
 from autoclave.backend.arranque.sin_bd import BdNoDisponibleError
 from autoclave.backend.dependencias import (RechazoApi, _cierre_ordenado_hecho,
     _contexto_operable, _detener_arranque, context, registro_arranque)
-from autoclave.backend.rutas import (alarmas, apagado, ciclo, historial, mantenimiento,
+from autoclave.backend.rutas import (alarmas, apagado, carga, ciclo, historial, mantenimiento,
     parametros_ciclo, programas, puertas, reportes, respaldo, sistema, usuarios)
 from autoclave.backend.rutas import arranque as rutas_arranque
 from autoclave.backend.rutas import io as rutas_io
@@ -182,6 +182,7 @@ app.include_router(alarmas.router)
 app.include_router(puertas.router)
 app.include_router(parametros_ciclo.router)
 app.include_router(programas.router)
+app.include_router(carga.router)       # RCB-08: catálogo de carga
 
 # ── R8 (tanda 8, D8-5.12): Opciones avanzadas = reasignación de E/S ───────────
 # Sus rutas viven en server_reasignacion.py; se registran aquí, al final, con

@@ -1216,5 +1216,63 @@
   ],
   "status_code": null,
   "response_model": null
+ },
+ {
+  "path": "/carga/catalogo",
+  "methods": [
+   "GET"
+  ],
+  "name": "listar_catalogo",
+  "dependencias": [],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/carga/catalogo",
+  "methods": [
+   "POST"
+  ],
+  "name": "alta_catalogo",
+  "dependencias": [
+   "requiere_rol.<locals>.dependencia(permitir_cambio_pendiente=False, roles=['ingeniero', 'admin'])"
+  ],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/carga/catalogo/{id_}",
+  "methods": [
+   "PATCH"
+  ],
+  "name": "modificar_catalogo",
+  "dependencias": [
+   "requiere_rol.<locals>.dependencia(permitir_cambio_pendiente=False, roles=['ingeniero', 'admin'])"
+  ],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/carga/catalogo/usb",
+  "methods": [
+   "GET"
+  ],
+  "name": "listar_csv_usb",
+  "dependencias": [
+   "requiere_rol.<locals>.dependencia(permitir_cambio_pendiente=False, roles=['ingeniero', 'admin'])"
+  ],
+  "status_code": null,
+  "response_model": null
+ },
+ {
+  "path": "/carga/catalogo/importar",
+  "methods": [
+   "POST"
+  ],
+  "name": "importar_catalogo",
+  "dependencias": [
+   "requiere_rol.<locals>.dependencia(permitir_cambio_pendiente=False, roles=['ingeniero', 'admin'])"
+  ],
+  "status_code": null,
+  "response_model": null
  }
 ]

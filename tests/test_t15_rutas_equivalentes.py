@@ -33,6 +33,14 @@ Cambios deliberados de la línea base (nada más cambia sin tocar este archivo):
   acepta un cuerpo opcional ``_AckBody`` (``forzar``, ``clave``) y la cabecera
   ``authorization``; ``rutas.json`` no cambia y ``openapi.json`` se regeneró
   con ``openapi_ordenado`` (solo ese path y el esquema ``_AckBody``).
+- Registro de la carga (RCB, 19-nov): rutas nuevas del catálogo de carga
+  ``GET``/``POST /carga/catalogo``, ``PATCH /carga/catalogo/{id_}``,
+  ``GET /carga/catalogo/usb`` y ``POST /carga/catalogo/importar`` (router
+  ``rutas/carga.py``), agregadas al final de ``rutas.json`` sin reordenar las
+  demás; ``GET /cycle/history`` acepta el parámetro opcional ``carga``
+  (búsqueda inversa). ``openapi.json`` se regeneró con ``openapi_ordenado``:
+  solo esos paths, el parámetro, la descripción de ``/cycle/history`` y los
+  esquemas ``_AltaBody``, ``_ModificarBody`` e ``_ImportarBody``.
 """
 import json
 from pathlib import Path

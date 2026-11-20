@@ -13,6 +13,8 @@ QtObject {
     // único lugar donde se nombra cada familia; familiaReloj la usan solo los estilos reloj: true
     readonly property string familia: "Montserrat"
     readonly property string familiaReloj: "Tahoma"
+    // códigos leídos con el lector (Catálogo de carga, RCB-08): monoespaciada de Windows 11
+    readonly property string familiaMono: "Consolas"
 
     // tamaños en px de diseño — pasar por Escala.fuente() al usarlos
     readonly property int relojDisplayTam: 158

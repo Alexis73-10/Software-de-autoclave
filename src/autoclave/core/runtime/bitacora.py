@@ -71,6 +71,9 @@ EVENTOS = (
     # ENT-04 (tanda 31): confirmación forzada por un ingeniero sin la cámara
     # entregada (usuario y motivo vigente)
     "ciclo_confirmado_sin_entrega",
+    # RCB-08.5 (registro de la carga, 19-nov): catálogo de carga
+    "catalogo_carga_alta", "catalogo_carga_editado", "catalogo_carga_baja",
+    "catalogo_carga_reactivado", "catalogo_carga_importado",
 )
 
 # BIT-01/03/04 (tanda 17): eventos que ya no van a audit_log sino al log de
@@ -129,6 +132,8 @@ _CATEGORIA = {
         "programa_creado", "programa_duplicado", "programa_habilitado", "programa_borrado",
         "reasignacion_io", "reasignacion_io_fabrica", "reasignacion_io_rechazada",
         "reasignacion_io_verificada", "asignacion_io_migrada",
+        "catalogo_carga_alta", "catalogo_carga_editado", "catalogo_carga_baja",
+        "catalogo_carga_reactivado", "catalogo_carga_importado",
     ),
     "usuarios_sesion": (
         "login_ok", "login_fallido", "login_bloqueado", "logout", "cambio_clave",

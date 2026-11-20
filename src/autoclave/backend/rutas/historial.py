@@ -4,6 +4,7 @@
 # ORG-12 (tanda 15): movido sin cambios desde backend/server.py; se registra
 # en server.py con app.include_router.
 
+import logging
 from datetime import date, timedelta
 from typing import Annotated, Literal
 from fastapi import HTTPException, Query
@@ -19,6 +20,7 @@ from autoclave.backend.rutas._comun import (_ciclo_json, _encolar_en_impresora,
     _inicio_del_dia, _no_conforme_json, _rango_del_periodo)
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 @router.get("/cycle/summary")
@@ -72,7 +74,7 @@ def print_cycle_history(body: _ImprimirCiclosBody):
         if ciclo is None:
             raise HTTPException(status_code=404, detail=f"Ciclo {ciclo_id} no encontrado")
         lecturas = [dict(r) for r in context.db.get_lecturas_para_imprimir(ciclo_id)]
-        tickets.append(format_ticket(dict(ciclo), lecturas))
+        tickets.append(format_ticket(_con_carga(dict(ciclo), ciclo_id), lecturas))
     _encolar_en_impresora(tickets)
     return {"ok": True, "impresos": len(tickets)}
 
@@ -104,8 +106,15 @@ def get_cycle_history_graph(ciclo_id: int):
 
 
 @router.get("/cycle/history")
-def get_cycle_history(limite: int = 50):
-    """Lista de ciclos registrados (más recientes primero)."""
+def get_cycle_history(limite: int = 50, carga: str | None = None):
+    """Lista de ciclos registrados (más recientes primero).
+    RCB-07.3: con `carga`, búsqueda inversa por lote o código de elemento
+    (coincidencia exacta, sin distinguir mayúsculas): responde
+    {"carga", "ciclos": [filas como /cycle/list], "truncado"} con hasta 500
+    ciclos; un texto que no cumple las reglas de lectura da 422. Sin `carga`
+    la respuesta no cambia."""
+    if carga is not None:
+        return _buscar_por_carga(carga)
     rows = context.db.get_ciclos_recientes(limite)
     return [
         {
@@ -119,6 +128,40 @@ def get_cycle_history(limite: int = 50):
         }
         for r in rows
     ]
+
+
+_LIMITE_BUSQUEDA_CARGA = 500
+
+
+def _buscar_por_carga(texto: str) -> dict:
+    from autoclave.backend.dependencias import RechazoApi
+    from autoclave.core.runtime import registro_carga as rc
+    buscado, motivo = rc.validar_codigo(texto)
+    if motivo:
+        raise RechazoApi(422, "carga_invalida", "Texto de búsqueda no válido",
+                         extra={"motivo": motivo})
+    filas = context.db.buscar_ciclos_por_carga(buscado, _LIMITE_BUSQUEDA_CARGA + 1)
+    return {"carga": buscado,
+            "ciclos": [{**_ciclo_json(f), "lote": f["lote_carga"]}
+                       for f in filas[:_LIMITE_BUSQUEDA_CARGA]],
+            "truncado": len(filas) > _LIMITE_BUSQUEDA_CARGA}
+
+
+def _con_carga(ciclo: dict, ciclo_id: int) -> dict:
+    """RCB-06.4/07: agrega la carga guardada del ciclo (`carga`: lote, modo de
+    impresión al iniciar y elementos) si la tiene; sin carga el ciclo sale
+    igual que antes. Las columnas lote_carga e impresion_carga se quitan si son
+    nulas por la misma razón."""
+    ciclo = {k: v for k, v in ciclo.items()
+             if not (k in ("lote_carga", "impresion_carga") and v is None)}
+    try:
+        carga = context.db.get_carga_ciclo(ciclo_id)
+    except Exception:
+        logger.exception("No se pudo leer la carga del ciclo %s", ciclo_id)
+        carga = None
+    if isinstance(carga, dict):
+        ciclo["carga"] = carga
+    return ciclo
 
 
 def _sin_originales_nulos(ciclo: dict) -> dict:
@@ -136,6 +179,7 @@ def get_cycle_ticket(ciclo_id: int):
 
     rows = context.db.get_lecturas_para_imprimir(ciclo_id)
     return {
-        "ciclo":    {**_sin_originales_nulos(dict(ciclo)), **_no_conforme_json(ciclo)},   # P4 (D-14.4)
+        "ciclo":    _con_carga({**_sin_originales_nulos(dict(ciclo)),
+                                **_no_conforme_json(ciclo)}, ciclo_id),   # P4 (D-14.4), RCB-07
         "lecturas": [dict(r) for r in rows],
     }

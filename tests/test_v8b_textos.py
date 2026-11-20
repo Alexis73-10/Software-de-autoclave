@@ -249,7 +249,7 @@ _LITERALES_PERMITIDOS = {
     # motivos de salida del modo prueba de E/S: van a la bitácora, no a la pantalla
     "abandono de la sección", "inactividad de la interfaz", "salida solicitada",
     # fuentes y formatos
-    "Arial", "Tahoma", "Montserrat", "dddd d MMMM yyyy", "Tipografia.estilo: estilo desconocido",
+    "Arial", "Tahoma", "Montserrat", "Consolas", "dddd d MMMM yyyy", "Tipografia.estilo: estilo desconocido",
     # nombre de cada idioma en su propio idioma (selector de idioma)
     "Español", "English",
     # D-06 / ARR-02: eslogan de marca

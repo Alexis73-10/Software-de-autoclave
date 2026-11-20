@@ -606,6 +606,21 @@ Item {
         function elegir(p) { periodo = p; seleccion = null; mensaje = ""; raiz.historial?.cambiarPeriodo(p) }
         function mover(pasos) { mensaje = ""; raiz.historial?.moverPeriodo(pasos) }
         function volverAlListado() { seleccion = null; mensaje = ""; raiz.historial?.limpiarGrafica() }
+        // RCB-07.3: búsqueda inversa por lote o código (teclado en pantalla,
+        // modo acción: una sola entrega al Confirmar)
+        property string avisoBusqueda: ""
+        function pedirBusquedaCarga() {
+            mensaje = ""
+            avisoBusqueda = ""
+            raiz.teclado?.abrirAlfanumericoAccion(
+                I18n.t("registro_carga.buscar_titulo", I18n.lang),
+                raiz.historial?.busquedaCarga ?? "", 64, false,
+                function (texto) {
+                    seleccion = null
+                    if (!(raiz.historial?.buscarCarga(texto) ?? false))
+                        avisoBusqueda = I18n.t("registro_carga.lectura_invalida", I18n.lang)
+                })
+        }
         function imprimir(ids) {
             mensaje = ""
             accionEnCurso = "imprimir"
@@ -623,6 +638,7 @@ Item {
         }
         onMostrada: {
             seleccion = null
+            avisoBusqueda = ""
             eligiendoDestino = false
             raiz.acciones?.actualizarCorreo()   // config/correo.json se edita a mano por ahora
             periodo = "dia"
@@ -662,9 +678,61 @@ Item {
                 onMovido: (pasos) => ventanaHistorial.mover(pasos)
             }
 
+            // RCB-07.3: «Lote o código» (búsqueda inversa por la carga)
+            Item {
+                id: filaBusquedaCarga
+                objectName: "filaBusquedaCarga"
+                anchors.top: selectorHistorial.bottom
+                anchors.topMargin: raiz.m(12)
+                width: parent.width
+                height: Math.max(botonBuscarCarga.height, textoBusquedaCarga.implicitHeight)
+                readonly property string buscado: raiz.historial?.busquedaCarga ?? ""
+                Text {
+                    id: textoBusquedaCarga
+                    objectName: "textoBusquedaCarga"
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: parent.width - botonesBusqueda.width - raiz.m(16)
+                    wrapMode: Text.Wrap
+                    text: ventanaHistorial.avisoBusqueda !== "" ? ventanaHistorial.avisoBusqueda
+                          : filaBusquedaCarga.buscado !== ""
+                            ? I18n.t("registro_carga.buscando", I18n.lang, { texto: filaBusquedaCarga.buscado })
+                            : I18n.t("registro_carga.buscar_ayuda", I18n.lang)
+                    color: ventanaHistorial.avisoBusqueda !== "" ? Colores.advertenciaTexto
+                           : filaBusquedaCarga.buscado !== "" ? Colores.textoPrimario
+                                                               : Colores.textoSecundario
+                    font.family: Tipografia.familia
+                    font.weight: filaBusquedaCarga.buscado !== "" ? Tipografia.pesoSemiBold
+                                                                   : Tipografia.pesoMedium
+                    font.pixelSize: raiz.fuente(22)
+                }
+                Row {
+                    id: botonesBusqueda
+                    anchors.right: parent.right
+                    spacing: raiz.m(12)
+                    BotonPildora {
+                        objectName: "botonQuitarBusquedaCarga"
+                        visible: filaBusquedaCarga.buscado !== ""
+                        escala: raiz.escala
+                        texto: I18n.t("registro_carga.quitar_busqueda", I18n.lang)
+                        onPulsado: {
+                            ventanaHistorial.avisoBusqueda = ""
+                            ventanaHistorial.seleccion = null
+                            raiz.historial?.limpiarBusquedaCarga()
+                        }
+                    }
+                    BotonPildora {
+                        id: botonBuscarCarga
+                        objectName: "botonBuscarCarga"
+                        escala: raiz.escala
+                        texto: I18n.t("registro_carga.buscar", I18n.lang)
+                        onPulsado: ventanaHistorial.pedirBusquedaCarga()
+                    }
+                }
+            }
+
             ListaCiclos {
                 objectName: "listaHistorial"
-                anchors.top: selectorHistorial.bottom
+                anchors.top: filaBusquedaCarga.bottom
                 anchors.topMargin: raiz.m(16)
                 anchors.bottom: barraAcciones.top
                 anchors.bottomMargin: raiz.m(16) + (notaHistorial.visible ? notaHistorial.height + raiz.m(8) : 0)
@@ -681,6 +749,7 @@ Item {
                     ventanaHistorial.mensaje = ""
                     ventanaHistorial.seleccion = fila
                     raiz.historial?.cargarGrafica(fila.id)
+                    raiz.historial?.cargarCarga(fila.id)      // RCB-07.2
                 }
                 onMarcaAlternada: (id) => raiz.historial?.alternarSeleccion(id)
                 onTodasAlternadas: (marcar) => raiz.historial?.seleccionarTodos(marcar)
@@ -794,6 +863,7 @@ Item {
                 datosGrafica: raiz.historial?.datosGrafica ?? ({ t_min: [], temp_camara: [], temp_ref: [], pres_camara: [] })
                 fasesGrafica: raiz.historial?.fasesGrafica ?? []
                 graficaDisponible: raiz.historial?.graficaDisponible ?? false
+                carga: raiz.historial?.cargaCiclo ?? ({})      // RCB-07.2
                 onCerrarPulsado: ventanaHistorial.cerrar()
             }
         }
