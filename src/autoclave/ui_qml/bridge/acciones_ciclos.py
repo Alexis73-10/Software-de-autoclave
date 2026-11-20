@@ -42,6 +42,7 @@ from autoclave.installation.identidad import identidad_de_ciclo, rotulo_serial_e
 from autoclave.installation.modelo import desglosar_modelo
 from autoclave.services.domain.logging import ticket_formatter
 from autoclave.services.domain.logging.ticket_formatter import format_ticket
+from autoclave.ui_qml.domain import registro_carga as dominio_carga
 from autoclave.ui_qml.domain import reporte_resumen
 from autoclave.ui_qml.domain.consignas import consigna_esterilizacion
 from autoclave.ui_qml.domain import resumen_sistema as dominio
@@ -126,6 +127,15 @@ def _marcar_no_conforme(asunto: str, cuerpo: str, ciclos) -> tuple[str, str]:
     observaciones = _observaciones_cuerpo(ciclos)
     if observaciones:
         cuerpo = cuerpo + "\n\n" + "\n".join(observaciones)
+    # RCB-07.1: lote de cada ciclo con carga y, si no terminó COMPLETADO, el
+    # aviso de carga no estéril (la lista completa va en el PDF adjunto)
+    try:
+        cargas = dominio_carga.lineas_cuerpo_correo(ciclos, i18n.t)
+    except Exception:
+        logger.exception("correo: no se pudieron armar las líneas de la carga")
+        cargas = []
+    if cargas:
+        cuerpo = cuerpo + "\n\n" + "\n".join(cargas)
     if not numeros:
         return asunto, cuerpo
     return (i18n.t("exportacion.asunto_no_conforme", asunto=asunto),
@@ -599,10 +609,22 @@ class AccionesCiclos(QObject):
                 (i18n.t("exportacion.fin"),
                  f"{fin}  {hora_fin}" if fin != dominio.SIN_DATO else dominio.SIN_DATO),
                 (i18n.t("exportacion.resultado"), resultado),
+            ] + self._campo_lote(ciclo) + [
                 # I4 (tanda 6): unidades del documento en la cabecera
                 (i18n.t("exportacion.unidades"), unidades_pdf.rotulo_unidades(p.temperatura, p.presion)),
             ] + self._campo_motivo(ciclo),
+            # RCB-07.1: sección «Carga del ciclo» (None sin carga)
+            "carga": dominio_carga.seccion_carga(ciclo.get("carga"), ciclo.get("resultado"),
+                                                 ciclo.get("operador"), i18n.t),
         }
+
+    @staticmethod
+    def _campo_lote(ciclo: dict) -> list:
+        """RCB-07.1: el lote en la cabecera del PDF; [] sin carga."""
+        carga = ciclo.get("carga")
+        if isinstance(carga, dict) and carga.get("lote"):
+            return [(i18n.t("exportacion.lote"), str(carga["lote"]))]
+        return []
 
     @staticmethod
     def _campo_motivo(ciclo: dict) -> list:

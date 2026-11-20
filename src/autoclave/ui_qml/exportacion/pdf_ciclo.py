@@ -48,6 +48,8 @@ _TINTA = QColor("#1A1A1A")
 _SECUNDARIO = QColor("#555555")
 _CUADRICULA = QColor("#D4D4D4")
 _DIVISOR_FASE = QColor("#BCBCBC")
+# RCB-07.1: aviso de carga no estéril (rojo de alarma alta, IEC 60601-1-8)
+_AVISO_NO_ESTERIL = QColor("#C62828")
 _FUENTE = "Montserrat"
 _MONO = "mono"   # la de ancho fijo del sistema (el ticket se alinea por columnas)
 
@@ -320,11 +322,80 @@ def _leyenda(l: _Lienzo, x: float, y: float, textos: dict, con_consigna: bool,
         x += _mm(8) + fm.horizontalAdvance(nombre) + _mm(6)
 
 
+def _seccion_carga(doc: Documento, y: float, carga: dict) -> float:
+    """RCB-07.1: sección «Carga del ciclo» (lote, lista completa con
+    cantidad, elemento, código y observación, nota y, si el ciclo no terminó
+    COMPLETADO, el aviso de carga no estéril). Pasa de página si hace falta;
+    devuelve la y donde termina."""
+    l = doc.l
+
+    def espacio(alto):
+        nonlocal y
+        if y + alto > l.alto:
+            doc.nueva_pagina()
+            y = 0.0
+
+    fm = l.fuente(10, negrita=True)
+    espacio(fm.height() * 3)
+    l.texto(0, y + fm.ascent(), carga.get("titulo", ""))
+    y += fm.height() + _mm(1)
+    fm = l.fuente(8)
+    for linea in _envolver(l, carga.get("resumen", ""), l.ancho):
+        espacio(fm.height())
+        l.texto(0, y + fm.ascent(), linea, _SECUNDARIO)
+        y += fm.height()
+    if carga.get("no_esteril"):
+        fm = l.fuente(10, negrita=True)
+        for linea in _envolver(l, carga["no_esteril"], l.ancho):
+            espacio(fm.height())
+            l.texto(0, y + fm.ascent(), linea, _AVISO_NO_ESTERIL)
+            y += fm.height()
+    y += _mm(2)
+    # columnas: cantidad, elemento, código, observación (proporciones del mockup)
+    xs = [0.0, l.ancho * 0.07, l.ancho * 0.53, l.ancho * 0.71]
+    anchos = [xs[1] - _mm(2), xs[2] - xs[1] - _mm(2), xs[3] - xs[2] - _mm(2),
+              l.ancho - xs[3]]
+
+    def fila(valores, negrita=False, mono_codigo=False):
+        nonlocal y
+        partes = []
+        for i, v in enumerate(valores):
+            familia = _MONO if (mono_codigo and i == 2) else _FUENTE
+            l.fuente(8, negrita=negrita, familia=familia)
+            partes.append(_envolver(l, v or "", anchos[i]))
+        fm_f = l.fuente(8, negrita=negrita)
+        alto = fm_f.height() * max(len(x) for x in partes) + _mm(1)
+        espacio(alto)
+        for i, lineas in enumerate(partes):
+            familia = _MONO if (mono_codigo and i == 2) else _FUENTE
+            fm_c = l.fuente(8, negrita=negrita, familia=familia)
+            for k, linea in enumerate(lineas):
+                l.texto(xs[i], y + fm_c.ascent() + k * fm_f.height(), linea)
+        y += alto
+
+    fila(carga.get("columnas") or ["", "", "", ""], negrita=True)
+    l.p.setPen(QPen(_CUADRICULA, _mm(0.3)))
+    l.p.drawLine(QPointF(0, y), QPointF(l.ancho, y))
+    y += _mm(1)
+    for valores in carga.get("filas") or []:
+        fila(valores, mono_codigo=True)
+    l.p.setPen(QPen(_CUADRICULA, _mm(0.3)))
+    l.p.drawLine(QPointF(0, y), QPointF(l.ancho, y))
+    y += _mm(1)
+    fm = l.fuente(7)
+    for linea in _envolver(l, carga.get("nota", ""), l.ancho):
+        espacio(fm.height())
+        l.texto(0, y + fm.ascent(), linea, _SECUNDARIO)
+        y += fm.height()
+    return y
+
+
 def dibujar_ciclo(doc: Documento, datos: dict, ticket: str, grafica: dict, fases: list,
                   textos: dict, consigna: dict | None = None) -> None:
     """Pinta las páginas de un ciclo desde el inicio de la página en curso.
 
-    datos: {"empresa", "titulo", "campos": [(rótulo, valor)]} ya formateados.
+    datos: {"empresa", "titulo", "campos": [(rótulo, valor)], "carga" (opcional,
+    RCB-07.1: ui_qml/domain/registro_carga.seccion_carga)} ya formateados.
     ticket: texto del ticket (format_ticket). grafica: {t_min, temp_camara,
     temp_ref, pres_camara} (AcumuladorGrafica.datos); fases: inicios_de_fase.
     consigna: {"temp" °C, "pres" kPa, "desde_min", "hasta_min"} o None
@@ -339,6 +410,12 @@ def dibujar_ciclo(doc: Documento, datos: dict, ticket: str, grafica: dict, fases
     y = marco.bottom() + _mm(6)
     _leyenda(l, 0, y, textos, consigna is not None and bool(grafica.get("t_min")), grafica)
     y += _mm(10)
+    # RCB-07.1: la carga del ciclo antes del ticket (solo si la tiene)
+    if isinstance(datos.get("carga"), dict):
+        y = _seccion_carga(doc, y, datos["carga"]) + _mm(6)
+        if y + _mm(20) > l.alto:
+            doc.nueva_pagina()
+            y = 0.0
 
     fm = l.fuente(10, negrita=True)
     l.texto(0, y + fm.ascent(), textos.get("ticket", ""))

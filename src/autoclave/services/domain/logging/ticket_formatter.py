@@ -382,6 +382,70 @@ def lineas_version(rotulo: str, valor, ancho: int = ANCHO_TICKET) -> list[str]:
     return [f"{rotulo}:"] + [t[j:j + ancho] for t in trozos for j in range(0, len(t), ancho)]
 
 
+# RCB-06.2 (registro de la carga): elementos impresos como máximo en la
+# tirilla; el resto se resume en una línea (DECISIÓN SIN CONFIRMAR: 15; con 24
+# columnas un nombre suele ocupar 2 líneas). El PDF y el correo llevan siempre
+# la lista completa.
+MAX_ELEMENTOS_CARGA_TICKET = 15
+_SEPARADOR = "------------------------"
+
+
+def _partir(texto: str, ancho: int, sangria: int) -> list[str]:
+    """Parte `texto` en líneas de `ancho` columnas por palabras, sin recortar:
+    una palabra más larga que la línea se parte por caracteres. Las líneas de
+    continuación llevan `sangria` espacios."""
+    lineas, actual = [], ""
+    for palabra in texto.split(" "):
+        if not actual:
+            actual = (" " * sangria if lineas else "") + palabra
+        elif len(actual) + 1 + len(palabra) <= ancho or len(palabra) > ancho - sangria:
+            # cabe, o no cabría ni sola en una línea: sigue aquí y se parte
+            actual += " " + palabra
+        else:
+            lineas.append(actual)
+            actual = " " * sangria + palabra
+        while len(actual) > ancho:
+            lineas.append(actual[:ancho])
+            actual = " " * sangria + actual[ancho:]
+    if actual.strip():
+        lineas.append(actual)
+    return lineas
+
+
+def lineas_carga(carga, p: Presentacion | None = None, ancho: int = ANCHO_TICKET) -> list[str]:
+    """RCB-06.1/06.2: bloque «CARGA» del encabezado según el modo de impresión
+    guardado con el ciclo (`carga["impresion"]`): `ninguna` (o sin carga) no
+    imprime nada; `lote`, el lote; `lote_elementos`, el lote y una línea por
+    elemento («Nx nombre» o «Nx código (sin catálogo)»), partida al ancho del
+    ticket sin recortar, hasta MAX_ELEMENTOS_CARGA_TICKET y luego «... y N más
+    (ver reporte)». Un modo desconocido se trata como `lote_elementos`
+    (falla hacia mostrar más). Nunca lanza."""
+    p = p or presentacion_actual()
+    try:
+        if not isinstance(carga, dict) or not carga.get("lote"):
+            return []
+        modo = carga.get("impresion")
+        if modo == "ninguna":
+            return []
+        lineas = [_SEPARADOR, _t(p, "carga"),
+                  *lineas_rotulo(_t(p, "lote"), carga["lote"], ancho)]
+        if modo != "lote":
+            elementos = [e for e in carga.get("elementos") or [] if isinstance(e, dict)]
+            for e in elementos[:MAX_ELEMENTOS_CARGA_TICKET]:
+                prefijo = f"{int(e.get('cantidad') or 0)}x "
+                nombre = e.get("nombre")
+                texto = (nombre if isinstance(nombre, str) and nombre
+                         else f"{e.get('codigo', '')} ({_t(p, 'sin_catalogo')})")
+                lineas += _partir(prefijo + texto, ancho, len(prefijo))
+            resto = len(elementos) - MAX_ELEMENTOS_CARGA_TICKET
+            if resto > 0:
+                lineas += _partir(_t(p, "carga_mas", n=resto), ancho, 2)
+        lineas.append(_SEPARADOR)
+        return lineas
+    except Exception:
+        return []
+
+
 def _lineas_identidad(meta: dict, p: Presentacion) -> list[str]:
     """Serie y modelo del encabezado. Fabricación: las líneas de siempre.
     Automatización (meta con `serie_original` y `modelo_original`): serie y
@@ -449,6 +513,8 @@ def format_header(meta: dict, p: Presentacion | None = None) -> str:
     # en la primera línea del pie (el encabezado se imprime al iniciar)
     if meta.get("no_conforme"):
         lines.append(_t(p, "no_conforme_marca"))
+    # RCB-06.1: bloque de la carga antes de las columnas de lecturas
+    lines += lineas_carga(meta.get("carga"), p)
     lines.append(f"  {_t(p, 'hora'):<4}      {st}      {sp}")
     return "\n".join(lines)
 
@@ -635,6 +701,11 @@ def format_ticket(ciclo, lecturas, p: Presentacion | None = None) -> str:
         "no_conforme":           ciclo_no_conforme(ciclo),   # P4 (D-14.4)
         **_meta_f0(ciclo),                                     # T29-07
     }
+    # RCB-06.4: la carga guardada con el ciclo, con el modo de impresión que
+    # regía al iniciar (no el actual del programa)
+    carga = _campo(ciclo, "carga")
+    if isinstance(carga, dict):
+        meta["carga"] = carga
 
     temp_final = None
     if lecturas:

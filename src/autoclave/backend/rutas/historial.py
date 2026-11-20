@@ -4,6 +4,7 @@
 # ORG-12 (tanda 15): movido sin cambios desde backend/server.py; se registra
 # en server.py con app.include_router.
 
+import logging
 from datetime import date, timedelta
 from typing import Annotated, Literal
 from fastapi import HTTPException, Query
@@ -19,6 +20,7 @@ from autoclave.backend.rutas._comun import (_ciclo_json, _encolar_en_impresora,
     _inicio_del_dia, _no_conforme_json, _rango_del_periodo)
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 @router.get("/cycle/summary")
@@ -72,7 +74,7 @@ def print_cycle_history(body: _ImprimirCiclosBody):
         if ciclo is None:
             raise HTTPException(status_code=404, detail=f"Ciclo {ciclo_id} no encontrado")
         lecturas = [dict(r) for r in context.db.get_lecturas_para_imprimir(ciclo_id)]
-        tickets.append(format_ticket(dict(ciclo), lecturas))
+        tickets.append(format_ticket(_con_carga(dict(ciclo), ciclo_id), lecturas))
     _encolar_en_impresora(tickets)
     return {"ok": True, "impresos": len(tickets)}
 
@@ -121,6 +123,23 @@ def get_cycle_history(limite: int = 50):
     ]
 
 
+def _con_carga(ciclo: dict, ciclo_id: int) -> dict:
+    """RCB-06.4/07: agrega la carga guardada del ciclo (`carga`: lote, modo de
+    impresión al iniciar y elementos) si la tiene; sin carga el ciclo sale
+    igual que antes. Las columnas lote_carga e impresion_carga se quitan si son
+    nulas por la misma razón."""
+    ciclo = {k: v for k, v in ciclo.items()
+             if not (k in ("lote_carga", "impresion_carga") and v is None)}
+    try:
+        carga = context.db.get_carga_ciclo(ciclo_id)
+    except Exception:
+        logger.exception("No se pudo leer la carga del ciclo %s", ciclo_id)
+        carga = None
+    if isinstance(carga, dict):
+        ciclo["carga"] = carga
+    return ciclo
+
+
 def _sin_originales_nulos(ciclo: dict) -> dict:
     """Un ciclo de fabricación sale igual que antes: sin las columnas de originales vacías."""
     return {k: v for k, v in ciclo.items()
@@ -136,6 +155,7 @@ def get_cycle_ticket(ciclo_id: int):
 
     rows = context.db.get_lecturas_para_imprimir(ciclo_id)
     return {
-        "ciclo":    {**_sin_originales_nulos(dict(ciclo)), **_no_conforme_json(ciclo)},   # P4 (D-14.4)
+        "ciclo":    _con_carga({**_sin_originales_nulos(dict(ciclo)),
+                                **_no_conforme_json(ciclo)}, ciclo_id),   # P4 (D-14.4), RCB-07
         "lecturas": [dict(r) for r in rows],
     }
