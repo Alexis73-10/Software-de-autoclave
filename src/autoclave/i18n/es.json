@@ -289,6 +289,9 @@
     "no": "No",
     "valor_solido": "Sólido",
     "valor_liquido": "Líquido",
+    "valor_ninguna": "Nada",
+    "valor_lote": "Solo el lote",
+    "valor_lote_elementos": "Lote y elementos",
     "err_bloqueada": "Edición bloqueada: el equipo no está en preparación. Finalice o cancele el ciclo para modificar parámetros.",
     "err_valor_cambio": "El valor cambió en el equipo (ahora {valor}). Revíselo e intente de nuevo.",
     "err_rol": "Su usuario no tiene permiso para modificar este parámetro.",
@@ -1491,7 +1494,9 @@
       "rango_presion_chaqueta": "Semiancho (±) de la banda alrededor de «Presión de chaqueta» en preparación: fuera de la banda se activa la alarma PRE-01 (baja) o PRE-02 (alta) y no se permite iniciar el ciclo. No rige durante el ciclo, donde la banda es fija de ±10 kPa alrededor de la consigna calculada. Mínimo 1 kPa.",
       "delta_temp_chaqueta": "Durante el ciclo, la consigna de presión de chaqueta es la mayor entre Psat(«Temperatura de esterilización» + este valor) y el techo de control de cámara, Psat(«Temperatura de esterilización») + «Presión adicional de esterilización», más «Margen de flujo de chaqueta». El vapor de chaqueta abre bajo consigna − 10 kPa y cierra sobre consigna + 10 kPa. Si consigna + 10 kPa llega a 385 kPa (alivio de chaqueta) el programa se rechaza; sobre 350 kPa (suministro) se guarda con advertencia: la válvula de vapor de chaqueta queda abierta durante el ciclo.",
       "margen_flujo_chaqueta": "Presión que la chaqueta se mantiene por encima del techo de control de cámara, Psat(«Temperatura de esterilización») + «Presión adicional de esterilización», para que el vapor fluya hacia la cámara. El cálculo completo de la consigna está en «Margen de temperatura de chaqueta».",
-      "tipo_carga": "Sólido o líquido. Al pasar a líquido, el modo de descompresión cambia a 4 (si no era 4, 5 o 0) y al volver a sólido regresa al modo por defecto del programa. Con líquido, el programa solo se acepta si: la descompresión es modo 4, 5 o 0, no hay pulsos de prevacío, «Tiempo de secado» = 0, la apertura automática está desactivada y, en los modos 4 y 5, «Presión de cámara durante el enfriamiento» ≥ Psat(«Temperatura de esterilización») + 30 kPa. Además, al terminar o ante un fallo, el escape rápido solo abre cuando la sonda Principal está en o por debajo de la temperatura de enfriamiento; antes se usa el escape lento."
+      "tipo_carga": "Sólido o líquido. Al pasar a líquido, el modo de descompresión cambia a 4 (si no era 4, 5 o 0) y al volver a sólido regresa al modo por defecto del programa. Con líquido, el programa solo se acepta si: la descompresión es modo 4, 5 o 0, no hay pulsos de prevacío, «Tiempo de secado» = 0, la apertura automática está desactivada y, en los modos 4 y 5, «Presión de cámara durante el enfriamiento» ≥ Psat(«Temperatura de esterilización») + 30 kPa. Además, al terminar o ante un fallo, el escape rápido solo abre cuando la sonda Principal está en o por debajo de la temperatura de enfriamiento; antes se usa el escape lento.",
+      "registro_carga_obligatorio": "Sí: el ciclo no inicia sin el lote y al menos un elemento leídos en la ventana «Carga» de Preciclo (pantalla de carga). No: la carga es opcional. La carga queda ligada al ciclo con su resultado y no pasa al ciclo siguiente.",
+      "impresion_carga": "Qué se imprime de la carga en la tirilla: nada, solo el lote, o el lote y los elementos (hasta 15; el resto se indica como «y N más»). La base de datos, el PDF, el correo y el historial guardan y muestran siempre la carga completa. Con «Nada» tampoco se imprime «CARGA NO ESTÉRIL»."
     },
     "precalentamiento": {
       "tiempo_precalentamiento": "Tiempo, en minutos, que se sostiene la chaqueta en «Presión de precalentamiento» una vez alcanzada. El conteo no se reinicia si la presión cae durante el sostenimiento. Es la primera fase del ciclo. 0 = fase omitida.",
@@ -2079,7 +2084,9 @@
       "rango_presion_chaqueta": "Rango de presión de chaqueta",
       "delta_temp_chaqueta": "Margen de temperatura de chaqueta",
       "margen_flujo_chaqueta": "Margen de flujo de chaqueta",
-      "tipo_carga": "Tipo de carga"
+      "tipo_carga": "Tipo de carga",
+      "registro_carga_obligatorio": "Registro de carga obligatorio",
+      "impresion_carga": "Impresión de la carga"
     },
     "precalentamiento": {
       "presion_precalentamiento": "Presión de precalentamiento",

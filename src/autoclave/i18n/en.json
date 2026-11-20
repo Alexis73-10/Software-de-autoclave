@@ -289,6 +289,9 @@
     "no": "No",
     "valor_solido": "Solid",
     "valor_liquido": "Liquid",
+    "valor_ninguna": "Nothing",
+    "valor_lote": "Lot only",
+    "valor_lote_elementos": "Lot and items",
     "err_bloqueada": "Editing locked: the equipment is not in preparation. Finish or cancel the cycle to change parameters.",
     "err_valor_cambio": "The value changed on the equipment (now {valor}). Check it and try again.",
     "err_rol": "Your user is not allowed to change this parameter.",
@@ -1491,7 +1494,9 @@
       "rango_presion_chaqueta": "Tolerance (±) around the jacket pressure in preparation; outside it an alert is raised and starting is not allowed. Not used during the cycle (fixed ±10 kPa band around the calculated setpoint).",
       "delta_temp_chaqueta": "During the cycle, the jacket pressure setpoint is the larger of Psat(sterilization temperature + this value) and the chamber control ceiling, Psat(sterilization temperature) + sterilization additional pressure, plus the jacket flow margin. Jacket steam opens below setpoint − 10 kPa and closes above setpoint + 10 kPa. If setpoint + 10 kPa reaches 385 kPa (jacket relief) the program is rejected; above 350 kPa (supply) it is saved with a warning: the jacket steam valve stays open during the cycle.",
       "margen_flujo_chaqueta": "Pressure the jacket is held above the chamber control ceiling so that steam flows into the chamber. See the jacket temperature margin for the full setpoint calculation.",
-      "tipo_carga": "Load type: solid or liquid. With a liquid load only depressurization modes 4, 5 and 0 are allowed: switching to liquid changes the mode to 4 (if it was not 4, 5 or 0) and switching back to solid restores the program default mode."
+      "tipo_carga": "Load type: solid or liquid. With a liquid load only depressurization modes 4, 5 and 0 are allowed: switching to liquid changes the mode to 4 (if it was not 4, 5 or 0) and switching back to solid restores the program default mode.",
+      "registro_carga_obligatorio": "Yes: the cycle does not start without the lot and at least one item read in the «Load» window of Pre-cycle (loading screen). No: the load is optional. The load stays linked to the cycle with its result and does not carry over to the next cycle.",
+      "impresion_carga": "What the ticket prints about the load: nothing, the lot only, or the lot and the items (up to 15; the rest shown as «and N more»). The database, PDF, email and history always keep and show the full load. With «Nothing», «LOAD NOT STERILE» is not printed either."
     },
     "precalentamiento": {
       "tiempo_precalentamiento": "Time the jacket is held hot before moving on to pre-vacuum.",
@@ -2079,7 +2084,9 @@
       "rango_presion_chaqueta": "Jacket pressure range",
       "delta_temp_chaqueta": "Jacket temperature margin",
       "margen_flujo_chaqueta": "Jacket flow margin",
-      "tipo_carga": "Load type"
+      "tipo_carga": "Load type",
+      "registro_carga_obligatorio": "Load record required",
+      "impresion_carga": "Load printing"
     },
     "precalentamiento": {
       "presion_precalentamiento": "Preheating pressure",

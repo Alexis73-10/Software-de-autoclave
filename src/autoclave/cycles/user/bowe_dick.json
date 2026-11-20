@@ -65,7 +65,9 @@
                     "liquido"
                 ],
                 "unit": ""
-            }
+            },
+            "registro_carga_obligatorio": {"value": false, "type": "bool"},
+            "impresion_carga": {"value": "ninguna", "type": "enum", "options": ["ninguna", "lote", "lote_elementos"], "unit": ""}
         },
         "precalentamiento": {
             "tiempo_precalentamiento": {

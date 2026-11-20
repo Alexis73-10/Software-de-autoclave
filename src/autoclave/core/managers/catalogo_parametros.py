@@ -103,6 +103,42 @@ CODIGO_COHERENCIA_DESCOMPRESION = "COHERENCIA_DESCOMPRESION"
 # Psat(T_obj) + este valor hasta alcanzar T_obj; 0 desactiva la función.
 PRESION_ADD_LIQUIDO_CALENTAMIENTO_DEFECTO = 15.0   # kPa (diferencia, 0–30)
 ORIGEN_MIGRACION_LIQ_CAL = "migración ajuste 7-nov (presión adicional líquidos)"
+# RCB-03 (registro de la carga con lector, 19-nov): por programa, si la carga
+# es obligatoria al iniciar y qué se imprime de ella en la tirilla. La base
+# guarda siempre todo (RCB-D10). Defecto de impresión «lote_elementos» salvo en
+# Bowie & Dick («ninguna»; DECISIÓN SIN CONFIRMAR). Migración al cargar: agrega
+# los faltantes con auditoría y .bak, sin SIS-06.
+REGISTRO_CARGA_OBLIGATORIO_DEFECTO = False
+IMPRESION_CARGA_OPCIONES = ("ninguna", "lote", "lote_elementos")
+IMPRESION_CARGA_DEFECTO = "lote_elementos"
+IMPRESION_CARGA_DEFECTO_BOWIE_DICK = "ninguna"
+CYCLE_ID_BOWIE_DICK = "bowe_dick"
+ORIGEN_MIGRACION_RCB = "registro de carga (RCB)"
+
+
+def impresion_carga_defecto(cycle_id) -> str:
+    """RCB-03: defecto de `impresion_carga` según el programa."""
+    return (IMPRESION_CARGA_DEFECTO_BOWIE_DICK if cycle_id == CYCLE_ID_BOWIE_DICK
+            else IMPRESION_CARGA_DEFECTO)
+
+
+def impresion_carga(parameters) -> str:
+    """RCB-03: modo de impresión de la carga del programa; uno de
+    IMPRESION_CARGA_OPCIONES. Ausente o ilegible = defecto. Nunca lanza."""
+    try:
+        valor = _valor(parameters, "globals", "impresion_carga", defecto=None)
+    except Exception:
+        valor = None
+    return valor if valor in IMPRESION_CARGA_OPCIONES else IMPRESION_CARGA_DEFECTO
+
+
+def registro_carga_obligatorio(parameters) -> bool:
+    """RCB-03: True solo con `registro_carga_obligatorio` exactamente true.
+    Nunca lanza."""
+    try:
+        return _valor(parameters, "globals", "registro_carga_obligatorio", defecto=False) is True
+    except Exception:
+        return False
 
 # ── P1 (tanda 16, D-14.1): coherencia de la salida de RECUPERACION ─────────
 # Con vapor saturado, la temperatura más alta que permite el techo
