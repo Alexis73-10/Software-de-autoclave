@@ -1158,6 +1158,17 @@ class DbManager:
                 (ciclo_id, str(e["codigo"]), e.get("nombre"), 1 if e.get("en_catalogo") else 0,
                  int(e["cantidad"]), 1 if e.get("manual") else 0, orden))
 
+    def buscar_ciclos_por_carga(self, texto: str, limite: int = 500) -> list:
+        """RCB-07.3: ciclos cuyo lote es `texto` o que tienen ese código en su
+        carga; coincidencia exacta sin distinguir mayúsculas, más recientes
+        primero."""
+        with self._lock:
+            return self._conn.execute(
+                "SELECT * FROM ciclos WHERE lote_carga = ? COLLATE NOCASE OR id IN ("
+                " SELECT ciclo_id FROM ciclo_carga WHERE codigo = ? COLLATE NOCASE) "
+                "ORDER BY fecha_inicio DESC, id DESC LIMIT ?",
+                (texto, texto, int(limite))).fetchall()
+
     def get_carga_ciclo(self, ciclo_id: int) -> dict | None:
         """RCB-07: carga de un ciclo ({"lote", "impresion", "elementos"}) o
         None si el ciclo no tiene carga."""

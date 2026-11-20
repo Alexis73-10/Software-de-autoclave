@@ -26,6 +26,14 @@ Item {
     property var datosGrafica: ({ t_min: [], temp_camara: [], temp_ref: [], pres_camara: [] })
     property var fasesGrafica: []
     property bool graficaDisponible: false
+    // RCB-07.2 (registro de la carga): sección de la carga del ciclo
+    // (domain/registro_carga.seccion_carga; {} sin carga). «Ver carga» cambia
+    // la gráfica por la lista completa; el aviso de carga no estéril se ve
+    // siempre que el ciclo no terminó Completado (HAZ-RCB-02).
+    property var carga: ({})
+    readonly property bool tieneCarga: !!(carga && carga.titulo)
+    property bool verCarga: false
+    onCargaChanged: if (!tieneCarga) verCarga = false
 
     // El botón CERRAR de la gráfica (modo pantalla completa)
     signal cerrarPulsado()
@@ -139,6 +147,128 @@ Item {
         }
     }
 
+    // RCB-07.2: resumen de la carga, aviso de no estéril y botón Ver carga / Ver gráfica
+    Item {
+        id: filaCarga
+        objectName: "filaCargaDetalle"
+        visible: raiz.tieneCarga
+        x: 0
+        y: filaDatos.y + filaDatos.height + raiz.m(20)
+        width: raiz.hz ? raiz._anchoDatosHz : parent.width
+        height: visible ? Math.max(columnaResumenCarga.implicitHeight, botonVerCarga.height) : 0
+        Column {
+            id: columnaResumenCarga
+            width: parent.width - botonVerCarga.width - raiz.m(16)
+            spacing: raiz.m(4)
+            Text {
+                objectName: "resumenCargaDetalle"
+                width: parent.width
+                wrapMode: Text.Wrap
+                text: (raiz.carga.titulo || "") + " · " + (raiz.carga.resumen || "")
+                color: Colores.textoPrimario
+                font.family: Tipografia.familia
+                font.weight: Tipografia.pesoSemiBold
+                font.pixelSize: raiz.fuente(22)
+            }
+            Text {
+                objectName: "noEsterilCargaDetalle"
+                visible: !!raiz.carga.no_esteril
+                width: parent.width
+                wrapMode: Text.Wrap
+                text: raiz.carga.no_esteril || ""
+                color: Colores.alarmaAlta
+                font.family: Tipografia.familia
+                font.weight: Tipografia.pesoBold
+                font.pixelSize: raiz.fuente(22)
+            }
+        }
+        BotonPildora {
+            id: botonVerCarga
+            objectName: "botonVerCargaDetalle"
+            anchors.right: parent.right
+            escala: raiz.escala
+            texto: raiz.verCarga ? I18n.t("registro_carga.ver_grafica", I18n.lang)
+                                 : I18n.t("registro_carga.ver_carga", I18n.lang)
+            onPulsado: raiz.verCarga = !raiz.verCarga
+        }
+    }
+
+    // RCB-07.2: lista completa de la carga en el lugar de la gráfica
+    Item {
+        id: listaCargaDetalle
+        objectName: "listaCargaDetalle"
+        visible: raiz.tieneCarga && raiz.verCarga
+        x: grafica.x
+        y: grafica.y
+        width: grafica.width
+        height: grafica.height
+        Row {
+            id: encabezadoCarga
+            width: parent.width
+            spacing: raiz.m(12)
+            Repeater {
+                model: raiz.carga.columnas || []
+                Text {
+                    width: (encabezadoCarga.width - 3 * encabezadoCarga.spacing)
+                           * [0.1, 0.42, 0.24, 0.24][index]
+                    wrapMode: Text.Wrap
+                    text: modelData
+                    color: Colores.textoSecundario
+                    font.family: Tipografia.familia
+                    font.weight: Tipografia.pesoBold
+                    font.pixelSize: raiz.fuente(20)
+                }
+            }
+        }
+        ListView {
+            anchors.top: encabezadoCarga.bottom
+            anchors.topMargin: raiz.m(8)
+            anchors.bottom: notaCarga.top
+            anchors.bottomMargin: raiz.m(8)
+            width: parent.width
+            clip: true
+            model: raiz.carga.filas || []
+            delegate: Item {
+                required property var modelData
+                width: ListView.view.width
+                height: filaElemento.implicitHeight + raiz.m(12)
+                Row {
+                    id: filaElemento
+                    width: parent.width
+                    spacing: raiz.m(12)
+                    Repeater {
+                        model: modelData
+                        Text {
+                            width: (filaElemento.width - 3 * filaElemento.spacing)
+                                   * [0.1, 0.42, 0.24, 0.24][index]
+                            wrapMode: Text.WrapAnywhere
+                            text: modelData
+                            color: Colores.textoPrimario
+                            font.family: Tipografia.familia
+                            font.pixelSize: raiz.fuente(20)
+                        }
+                    }
+                }
+                Rectangle {
+                    anchors.bottom: parent.bottom
+                    width: parent.width
+                    height: 1
+                    color: Colores.bordeDivisor
+                }
+            }
+        }
+        Text {
+            id: notaCarga
+            anchors.bottom: parent.bottom
+            width: parent.width
+            wrapMode: Text.Wrap
+            text: raiz.carga.nota || ""
+            color: Colores.textoSecundario
+            font.family: Tipografia.familia
+            font.pixelSize: raiz.fuente(18)
+        }
+    }
+
     // Gráfica del ciclo: la misma tarjeta de la pantalla de ciclo en curso, en
     // modo pantalla completa (sin Tiempos; su CERRAR emite cerrarPulsado).
     // Diseñada a 1129 de ancho: se escala para ocupar el ancho disponible.
@@ -146,7 +276,9 @@ Item {
         id: grafica
         objectName: "graficaDetalleCiclo"
         x: raiz.hz ? parent.width - width : 0
-        y: raiz.hz ? 0 : filaDatos.y + filaDatos.height + raiz.m(28)
+        visible: !(raiz.tieneCarga && raiz.verCarga)
+        y: raiz.hz ? 0 : (filaCarga.visible ? filaCarga.y + filaCarga.height
+                                             : filaDatos.y + filaDatos.height) + raiz.m(28)
         width: raiz.hz ? 1129 * raiz._escalaGraficaHz : parent.width
         height: parent.height - y
         escala: width / 1129

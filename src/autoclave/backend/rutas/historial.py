@@ -106,8 +106,15 @@ def get_cycle_history_graph(ciclo_id: int):
 
 
 @router.get("/cycle/history")
-def get_cycle_history(limite: int = 50):
-    """Lista de ciclos registrados (más recientes primero)."""
+def get_cycle_history(limite: int = 50, carga: str | None = None):
+    """Lista de ciclos registrados (más recientes primero).
+    RCB-07.3: con `carga`, búsqueda inversa por lote o código de elemento
+    (coincidencia exacta, sin distinguir mayúsculas): responde
+    {"carga", "ciclos": [filas como /cycle/list], "truncado"} con hasta 500
+    ciclos; un texto que no cumple las reglas de lectura da 422. Sin `carga`
+    la respuesta no cambia."""
+    if carga is not None:
+        return _buscar_por_carga(carga)
     rows = context.db.get_ciclos_recientes(limite)
     return [
         {
@@ -121,6 +128,23 @@ def get_cycle_history(limite: int = 50):
         }
         for r in rows
     ]
+
+
+_LIMITE_BUSQUEDA_CARGA = 500
+
+
+def _buscar_por_carga(texto: str) -> dict:
+    from autoclave.backend.dependencias import RechazoApi
+    from autoclave.core.runtime import registro_carga as rc
+    buscado, motivo = rc.validar_codigo(texto)
+    if motivo:
+        raise RechazoApi(422, "carga_invalida", "Texto de búsqueda no válido",
+                         extra={"motivo": motivo})
+    filas = context.db.buscar_ciclos_por_carga(buscado, _LIMITE_BUSQUEDA_CARGA + 1)
+    return {"carga": buscado,
+            "ciclos": [{**_ciclo_json(f), "lote": f["lote_carga"]}
+                       for f in filas[:_LIMITE_BUSQUEDA_CARGA]],
+            "truncado": len(filas) > _LIMITE_BUSQUEDA_CARGA}
 
 
 def _con_carga(ciclo: dict, ciclo_id: int) -> dict:
