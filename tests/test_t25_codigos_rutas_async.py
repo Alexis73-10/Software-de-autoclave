@@ -30,6 +30,10 @@ ESPERADOS = {
     "/printer/config": {"ARCHIVO_NO_ESCRIBIBLE", "reinicio_no_disponible",
                         "estado_seguro_activo", "confirmacion_pendiente",
                         "modo_prueba_activo"},
+    # RCB-08 (Opciones › Catálogo de carga)
+    "/carga/catalogo": {"codigo_existe", "no_existe", "sin_cambios", "archivo_invalido",
+                        "archivo_no_encontrado", "csv_invalido", "csv_cambio",
+                        "bd_no_disponible"},
 }
 
 # ruta -> controlador que la atiende y muestra su rechazo
@@ -41,6 +45,7 @@ CONTROLADOR = {
     "/language": "parametros_equipo_controller",
     "/units": "parametros_equipo_controller",
     "/printer/config": "parametros_equipo_controller",
+    "/carga/catalogo": "catalogo_carga_controller",
 }
 
 # Textos que faltan en controladores ajenos a este cambio (pedidos al
@@ -50,8 +55,15 @@ FALTAN_AJENOS: set = set()
 CASOS = sorted((r, c) for r, cs in ESPERADOS.items() for c in cs)
 
 
+# códigos que, además de su ruta de ESPERADOS, son propios de otra ruta fuera
+# de esta tabla (RCB-08: "archivo_invalido" y "sin_cambios" también los emite
+# /io/assignment, _CODIGOS_REASIGNACION)
+COMPARTIDOS = {"archivo_invalido": {"/io/assignment"},
+               "sin_cambios": {"/io/assignment"}}
+
+
 def _rutas_de(codigo):
-    return {r for r, cs in ESPERADOS.items() if codigo in cs}
+    return {r for r, cs in ESPERADOS.items() if codigo in cs} | COMPARTIDOS.get(codigo, set())
 
 
 def test_tabla_por_ruta_coincide():
@@ -82,6 +94,7 @@ def test_error_generico_fuera_de_su_ruta(ruta, codigo):
     otras = ["/status", "/cycle/parameter", "/io/assignment", "/usuarios",
              ruta + "x", "/x" + ruta]
     otras += [r for r in ESPERADOS if r not in propias]
+    otras = [r for r in otras if r not in propias]
     for r in otras:
         assert codigo not in sesion_backend.codigos_conocidos(r), (codigo, r)
         res = sesion_backend.interpretar(409, {"codigo": codigo}, r)

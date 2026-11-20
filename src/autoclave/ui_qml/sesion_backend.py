@@ -201,6 +201,12 @@ _CODIGOS_GLOBAL_PARAMS = frozenset({     # ParametrosEquipoController
     "incoherente_empaque", "incoherente_limites", "calibracion_en_curso",
 })
 _CODIGOS_ARCHIVO = frozenset({"ARCHIVO_NO_ESCRIBIBLE"})     # /language, /units
+# RCB-08 (Opciones › Catálogo de carga): rechazos de /carga/catalogo*; su
+# texto lo pone CatalogoCargaController (_MENSAJES).
+_CODIGOS_CATALOGO_CARGA = frozenset({
+    "codigo_existe", "no_existe", "sin_cambios", "archivo_invalido",
+    "archivo_no_encontrado", "csv_invalido", "csv_cambio", "bd_no_disponible",
+})
 _CODIGOS_IMPRESORA = frozenset({     # ParametrosEquipoController
     "ARCHIVO_NO_ESCRIBIBLE", "reinicio_no_disponible", "estado_seguro_activo",
     "confirmacion_pendiente", "modo_prueba_activo",
@@ -288,7 +294,8 @@ _CODIGOS_POR_RUTA = (("/io/assignment", _CODIGOS_REASIGNACION),
                      ("/global_params", _CODIGOS_GLOBAL_PARAMS),
                      ("/language", _CODIGOS_ARCHIVO),
                      ("/units", _CODIGOS_ARCHIVO),
-                     ("/printer/config", _CODIGOS_IMPRESORA)) + tuple(
+                     ("/printer/config", _CODIGOS_IMPRESORA),
+                     ("/carga/catalogo", _CODIGOS_CATALOGO_CARGA)) + tuple(
     (prefijo, frozenset(claves)) for prefijo, claves in _CLAVES_POR_RUTA)
 
 

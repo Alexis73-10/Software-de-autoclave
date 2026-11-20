@@ -257,7 +257,8 @@
       "fecha_hora": "Fecha y hora",
       "info_sistema": "Información del sistema",
       "bitacora": "Bitácora de auditoría",
-      "respaldo": "Respaldo"
+      "respaldo": "Respaldo",
+      "catalogo_carga": "Catálogo de carga"
     },
     "secciones_programa": {
       "precalentamiento": "Precalentamiento",
@@ -1578,7 +1579,7 @@
       "intervalo_segmentos_ester": "Periodo, en segundos, del PWM de vapor dentro de la banda local. 0 = vapor abierto continuo dentro de la banda; solo lo cierran el límite superior de la banda y el techo de control.",
       "rango_temperatura_ester": "Sobretemperatura admitida: si la sonda Principal supera T_est + este valor durante 3 lecturas consecutivas, el ciclo falla. También es el límite superior del aviso de uniformidad de las Referencias.",
       "rango_presion_ester": "Sobrepresión admitida: si la presión de cámara supera Psat(T_est) + este valor durante 3 lecturas consecutivas, el ciclo falla.",
-      "brecha_segura_temperatura": "Margen sobre T_est que separa la recuperación del control fino. Con T Principal < T_est + este valor (o presión bajo el umbral de «Margen de recuperación por presión») el vapor abre continuo; por encima pasa a PWM. Un valor mayor da más reserva térmica y más sobretemperatura media.",
+      "brecha_segura_temperatura": "Margen sobre T_est que separa la recuperación del control fino. Con T Principal < T_est + este valor (o presión bajo el umbral de «Margen de recuperación sobre Psat») el vapor abre continuo; por encima pasa a PWM. Un valor mayor da más reserva térmica y más sobretemperatura media.",
       "brecha_error_temperatura": "Caída admitida bajo T_est: si la sonda Principal baja de T_est − este valor durante 3 lecturas consecutivas, el ciclo falla. También es el límite inferior del aviso de uniformidad de las Referencias.",
       "brecha_error_presion": "Caída admitida bajo Psat(T_est): si la presión de cámara baja de Psat(T_est) − este valor durante 3 lecturas consecutivas, el ciclo falla.",
       "brecha_segura_presion": "Margen sobre Psat(T_est) bajo el cual se activa la recuperación (vapor abierto continuo) aunque la temperatura esté en rango; compensa la pérdida de presión por el escape lento. Debe ser menor que «Presión adicional de esterilización» menos 3 kPa.",
@@ -2762,6 +2763,23 @@
     "motivo_sin_encabezado": "falta el encabezado codigo;nombre",
     "motivo_muchas_filas": "más de 5000 filas",
     "motivo_muy_grande": "archivo demasiado grande",
-    "motivo_ilegible": "no se pudo leer"
+    "motivo_ilegible": "no se pudo leer",
+    "catalogo_resumen": "{total} elementos · {activos} activos · {baja} de baja",
+    "catalogo_roles": "Solo ingeniero y administrador",
+    "col_nombre": "Nombre",
+    "col_estado": "Estado",
+    "editar_boton": "Editar",
+    "guardar": "Guardar",
+    "cerrar": "Cerrar",
+    "sin_codigo": "Sin código leído",
+    "sin_nombre": "Sin nombre",
+    "escribir_nombre": "Escribir nombre",
+    "nota_alta_titulo": "Alta con el lector:",
+    "nota_alta": "toque + Alta, lea el código con el lector y escriba el nombre con el teclado.",
+    "nota_importar_titulo": "Importar CSV:",
+    "nota_importar": "archivo en USB con encabezado codigo;nombre. Se muestra una vista previa antes de aplicar.",
+    "importar_elegir": "Toque el archivo para ver la vista previa",
+    "actualizar_usb": "Actualizar",
+    "procesando": "Procesando…"
   }
 }

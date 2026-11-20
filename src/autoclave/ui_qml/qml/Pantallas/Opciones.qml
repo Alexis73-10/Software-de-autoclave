@@ -138,7 +138,7 @@ Item {
                        info_sistema: infoSistema, bitacora: bitacora,
                        mantenimiento: mantenimiento, conectividad: conectividad,
                        respaldo: respaldo, entradas_salidas: entradasSalidas,
-                       opciones_avanzadas: avanzadas }
+                       opciones_avanzadas: avanzadas, catalogo_carga: catalogoCarga }
         return mapa[clave] ?? null
     }
     // Flickables (y ListView) de la sección, en orden de recorrido
@@ -589,6 +589,20 @@ Item {
             }
         }
 
+        // Catálogo de carga (RCB-08): ingeniero y admin; sin restricción de
+        // estado (permisos_opciones), el backend es la autoridad
+        CargadorSeccion {
+            id: catalogoCarga
+            objectName: "cargadorCatalogoCarga"
+            seleccionada: raiz.seccionActiva === "catalogo_carga"
+            anchors.fill: parent
+            anchors.topMargin: raiz.edicionPermitida ? 0 : raiz.m(84)
+            sourceComponent: OpcionesCatalogoCarga {
+                teclado: raiz.teclado
+                edicionPermitida: raiz.edicionPermitida
+            }
+        }
+
         // Entradas / Salidas (planeacion_opciones_entradas_salidas.md)
         CargadorSeccion {
             id: entradasSalidas
@@ -629,6 +643,7 @@ Item {
                      && raiz.seccionActiva !== "bitacora"
                      && raiz.seccionActiva !== "conectividad"
                      && raiz.seccionActiva !== "respaldo"
+                     && raiz.seccionActiva !== "catalogo_carga"
                      && raiz.seccionActiva !== "opciones_avanzadas"
             anchors.centerIn: parent
             text: I18n.t("opciones.proximamente", I18n.lang)

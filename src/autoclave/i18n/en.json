@@ -257,7 +257,8 @@
       "fecha_hora": "Date and time",
       "info_sistema": "System information",
       "bitacora": "Audit log",
-      "respaldo": "Backup"
+      "respaldo": "Backup",
+      "catalogo_carga": "Load catalog"
     },
     "secciones_programa": {
       "precalentamiento": "Preheating",
@@ -2762,6 +2763,23 @@
     "motivo_sin_encabezado": "missing header codigo;nombre",
     "motivo_muchas_filas": "more than 5000 rows",
     "motivo_muy_grande": "file too large",
-    "motivo_ilegible": "could not be read"
+    "motivo_ilegible": "could not be read",
+    "catalogo_resumen": "{total} items · {activos} active · {baja} inactive",
+    "catalogo_roles": "Engineer and administrator only",
+    "col_nombre": "Name",
+    "col_estado": "Status",
+    "editar_boton": "Edit",
+    "guardar": "Save",
+    "cerrar": "Close",
+    "sin_codigo": "No code read",
+    "sin_nombre": "No name",
+    "escribir_nombre": "Type name",
+    "nota_alta_titulo": "Add with the scanner:",
+    "nota_alta": "tap + Add, read the code with the scanner and type the name with the keyboard.",
+    "nota_importar_titulo": "Import CSV:",
+    "nota_importar": "file on a USB drive with the header codigo;nombre. A preview is shown before applying.",
+    "importar_elegir": "Tap the file to see the preview",
+    "actualizar_usb": "Refresh",
+    "procesando": "Processing…"
   }
 }

@@ -18,7 +18,8 @@ _TECNICAS = ["parametros_ciclo", "parametros_sistema", "entradas_salidas",
 _ADMIN = ["usuarios", "conectividad", *COMUNES_T6]
 
 _ESPERADO = {
-    "admin":     ["parametros_sistema"] + _ADMIN,   # C1b (tanda 6): solo lectura
+    # RCB-08.1: Catálogo de carga para admin e ingeniero (al final)
+    "admin":     ["parametros_sistema"] + _ADMIN + ["catalogo_carga"],   # C1b (tanda 6): solo lectura
     # Conectividad también para técnico e ingeniero (tanda 2026-10-14 §1.6)
     # O2b (tanda 6, decisión 1.9): el técnico ve Usuarios con los controles deshabilitados
     # C9 (tanda 9, D9-10): Opciones avanzadas para técnico e ingeniero (Manejo
@@ -26,7 +27,7 @@ _ESPERADO = {
     "tecnico":   _TECNICAS + _ADMIN + ["respaldo"],
     "biomedico": [],      # rol eliminado (planeacion_backend_autenticacion.md, decisión 25)
     # Usuarios también para el ingeniero (Cristian, 2026-10-08; T-8, R3-5)
-    "ingeniero": _TECNICAS + _ADMIN + ["respaldo"],   # O2h
+    "ingeniero": _TECNICAS + _ADMIN + ["respaldo", "catalogo_carga"],   # O2h, RCB-08.1
     "operador":  [],      # defecto de la tabla usuarios, fuera de roles.py
     "":          [],
     None:        [],
@@ -35,7 +36,7 @@ _ESPERADO = {
 
 def test_orden_de_la_navegacion():
     # U-2: las cinco de AdminMenuView._OPTIONS en su orden; al final las de admin
-    assert [s.clave for s in SECCIONES] == _TECNICAS + _ADMIN + ["respaldo"]
+    assert [s.clave for s in SECCIONES] == _TECNICAS + _ADMIN + ["respaldo", "catalogo_carga"]
 
 
 def test_los_roles_de_la_politica_existen():
