@@ -89,6 +89,24 @@
     "title": "_ActivoBody",
     "type": "object"
    },
+   "_AltaBody": {
+    "properties": {
+     "codigo": {
+      "title": "Codigo",
+      "type": "string"
+     },
+     "nombre": {
+      "title": "Nombre",
+      "type": "string"
+     }
+    },
+    "required": [
+     "codigo",
+     "nombre"
+    ],
+    "title": "_AltaBody",
+    "type": "object"
+   },
    "_AplicarBody": {
     "properties": {
      "cambios": {
@@ -315,6 +333,40 @@
     "title": "_IdiomaBody",
     "type": "object"
    },
+   "_ImportarBody": {
+    "properties": {
+     "aplicar": {
+      "default": false,
+      "title": "Aplicar",
+      "type": "boolean"
+     },
+     "archivo": {
+      "title": "Archivo",
+      "type": "string"
+     },
+     "huella": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Huella"
+     },
+     "unidad": {
+      "title": "Unidad",
+      "type": "string"
+     }
+    },
+    "required": [
+     "unidad",
+     "archivo"
+    ],
+    "title": "_ImportarBody",
+    "type": "object"
+   },
    "_ImpresoraConfigBody": {
     "properties": {
      "habilitada": {
@@ -431,6 +483,34 @@
      "tipo"
     ],
     "title": "_MantenimientoRegistroBody",
+    "type": "object"
+   },
+   "_ModificarBody": {
+    "properties": {
+     "activo": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Activo"
+     },
+     "nombre": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Nombre"
+     }
+    },
+    "title": "_ModificarBody",
     "type": "object"
    },
    "_ModificarUsuarioBody": {
@@ -1621,6 +1701,260 @@
     "summary": "Restaurar Calibracion"
    }
   },
+  "/carga/catalogo": {
+   "get": {
+    "description": "RCB-08.4: lectura libre (la usa Preciclo sin sesión).",
+    "operationId": "listar_catalogo_carga_catalogo_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "activos",
+      "required": false,
+      "schema": {
+       "default": false,
+       "title": "Activos",
+       "type": "boolean"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Listar Catalogo"
+   },
+   "post": {
+    "operationId": "alta_catalogo_carga_catalogo_post",
+    "parameters": [
+     {
+      "in": "header",
+      "name": "authorization",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/_AltaBody"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Alta Catalogo"
+   }
+  },
+  "/carga/catalogo/importar": {
+   "post": {
+    "description": "Sin `aplicar`: vista previa (altas, cambios de nombre, reactivaciones y\nlíneas rechazadas con su motivo) y la huella del archivo. Con `aplicar` y\nla huella de la vista previa: aplica las filas válidas en una sola\ntransacción (todo o nada); si el archivo cambió desde la vista previa,\n409 `csv_cambio` sin aplicar nada.",
+    "operationId": "importar_catalogo_carga_catalogo_importar_post",
+    "parameters": [
+     {
+      "in": "header",
+      "name": "authorization",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/_ImportarBody"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Importar Catalogo"
+   }
+  },
+  "/carga/catalogo/usb": {
+   "get": {
+    "description": "CSV en la raíz de cada USB detectada (mismo descubrimiento que el\nrespaldo).",
+    "operationId": "listar_csv_usb_carga_catalogo_usb_get",
+    "parameters": [
+     {
+      "in": "header",
+      "name": "authorization",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Listar Csv Usb"
+   }
+  },
+  "/carga/catalogo/{id_}": {
+   "patch": {
+    "operationId": "modificar_catalogo_carga_catalogo__id___patch",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "id_",
+      "required": true,
+      "schema": {
+       "title": "Id ",
+       "type": "integer"
+      }
+     },
+     {
+      "in": "header",
+      "name": "authorization",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/_ModificarBody"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Modificar Catalogo"
+   }
+  },
   "/cycle": {
    "get": {
     "operationId": "get_selected_cycle_cycle_get",
@@ -1898,7 +2232,7 @@
   },
   "/cycle/history": {
    "get": {
-    "description": "Lista de ciclos registrados (más recientes primero).",
+    "description": "Lista de ciclos registrados (más recientes primero).\nRCB-07.3: con `carga`, búsqueda inversa por lote o código de elemento\n(coincidencia exacta, sin distinguir mayúsculas): responde\n{\"carga\", \"ciclos\": [filas como /cycle/list], \"truncado\"} con hasta 500\nciclos; un texto que no cumple las reglas de lectura da 422. Sin `carga`\nla respuesta no cambia.",
     "operationId": "get_cycle_history_cycle_history_get",
     "parameters": [
      {
@@ -1909,6 +2243,22 @@
        "default": 50,
        "title": "Limite",
        "type": "integer"
+      }
+     },
+     {
+      "in": "query",
+      "name": "carga",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Carga"
       }
      }
     ],
