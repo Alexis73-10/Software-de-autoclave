@@ -497,9 +497,6 @@ Item {
             anchors.top: encabezadoSeccion.bottom; anchors.topMargin: Escala.px(12)
             anchors.left: parent.left; anchors.right: parent.right
             anchors.bottom: pieSeccion.top
-            // RV-06 (revisión visual, 19-nov): la fila recortada al pie quedaba
-            // pegada a la leyenda, como si esta la tapara; un margen las separa
-            anchors.bottomMargin: Escala.px(16)
             clip: true
             cellWidth: Escala.horizontal ? Math.floor(width / 2) : width
             cellHeight: Escala.px(92)

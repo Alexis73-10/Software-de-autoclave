@@ -1,0 +1,131 @@
+{
+ "IntroArranque": {
+  "malos": [],
+  "solapes": [],
+  "avisos": []
+ },
+ "Login": {
+  "malos": [],
+  "solapes": [],
+  "avisos": []
+ },
+ "CambioClave": {
+  "malos": [],
+  "solapes": [],
+  "avisos": []
+ },
+ "NuevoUsuario": {
+  "malos": [],
+  "solapes": [],
+  "avisos": []
+ },
+ "MenuPrincipal": {
+  "malos": [],
+  "solapes": [],
+  "avisos": []
+ },
+ "PantallaPreciclo": {
+  "malos": [],
+  "solapes": [],
+  "avisos": []
+ },
+ "PantallaCicloEnCurso": {
+  "malos": [],
+  "solapes": [],
+  "avisos": []
+ },
+ "Instalacion": {
+  "malos": [],
+  "solapes": [],
+  "avisos": []
+ },
+ "Reposo": {
+  "malos": [],
+  "solapes": [],
+  "avisos": []
+ },
+ "Opciones": {
+  "malos": [],
+  "solapes": [],
+  "avisos": []
+ },
+ "OpcionesParametrosCiclo": {
+  "malos": [],
+  "solapes": [],
+  "avisos": []
+ },
+ "OpcionesParametrosEquipo": {
+  "malos": [],
+  "solapes": [],
+  "avisos": []
+ },
+ "OpcionesUsuarios": {
+  "malos": [],
+  "solapes": [],
+  "avisos": []
+ },
+ "OpcionesFechaHora": {
+  "malos": [],
+  "solapes": [],
+  "avisos": []
+ },
+ "OpcionesInfoSistema": {
+  "malos": [],
+  "solapes": [],
+  "avisos": []
+ },
+ "OpcionesBitacora": {
+  "malos": [],
+  "solapes": [],
+  "avisos": []
+ },
+ "OpcionesCalibracionAtm": {
+  "malos": [],
+  "solapes": [],
+  "avisos": []
+ },
+ "OpcionesCalibracionSensor": {
+  "malos": [],
+  "solapes": [],
+  "avisos": [
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/src/autoclave/ui_qml/qml/Pantallas/OpcionesCalibracionSensor.qml:216: TypeError: Cannot read property 'operacionEnCurso' of null",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/src/autoclave/ui_qml/qml/Pantallas/OpcionesCalibracionSensor.qml:217: TypeError: Cannot read property 'operacionEnCurso' of null",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/src/autoclave/ui_qml/qml/Pantallas/OpcionesCalibracionSensor.qml:296: TypeError: Cannot read property 'gain' of undefined",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/src/autoclave/ui_qml/qml/Pantallas/OpcionesCalibracionSensor.qml:311: TypeError: Cannot read property 'offset' of undefined",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/src/autoclave/ui_qml/qml/Pantallas/OpcionesCalibracionSensor.qml:324: TypeError: Cannot read property 'poly' of undefined",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/src/autoclave/ui_qml/qml/Pantallas/OpcionesCalibracionSensor.qml:184: TypeError: Cannot read property 'valido' of undefined",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/src/autoclave/ui_qml/qml/Pantallas/OpcionesCalibracionSensor.qml:184: TypeError: Cannot read property 'valido' of undefined",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/src/autoclave/ui_qml/qml/Pantallas/OpcionesCalibracionSensor.qml:35: TypeError: Cannot read property 'length' of undefined",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/src/autoclave/ui_qml/qml/Pantallas/OpcionesCalibracionSensor.qml:33: TypeError: Cannot read property 'presion' of null",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/src/autoclave/ui_qml/qml/Pantallas/OpcionesCalibracionSensor.qml:373: TypeError: Cannot read property 'valido' of undefined",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/src/autoclave/ui_qml/qml/Pantallas/OpcionesCalibracionSensor.qml:44: TypeError: Cannot read property 'calibracion' of null",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/src/autoclave/ui_qml/qml/Pantallas/OpcionesCalibracionSensor.qml:387: TypeError: Cannot read property 'ultimo' of undefined",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/src/autoclave/ui_qml/qml/Pantallas/OpcionesCalibracionSensor.qml:46: TypeError: Cannot read property 'calibracion' of null",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/src/autoclave/ui_qml/qml/Pantallas/OpcionesCalibracionSensor.qml:401: TypeError: Cannot read property 'puedeCalibrar' of null",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/src/autoclave/ui_qml/qml/Pantallas/OpcionesCalibracionSensor.qml:411: TypeError: Cannot read property 'puedeCalibrar' of null",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/src/autoclave/ui_qml/qml/Pantallas/OpcionesCalibracionSensor.qml:59: TypeError: Cannot read property 'operacionEnCurso' of null",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/src/autoclave/ui_qml/qml/Pantallas/OpcionesCalibracionSensor.qml:47: TypeError: Cannot read property 'puedeCalibrar' of null",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/src/autoclave/ui_qml/qml/Pantallas/OpcionesCalibracionSensor.qml:435: TypeError: Cannot read property 'detalle' of null"
+  ]
+ },
+ "OpcionesConectividad": {
+  "malos": [],
+  "solapes": [],
+  "avisos": []
+ },
+ "OpcionesRespaldo": {
+  "malos": [],
+  "solapes": [],
+  "avisos": []
+ },
+ "OpcionesEntradasSalidas": {
+  "malos": [],
+  "solapes": [],
+  "avisos": []
+ },
+ "OpcionesMantenimiento": {
+  "malos": [],
+  "solapes": [],
+  "avisos": []
+ }
+}
