@@ -307,7 +307,8 @@ def test_ingeniero_edita_con_ciclo_en_curso():
     # Excepción de Cristian (2026-10-07): el ingeniero modifica lo que sea en cualquier momento
     r = _correr("CICLO", "ingeniero")
     _navegacion_comun(r)
-    assert r["entradas"] == _TECNICAS + ["usuarios", "conectividad", *COMUNES_T6, "respaldo"]   # T-8, R3-5; tanda §1.6; O2h
+    assert r["entradas"] == _TECNICAS + ["usuarios", "conectividad", *COMUNES_T6, "respaldo",
+                              "catalogo_carga"]   # T-8, R3-5; tanda §1.6; O2h; RCB-08.1
     assert r["aviso_bloqueo"] is False            # Parámetros del ciclo
     assert r["aviso_bloqueo_segunda"] is False    # Parámetros del equipo
 
@@ -315,7 +316,8 @@ def test_ingeniero_edita_con_ciclo_en_curso():
 def test_admin_ve_solo_usuarios_y_conectividad():
     r = _correr("PREPARADO", "admin")
     _navegacion_comun(r)
-    assert r["entradas"] == ["parametros_sistema", "usuarios", "conectividad", *COMUNES_T6]   # C1b
+    assert r["entradas"] == ["parametros_sistema", "usuarios", "conectividad", *COMUNES_T6,
+                             "catalogo_carga"]   # C1b; RCB-08.1
     assert r["seccion_activa"] == "usuarios"     # el admin aterriza en Usuarios
     assert r["titulo"] == "USUARIOS"
     # Usuarios: botón a Nuevo usuario en lugar de "Próximamente" (T-8, R2-5)

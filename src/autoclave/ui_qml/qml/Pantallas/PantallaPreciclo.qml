@@ -53,6 +53,7 @@ Item {
     Connections {
         target: raiz.puente
         enabled: raiz.registroCarga !== null
+        ignoreUnknownSignals: true
         function onDatosCicloChanged() { raiz.registroCarga?.revisarRequerida() }
     }
     Component.onCompleted: registroCarga?.revisarRequerida()
