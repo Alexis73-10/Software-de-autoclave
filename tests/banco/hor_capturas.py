@@ -403,7 +403,7 @@ _SCRIPT = textwrap.dedent(r'''
         comp.setData(("import QtQuick\nQtObject {\n" + FUNCION_REVISAR + FUERA + FUNCION_SOLAPES + "\n}\n").encode("utf-8"),
                      QUrl.fromLocalFile(QML_DIR + "/_revisor_hor.qml"))
         rev = comp.create()
-        problemas, fuera = [], []
+        problemas, fuera, solapes = [], [], []
         QTest.qWait(10)
         if rev is not None:
             r = json.loads(QMetaObject.invokeMethod(rev, "revisarDesde", Q_RETURN_ARG("QVariant"),
@@ -415,17 +415,17 @@ _SCRIPT = textwrap.dedent(r'''
             problemas += json.loads(QMetaObject.invokeMethod(rev, "desbordesTexto", Q_RETURN_ARG("QVariant"),
                                                              Q_ARG("QVariant", win.contentItem()),
                                                              Q_ARG("QVariant", W), Q_ARG("QVariant", H)))
-            # RV etapa A: solapes entre elementos (tests/helpers/solapes_qml.py)
+            # RV etapa A: solapes entre elementos (tests/helpers/solapes_qml.py), en
+            # su propia clave del resumen: `problemas` queda como antes (lo comparan
+            # tests/banco/resp_capturas.py y test_resp_sin_barras.py)
             solapes = json.loads(QMetaObject.invokeMethod(rev, "solapesDesde", Q_RETURN_ARG("QVariant"),
                                                           Q_ARG("QVariant", win.contentItem()),
                                                           Q_ARG("QVariant", W), Q_ARG("QVariant", H),
                                                           Q_ARG("QVariant", list(ANIMADOS)),
                                                           Q_ARG("QVariant", list(INSIGNIAS))))
-            problemas += solapes
-        print("captura", nombre, len(problemas), "problemas", len(fuera), "fuera",
-              sum(1 for x in problemas if x.get("tipo") == "solape"), "solapes")
+        print("captura", nombre, len(problemas), "problemas", len(fuera), "fuera")
         win.close(); engine.deleteLater(); QTest.qWait(50)
-        return {"problemas": problemas, "fuera": fuera,
+        return {"problemas": problemas, "fuera": fuera, "solapes": solapes,
                 "avisos": [a for a in avisos if "Binding loop" not in a][:10]}
 
     resumen = {}

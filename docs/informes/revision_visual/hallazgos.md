@@ -4,6 +4,8 @@ Etapa C, 19-nov. Fuente: capturas offscreen de `base/` (137 escenarios × 8 comb
 
 Detectores en `base/` (las 8 combinaciones): 144 solapes, 80 sale_del_cuadro, 76 cruza_divisor, 54 encogido, 2 no_cabe_al_minimo, 2 tinta_ancho y 248 «fuera del lienzo»; la I4 a 1024 × 1638, sin truncados ni solapes. Casi todos son falsos positivos (ver al final) o se agrupan en las entradas de abajo.
 
+Resumen: 38 hallazgos (4 ALTA, 11 MEDIA, 23 BAJA): 10 de categoría 1 y 28 de categoría 2 (RV-14, RV-15, RV-24, RV-25 y RV-26 pasaron a la 2 en la etapa D, al implementarlos o ampliarlos); 6 grupos de falsos positivos. RV-38 se encontró en la etapa D; 6 grupos de falsos positivos. La pasada de íconos en ventana real (B2) agregó RV-37 y no encontró otros íconos ausentes, deformados ni sin contraste.
+
 Categorías: 1 = corrección de maquetación (se corrige en la etapa D); 2 = decisión de Cristian; FP = falso positivo.
 
 ## ALTA
@@ -31,6 +33,15 @@ Categorías: 1 = corrección de maquetación (se corrige en la etapa D); 2 = dec
 - Origen: detector `cruza_divisor` (x 213, ancho 776) y visual.
 - QML: `Pantallas/PantallaPreciclo.qml:441-462` (ancho, ajuste de línea, `maximumLineCount` y `fontSizeMode` solo con `raiz.hz`).
 - Categoría 1: limitar el texto al recuadro central también en vertical (dos líneas y ajuste de letra), como ya hace el horizontal.
+
+### RV-38. Ajuste de un parámetro (ciclo y equipo): el campo del nuevo valor es blanco en oscuro
+- Escenarios `d_ciclo_ajuste` y `d_equipo_ajuste`; los dos tamaños; oscuro; es y en. Se encontró al ampliar RV-24 en la etapa D.
+- Se ve: el recuadro «Toque para ingresar el nuevo valor» queda blanco sobre la tarjeta oscura; el valor elegido se pinta con `textoPrimario` (claro en oscuro) y no se vería antes de guardarlo.
+- Evidencia: `base/1200x1920_es/hor_oscuro_d_equipo_ajuste.png`, zona 220,720,1110,820.
+- Origen: visual; luego una búsqueda de los recuadros de campo sin color propio (`border.color: Colores.bordeCampo`) dio los dos de Opciones y los dos del arnés de teclados (RV-36).
+- QML: `Pantallas/OpcionesParametrosCiclo.qml:1059` (`campoNuevoValor`), `Pantallas/OpcionesParametrosEquipo.qml:1015` (`campoNuevoValorEquipo`).
+- Severidad ALTA (el valor de un parámetro del ciclo o del equipo, antes de guardarlo).
+- Categoría 1: `color: Colores.fondoCampo` (#FFFFFF en claro, igual que antes).
 
 ## MEDIA
 
@@ -120,13 +131,13 @@ Categorías: 1 = corrección de maquetación (se corrige en la etapa D); 2 = dec
 - Escenarios `login_teclado*`, `inst_teclado_*`, `cambio_clave_teclado`, `nuevo_usuario_teclado`, `teclado_alfa`; 1920x1200.
 - Evidencia: `base/1920x1200_es/hor_claro_inst_teclado_clave.png`, zona 0,640,400,740.
 - QML: `Componentes/TecladoAlfanumerico.qml:71-82`, `Componentes/PanelTeclado.qml:194`, :256.
-- Categoría 1.
+- Categoría 2: ensanchar la columna del título cambia la geometría del teclado en pantalla, compartido por todas las pantallas (y fijada por sus pruebas).
 
 ### RV-15. Nuevo usuario: el interruptor «Activo» no se alinea con «Estado» ni con los campos
 - Escenarios `nuevo_usuario*`; los dos tamaños.
 - Evidencia: `base/1200x1920_es/hor_claro_nuevo_usuario.png`, zona 60,1030,1140,1230.
 - QML: `Pantallas/NuevoUsuario.qml:494-515`.
-- Categoría 1.
+- Categoría 2: el interruptor está en una posición fija del mockup (x 206 en vertical); alinearlo es mover un control del formulario.
 
 ### RV-16. Asistente, modo automatizado: la ayuda queda pegada a «Serie original del equipo»
 - Escenario `inst_activacion_auto`; los dos tamaños.
@@ -178,20 +189,20 @@ Categorías: 1 = corrección de maquetación (se corrige en la etapa D); 2 = dec
 - Escenario `d_equipo_ajuste`; los dos tamaños.
 - Evidencia: `base/1200x1920_es/hor_oscuro_d_equipo_ajuste.png`, zona 200,440,1200,480.
 - QML: `Pantallas/OpcionesParametrosEquipo.qml:921-935`, :1120-1160.
-- Categoría 1 (a confirmar al ampliar en la etapa D).
+- Categoría 2: al ampliar, la franja de Cancelar/Por defecto/Guardar es la barra de acciones de la página y queda visible a propósito; el renglón que asoma está en el hueco entre esa franja y la tarjeta del ajuste. Taparlo es reubicar la tarjeta modal.
 
 ### RV-25. Entradas/Salidas en vertical: nombres de salida de tamaños distintos
 - Escenarios `d_es_salidas`, `d_entradas_salidas`; 1200x1920.
 - Se ve: con HorizontalFit solo algunos nombres se encogen («Descompresión chaqueta», «Aire comprimido cámara») y «Desbloqueo puerta 1/2» queda a ~5 px de «APAGADA».
 - Evidencia: `base/1200x1920_es/hor_claro_d_es_salidas.png`, zona 180,1020,1200,1250.
 - QML: `Pantallas/OpcionesEntradasSalidas.qml:155-163`.
-- Categoría 1 (ajuste a dos líneas como en horizontal).
+- Categoría 2: pasar a dos líneas en vertical cambia el alto que necesita cada tarjeta de salida (control del modo prueba); no se hizo sin decisión.
 
 ### RV-26. Parámetros del ciclo: la flecha «‹» no se alinea con el título de la subvista
 - Escenarios `d_parametros_ciclo_fase`, `d_ciclo_sensores`.
 - Evidencia: `base/1200x1920_es/hor_claro_d_parametros_ciclo_fase.png`, zona 200,310,700,400.
 - QML: `Pantallas/OpcionesParametrosCiclo.qml:466-495`.
-- Categoría 1.
+- Categoría 2: en la etapa D se probó centrar el título con la flecha y no mejoró (la tinta de «‹» queda baja dentro de su caja de 96 px); alinearla de verdad pide mover o cambiar la flecha de volver. Cambio revertido.
 
 ### RV-27. Usuarios: la nota de «usuario eliminado» aparece también en la pestaña Operadores
 - Escenario `d_usuarios_operadores`. QML: `Pantallas/OpcionesUsuarios.qml:231-238`.
@@ -232,6 +243,15 @@ Categorías: 1 = corrección de maquetación (se corrige en la etapa D); 2 = dec
 ### RV-36. Pantalla de prueba de teclados: la caja del valor es blanca en oscuro
 - Escenarios `teclado_alfa`, `teclado_num` (arnés `Pruebas/PruebaTeclado*.qml`, no es una pantalla del equipo).
 - Categoría 1 (solo arnés de prueba).
+
+### RV-37. Reportes en vertical oscuro: Inicio y Salir sin ícono (pasada en ventana real, B2)
+- Todos los escenarios `reportes*`; 1200x1920; oscuro. En horizontal ya usaba `IconoColor`.
+- Se ve: el trazo #231F20 y #000 de `home_icon.svg` y `logout_icon.svg` sobre la barra oscura; quedan solo los textos «Inicio» y «Salir».
+- Evidencia: `base_windows/1200x1920_es/hor_oscuro_reportes.png`, zona 40,1750,1160,1900.
+- Origen: visual (B2; offscreen no dibuja `IconoColor`, por eso no salió en la etapa C).
+- QML: `Pantallas/Reportes.qml:208-216` y :245-253 (`Image` con `visible: !raiz.hz`; el comentario lo marcaba «preexistente en el vertical oscuro, pendiente de decisión»).
+- Severidad MEDIA (botones de navegación; el texto sí se lee).
+- Categoría 1: `IconoColor` también en vertical, con `Colores.iconoBarraMenu` y `Colores.textoNegro`, cuyos valores claros son exactamente los del SVG (#231F20 y #000000).
 
 ## Falsos positivos
 

@@ -205,20 +205,12 @@ Item {
         Item {
             objectName: "botonInicioReportes"
             x: 0; y: 0; width: barra.mx(313); height: parent.height
-            Image {
-                visible: !raiz.hz
-                anchors.horizontalCenter: parent.horizontalCenter
-                y: raiz.m(18)
-                width: raiz.m(60); height: width
-                source: "../../assets/iconos/color/home_icon.svg"
-                sourceSize.width: width; sourceSize.height: height
-            }
-            // horizontal: la casa pintada con el color de la barra, legible en
-            // oscuro (el trazo #231F20 del SVG casi no se ve sobre la barra
-            // oscura; preexistente en el vertical oscuro, pendiente de decisión)
+            // la casa pintada con el color de la barra, legible en oscuro (el trazo
+            // #231F20 del SVG casi no se veía sobre la barra oscura). RV-37
+            // (revisión visual, 19-nov): también en vertical, donde el oscuro
+            // quedaba sin ícono; en claro el color es el mismo del SVG
             IconoColor {
                 objectName: "iconoInicioReportesHz"
-                visible: raiz.hz
                 anchors.horizontalCenter: parent.horizontalCenter
                 y: raiz.m(18)
                 width: raiz.m(60); height: width
@@ -242,19 +234,10 @@ Item {
         Item {
             objectName: "botonSalirReportes"
             x: barra.mx(800); y: 0; width: barra.mx(1128 - 800); height: parent.height
-            Image {
-                visible: !raiz.hz
-                anchors.horizontalCenter: parent.horizontalCenter
-                y: raiz.m(18)
-                width: raiz.m(60); height: width
-                source: "../../assets/iconos/color/logout_icon.svg"
-                sourceSize.width: width; sourceSize.height: height
-            }
-            // horizontal: pintado con textoNegro (negro en claro, como el SVG;
-            // claro en oscuro), como el de Cerrar sesión de BarraInferiorMenu
+            // pintado con textoNegro (negro en claro, como el SVG; claro en oscuro),
+            // como el de Cerrar sesión de BarraInferiorMenu; RV-37: también en vertical
             IconoColor {
                 objectName: "iconoSalirReportesHz"
-                visible: raiz.hz
                 anchors.horizontalCenter: parent.horizontalCenter
                 y: raiz.m(18)
                 width: raiz.m(60); height: width

@@ -53,7 +53,13 @@ def _args():
 
 
 A = _args()
-os.environ["QT_SCALE_FACTOR"] = f"{A.escala:g}"
+# RV_PLATAFORMA=offscreen: sin ventana (p. ej. con la sesión de Windows
+# bloqueada, donde una ventana visible no se dibuja); los toques de QTest y
+# grabWindow funcionan igual y la captura sale a 1200x1920 sin escalar
+if os.environ.get("RV_PLATAFORMA"):
+    os.environ["QT_QPA_PLATFORM"] = os.environ["RV_PLATAFORMA"]
+if os.environ.get("QT_QPA_PLATFORM") != "offscreen":
+    os.environ["QT_SCALE_FACTOR"] = f"{A.escala:g}"
 os.environ.setdefault("AUTOCLAVE_REINICIO_PC", "0")
 SALIDA = Path(A.salida)
 SALIDA.mkdir(parents=True, exist_ok=True)

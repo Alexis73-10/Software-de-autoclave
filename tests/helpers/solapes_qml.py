@@ -31,6 +31,7 @@
 #   - lo que está dentro de un componente animado (`animados`, nombres de tipo
 #     QML: DeslizadorInicio, CirculoFaseLiquido), cuya posición depende del
 #     instante;
+#   - dos controles entre sí (zonas táctiles invisibles, ampliadas a propósito);
 #   - una insignia (`insignias`: InsigniaCampana) sobre un ícono;
 #   - una imagen de fondo (más de la mitad de la ventana);
 #   - lo que queda debajo de una capa que lo cubre a propósito (modal, panel,
@@ -168,6 +169,9 @@ function solapesDesde(raiz, W, H, animados, insignias) {
             if (contiene(p.it, q) || contiene(q.it, p)) continue
             if (contiene(p.unidad, q) || contiene(q.unidad, p)) continue
             if ((p.insignia && q.tipo === "imagen") || (q.insignia && p.tipo === "imagen")) continue
+            // dos zonas táctiles (invisibles, a veces ampliadas con márgenes negativos
+            // por Escala.margenTactil) no son un solape visual
+            if (p.tipo === "control" && q.tipo === "control") continue
             const s = inter(p.vis, q.vis)
             if (!s || s.w <= UMBRAL || s.h <= UMBRAL) continue
             malos.push({tipo: "solape", a: desc(p), b: desc(q), area: Math.round(s.w * s.h),

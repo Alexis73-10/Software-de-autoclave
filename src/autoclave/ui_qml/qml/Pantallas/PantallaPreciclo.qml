@@ -449,15 +449,21 @@ Item {
         // Tanda responsive: siempre activo (en vertical, el ancho y el alto propios
         // del texto): con `when` el giro horizontal -> vertical en caliente dejaba
         // el ancho del horizontal fijo y el nombre se salía de su caja
-        Binding on width { value: raiz.hz ? raiz.m(488 - 24) : nombrePrograma.implicitWidth }
-        Binding on height { value: raiz.hz ? raiz.m(84) : nombrePrograma.implicitHeight }
-        Binding on y { when: raiz.hz; value: raiz.m(248) }
-        Binding on horizontalAlignment { when: raiz.hz; value: Text.AlignHCenter }
-        Binding on verticalAlignment { when: raiz.hz; value: Text.AlignVCenter }
-        Binding on wrapMode { when: raiz.hz; value: Text.WordWrap }
-        Binding on maximumLineCount { when: raiz.hz; value: 2 }
-        Binding on fontSizeMode { when: raiz.hz; value: Text.Fit }
-        Binding on minimumPixelSize { when: raiz.hz; value: Escala.fuenteMinima }
+        // RV-03 (revisión visual, 19-nov): en vertical, un nombre que no cabe en una
+        // línea entre los divisores pasaba sobre el número de ciclo y el estado;
+        // ahora toma la misma caja de dos líneas que en horizontal. Un nombre que
+        // cabe sigue exactamente como antes (una línea, por línea base).
+        TextMetrics { id: medidaPrograma; font: nombrePrograma.font; text: nombrePrograma.text }
+        readonly property bool ajusta: raiz.hz || medidaPrograma.advanceWidth > raiz.m(488 - 24)
+        Binding on width { value: nombrePrograma.ajusta ? raiz.m(488 - 24) : nombrePrograma.implicitWidth }
+        Binding on height { value: nombrePrograma.ajusta ? raiz.m(84) : nombrePrograma.implicitHeight }
+        Binding on y { when: nombrePrograma.ajusta; value: raiz.m(248) }
+        Binding on horizontalAlignment { when: nombrePrograma.ajusta; value: Text.AlignHCenter }
+        Binding on verticalAlignment { when: nombrePrograma.ajusta; value: Text.AlignVCenter }
+        Binding on wrapMode { when: nombrePrograma.ajusta; value: Text.WordWrap }
+        Binding on maximumLineCount { when: nombrePrograma.ajusta; value: 2 }
+        Binding on fontSizeMode { when: nombrePrograma.ajusta; value: Text.Fit }
+        Binding on minimumPixelSize { when: nombrePrograma.ajusta; value: Escala.fuenteMinima }
         color: raiz.datosVigentes ? raiz.paleta.programa : Colores.textoGuia
         font.family: Tipografia.familia
         font.weight: Tipografia.pesoBold

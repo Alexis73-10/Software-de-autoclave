@@ -1,0 +1,1977 @@
+{
+ "intro": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "reposo": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "login": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "login_teclado": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "login_teclado_num": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "cambio_clave": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "nuevo_usuario": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "instalacion": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": [
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:97: TypeError: Property 'calcularModelo' of object QObject_QML_366(0x175c77c1aa0) is not a function"
+  ]
+ },
+ "preciclo_preparado": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "preciclo_alarma": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "ciclo_grafica": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "ciclo_completo": {
+  "problemas": [
+   {
+    "tipo": "sale_del_cuadro",
+    "cuadro": [
+     81,
+     1036
+    ],
+    "texto": "›",
+    "obj": "chevronFila",
+    "x": 1117,
+    "ancho": 12
+   }
+  ],
+  "fuera": [],
+  "avisos": []
+ },
+ "fin_fallido": {
+  "problemas": [
+   {
+    "tipo": "sale_del_cuadro",
+    "cuadro": [
+     81,
+     1036
+    ],
+    "texto": "›",
+    "obj": "chevronFila",
+    "x": 1117,
+    "ancho": 12
+   }
+  ],
+  "fuera": [],
+  "avisos": []
+ },
+ "ciclo_demo": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "menu": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "menu_ultimo_ciclo": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "menu_mantenimiento": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "menu_ciclos_hoy": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "menu_historial": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "reportes": {
+  "problemas": [],
+  "fuera": [
+   {
+    "obj": "cuerpoReportes|",
+    "x": 54,
+    "y": 527,
+    "w": 1089,
+    "h": 5722
+   }
+  ],
+  "avisos": []
+ },
+ "reportes_abajo": {
+  "problemas": [],
+  "fuera": [
+   {
+    "obj": "cuerpoReportes|",
+    "x": 54,
+    "y": -4014,
+    "w": 1089,
+    "h": 5722
+   }
+  ],
+  "avisos": []
+ },
+ "opciones": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "OpcionesParametrosCiclo": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "OpcionesParametrosEquipo": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "OpcionesUsuarios": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "OpcionesFechaHora": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "OpcionesInfoSistema": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "OpcionesBitacora": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "OpcionesCalibracionAtm": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "OpcionesCalibracionSensor": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": [
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/src/autoclave/ui_qml/qml/Pantallas/OpcionesCalibracionSensor.qml:216: TypeError: Cannot read property 'operacionEnCurso' of null",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/src/autoclave/ui_qml/qml/Pantallas/OpcionesCalibracionSensor.qml:217: TypeError: Cannot read property 'operacionEnCurso' of null",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/src/autoclave/ui_qml/qml/Pantallas/OpcionesCalibracionSensor.qml:296: TypeError: Cannot read property 'gain' of undefined",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/src/autoclave/ui_qml/qml/Pantallas/OpcionesCalibracionSensor.qml:311: TypeError: Cannot read property 'offset' of undefined",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/src/autoclave/ui_qml/qml/Pantallas/OpcionesCalibracionSensor.qml:324: TypeError: Cannot read property 'poly' of undefined",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/src/autoclave/ui_qml/qml/Pantallas/OpcionesCalibracionSensor.qml:184: TypeError: Cannot read property 'valido' of undefined",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/src/autoclave/ui_qml/qml/Pantallas/OpcionesCalibracionSensor.qml:184: TypeError: Cannot read property 'valido' of undefined",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/src/autoclave/ui_qml/qml/Pantallas/OpcionesCalibracionSensor.qml:35: TypeError: Cannot read property 'length' of undefined",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/src/autoclave/ui_qml/qml/Pantallas/OpcionesCalibracionSensor.qml:33: TypeError: Cannot read property 'presion' of null",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/src/autoclave/ui_qml/qml/Pantallas/OpcionesCalibracionSensor.qml:373: TypeError: Cannot read property 'valido' of undefined"
+  ]
+ },
+ "OpcionesConectividad": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "OpcionesRespaldo": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "OpcionesEntradasSalidas": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "OpcionesMantenimiento": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "OpcionesAvanzadas": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "OpcionesManejoCiclos": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "OpcionesReasignacion": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "opciones_equipo_maquina": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "teclado_alfa": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "teclado_num": {
+  "problemas": [
+   {
+    "tipo": "solape",
+    "a": {
+     "clase": "QQuickText",
+     "obj": "",
+     "texto": "°C",
+     "tipo": "texto",
+     "rect": [
+      167,
+      1320,
+      29,
+      26
+     ]
+    },
+    "b": {
+     "clase": "QQuickText",
+     "obj": "",
+     "texto": "Rango: -100.0 a 400.0 °C",
+     "tipo": "texto",
+     "rect": [
+      167,
+      1336,
+      269,
+      22
+     ]
+    },
+    "area": 305,
+    "zona": [
+     167,
+     1336,
+     29,
+     11
+    ]
+   }
+  ],
+  "fuera": [],
+  "avisos": []
+ },
+ "intro_final": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "barra_reinicio": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "reposo_aviso": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "inst_activacion_auto": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": [
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:97: TypeError: Property 'calcularModelo' of object QObject_QML_3322(0x1758c33eaf0) is not a function",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:192: TypeError: Property 'normalizarOriginal' of object QObject_QML_3322(0x1758c33eaf0) is not a function"
+  ]
+ },
+ "inst_equipo": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": [
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:97: TypeError: Property 'calcularModelo' of object QObject_QML_3393(0x1758bea40e0) is not a function",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:97: TypeError: Property 'calcularModelo' of object QObject_QML_3393(0x1758bea40e0) is not a function"
+  ]
+ },
+ "inst_puertas": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": [
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:97: TypeError: Property 'calcularModelo' of object QObject_QML_3464(0x1758670a640) is not a function",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:97: TypeError: Property 'calcularModelo' of object QObject_QML_3464(0x1758670a640) is not a function",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:97: TypeError: Property 'calcularModelo' of object QObject_QML_3464(0x1758670a640) is not a function"
+  ]
+ },
+ "inst_puertas_una": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": [
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:97: TypeError: Property 'calcularModelo' of object QObject_QML_3535(0x1758c32bf20) is not a function",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:97: TypeError: Property 'calcularModelo' of object QObject_QML_3535(0x1758c32bf20) is not a function",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:97: TypeError: Property 'calcularModelo' of object QObject_QML_3535(0x1758c32bf20) is not a function"
+  ]
+ },
+ "inst_camara": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": [
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:97: TypeError: Property 'calcularModelo' of object QObject_QML_3606(0x1758beb6ff0) is not a function",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:97: TypeError: Property 'calcularModelo' of object QObject_QML_3606(0x1758beb6ff0) is not a function",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:97: TypeError: Property 'calcularModelo' of object QObject_QML_3606(0x1758beb6ff0) is not a function",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:97: TypeError: Property 'calcularModelo' of object QObject_QML_3606(0x1758beb6ff0) is not a function",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:97: TypeError: Property 'calcularModelo' of object QObject_QML_3606(0x1758beb6ff0) is not a function"
+  ]
+ },
+ "inst_enfriamiento": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": [
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:97: TypeError: Property 'calcularModelo' of object QObject_QML_3677(0x17586710960) is not a function",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:97: TypeError: Property 'calcularModelo' of object QObject_QML_3677(0x17586710960) is not a function"
+  ]
+ },
+ "inst_vapor": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": [
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:97: TypeError: Property 'calcularModelo' of object QObject_QML_3748(0x1758c360330) is not a function",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:97: TypeError: Property 'calcularModelo' of object QObject_QML_3748(0x1758c360330) is not a function"
+  ]
+ },
+ "inst_datos": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": [
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:97: TypeError: Property 'calcularModelo' of object QObject_QML_3819(0x1758bec6ca0) is not a function",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:97: TypeError: Property 'calcularModelo' of object QObject_QML_3819(0x1758bec6ca0) is not a function"
+  ]
+ },
+ "inst_contrasenas": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": [
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:97: TypeError: Property 'calcularModelo' of object QObject_QML_3890(0x17586715900) is not a function",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:97: TypeError: Property 'calcularModelo' of object QObject_QML_3890(0x17586715900) is not a function"
+  ]
+ },
+ "inst_resumen": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": [
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:97: TypeError: Property 'calcularModelo' of object QObject_QML_3961(0x1758c348a30) is not a function",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:97: TypeError: Property 'calcularModelo' of object QObject_QML_3961(0x1758c348a30) is not a function",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:97: TypeError: Property 'calcularModelo' of object QObject_QML_3961(0x1758c348a30) is not a function",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:97: TypeError: Property 'calcularModelo' of object QObject_QML_3961(0x1758c348a30) is not a function",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:97: TypeError: Property 'calcularModelo' of object QObject_QML_3961(0x1758c348a30) is not a function"
+  ]
+ },
+ "inst_resumen_auto": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": [
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:97: TypeError: Property 'calcularModelo' of object QObject_QML_4032(0x1758bedd220) is not a function",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:97: TypeError: Property 'calcularModelo' of object QObject_QML_4032(0x1758bedd220) is not a function",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:97: TypeError: Property 'calcularModelo' of object QObject_QML_4032(0x1758bedd220) is not a function",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:97: TypeError: Property 'calcularModelo' of object QObject_QML_4032(0x1758bedd220) is not a function",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:97: TypeError: Property 'calcularModelo' of object QObject_QML_4032(0x1758bedd220) is not a function",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:192: TypeError: Property 'normalizarOriginal' of object QObject_QML_4032(0x1758bedd220) is not a function",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:192: TypeError: Property 'normalizarOriginal' of object QObject_QML_4032(0x1758bedd220) is not a function"
+  ]
+ },
+ "inst_listo": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": [
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:97: TypeError: Property 'calcularModelo' of object QObject_QML_4103(0x17586702780) is not a function"
+  ]
+ },
+ "inst_teclado_codigo": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": [
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:97: TypeError: Property 'calcularModelo' of object QObject_QML_4174(0x1758c333350) is not a function"
+  ]
+ },
+ "inst_teclado_clave": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": [
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:97: TypeError: Property 'calcularModelo' of object QObject_QML_4245(0x1758bedd080) is not a function",
+   "file:///C:/Users/tecni/Documents/codigo_autoclave/src/autoclave/ui_qml/qml/Pantallas/Instalacion.qml:97: TypeError: Property 'calcularModelo' of object QObject_QML_4245(0x1758bedd080) is not a function"
+  ]
+ },
+ "login_teclado_clave": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "login_sin_bd": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "cambio_clave_teclado": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "nuevo_usuario_roles": {
+  "problemas": [
+   {
+    "tipo": "solape",
+    "a": {
+     "clase": "QQuickMouseArea",
+     "obj": "",
+     "texto": "",
+     "tipo": "control",
+     "rect": [
+      214,
+      1251,
+      105,
+      71
+     ]
+    },
+    "b": {
+     "clase": "QQuickText",
+     "obj": "",
+     "texto": "Supervisor",
+     "tipo": "texto",
+     "rect": [
+      111,
+      1283,
+      138,
+      26
+     ]
+    },
+    "area": 910,
+    "zona": [
+     214,
+     1283,
+     35,
+     26
+    ]
+   },
+   {
+    "tipo": "solape",
+    "a": {
+     "clase": "QQuickMouseArea",
+     "obj": "",
+     "texto": "",
+     "tipo": "control",
+     "rect": [
+      214,
+      1251,
+      105,
+      71
+     ]
+    },
+    "b": {
+     "clase": "QQuickMouseArea",
+     "obj": "",
+     "texto": "",
+     "tipo": "control",
+     "rect": [
+      83,
+      1255,
+      1031,
+      82
+     ]
+    },
+    "area": 7035,
+    "zona": [
+     214,
+     1255,
+     105,
+     67
+    ]
+   },
+   {
+    "tipo": "solape",
+    "a": {
+     "clase": "QQuickText",
+     "obj": "",
+     "texto": "Activo",
+     "tipo": "texto",
+     "rect": [
+      335,
+      1274,
+      82,
+      26
+     ]
+    },
+    "b": {
+     "clase": "QQuickMouseArea",
+     "obj": "",
+     "texto": "",
+     "tipo": "control",
+     "rect": [
+      83,
+      1255,
+      1031,
+      82
+     ]
+    },
+    "area": 2132,
+    "zona": [
+     335,
+     1274,
+     82,
+     26
+    ]
+   },
+   {
+    "tipo": "solape",
+    "a": {
+     "clase": "QQuickMouseArea",
+     "obj": "",
+     "texto": "",
+     "tipo": "control",
+     "rect": [
+      83,
+      1419,
+      1031,
+      82
+     ]
+    },
+    "b": {
+     "clase": "QQuickMouseArea",
+     "obj": "",
+     "texto": "",
+     "tipo": "control",
+     "rect": [
+      85,
+      1353,
+      433,
+      97
+     ]
+    },
+    "area": 13423,
+    "zona": [
+     85,
+     1419,
+     433,
+     31
+    ]
+   },
+   {
+    "tipo": "solape",
+    "a": {
+     "clase": "QQuickMouseArea",
+     "obj": "",
+     "texto": "",
+     "tipo": "control",
+     "rect": [
+      83,
+      1419,
+      1031,
+      82
+     ]
+    },
+    "b": {
+     "clase": "QQuickImage",
+     "obj": "",
+     "texto": "",
+     "tipo": "imagen",
+     "rect": [
+      692,
+      1378,
+      48,
+      48
+     ]
+    },
+    "area": 336,
+    "zona": [
+     692,
+     1419,
+     48,
+     7
+    ]
+   },
+   {
+    "tipo": "solape",
+    "a": {
+     "clase": "QQuickMouseArea",
+     "obj": "",
+     "texto": "",
+     "tipo": "control",
+     "rect": [
+      83,
+      1419,
+      1031,
+      82
+     ]
+    },
+    "b": {
+     "clase": "QQuickMouseArea",
+     "obj": "",
+     "texto": "",
+     "tipo": "control",
+     "rect": [
+      591,
+      1353,
+      508,
+      97
+     ]
+    },
+    "area": 15748,
+    "zona": [
+     591,
+     1419,
+     508,
+     31
+    ]
+   },
+   {
+    "tipo": "solape",
+    "a": {
+     "clase": "QQuickText",
+     "obj": "",
+     "texto": "Administrador",
+     "tipo": "texto",
+     "rect": [
+      111,
+      1365,
+      189,
+      26
+     ]
+    },
+    "b": {
+     "clase": "QQuickMouseArea",
+     "obj": "",
+     "texto": "",
+     "tipo": "control",
+     "rect": [
+      85,
+      1353,
+      433,
+      97
+     ]
+    },
+    "area": 4914,
+    "zona": [
+     111,
+     1365,
+     189,
+     26
+    ]
+   },
+   {
+    "tipo": "solape",
+    "a": {
+     "clase": "QQuickMouseArea",
+     "obj": "",
+     "texto": "",
+     "tipo": "control",
+     "rect": [
+      83,
+      1337,
+      1031,
+      82
+     ]
+    },
+    "b": {
+     "clase": "QQuickText",
+     "obj": "",
+     "texto": "Cancelar",
+     "tipo": "texto",
+     "rect": [
+      243,
+      1389,
+      117,
+      26
+     ]
+    },
+    "area": 3042,
+    "zona": [
+     243,
+     1389,
+     117,
+     26
+    ]
+   },
+   {
+    "tipo": "solape",
+    "a": {
+     "clase": "QQuickMouseArea",
+     "obj": "",
+     "texto": "",
+     "tipo": "control",
+     "rect": [
+      83,
+      1337,
+      1031,
+      82
+     ]
+    },
+    "b": {
+     "clase": "QQuickMouseArea",
+     "obj": "",
+     "texto": "",
+     "tipo": "control",
+     "rect": [
+      85,
+      1353,
+      433,
+      97
+     ]
+    },
+    "area": 28578,
+    "zona": [
+     85,
+     1353,
+     433,
+     66
+    ]
+   },
+   {
+    "tipo": "solape",
+    "a": {
+     "clase": "QQuickMouseArea",
+     "obj": "",
+     "texto": "",
+     "tipo": "control",
+     "rect": [
+      83,
+      1337,
+      1031,
+      82
+     ]
+    },
+    "b": {
+     "clase": "QQuickImage",
+     "obj": "",
+     "texto": "",
+     "tipo": "imagen",
+     "rect": [
+      692,
+      1378,
+      48,
+      48
+     ]
+    },
+    "area": 1968,
+    "zona": [
+     692,
+     1378,
+     48,
+     41
+    ]
+   },
+   {
+    "tipo": "solape",
+    "a": {
+     "clase": "QQuickMouseArea",
+     "obj": "",
+     "texto": "",
+     "tipo": "control",
+     "rect": [
+      83,
+      1337,
+      1031,
+      82
+     ]
+    },
+    "b": {
+     "clase": "QQuickText",
+     "obj": "",
+     "texto": "Guardar usuario",
+     "tipo": "texto",
+     "rect": [
+      780,
+      1389,
+      218,
+      26
+     ]
+    },
+    "area": 5668,
+    "zona": [
+     780,
+     1389,
+     218,
+     26
+    ]
+   },
+   {
+    "tipo": "solape",
+    "a": {
+     "clase": "QQuickMouseArea",
+     "obj": "",
+     "texto": "",
+     "tipo": "control",
+     "rect": [
+      83,
+      1337,
+      1031,
+      82
+     ]
+    },
+    "b": {
+     "clase": "QQuickMouseArea",
+     "obj": "",
+     "texto": "",
+     "tipo": "control",
+     "rect": [
+      591,
+      1353,
+      508,
+      97
+     ]
+    },
+    "area": 33528,
+    "zona": [
+     591,
+     1353,
+     508,
+     66
+    ]
+   },
+   {
+    "tipo": "solape",
+    "a": {
+     "clase": "QQuickMouseArea",
+     "obj": "",
+     "texto": "",
+     "tipo": "control",
+     "rect": [
+      83,
+      1173,
+      1031,
+      82
+     ]
+    },
+    "b": {
+     "clase": "QQuickText",
+     "obj": "",
+     "texto": "Estado",
+     "tipo": "texto",
+     "rect": [
+      85,
+      1226,
+      77,
+      22
+     ]
+    },
+    "area": 1694,
+    "zona": [
+     85,
+     1226,
+     77,
+     22
+    ]
+   }
+  ],
+  "fuera": [],
+  "avisos": []
+ },
+ "nuevo_usuario_teclado": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "b_preciclo_puerta2": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "b_preciclo_puerta2_manual": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "b_preciclo_modo_prueba": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "b_preciclo_falla": {
+  "problemas": [
+   {
+    "tipo": "encogido",
+    "caja": 156,
+    "natural": 171,
+    "texto": "RECONOCER FALLA",
+    "obj": "textoBotonAccion",
+    "x": 983,
+    "ancho": 154
+   }
+  ],
+  "fuera": [],
+  "avisos": []
+ },
+ "b_preciclo_sin_conexion": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "b_preciclo_muchas_alarmas": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "b_preciclo_programa_largo": {
+  "problemas": [
+   {
+    "tipo": "cruza_divisor",
+    "divisor": 352,
+    "texto": "INSTRUMENTAL ENVUELTO 134 °C LARGO",
+    "obj": "",
+    "x": 213,
+    "ancho": 776
+   }
+  ],
+  "fuera": [],
+  "avisos": []
+ },
+ "b_preciclo_selector": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "b_ciclo_pantalla_completa": {
+  "problemas": [
+   {
+    "tipo": "sale_del_cuadro",
+    "cuadro": [
+     1074,
+     58
+    ],
+    "texto": "90",
+    "obj": "",
+    "x": 1112,
+    "ancho": 25
+   },
+   {
+    "tipo": "cruza_divisor",
+    "divisor": 844,
+    "texto": "30",
+    "obj": "",
+    "x": 823,
+    "ancho": 24
+   },
+   {
+    "tipo": "solape",
+    "a": {
+     "clase": "Texto",
+     "obj": "",
+     "texto": "GRÁFICA DEL CICLO",
+     "tipo": "texto",
+     "rect": [
+      81,
+      80,
+      275,
+      26
+     ]
+    },
+    "b": {
+     "clase": "QQuickImage",
+     "obj": "",
+     "texto": "",
+     "tipo": "imagen",
+     "rect": [
+      73,
+      57,
+      268,
+      72
+     ]
+    },
+    "area": 6757,
+    "zona": [
+     81,
+     80,
+     260,
+     26
+    ]
+   },
+   {
+    "tipo": "solape",
+    "a": {
+     "clase": "QQuickText",
+     "obj": "",
+     "texto": "Temperatura de referencia",
+     "tipo": "texto",
+     "rect": [
+      445,
+      134,
+      265,
+      20
+     ]
+    },
+    "b": {
+     "clase": "Texto",
+     "obj": "",
+     "texto": "19 nov  -  2026",
+     "tipo": "texto",
+     "rect": [
+      513,
+      118,
+      174,
+      26
+     ]
+    },
+    "area": 1658,
+    "zona": [
+     513,
+     134,
+     174,
+     10
+    ]
+   }
+  ],
+  "fuera": [],
+  "avisos": []
+ },
+ "b_ciclo_tiempos": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "b_ciclo_zoom_lupa": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "b_ciclo_sin_conexion": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "b_fin_fallido_grafica": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "b_fin_observaciones_pildora": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "b_fin_observaciones_panel": {
+  "problemas": [
+   {
+    "tipo": "sale_del_cuadro",
+    "cuadro": [
+     81,
+     1036
+    ],
+    "texto": "›",
+    "obj": "chevronFila",
+    "x": 1117,
+    "ancho": 12
+   }
+  ],
+  "fuera": [],
+  "avisos": []
+ },
+ "b_fin_estado_seguro_modal": {
+  "problemas": [
+   {
+    "tipo": "sale_del_cuadro",
+    "cuadro": [
+     81,
+     1036
+    ],
+    "texto": "›",
+    "obj": "chevronFila",
+    "x": 1117,
+    "ancho": 12
+   }
+  ],
+  "fuera": [],
+  "avisos": []
+ },
+ "b_ciclo_espera_entrega_ingeniero": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "b_ciclo_espera_entrega": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "menu_historial_ciclo": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "menu_ciclos_hoy_ciclo": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "menu_historial_destino": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "reportes_dia": {
+  "problemas": [],
+  "fuera": [
+   {
+    "obj": "cuerpoReportes|",
+    "x": 54,
+    "y": -1652,
+    "w": 1089,
+    "h": 5722
+   },
+   {
+    "obj": "seccionCalendario|",
+    "x": 54,
+    "y": 283,
+    "w": 1089,
+    "h": 1779
+   }
+  ],
+  "avisos": []
+ },
+ "reportes_panel": {
+  "problemas": [],
+  "fuera": [
+   {
+    "obj": "cuerpoReportes|",
+    "x": 54,
+    "y": -2557,
+    "w": 1089,
+    "h": 5722
+   },
+   {
+    "obj": "seccionCalendario|",
+    "x": 54,
+    "y": -623,
+    "w": 1089,
+    "h": 1779
+   },
+   {
+    "obj": "seccionMantenimiento|",
+    "x": 54,
+    "y": 1458,
+    "w": 352,
+    "h": 1511
+   },
+   {
+    "obj": "seccionAlarmas|",
+    "x": 422,
+    "y": 1458,
+    "w": 352,
+    "h": 1511
+   },
+   {
+    "obj": "seccionOperadores|",
+    "x": 791,
+    "y": 1458,
+    "w": 352,
+    "h": 1511
+   }
+  ],
+  "avisos": []
+ },
+ "reportes_medio": {
+  "problemas": [],
+  "fuera": [
+   {
+    "obj": "cuerpoReportes|",
+    "x": 54,
+    "y": -604,
+    "w": 1089,
+    "h": 5722
+   },
+   {
+    "obj": "seccionCalendario|",
+    "x": 54,
+    "y": 1330,
+    "w": 1089,
+    "h": 1779
+   }
+  ],
+  "avisos": []
+ },
+ "reportes_selector": {
+  "problemas": [],
+  "fuera": [
+   {
+    "obj": "cuerpoReportes|",
+    "x": 54,
+    "y": -1652,
+    "w": 1089,
+    "h": 5722
+   },
+   {
+    "obj": "seccionCalendario|",
+    "x": 54,
+    "y": 283,
+    "w": 1089,
+    "h": 1779
+   }
+  ],
+  "avisos": []
+ },
+ "reportes_anio": {
+  "problemas": [],
+  "fuera": [
+   {
+    "obj": "cuerpoReportes|",
+    "x": 54,
+    "y": -1651,
+    "w": 1089,
+    "h": 6008
+   },
+   {
+    "obj": "seccionCalendario|",
+    "x": 54,
+    "y": 283,
+    "w": 1089,
+    "h": 2065
+   }
+  ],
+  "avisos": []
+ },
+ "reportes_alarmas": {
+  "problemas": [],
+  "fuera": [
+   {
+    "obj": "cuerpoReportes|",
+    "x": 54,
+    "y": -3732,
+    "w": 1089,
+    "h": 5722
+   }
+  ],
+  "avisos": []
+ },
+ "reportes_correo": {
+  "problemas": [],
+  "fuera": [
+   {
+    "obj": "cuerpoReportes|",
+    "x": 54,
+    "y": -4014,
+    "w": 1089,
+    "h": 5761
+   }
+  ],
+  "avisos": []
+ },
+ "reportes_ciclo": {
+  "problemas": [],
+  "fuera": [
+   {
+    "obj": "cuerpoReportes|",
+    "x": 54,
+    "y": -2557,
+    "w": 1089,
+    "h": 5722
+   },
+   {
+    "obj": "seccionCalendario|",
+    "x": 54,
+    "y": -623,
+    "w": 1089,
+    "h": 1779
+   },
+   {
+    "obj": "seccionMantenimiento|",
+    "x": 54,
+    "y": 1458,
+    "w": 352,
+    "h": 1511
+   },
+   {
+    "obj": "seccionAlarmas|",
+    "x": 422,
+    "y": 1458,
+    "w": 352,
+    "h": 1511
+   },
+   {
+    "obj": "seccionOperadores|",
+    "x": 791,
+    "y": 1458,
+    "w": 352,
+    "h": 1511
+   }
+  ],
+  "avisos": []
+ },
+ "reportes_fallo": {
+  "problemas": [],
+  "fuera": [
+   {
+    "obj": "cuerpoReportes|",
+    "x": 54,
+    "y": 527,
+    "w": 1089,
+    "h": 5722
+   }
+  ],
+  "avisos": []
+ },
+ "d_usuarios": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "d_parametros_ciclo": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "d_parametros_ciclo_fase": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "d_parametros_equipo": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "d_parametros_equipo_maquina": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "d_fecha_hora": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "d_info_sistema": {
+  "problemas": [],
+  "fuera": [
+   {
+    "obj": "grupoInfo_configuracion|",
+    "x": 181,
+    "y": 1696,
+    "w": 965,
+    "h": 389
+   }
+  ],
+  "avisos": []
+ },
+ "d_bitacora": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "d_mantenimiento": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "d_conectividad": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "d_respaldo": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "d_entradas_salidas": {
+  "problemas": [
+   {
+    "tipo": "encogido",
+    "caja": 248,
+    "natural": 301,
+    "texto": "Atrapamiento puerta 1",
+    "obj": "",
+    "x": 201,
+    "ancho": 242
+   },
+   {
+    "tipo": "encogido",
+    "caja": 248,
+    "natural": 306,
+    "texto": "Atrapamiento puerta 2",
+    "obj": "",
+    "x": 689,
+    "ancho": 246
+   },
+   {
+    "tipo": "encogido",
+    "caja": 248,
+    "natural": 271,
+    "texto": "Paro de emergencia",
+    "obj": "",
+    "x": 201,
+    "ancho": 237
+   },
+   {
+    "tipo": "encogido",
+    "caja": 248,
+    "natural": 271,
+    "texto": "Suministro de vapor",
+    "obj": "",
+    "x": 201,
+    "ancho": 247
+   },
+   {
+    "tipo": "encogido",
+    "caja": 248,
+    "natural": 271,
+    "texto": "Suministro eléctrico",
+    "obj": "",
+    "x": 689,
+    "ancho": 247
+   }
+  ],
+  "fuera": [],
+  "avisos": []
+ },
+ "d_avanzadas": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "d_reasignacion": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "d_cajon": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "d_ciclo_sensores": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "d_ciclo_entradas": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "d_ciclo_ajuste": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "d_equipo_chaqueta": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "d_equipo_impresion": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "d_equipo_ajuste": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "d_usuarios_seleccion": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "d_usuarios_operadores": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "d_es_salidas": {
+  "problemas": [
+   {
+    "tipo": "encogido",
+    "caja": 248,
+    "natural": 303,
+    "texto": "Descompresión rápida",
+    "obj": "",
+    "x": 201,
+    "ancho": 244
+   },
+   {
+    "tipo": "encogido",
+    "caja": 248,
+    "natural": 286,
+    "texto": "Descompresión lenta",
+    "obj": "",
+    "x": 689,
+    "ancho": 240
+   },
+   {
+    "tipo": "encogido",
+    "caja": 248,
+    "natural": 345,
+    "texto": "Descompresión chaqueta",
+    "obj": "",
+    "x": 201,
+    "ancho": 235
+   },
+   {
+    "tipo": "encogido",
+    "caja": 248,
+    "natural": 276,
+    "texto": "Desbloqueo puerta 1",
+    "obj": "",
+    "x": 201,
+    "ancho": 244
+   },
+   {
+    "tipo": "encogido",
+    "caja": 248,
+    "natural": 281,
+    "texto": "Desbloqueo puerta 2",
+    "obj": "",
+    "x": 689,
+    "ancho": 237
+   },
+   {
+    "tipo": "encogido",
+    "caja": 248,
+    "natural": 334,
+    "texto": "Aire comprimido cámara",
+    "obj": "",
+    "x": 201,
+    "ancho": 242
+   },
+   {
+    "tipo": "encogido",
+    "caja": 248,
+    "natural": 328,
+    "texto": "Aire atmosférico cámara",
+    "obj": "",
+    "x": 689,
+    "ancho": 240
+   },
+   {
+    "tipo": "encogido",
+    "caja": 248,
+    "natural": 288,
+    "texto": "Agua intercambiador",
+    "obj": "",
+    "x": 689,
+    "ancho": 239
+   },
+   {
+    "tipo": "encogido",
+    "caja": 248,
+    "natural": 284,
+    "texto": "Zumbador de alarma",
+    "obj": "",
+    "x": 201,
+    "ancho": 236
+   }
+  ],
+  "fuera": [],
+  "avisos": []
+ },
+ "d_es_temperatura": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "d_es_presion": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "d_calibracion_atm": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "d_calibracion_sensor": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "d_bitacora_tipo": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "d_avanzadas_programa": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "e_notificaciones": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "e_detalle_alarma": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "e_equipo": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "e_equipo_apagar": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "e_modal_confirmacion": {
+  "problemas": [
+   {
+    "tipo": "encogido",
+    "caja": 460,
+    "natural": 462,
+    "texto": "Confirmar sin condiciones seguras",
+    "obj": "textoAccionModal",
+    "x": 570,
+    "ancho": 441
+   }
+  ],
+  "fuera": [],
+  "avisos": []
+ },
+ "e_dialogo_confirmacion": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "e_modal_operador": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "e_main_sin_conexion": {
+  "problemas": [
+   {
+    "tipo": "solape",
+    "a": {
+     "clase": "QQuickText",
+     "obj": "",
+     "texto": "Sin conexión con el equipo: no se pueden",
+     "tipo": "texto",
+     "rect": [
+      203,
+      43,
+      794,
+      26
+     ]
+    },
+    "b": {
+     "clase": "QQuickMouseArea",
+     "obj": "zonaCampana",
+     "texto": "",
+     "tipo": "control",
+     "rect": [
+      873,
+      40,
+      90,
+      95
+     ]
+    },
+    "area": 2348,
+    "zona": [
+     873,
+     43,
+     90,
+     26
+    ]
+   },
+   {
+    "tipo": "solape",
+    "a": {
+     "clase": "QQuickText",
+     "obj": "",
+     "texto": "Sin conexión con el equipo: no se pueden",
+     "tipo": "texto",
+     "rect": [
+      203,
+      43,
+      794,
+      26
+     ]
+    },
+    "b": {
+     "clase": "QQuickText",
+     "obj": "horaMenu",
+     "texto": "19:14",
+     "tipo": "texto",
+     "rect": [
+      458,
+      21,
+      283,
+      97
+     ]
+    },
+    "area": 7358,
+    "zona": [
+     458,
+     43,
+     283,
+     26
+    ]
+   },
+   {
+    "tipo": "solape",
+    "a": {
+     "clase": "QQuickText",
+     "obj": "",
+     "texto": "Sin conexión con el equipo: no se pueden",
+     "tipo": "texto",
+     "rect": [
+      203,
+      43,
+      794,
+      26
+     ]
+    },
+    "b": {
+     "clase": "QQuickImage",
+     "obj": "",
+     "texto": "",
+     "tipo": "imagen",
+     "rect": [
+      73,
+      57,
+      268,
+      72
+     ]
+    },
+    "area": 1631,
+    "zona": [
+     203,
+     57,
+     138,
+     12
+    ]
+   },
+   {
+    "tipo": "solape",
+    "a": {
+     "clase": "QQuickText",
+     "obj": "",
+     "texto": "Sin conexión con el equipo: no se pueden",
+     "tipo": "texto",
+     "rect": [
+      203,
+      43,
+      794,
+      26
+     ]
+    },
+    "b": {
+     "clase": "Icono",
+     "obj": "",
+     "texto": "",
+     "tipo": "imagen",
+     "rect": [
+      882,
+      58,
+      69,
+      69
+     ]
+    },
+    "area": 721,
+    "zona": [
+     882,
+     58,
+     69,
+     11
+    ]
+   },
+   {
+    "tipo": "solape",
+    "a": {
+     "clase": "QQuickText",
+     "obj": "cuentaRegresivaSesion",
+     "texto": "La sesión se cerrará en 0:12 si no vuelv",
+     "tipo": "texto",
+     "rect": [
+      301,
+      81,
+      598,
+      24
+     ]
+    },
+    "b": {
+     "clase": "QQuickMouseArea",
+     "obj": "zonaCampana",
+     "texto": "",
+     "tipo": "control",
+     "rect": [
+      873,
+      40,
+      90,
+      95
+     ]
+    },
+    "area": 626,
+    "zona": [
+     873,
+     81,
+     26,
+     24
+    ]
+   },
+   {
+    "tipo": "solape",
+    "a": {
+     "clase": "QQuickText",
+     "obj": "cuentaRegresivaSesion",
+     "texto": "La sesión se cerrará en 0:12 si no vuelv",
+     "tipo": "texto",
+     "rect": [
+      301,
+      81,
+      598,
+      24
+     ]
+    },
+    "b": {
+     "clase": "QQuickText",
+     "obj": "horaMenu",
+     "texto": "19:14",
+     "tipo": "texto",
+     "rect": [
+      458,
+      21,
+      283,
+      97
+     ]
+    },
+    "area": 6792,
+    "zona": [
+     458,
+     81,
+     283,
+     24
+    ]
+   },
+   {
+    "tipo": "solape",
+    "a": {
+     "clase": "QQuickText",
+     "obj": "cuentaRegresivaSesion",
+     "texto": "La sesión se cerrará en 0:12 si no vuelv",
+     "tipo": "texto",
+     "rect": [
+      301,
+      81,
+      598,
+      24
+     ]
+    },
+    "b": {
+     "clase": "QQuickImage",
+     "obj": "",
+     "texto": "",
+     "tipo": "imagen",
+     "rect": [
+      73,
+      57,
+      268,
+      72
+     ]
+    },
+    "area": 963,
+    "zona": [
+     301,
+     81,
+     40,
+     24
+    ]
+   },
+   {
+    "tipo": "solape",
+    "a": {
+     "clase": "QQuickText",
+     "obj": "cuentaRegresivaSesion",
+     "texto": "La sesión se cerrará en 0:12 si no vuelv",
+     "tipo": "texto",
+     "rect": [
+      301,
+      81,
+      598,
+      24
+     ]
+    },
+    "b": {
+     "clase": "Icono",
+     "obj": "",
+     "texto": "",
+     "tipo": "imagen",
+     "rect": [
+      882,
+      58,
+      69,
+      69
+     ]
+    },
+    "area": 402,
+    "zona": [
+     882,
+     81,
+     17,
+     24
+    ]
+   }
+  ],
+  "fuera": [],
+  "avisos": []
+ },
+ "e_cambio_clave_teclado": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "e_nuevo_usuario_teclado": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "f_bitacora_calendario": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "f_usuarios_eliminar": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "f_usuarios_rol": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "f_usuarios_restablecer": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ },
+ "f_usuarios_desactivar": {
+  "problemas": [],
+  "fuera": [],
+  "avisos": []
+ }
+}

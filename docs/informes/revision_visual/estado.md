@@ -4,9 +4,9 @@ Rama `revision-visual` (desde `dev` 75189880). Prompt: `docs/mis_plans/prompt_cl
 
 - Etapa A, detector de solapes: Hecho
 - Etapa B, inventario y capturas base: Hecho (75c498e3)
-- Etapa B2, pasada visible de íconos: Pendiente
+- Etapa B2, pasada visible de íconos: Hecho
 - Etapa C, hallazgos: Hecho
-- Etapa D, correcciones de categoría 1: Pendiente
+- Etapa D, correcciones de categoría 1: Hecho
 - Etapa E, prueba de interacción: Pendiente
 - Etapa F, verificación: Pendiente
 - Etapa G, informes: Pendiente

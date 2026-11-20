@@ -497,6 +497,9 @@ Item {
             anchors.top: encabezadoSeccion.bottom; anchors.topMargin: Escala.px(12)
             anchors.left: parent.left; anchors.right: parent.right
             anchors.bottom: pieSeccion.top
+            // RV-06 (revisión visual, 19-nov): la fila recortada al pie quedaba
+            // pegada a la leyenda, como si esta la tapara; un margen las separa
+            anchors.bottomMargin: Escala.px(16)
             clip: true
             cellWidth: Escala.horizontal ? Math.floor(width / 2) : width
             cellHeight: Escala.px(92)
@@ -1055,6 +1058,10 @@ Item {
                 // Nuevo valor: numérico con el teclado; booleano y enumerado con opciones (U-17)
                 Rectangle {
                     objectName: "campoNuevoValor"
+                    // RV-38 (revisión visual, 19-nov): sin color fijo quedaba blanco
+                    // también en oscuro y el valor tecleado (texto claro) no se veía;
+                    // fondoCampo es #FFFFFF en claro, igual que antes
+                    color: Colores.fondoCampo
                     visible: ajuste.param !== null && !ajuste.esModo && ajuste.param.tipo !== "bool" && ajuste.param.tipo !== "enum"
                     width: parent.width
                     height: Escala.px(88)

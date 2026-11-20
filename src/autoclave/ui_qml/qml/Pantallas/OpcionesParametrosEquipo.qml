@@ -1014,6 +1014,9 @@ Item {
                 }
                 Rectangle {
                     objectName: "campoNuevoValorEquipo"
+                    // RV-38 (revisión visual, 19-nov): ver campoNuevoValor de
+                    // OpcionesParametrosCiclo.qml (blanco en oscuro)
+                    color: Colores.fondoCampo
                     width: parent.width
                     height: Escala.px(88)
                     radius: Escala.px(12)
