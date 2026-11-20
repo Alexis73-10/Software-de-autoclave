@@ -220,6 +220,8 @@ _SCRIPT = textwrap.dedent(r'''
     import glob as _glob
     for _f in sorted(_glob.glob(os.path.join(cfg["banco"], "hor_escenarios_*.py"))):
         exec(compile(open(_f, encoding="utf-8").read(), _f, "exec"), globals())
+    if cfg.get("listar"):
+        print("ESCENARIOS=" + json.dumps(list(E))); sys.exit(0)
 
     REVISOR = None
 
@@ -450,6 +452,8 @@ def main() -> int:
     ap.add_argument("--plataforma", default="windows")
     # árbol de fuentes a capturar (p. ej. un worktree de dev para el vertical)
     ap.add_argument("--raiz", default=str(RAIZ_PROPIA))
+    # RV: imprime los nombres de los escenarios y sale
+    ap.add_argument("--listar", action="store_true")
     a = ap.parse_args()
     ancho, alto = (int(x) for x in a.tamano.split("x"))
     Path(a.destino).mkdir(parents=True, exist_ok=True)
@@ -458,10 +462,15 @@ def main() -> int:
     for tema in a.temas:
         cfg = {"tema": tema, "destino": a.destino, "ancho": ancho, "alto": alto,
                "escenarios": a.escenarios, "idioma": a.idioma,
-               "banco": str(RAIZ_PROPIA / "tests" / "banco")}
+               "banco": str(RAIZ_PROPIA / "tests" / "banco"), "listar": a.listar}
         p = subprocess.run([sys.executable, "-X", "utf8", "-c", _SCRIPT, json.dumps(cfg)],
                            capture_output=True, text=True, encoding="utf-8", env=env,
                            cwd=a.raiz, timeout=1800)
+        if a.listar:
+            for linea in p.stdout.splitlines():
+                if linea.startswith("ESCENARIOS="):
+                    print(chr(10).join(json.loads(linea[len("ESCENARIOS="):])))
+            return 0
         resumen = {}
         for linea in p.stdout.splitlines():
             if linea.startswith("RESUMEN="):
