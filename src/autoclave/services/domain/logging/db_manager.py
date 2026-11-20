@@ -1904,6 +1904,105 @@ class DbManager:
             self._conn.commit()
         return {**dict(row), "activo": bool(row["activo"])}
 
+    # ── Catálogo de carga (RCB-08, 19-nov) ───────────────────────────────
+    # Baja lógica: un código no se borra ni se reutiliza para otra fila; darlo
+    # de alta otra vez lo reactiva con su nombre nuevo.
+
+    def listar_catalogo_carga(self, solo_activos: bool = False) -> list[dict]:
+        where = "WHERE activo=1 " if solo_activos else ""
+        with self._lock:
+            filas = self._conn.execute(
+                f"SELECT * FROM catalogo_carga {where}ORDER BY nombre COLLATE NOCASE, codigo"
+            ).fetchall()
+        return [dict(f) for f in filas]
+
+    def catalogo_carga_activo(self) -> dict[str, str]:
+        """{codigo: nombre} de los elementos activos (RCB-04.3)."""
+        with self._lock:
+            filas = self._conn.execute(
+                "SELECT codigo, nombre FROM catalogo_carga WHERE activo=1").fetchall()
+        return {f["codigo"]: f["nombre"] for f in filas}
+
+    def catalogo_carga_por_codigo(self) -> dict[str, dict]:
+        """{codigo: {"nombre", "activo"}} de todo el catálogo (vista previa del CSV)."""
+        with self._lock:
+            filas = self._conn.execute(
+                "SELECT codigo, nombre, activo FROM catalogo_carga").fetchall()
+        return {f["codigo"]: {"nombre": f["nombre"], "activo": bool(f["activo"])} for f in filas}
+
+    def get_elemento_catalogo(self, id_: int) -> dict | None:
+        with self._lock:
+            fila = self._conn.execute("SELECT * FROM catalogo_carga WHERE id=?", (id_,)).fetchone()
+        return dict(fila) if fila else None
+
+    def alta_catalogo_carga(self, codigo: str, nombre: str, usuario: str) -> tuple[str, dict | None]:
+        """("alta", None), ("reactivado", fila anterior) si el código estaba de
+        baja, o ("existe", fila) si está activo (sin cambios)."""
+        ahora = datetime.now().isoformat(timespec="seconds")
+        with self._lock:
+            fila = self._conn.execute("SELECT * FROM catalogo_carga WHERE codigo=?",
+                                      (codigo,)).fetchone()
+            if fila is not None and fila["activo"]:
+                return "existe", dict(fila)
+            if fila is not None:
+                self._conn.execute(
+                    "UPDATE catalogo_carga SET nombre=?, activo=1, modificado=?, modificado_por=? "
+                    "WHERE id=?", (nombre, ahora, usuario or "", fila["id"]))
+                self._conn.commit()
+                return "reactivado", dict(fila)
+            self._conn.execute(
+                "INSERT INTO catalogo_carga (codigo, nombre, activo, creado, modificado, "
+                "modificado_por) VALUES (?,?,1,?,?,?)", (codigo, nombre, ahora, ahora, usuario or ""))
+            self._conn.commit()
+            return "alta", None
+
+    def modificar_catalogo_carga(self, id_: int, usuario: str, nombre: str | None = None,
+                                 activo: bool | None = None) -> dict | None:
+        """Fila anterior (None si no existe) y aplica el nombre y/o el estado."""
+        ahora = datetime.now().isoformat(timespec="seconds")
+        with self._lock:
+            fila = self._conn.execute("SELECT * FROM catalogo_carga WHERE id=?", (id_,)).fetchone()
+            if fila is None:
+                return None
+            nuevo_nombre = fila["nombre"] if nombre is None else nombre
+            nuevo_activo = fila["activo"] if activo is None else (1 if activo else 0)
+            self._conn.execute(
+                "UPDATE catalogo_carga SET nombre=?, activo=?, modificado=?, modificado_por=? "
+                "WHERE id=?", (nuevo_nombre, nuevo_activo, ahora, usuario or "", id_))
+            self._conn.commit()
+        return dict(fila)
+
+    def aplicar_catalogo_carga(self, filas: list[tuple[str, str]], usuario: str) -> dict:
+        """RCB-08.3/08.6: altas, cambios de nombre y reactivaciones en una sola
+        transacción (todo o nada). Devuelve los conteos."""
+        ahora = datetime.now().isoformat(timespec="seconds")
+        conteo = {"altas": 0, "cambios": 0, "reactivados": 0}
+        with self._lock:
+            try:
+                self._conn.execute("BEGIN IMMEDIATE")
+                for codigo, nombre in filas:
+                    fila = self._conn.execute(
+                        "SELECT id, nombre, activo FROM catalogo_carga WHERE codigo=?",
+                        (codigo,)).fetchone()
+                    if fila is None:
+                        self._conn.execute(
+                            "INSERT INTO catalogo_carga (codigo, nombre, activo, creado, "
+                            "modificado, modificado_por) VALUES (?,?,1,?,?,?)",
+                            (codigo, nombre, ahora, ahora, usuario or ""))
+                        conteo["altas"] += 1
+                        continue
+                    if fila["nombre"] == nombre and fila["activo"]:
+                        continue
+                    self._conn.execute(
+                        "UPDATE catalogo_carga SET nombre=?, activo=1, modificado=?, "
+                        "modificado_por=? WHERE id=?", (nombre, ahora, usuario or "", fila["id"]))
+                    conteo["cambios" if fila["nombre"] != nombre else "reactivados"] += 1
+                self._conn.commit()
+            except Exception:
+                self._conn.rollback()
+                raise
+        return conteo
+
     def seed_admin_if_empty(self) -> None:
         """Con la tabla vacía crea las cuentas del sistema `Admin` e
         `Ingeniero` (U11), marcadas y obligadas a cambiar la contraseña en el

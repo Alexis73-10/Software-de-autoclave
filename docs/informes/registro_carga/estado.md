@@ -5,8 +5,8 @@ Rama: `registro-carga` (desde `dev` 75189880, 1.0.0-beta.4). Pruebas en el workt
 | Paso | Estado | Commit |
 |---|---|---|
 | 1. Migración v15 | Hecho | 8a631100 |
-| 2. Parámetros del programa | Hecho | (ver git log) |
-| 3. Catálogo en el backend | Pendiente | |
+| 2. Parámetros del programa | Hecho | d9c62568 |
+| 3. Catálogo en el backend | Hecho | (ver git log) |
 | 4. Inicio con carga | Pendiente | |
 | 5. Tirilla, PDF, correo, detalle | Pendiente | |
 | 6. Historial (búsqueda inversa) | Pendiente | |
@@ -14,3 +14,5 @@ Rama: `registro-carga` (desde `dev` 75189880, 1.0.0-beta.4). Pruebas en el workt
 | 8. Pruebas §12 y base t15 | Pendiente | |
 | 9. Revisión | Pendiente | |
 | Cierre | Pendiente | |
+
+Nota: `test_t15_rutas_equivalentes` falla desde el paso 3 por las rutas nuevas; la base se regenera en el paso 8.

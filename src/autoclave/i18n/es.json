@@ -1994,7 +1994,12 @@
       "cuenta_sistema_rechazada": "intentó modificar la cuenta del sistema {entidad} (rechazado)",
       "usuario_eliminado": "eliminó al usuario {entidad}",
       "usuario_rol_cambiado": "cambió el rol de {entidad}: {anterior} → {nuevo}",
-      "ciclo_confirmado_sin_entrega": "confirmó el ciclo sin condiciones seguras de la cámara: {nuevo}"
+      "ciclo_confirmado_sin_entrega": "confirmó el ciclo sin condiciones seguras de la cámara: {nuevo}",
+      "catalogo_carga_alta": "agregó al catálogo de carga {entidad}: {nuevo}",
+      "catalogo_carga_editado": "cambió el nombre de {entidad} en el catálogo de carga: {anterior} → {nuevo}",
+      "catalogo_carga_baja": "dio de baja {entidad} ({anterior}) del catálogo de carga",
+      "catalogo_carga_reactivado": "reactivó {entidad} en el catálogo de carga: {nuevo}",
+      "catalogo_carga_importado": "importó el catálogo de carga desde {entidad}"
     },
     "tipo": {
       "estado_seguro_secado_iniciado": "Secado tras fallo iniciado",
@@ -2060,7 +2065,12 @@
       "cuenta_sistema_rechazada": "Cuenta del sistema protegida",
       "usuario_eliminado": "Usuario eliminado",
       "usuario_rol_cambiado": "Rol de usuario cambiado",
-      "ciclo_confirmado_sin_entrega": "Ciclo confirmado sin cámara segura"
+      "ciclo_confirmado_sin_entrega": "Ciclo confirmado sin cámara segura",
+      "catalogo_carga_alta": "Catálogo de carga: alta",
+      "catalogo_carga_editado": "Catálogo de carga: nombre",
+      "catalogo_carga_baja": "Catálogo de carga: baja",
+      "catalogo_carga_reactivado": "Catálogo de carga: reactivado",
+      "catalogo_carga_importado": "Catálogo de carga: importación"
     }
   },
   "correo_c2": {

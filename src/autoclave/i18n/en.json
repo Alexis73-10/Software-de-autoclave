@@ -1994,7 +1994,12 @@
       "cuenta_sistema_rechazada": "tried to modify the system account {entidad} (rejected)",
       "usuario_eliminado": "deleted the user {entidad}",
       "usuario_rol_cambiado": "changed the role of {entidad}: {anterior} → {nuevo}",
-      "ciclo_confirmado_sin_entrega": "confirmed the cycle without safe chamber conditions: {nuevo}"
+      "ciclo_confirmado_sin_entrega": "confirmed the cycle without safe chamber conditions: {nuevo}",
+      "catalogo_carga_alta": "added {entidad} to the load catalog: {nuevo}",
+      "catalogo_carga_editado": "renamed {entidad} in the load catalog: {anterior} → {nuevo}",
+      "catalogo_carga_baja": "deactivated {entidad} ({anterior}) in the load catalog",
+      "catalogo_carga_reactivado": "reactivated {entidad} in the load catalog: {nuevo}",
+      "catalogo_carga_importado": "imported the load catalog from {entidad}"
     },
     "tipo": {
       "estado_seguro_secado_iniciado": "Drying after failure started",
@@ -2060,7 +2065,12 @@
       "cuenta_sistema_rechazada": "Protected system account",
       "usuario_eliminado": "User deleted",
       "usuario_rol_cambiado": "User role changed",
-      "ciclo_confirmado_sin_entrega": "Cycle confirmed without a safe chamber"
+      "ciclo_confirmado_sin_entrega": "Cycle confirmed without a safe chamber",
+      "catalogo_carga_alta": "Load catalog: added",
+      "catalogo_carga_editado": "Load catalog: renamed",
+      "catalogo_carga_baja": "Load catalog: deactivated",
+      "catalogo_carga_reactivado": "Load catalog: reactivated",
+      "catalogo_carga_importado": "Load catalog: import"
     }
   },
   "correo_c2": {
