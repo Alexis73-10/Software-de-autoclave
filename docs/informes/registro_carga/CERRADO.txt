@@ -1,0 +1,7 @@
+Tanda registro_carga (RCB-01..09) cerrada el 20-nov-2026.
+Merge a dev: 7120055b (rama registro-carga, último commit 0a96e291).
+Suite completa (en serie): 12715 pasan, 26 fallan, 13 errores, 11 omitidas, 15 xfail.
+Ningún fallo es de RCB: fallan igual en dev 75189880 o dependen del orden y del tiempo
+(la suite reescribe src/autoclave/cycles/user). Detalle en R_informe.md §5.
+Revisión de seguridad: SAF-01 (ALTA) corregido; SAF-02..05 (BAJA) en el informe.
+Entrega NO compilada: python tools/entrega/compilar_entrega.py

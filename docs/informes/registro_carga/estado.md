@@ -13,5 +13,5 @@ Rama: `registro-carga` (desde `dev` 75189880, 1.0.0-beta.4). Pruebas en el workt
 | 7. UI | Hecho | e4bf6716, 69555697 |
 | 8. Pruebas §12 y base t15 | Hecho (cobertura de §12 revisada) | 7b83b3fc |
 | 9. Revisión | Hecho (SAF-01 ALTA corregido; SAF-02..05 BAJA al informe) | dc692670 |
-| Cierre | Suite corrida (fallos solo de dev, ver informe §5); docs al día; merge en curso | 13b7eee3 |
+| Cierre | Hecho: merge a dev en 7120055b; entrega no compilada | 7120055b |
 
