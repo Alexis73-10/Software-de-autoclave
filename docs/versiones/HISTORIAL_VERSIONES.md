@@ -9,6 +9,40 @@ Una entrada por **entrega** (compilación con Setup que se instala en el equipo)
 
 <!-- entradas: las agrega compilar_entrega.py debajo de esta línea, la más nueva primero -->
 
+## 1.0.0-beta.5 — 2026-11-22
+
+- Etiqueta: `v1.0.0-beta.5` (commit `chore(ver): 1.0.0-beta.5`, sobre `554cfeb`)
+- AppVerNum: `1.0.0.2005`
+- SHA-256 del Setup y del zip: en el mensaje de la etiqueta y en `entrega/v1.0.0-beta.5_2026-11-22/SHA256SUMS.txt` (solo existen después de compilar)
+- Commits desde `v1.0.0-beta.4`:
+  - 554cfebc docs(t33): copia de la planta simulada del worktree de comparación autoclave_base
+  - 7b5c2873 docs: planeación V1.1, mejora del secado y prompt de la revisión visual
+  - 090d466f estación: sin widgets (paso 04) ni gestos táctiles de 3 y 4 dedos (paso 07), 20-nov
+  - 84e7a999 docs(rcb): estado y CERRADO de la tanda registro_carga
+  - 0a96e291 docs(rcb): informe, riesgos HAZ-RCB-01..05, trazabilidad REQ-107..115, banco RCB y CLAUDE.md
+  - 13b7eee3 fix(rcb): pruebas de Opciones con el Catálogo de carga, lote del PDF por la clase y programas de usuario sin las marcas que dejó la suite
+  - 372006a0 fix(ui): Connections de Preciclo con ignoreUnknownSignals y prueba de Opciones con el Catálogo de carga (RCB)
+  - dc692670 fix(ui): el borrador de la carga se vacía al entrar en CICLO aunque no llegue la respuesta del inicio (revisión SAF-01, HAZ-RCB-01)
+  - 69555697 feat(ui): Opciones › Catálogo de carga con alta por lector, edición, baja e importación CSV (RCB-08.1, RCB-08.2)
+  - d39d4d15 RV: CERRADO.txt
+  - 4e3c0788 RV etapas F y G: verificación, informes y cierre
+  - 7b83b3fc test(t15): base de rutas y OpenAPI con las rutas del catálogo de carga (RCB)
+  - e4bf6716 feat(ui): ventana Carga del ciclo con lector, botón Carga en Preciclo y envío con el inicio (RCB-01, RCB-02, RCB-09)
+  - b3b32dc9 feat(historial): búsqueda por lote o código y carga en el detalle del ciclo (RCB-07.2, RCB-07.3)
+  - e7983939 RV etapa E: prueba de interacción
+  - 56a9fe0a feat(ticket): carga en la tirilla, reimpresión con el modo guardado, PDF y correo (RCB-06, RCB-07.1)
+  - 0ea49f6b feat(ciclo): inicio con la carga en /cycle/start, base, respaldo y bitácora (RCB-04)
+  - a8da98be feat(carga): catálogo de carga con rutas, bitácora, importación CSV y respaldo (RCB-08)
+  - d9c62568 feat(programas): parámetros registro_carga_obligatorio e impresion_carga con migración (RCB-03)
+  - 8a631100 feat(bd): migración v15 con catálogo y carga del ciclo (RCB-05, RCB-06.4)
+  - 14472254 RV etapa D: RV-01..06, RV-16, RV-36, RV-37, RV-38 (maquetación y valores oscuros)
+  - 62c1a08d RV etapa C: hallazgos
+  - d3924f33 RV etapa E: arnés de interacción (borrador)
+  - 75c498e3 RV etapa B: inventario, escenarios del grupo F y capturas base
+  - 8a1f8c89 RV etapa A: detector de solapes en las capturas
+  - f7df9ec3 docs(modo-oscuro): CERRADO.txt
+
+
 ## 1.0.0-beta.4 — 2026-11-13
 
 - Etiqueta: `v1.0.0-beta.4` (commit `chore(ver): 1.0.0-beta.4`, sobre `4216748`)
