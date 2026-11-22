@@ -44,6 +44,8 @@ Fuera de alcance de esta propuesta: hardware nuevo, otro protocolo de E/S, nuevo
 | P3 | V11-16 | Anuncios por voz | `planeacion_anuncios_voz.md` | M | Sí (audio) |
 | P3 | V11-17 | `/cycle/select` con sesión | HAZ-SEN-05 (pregunta abierta) | S | No |
 | P3 | V11-18 | Revisión de textos de seguridad por hablante nativo | HAZ-I18N-01 | S | No |
+| P2 | V11-19 | Tiempo mínimo de exposición según la temperatura de esterilización | Anotación de Cristian, 19-nov | S | No |
+| P2 | V11-20 | Profundidad automática del último vacío en líquidos según la temperatura del líquido | Anotación de Cristian, 19-nov | M | Sí (G) |
 
 Prioridad: P1 = baja un residual ALTO o MEDIO de seguridad; P2 = función aplazada con planeación o pedido existente; P3 = mejora o deuda menor.
 
@@ -174,6 +176,38 @@ Prioridad: P1 = baja un residual ALTO o MEDIO de seguridad; P2 = función aplaza
 - **Problema.** HAZ-I18N-01: «Por completar: revisión por hablante nativo de textos de seguridad».
 - **Alcance.** Lista de claves de seguridad (NO ABRIR, alarmas, estado seguro, fin de ciclo) a un revisor; `docs/mis_plans/revision_traducciones.md` existe como base.
 - **Esfuerzo.** S (sin código).
+
+### V11-19 — Tiempo mínimo de exposición según la temperatura de esterilización (P2)
+- **Origen.** Anotación de Cristian (19-nov-2026) para la V1.1.
+- **Problema.** Hoy `esterilizacion.tiempo_esterilizacion` solo se valida contra su rango fijo del catálogo; no se relaciona con `temperatura_esterilizacion`. Se puede guardar, p. ej., 134 °C con menos de 3,5 min de exposición, que es menor al mínimo requerido para garantizar la esterilización, sin ningún aviso.
+- **Alcance (pedido).** Al configurar el tiempo de esterilización (Parámetros del ciclo), el mínimo depende de la temperatura del programa. Ejemplo dado por Cristian: a 134 °C, un tiempo menor a 3,5 min genera una alerta.
+- **Por definir con Cristian antes de planear.**
+  1. Tabla temperatura → tiempo mínimo (solo está dado el punto 134 °C → 3,5 min) y su fuente normativa (ISO 17665 / validación propia), y cómo se trata una temperatura intermedia (interpolación o escalón por debajo).
+  2. Alerta no bloqueante (advertencia al guardar, como `aviso_banda_pwm_techo`) o rechazo (`errores_coherencia`, como `COHERENCIA_RECUPERACION`).
+  3. Si aplica también a los programas ya instalados al cargarlos (aviso SIS-06) y si F0 activo cambia el criterio.
+  4. Si el mínimo es fijo de fábrica o parámetro del equipo.
+- **Riesgo.** Reduce el riesgo de carga no estéril por exposición insuficiente configurada por error. Si se hace bloqueante, introduce: un programa validado en sitio con otro criterio no se puede guardar.
+- **Pruebas.** `catalogo_parametros` (coherencia al guardar y al cargar), textos es/en.
+- **Esfuerzo.** S.
+
+### V11-20 — Profundidad automática del último vacío en líquidos según la temperatura del líquido (P2)
+- **Origen.** Anotación de Cristian (19-nov-2026) para la V1.1.
+- **Problema.** Hoy la profundidad de cada pulso de prevacío es fija por programa (`prevacio.presion_baja_pulso_<x>`, kPa abs). En líquidos, el último pulso no tiene en cuenta la temperatura del líquido: un vacío fijo puede quedarse corto con el líquido frío o hacerlo hervir con el líquido caliente.
+- **Alcance (pedido).** En el ciclo de líquidos, la profundidad del último pulso de vacío se decide sola según la temperatura del líquido. Ejemplos de Cristian:
+  - Líquido por debajo de 40 °C: vacío lo más profundo posible, hasta que la bomba no baje más; criterio de fin propuesto: la presión no baja más de 5 kPa en los últimos 10 s.
+  - Líquido a unos 70 °C: vacío a unos 35–40 kPa.
+  - Entre esos puntos, «y así sucesivamente» (curva por definir).
+- **Referencia física (para la planeación, no es decisión).** El límite natural es no bajar de la presión de saturación del líquido más un margen: `Psat(70 °C)` ≈ 31,2 kPa, coherente con los 35–40 kPa del ejemplo (margen ≈ 4–9 kPa); `Psat(40 °C)` ≈ 7,4 kPa. Una regla del tipo `P_objetivo = max(Psat(T_liq) + margen, P_que_alcance_la_bomba)` cubriría los dos ejemplos con una sola fórmula (`steam.p_saturacion_kpa`, IF97).
+- **Por definir con Cristian antes de planear.**
+  1. Qué sonda da la temperatura del líquido (Principal en la carga, `temp_2_camara`): se cruza con V11-06 y V11-07.
+  2. Curva o fórmula entre 40 y 70 °C y por encima de 70 °C, y el margen sobre Psat si se usa esa regla.
+  3. Bajo 40 °C con el criterio de la bomba: confirmar que el vacío alcanzable no queda por debajo de `Psat(T_liq)` (a 40 °C, ≈7,4 kPa) y si hace falta un piso.
+  4. Criterio de «la bomba ya no baja» (5 kPa en 10 s propuesto) y un tope de tiempo con su alarma.
+  5. Sin lectura de la temperatura del líquido: usar el valor fijo del programa o fallar cerrado.
+  6. Solo el último pulso o todos los pulsos de líquidos.
+- **Riesgo.** Reduce ebullición y rotura de envases (HAZ-LIQ-01) y aire residual en la carga (C-12). Introduce: dependencia de la sonda del líquido para decidir el vacío; una lectura alta errónea deja el vacío corto (aire), una baja errónea puede hacer hervir el líquido.
+- **Pruebas.** Planta simulada de líquidos (prevacío); `tests` de `prevacio.py` con la temperatura del líquido variable.
+- **Esfuerzo.** M. **Banco:** bloque G con vidrio real y sonda en la carga.
 
 ---
 
