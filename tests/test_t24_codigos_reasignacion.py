@@ -80,11 +80,17 @@ def _codigos_de_rechazos(fuente: str, excluir=frozenset()) -> set:
     return salida
 
 
+# Dependencias de dependencias.py que ninguna ruta /io/assignment* usa: sus
+# códigos no llegan a Reasignación (modo fábrica, Etapa 1: 409 solo_modo_fabrica
+# solo en las rutas de fábrica, que todavía no existen)
+_NO_REASIGNACION_DEP = frozenset({"requiere_modo_fabrica"})
+
+
 def codigos_emitidos() -> set:
     reasig = (_BACKEND / "server_reasignacion.py").read_text(encoding="utf-8")
     aio = (RAIZ / "src/autoclave/core/runtime/asignacion_io.py").read_text(encoding="utf-8")
     dep = (_BACKEND / "dependencias.py").read_text(encoding="utf-8")
-    codigos = _codigos_de_rechazos(reasig, _SOLO_RESPALDO) | _codigos_de_rechazos(dep)
+    codigos = _codigos_de_rechazos(reasig, _SOLO_RESPALDO) | _codigos_de_rechazos(dep, _NO_REASIGNACION_DEP)
     codigos |= set(_CODIGO_DICT.findall(aio)) | set(_CODIGO_DICT.findall(reasig))
     codigos |= _devoluciones(reasig, "_evidencia_que_falta")
     # el 429 del bloqueo por reautenticación (_bloquear_por_cambio_clave)

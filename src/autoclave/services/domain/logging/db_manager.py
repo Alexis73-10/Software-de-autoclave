@@ -488,6 +488,47 @@ def _migracion_v15(conn: sqlite3.Connection) -> None:
     conn.execute("CREATE INDEX IF NOT EXISTS idx_ciclos_lote_carga ON ciclos(lote_carga)")
 
 
+# Modo fábrica (DF-01): valores de estado_fabrica.estado
+ESTADO_FABRICA = "FABRICA"
+ESTADO_ENTREGADO = "ENTREGADO"
+EVENTO_EQUIPO_INSTALADO = "equipo_instalado"
+
+# Hay una base «usada» (DF-02, condición 3): ciclos o una fila equipo_instalado
+_SQL_BASE_USADA = ("SELECT EXISTS (SELECT 1 FROM ciclos) OR EXISTS "
+                   "(SELECT 1 FROM audit_log WHERE evento = 'equipo_instalado')")
+
+
+def _migracion_v16(conn: sqlite3.Connection) -> None:
+    """Modo fábrica, Etapa 1 (DF-01): estado del equipo FÁBRICA → ENTREGADO en
+    un solo sentido. Una sola fila (id = 1); sin fila = ENTREGADO. La fila no
+    se borra y una fila ENTREGADO no cambia; FÁBRICA no entra en una base con
+    ciclos o con equipo_instalado (defensa en profundidad de DF-02, que el
+    asistente ya comprueba). Una base ya usada (equipo instalado antes de esta
+    versión, P-01) queda en ENTREGADO; una base nueva y vacía, sin fila (la
+    escribe el asistente). Idempotente."""
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS estado_fabrica ("
+        " id INTEGER PRIMARY KEY CHECK (id = 1),"
+        " estado TEXT NOT NULL CHECK (estado IN ('FABRICA', 'ENTREGADO')),"
+        " fecha_liberacion TEXT,"
+        " hash_paquete TEXT,"
+        " creado TEXT NOT NULL)")
+    conn.execute("CREATE TRIGGER IF NOT EXISTS estado_fabrica_sin_delete "
+                 "BEFORE DELETE ON estado_fabrica "
+                 "BEGIN SELECT RAISE(ABORT, 'estado_fabrica no se borra'); END")
+    conn.execute("CREATE TRIGGER IF NOT EXISTS estado_fabrica_entregado_inmutable "
+                 "BEFORE UPDATE ON estado_fabrica WHEN OLD.estado = 'ENTREGADO' "
+                 "BEGIN SELECT RAISE(ABORT, 'un equipo entregado no cambia de estado'); END")
+    conn.execute("CREATE TRIGGER IF NOT EXISTS estado_fabrica_solo_base_nueva "
+                 "BEFORE INSERT ON estado_fabrica WHEN NEW.estado = 'FABRICA' AND ("
+                 + _SQL_BASE_USADA + ") "
+                 "BEGIN SELECT RAISE(ABORT, 'FABRICA solo en una base sin uso'); END")
+    hay_fila = conn.execute("SELECT EXISTS (SELECT 1 FROM estado_fabrica)").fetchone()[0]
+    if not hay_fila and conn.execute(_SQL_BASE_USADA).fetchone()[0]:
+        conn.execute("INSERT INTO estado_fabrica (id, estado, creado) VALUES (1, ?, ?)",
+                     (ESTADO_ENTREGADO, datetime.now().isoformat(timespec="seconds")))
+
+
 def _avisos_con_corte(texto) -> str:
     """ENT-07: `avisos_ticket` (JSON) con el aviso de entrega no registrada
     por corte de energía agregado una vez. Nunca lanza."""
@@ -562,6 +603,7 @@ _MIGRACIONES = (
     (13, _migracion_v13),
     (14, _migracion_v14),
     (15, _migracion_v15),
+    (16, _migracion_v16),
 )
 
 ESQUEMA_VERSION = _MIGRACIONES[-1][0]
@@ -847,6 +889,88 @@ class DbManager:
             con.commit()
         finally:
             con.close()
+
+    # ------------------------------------------------------------------
+    # Modo fábrica (DF-01, DF-02): tabla estado_fabrica
+    # ------------------------------------------------------------------
+
+    def estado_fabrica(self) -> str:
+        """'FABRICA' o 'ENTREGADO'. Sin fila, con un valor desconocido o ante
+        cualquier error, 'ENTREGADO' (la dirección segura frente a FAB-01).
+        Nunca lanza."""
+        try:
+            with self._lock:
+                fila = self._conn.execute(
+                    "SELECT estado FROM estado_fabrica WHERE id = 1").fetchone()
+        except Exception:
+            logger.exception("No se pudo leer estado_fabrica: se toma ENTREGADO")
+            return ESTADO_ENTREGADO
+        if fila is not None and fila[0] == ESTADO_FABRICA:
+            return ESTADO_FABRICA
+        return ESTADO_ENTREGADO
+
+    def entrar_modo_fabrica_e_instalar(self, *, primera_instalacion: bool, entidad: str = "",
+                                       detalle: dict | None = None,
+                                       usuario: str = "sistema") -> str:
+        """DF-02: la fila `equipo_instalado` del final del asistente y, si se
+        cumplen las tres condiciones, la entrada a FÁBRICA en la MISMA
+        transacción: (1) código de primera instalación (`primera_instalacion`),
+        (2) estado_fabrica sin fila y (3) base sin ciclos ni `equipo_instalado`
+        anterior. Si una condición no se cumple, solo escribe `equipo_instalado`
+        (como antes) y el estado no cambia. Si la transacción falla, se deshace
+        y se escribe solo `equipo_instalado` (sin fila = ENTREGADO, la dirección
+        segura); un error de esa segunda escritura se relanza.
+
+        Respeta el filtro de la bitácora (`_motivo_no_registrar`): si
+        `equipo_instalado` no se registra (instalación suprimida), tampoco se
+        entra a FÁBRICA. Devuelve el estado resultante."""
+        motivo = self._motivo_no_registrar(EVENTO_EQUIPO_INSTALADO)
+        if motivo:
+            _al_log_de_desarrollo(EVENTO_EQUIPO_INSTALADO, motivo, usuario, entidad, detalle)
+            logger.warning("Modo fábrica: equipo_instalado no se registra (%s); "
+                           "el estado no cambia", motivo)
+            return self.estado_fabrica()
+        fila = _fila_auditoria(EVENTO_EQUIPO_INSTALADO, usuario, "", entidad, None, None, detalle)
+        entro = False
+        try:
+            with self._lock:
+                try:
+                    if self._conn.in_transaction:
+                        logger.warning("Modo fábrica: transacción previa abierta; se deshace")
+                        self._conn.rollback()
+                    self._conn.execute("BEGIN IMMEDIATE")
+                    hay_fila = self._conn.execute(
+                        "SELECT EXISTS (SELECT 1 FROM estado_fabrica)").fetchone()[0]
+                    usada = self._conn.execute(_SQL_BASE_USADA).fetchone()[0]
+                    if primera_instalacion is True and not hay_fila and not usada:
+                        # antes que equipo_instalado: el trigger solo_base_nueva
+                        # rechazaría FÁBRICA con esa fila ya escrita
+                        self._conn.execute(
+                            "INSERT INTO estado_fabrica (id, estado, creado) VALUES (1, ?, ?)",
+                            (ESTADO_FABRICA, datetime.now().isoformat(timespec="seconds")))
+                        entro = True
+                    else:
+                        logger.info("Modo fábrica: no se entra (primera=%s, fila=%s, base usada=%s)",
+                                    primera_instalacion is True, bool(hay_fila), bool(usada))
+                    self._conn.execute(_SQL_AUDITORIA, fila)
+                    self._conn.commit()
+                except BaseException:
+                    entro = False
+                    try:
+                        if self._conn.in_transaction:
+                            self._conn.rollback()
+                    except Exception:
+                        logger.exception("Modo fábrica: no se pudo deshacer la transacción")
+                    raise
+        except Exception:
+            logger.exception("Modo fábrica: falló la entrada; se registra solo equipo_instalado "
+                             "y el equipo queda en ENTREGADO")
+            self.registrar_auditoria(EVENTO_EQUIPO_INSTALADO, usuario=usuario, entidad=entidad,
+                                     detalle=detalle)
+            return self.estado_fabrica()
+        if entro:
+            logger.warning("Modo fábrica: el equipo entra en FÁBRICA (serie %s)", entidad)
+        return ESTADO_FABRICA if entro else self.estado_fabrica()
 
     # ------------------------------------------------------------------
     # Parámetros del equipo (O2a, tanda 6): tabla system_params

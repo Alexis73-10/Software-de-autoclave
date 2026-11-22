@@ -209,6 +209,33 @@ def requiere_rol(*roles: str, permitir_cambio_pendiente: bool = False):
     return dependencia
 
 
+_MOTIVO_SOLO_MODO_FABRICA = "Solo disponible con el equipo en modo fábrica"
+
+
+def _equipo_en_modo_fabrica() -> bool:
+    """DF-03/DF-04: estado leído por el contexto; ante cualquier duda, False."""
+    try:
+        consulta = getattr(context, "modo_fabrica", None)
+        return callable(consulta) and consulta() is True
+    except Exception:
+        logger.exception("No se pudo leer el modo fábrica: se rechaza")
+        return False
+
+
+def requiere_modo_fabrica():
+    """Dependencia FastAPI de toda ruta de fábrica (DF-04): con el equipo en
+    ENTREGADO (o sin saberlo), 409 `solo_modo_fabrica` para todos los roles,
+    antes de mirar la sesión; en FÁBRICA, lo mismo que
+    `requiere_rol(ingeniero)` (401/403). Devuelve la Sesion."""
+    verificar_rol = requiere_rol(ROL_INGENIERO)
+
+    def dependencia(request: Request, authorization: str | None = Header(None)) -> Sesion:
+        if not _equipo_en_modo_fabrica():
+            _rechazar(409, "solo_modo_fabrica", _MOTIVO_SOLO_MODO_FABRICA, request.url.path)
+        return verificar_rol(request, authorization)
+    return dependencia
+
+
 def reautenticar(clave: str, sesion: Sesion, entidad: str, origen: str) -> None:
     """Contraseña del usuario de la sesión (reasignación de E/S, R8; confirmación
     forzada del ciclo, ENT-04 de la tanda 31). Antes vivía en

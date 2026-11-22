@@ -1947,6 +1947,7 @@
       "estado_seguro_secado_iniciado": "started the drying after failure (residual steam)",
       "estado_seguro_secado_terminado": "finished the drying after failure",
       "equipo_instalado": "registered the installation of equipment {entidad}",
+      "equipo_liberado_fabrica": "released equipment {entidad} from the factory",
       "ciclo_no_conforme_reconocido": "acknowledged that the NONCONFORMING cycle load is not releasable",
       "ciclo_cancelado": "cancelled the cycle {nuevo}",
       "ciclo_iniciado": "started a cycle; operator: {nuevo}",
@@ -2020,6 +2021,7 @@
       "estado_seguro_secado_iniciado": "Drying after failure started",
       "estado_seguro_secado_terminado": "Drying after failure finished",
       "equipo_instalado": "Equipment installed",
+      "equipo_liberado_fabrica": "Equipment released from factory",
       "ciclo_no_conforme_reconocido": "Non-releasable load acknowledged",
       "ciclo_cancelado": "Cycle cancelled",
       "ciclo_iniciado": "Cycle started",
@@ -2781,5 +2783,8 @@
     "importar_elegir": "Tap the file to see the preview",
     "actualizar_usb": "Refresh",
     "procesando": "Processing…"
+  },
+  "fabrica": {
+    "franja": "FACTORY MODE"
   }
 }

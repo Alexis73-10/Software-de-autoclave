@@ -1947,6 +1947,7 @@
       "estado_seguro_secado_iniciado": "inició el secado tras fallo (vapor residual)",
       "estado_seguro_secado_terminado": "terminó el secado tras fallo",
       "equipo_instalado": "registró la instalación del equipo {entidad}",
+      "equipo_liberado_fabrica": "registró la liberación de fábrica del equipo {entidad}",
       "ciclo_no_conforme_reconocido": "reconoció que la carga del ciclo NO CONFORME no es liberable",
       "ciclo_cancelado": "canceló el ciclo {nuevo}",
       "ciclo_iniciado": "inició un ciclo; operador: {nuevo}",
@@ -2020,6 +2021,7 @@
       "estado_seguro_secado_iniciado": "Secado tras fallo iniciado",
       "estado_seguro_secado_terminado": "Secado tras fallo terminado",
       "equipo_instalado": "Equipo instalado",
+      "equipo_liberado_fabrica": "Equipo liberado de fábrica",
       "ciclo_no_conforme_reconocido": "Carga no liberable reconocida",
       "ciclo_cancelado": "Ciclo cancelado",
       "ciclo_iniciado": "Ciclo iniciado",
@@ -2781,5 +2783,8 @@
     "importar_elegir": "Toque el archivo para ver la vista previa",
     "actualizar_usb": "Actualizar",
     "procesando": "Procesando…"
+  },
+  "fabrica": {
+    "franja": "MODO FÁBRICA"
   }
 }

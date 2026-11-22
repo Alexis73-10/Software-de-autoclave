@@ -1,0 +1,30 @@
+# Suite de base (rama modo-fabrica en 220fa6fd, antes de la Etapa 1)
+# Comando: python -m pytest tests -q -p no:cacheprovider -n auto -rf (worktree aislado de HEAD, PYTHONPATH=<worktree>/src)
+# Resultado: 20 failed, 12734 passed, 11 skipped, 15 xfailed, 15 warnings, 6 errors in 973.77s (0:16:13)
+
+FAILED tests/test_c2_programas_persistentes.py::test_usuario_con_valores_fuera_de_catalogo_no_es_ejecutable
+FAILED tests/test_q1_r1p3_rango_calentamiento.py::test_hay_10_perfiles
+FAILED tests/test_s1_sen01_fuera_de_ciclo.py::test_camara_sin_lectura_run_no_queda_lista[preparado_state]
+FAILED tests/test_s9_planta_simulada.py::test_ensayo_s9[arranque_sin_presion-1]
+FAILED tests/test_s9_planta_simulada.py::test_ensayo_s9[arranque_sin_presion-2]
+FAILED tests/test_s9_planta_simulada.py::test_ensayo_s9[arranque_sin_presion-3]
+FAILED tests/test_s9_planta_simulada.py::test_ensayo_s9[arranque_sin_presion-4]
+FAILED tests/test_t12_c07_c13_json.py::test_son_los_10_programas
+FAILED tests/test_t12_v12_ventana_referencia_en_cero.py::test_referencia_sin_senal_no_bloquea_la_ventana[0.0]
+FAILED tests/test_t12_v12_ventana_referencia_en_cero.py::test_referencia_sin_senal_no_bloquea_la_ventana[0]
+FAILED tests/test_t12_v12_ventana_referencia_en_cero.py::test_referencia_sin_senal_no_bloquea_la_ventana[nan]
+FAILED tests/test_t17_copia_programa.py::test_fase_iniciada_o_terminada_rige_desde_el_siguiente[estabilizacion]
+FAILED tests/test_t28_a14_m3_brecha.py::test_1_0_pasa_a_0_3_una_sola_vez
+FAILED tests/test_t28_a14_m3_brecha.py::test_m3_no_pasa_por_la_salvaguarda_del_alivio
+FAILED tests/test_t29_descompresion_fin_modo_solido.py::test_programas_del_repo_con_el_parametro_y_validos[factory/bowe_dick.json]
+FAILED tests/test_t29_descompresion_fin_modo_solido.py::test_programas_del_repo_con_el_parametro_y_validos[factory/instrumental_121.json]
+FAILED tests/test_t29_descompresion_fin_modo_solido.py::test_programas_del_repo_con_el_parametro_y_validos[factory/instrumental_134.json]
+FAILED tests/test_t29_descompresion_fin_modo_solido.py::test_programas_del_repo_con_el_parametro_y_validos[factory/liquidos.json]
+FAILED tests/test_t29_descompresion_fin_modo_solido.py::test_programas_del_repo_con_el_parametro_y_validos[factory/prion.json]
+FAILED tests/test_t29_descompresion_fin_modo_solido.py::test_programas_del_repo_con_el_parametro_y_validos[factory/textiles.json]
+ERROR tests/test_hor_b_textos_contraste_qml.py::test_ningun_texto_pasa_su_caja[es]
+ERROR tests/test_hor_b_textos_contraste_qml.py::test_reconocer_falla_cabe_en_su_boton[es]
+ERROR tests/test_hor_b_textos_contraste_qml.py::test_programa_largo_entre_los_divisores[es]
+ERROR tests/test_hor_b_textos_contraste_qml.py::test_ningun_texto_pasa_su_caja[en]
+ERROR tests/test_hor_b_textos_contraste_qml.py::test_reconocer_falla_cabe_en_su_boton[en]
+ERROR tests/test_hor_b_textos_contraste_qml.py::test_programa_largo_entre_los_divisores[en]

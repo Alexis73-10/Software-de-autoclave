@@ -573,6 +573,16 @@ def _puertas_con_actuador(doors) -> dict:
     return salida
 
 
+def _modo_fabrica() -> bool:
+    """DF-03: el backend es la única fuente; ante cualquier duda, False."""
+    try:
+        consulta = getattr(context, "modo_fabrica", None)
+        return callable(consulta) and consulta() is True
+    except Exception:
+        logger.exception("No se pudo leer el modo fábrica para /status")
+        return False
+
+
 @router.get("/status", response_model=None)
 def get_status():
     estado = context.estado
@@ -642,6 +652,8 @@ def get_status():
         "machine_state":        machine_state,
         # T8 (§7.1): operación sin base de datos (alarma OPERANDO_SIN_BD)
         "sin_base_de_datos":    getattr(context, "sin_base_de_datos", False) is True,
+        # Modo fábrica (DF-03): true solo con el estado FÁBRICA; sin base, false
+        "modo_fabrica":         _modo_fabrica(),
         "fase_ciclo":            getattr(estado, "fase_ciclo", ""),
         "fase_en_sostenimiento": getattr(estado, "fase_en_sostenimiento", False),
         # FC-08 (tanda 21): se retiraron no_conforme, motivo_no_conforme y

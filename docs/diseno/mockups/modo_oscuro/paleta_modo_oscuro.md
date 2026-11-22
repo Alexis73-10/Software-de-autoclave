@@ -71,6 +71,9 @@ Regla: en modo claro todo queda idéntico a hoy. Ningún valor de este archivo s
 - Barra de avance del ciclo: #1E5FD9 → #33B4F5 sobre `fondoPista`.
 - Gráfica: cámara #5B9BFF, referencia #B06BF0, presión #22D3B0; rejilla #2A3746; ejes y líneas de fase #3A4A5E; texto de ejes #8C98A7; recuadro del cursor #0F1721 borde #33445A.
 - `graficaZoomIcono` — #3A6FD8 → #5B9BFF (ícono de zoom de la gráfica, ZOM-07, tanda 34; DECISIÓN SIN CONFIRMAR; contraste ≥ 3:1 sobre `fondoTarjeta`)
+- Franja «MODO FÁBRICA» (modo fábrica, D-13, Etapa 1; violeta para no confundirse con las alarmas IEC ni con la advertencia; DECISIÓN SIN CONFIRMAR; texto ≥ 4,5:1 sobre el fondo):
+- `franjaFabricaFondo` — #6A1B9A → #4A1470
+- `franjaFabricaTexto` — #FFFFFF → #F3E5FF
 - Valores de sensores en oscuro (tira de 6): temperatura de cámara #8AB6FF, referencia #CFA2F7, presión #5EE3C2; parámetros del programa en `textoPrimario`; unidades en `textoSecundario`.
 
 ## 7. Deslizador de inicio (AJ-01) y éxito

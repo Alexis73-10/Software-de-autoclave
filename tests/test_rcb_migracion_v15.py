@@ -40,7 +40,7 @@ def test_migracion_v15_sobre_base_v14_con_datos(tmp_path, monkeypatch):
     assert "lote_carga" not in _columnas(ruta, "ciclos")
 
     db = DbManager(db_path=ruta)
-    assert db.get_version_esquema() == dbm.ESQUEMA_VERSION == 15
+    assert db.get_version_esquema() == dbm.ESQUEMA_VERSION == 16   # v16: estado_fabrica (modo fábrica)
     fila = db.get_ciclo(i)
     # los datos anteriores no cambian y el ciclo viejo queda sin carga
     assert fila["numero_ciclo"] == 7 and fila["operador"] == "Ana"
@@ -57,7 +57,7 @@ def test_migracion_v15_sobre_base_v14_con_datos(tmp_path, monkeypatch):
 
     # idempotente: reabrir no cambia la versión ni falla
     db = DbManager(db_path=ruta)
-    assert db.get_version_esquema() == 15
+    assert db.get_version_esquema() == 16
     db.close()
 
 

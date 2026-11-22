@@ -64,6 +64,8 @@ EVENTOS = (
     "contrasena_fijada_instalacion",
     # BIT-02 (tanda 17): única fila de la instalación, al terminar el asistente
     "equipo_instalado",
+    # Modo fábrica (D-12): única fila nueva tras el cierre de fabricación (Etapa 5)
+    "equipo_liberado_fabrica",
     # A13 (tanda 28; M3 de la tanda 28b): secado tras fallo del protocolo de
     # estado seguro (inicio y resultado: hecho, sin_vacio, cortado...).
     # AJ28B-08: antes se registraban como evento desconocido
@@ -150,6 +152,7 @@ _CATEGORIA = {
     "sistema": (
         "correo_enviado", "respaldo_exportado", "respaldo_rechazado", "respaldo_restaurado",
         "reinicio_control", "software_reiniciado", "equipo_instalado",
+        "equipo_liberado_fabrica",
         "ciclo_reimportado", "ciclo_completado_desde_respaldo", "tarjeta_conectada",
     ),
 }

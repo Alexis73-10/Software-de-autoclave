@@ -163,11 +163,30 @@ def ahora_local() -> datetime:
     return datetime.now()
 
 
+def es_primera_instalacion(resultado: ResultadoCodigo | None) -> bool:
+    """Modo fábrica (DF-02, condición 1): el código validado es de primera
+    instalación: v1, o v2 de tipo INS (también INSA, que el verificador
+    devuelve como INS con originales). Un REI/REIA nunca; sin resultado o con
+    uno no válido, False (falla segura: el equipo queda en ENTREGADO)."""
+    if not isinstance(resultado, ResultadoCodigo) or resultado.ok is not True:
+        return False
+    return resultado.formato == "v1" or (resultado.formato == "v2" and resultado.tipo == "INS")
+
+
 def construir_perfil(datos: dict, codigo: str, ahora: datetime | None = None,
                      verificar_codigo=verificar_codigo_instalacion,
                      sellar=sellar_identidad) -> InstallationProfile:
     """Valida los datos de la pantalla y arma el perfil (bloqueado). Lanza
-    ValueError con el motivo en español.
+    ValueError con el motivo en español. Ver `construir_perfil_y_codigo`."""
+    return construir_perfil_y_codigo(datos, codigo, ahora, verificar_codigo, sellar)[0]
+
+
+def construir_perfil_y_codigo(datos: dict, codigo: str, ahora: datetime | None = None,
+                              verificar_codigo=verificar_codigo_instalacion,
+                              sellar=sellar_identidad) -> tuple[InstallationProfile, ResultadoCodigo]:
+    """Valida los datos de la pantalla y arma el perfil (bloqueado). Lanza
+    ValueError con el motivo en español. Devuelve además el `ResultadoCodigo`
+    del código validado (modo fábrica, DF-02: decide si es primera instalación).
 
     Automatización: el código (INSA/REIA) se verifica atado a la serie y el
     modelo originales; el perfil lleva los originales normalizados y el sello
@@ -251,7 +270,7 @@ def construir_perfil(datos: dict, codigo: str, ahora: datetime | None = None,
         extra = {"tipo_instalacion": Modo.AUTOMATIZACION.value,
                  "serial_original": originales[0], "modelo_original": originales[1],
                  "sello_identidad": sellar(Modo.AUTOMATIZACION.value, serie, *originales)}
-    return InstallationProfile(
+    perfil = InstallationProfile(
         machine_id=f"ACV-{ahora.strftime('%Y')}-{serie}",
         model_id=modelo,
         serial_number=serie,
@@ -270,6 +289,7 @@ def construir_perfil(datos: dict, codigo: str, ahora: datetime | None = None,
         tipo_carga=carga,
         **extra,
     )
+    return perfil, resultado
 
 
 def errores_contrasenas(claves: dict, es_semilla=es_clave_semilla) -> dict[str, str]:
@@ -326,10 +346,16 @@ def zona_horaria_windows() -> str:
 
 
 def registrar_equipo_instalado(perfil: InstallationProfile, abrir_bd=_abrir_bd,
-                               zona=zona_horaria_windows) -> None:
+                               zona=zona_horaria_windows,
+                               primera_instalacion: bool = False) -> str:
     """BIT-02 (tanda 17): la única fila de la instalación en audit_log, al
     terminarla, con serie, modelo, versión y zona horaria de Windows. Un error
-    no deshace la instalación (el perfil ya está escrito): queda en el log."""
+    no deshace la instalación (el perfil ya está escrito): queda en el log.
+
+    Modo fábrica (DF-02): con `primera_instalacion` (código v1 o INS) y una
+    base sin uso, la misma transacción deja el equipo en FÁBRICA
+    (`DbManager.entrar_modo_fabrica_e_instalar`). Devuelve el estado
+    resultante; ante un error, "ENTREGADO" (sin fila)."""
     from autoclave._version import version_completa
     # solo en automatización: la fila de fabricación queda como antes
     extra = ({"tipo_instalacion": perfil.tipo_instalacion,
@@ -339,8 +365,9 @@ def registrar_equipo_instalado(perfil: InstallationProfile, abrir_bd=_abrir_bd,
     try:
         db = abrir_bd()
         try:
-            db.registrar_auditoria(
-                "equipo_instalado", usuario="sistema", entidad=perfil.serial_number,
+            estado = db.entrar_modo_fabrica_e_instalar(
+                primera_instalacion=primera_instalacion is True, usuario="sistema",
+                entidad=perfil.serial_number,
                 detalle={"serie": perfil.serial_number, "modelo": perfil.model_id,
                          "version": version_completa(), "zona_horaria": zona(),
                          **extra})
@@ -348,6 +375,9 @@ def registrar_equipo_instalado(perfil: InstallationProfile, abrir_bd=_abrir_bd,
             db.close()
     except Exception:
         logger.exception("No se pudo registrar equipo_instalado en la bitácora")
+        return "ENTREGADO"
+    logger.info("Estado del equipo al terminar la instalación: %s", estado)
+    return estado
 
 
 def _hay_perfil_valido() -> bool:
@@ -385,6 +415,8 @@ class PuenteInstalacion(QObject):
         self._es_semilla = es_semilla
         self._clases = clases_disponibles()
         self._codigo = ""
+        # DF-02: resultado del código con que se instaló (lo fija instalar())
+        self._resultado_codigo: ResultadoCodigo | None = None
 
     @Property("QVariantList", constant=True)
     def clases(self) -> list:
@@ -465,8 +497,9 @@ class PuenteInstalacion(QObject):
         claves = datos.pop("contrasenas", None)
         claves = dict(claves) if hasattr(claves, "keys") else {}
         try:
-            perfil = construir_perfil(datos, self._codigo, verificar_codigo=self._verificar_codigo,
-                                      sellar=self._sellar)
+            self._resultado_codigo = None
+            perfil, self._resultado_codigo = construir_perfil_y_codigo(
+                datos, self._codigo, verificar_codigo=self._verificar_codigo, sellar=self._sellar)
             if errores_contrasenas(claves, es_semilla=self._es_semilla):
                 raise ValueError(i18n.t("instalacion.error_contrasenas"))
             if _hay_perfil_valido():
@@ -483,6 +516,8 @@ class PuenteInstalacion(QObject):
             logger.exception("Instalación rechazada: no se pudieron guardar las contraseñas")
             return {"ok": False, "error": i18n.t("instalacion.error_guardar_contrasenas", detalle=str(e))}
         logger.info("Instalación completada para la serie '%s'", perfil.serial_number)
-        registrar_equipo_instalado(perfil, abrir_bd=self._abrir_bd)
+        registrar_equipo_instalado(
+            perfil, abrir_bd=self._abrir_bd,
+            primera_instalacion=es_primera_instalacion(self._resultado_codigo))
         self.instalado.emit()
         return {"ok": True, "error": ""}

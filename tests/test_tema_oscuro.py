@@ -252,6 +252,8 @@ _ORIGEN_CLARO = {
     "faseVapor": ("paleta_claro",), "faseVaporFondo": ("paleta_claro",),
     "faseBurbujaBorde": ("paleta_claro",), "faseBurbujaRelleno": ("paleta_claro",),
     "graficaZoomIcono": ("paleta_claro",),
+    # Modo fábrica (D-13, Etapa 1): franja «MODO FÁBRICA», sin literal en dev
+    "franjaFabricaFondo": ("paleta_claro",), "franjaFabricaTexto": ("paleta_claro",),
     "conectorInicio": (_CON, 71), "conectorFin": (_CON, 72), "conectorPendiente": (_CON, 59),
     "progresoInicio": (_CIC, "progresoInicio"), "progresoFin": (_CIC, "progresoFin"),
     "serieGrafica1": (_GRA, 56), "serieGrafica2": (_GRA, 59), "serieGrafica3": (_GRA, 62),

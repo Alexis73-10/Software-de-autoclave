@@ -48,6 +48,12 @@ def puerta_con_actuador(mapa, nombre_puerta) -> bool:
     return isinstance(mapa, dict) and mapa.get(nombre_puerta) is True
 
 
+def modo_fabrica(valor) -> bool:
+    """D-13 / DF-03: /status.modo_fabrica; solo True estricto (la interfaz
+    nunca lo deduce)."""
+    return valor is True
+
+
 def estado_equipo(machine_state, listo) -> str:
     """Clave de es.json -> estados.* para la columna ESTADO de la pantalla de ciclo."""
     if machine_state == "CICLO":
@@ -261,6 +267,7 @@ class UiBridge(QObject):
     datosCicloChanged = Signal()
     seguridadChanged = Signal()
     entradasChanged = Signal()
+    modoFabricaChanged = Signal()
 
     def __init__(self, ui_service, door: int, parent=None, intervalo_ms: int = 500, iniciar: bool = True):
         super().__init__(parent)
@@ -280,6 +287,8 @@ class UiBridge(QObject):
         # E5 (tanda 2026-10-14): NO ABRIR, paro, estado seguro y modo prueba
         self._seguridad = self._seguridad_de({})
         self._apariciones: dict = {}
+        # Modo fábrica (D-13, DF-03): solo lo que dice /status; sin dato, False
+        self._modo_fabrica = False
 
         self._timer = QTimer(self)
         self._timer.setInterval(intervalo_ms)
@@ -379,6 +388,11 @@ class UiBridge(QObject):
             "estado_seguro": self._ui.get_campo("estado_seguro", {}),
             "sin_bd": self._ui.get_campo("sin_base_de_datos", False),
         }) if self._connected else self._seguridad_de({}), self.seguridadChanged)
+        # Modo fábrica (D-13): franja mientras /status diga true. Sin conexión el
+        # caché conserva el último valor recibido (la franja no desaparece por
+        # un corte; HAZ-FAB-03). Solo True estricto.
+        self._fijar("_modo_fabrica", modo_fabrica(self._ui.get_campo("modo_fabrica", False)),
+                    self.modoFabricaChanged)
         # A3 (tanda 27): sin control de inicio de ciclo con el modo prueba activo
         self._fijar("_inicio_visible",
                     dominio.inicio_ciclo_visible(self._connected, self._listo,
@@ -511,6 +525,11 @@ class UiBridge(QObject):
         """ESS-04: el estado seguro actúa en silencio (detenido o no seguro
         solo por un sensor sin lectura); False sin dato."""
         return self._seguridad.get("es_silencioso", False)
+
+    @Property(bool, notify=modoFabricaChanged)
+    def modoFabrica(self) -> bool:
+        """D-13: franja «MODO FÁBRICA» en todas las pantallas (Main.qml)."""
+        return self._modo_fabrica
 
     @Property(bool, notify=seguridadChanged)
     def modoPrueba(self) -> bool:

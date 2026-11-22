@@ -135,6 +135,9 @@ class BackendContext:
         self.arranque_liberado = threading.Event()
         self.sin_base_de_datos = False
         self._lock_sin_bd = threading.Lock()
+        # Modo fábrica (DF-03): estado leído de la base al abrirla; sin base o
+        # ante un error, ENTREGADO. Lo publica /status.modo_fabrica
+        self._estado_fabrica = "ENTREGADO"
         self.db_real = None
         # R8: asignación de E/S (cargar_asignacion_io, etapa de configuración)
         self.archivo_asignacion = None
@@ -671,6 +674,7 @@ class BackendContext:
                     self.db.instalacion_en_curso = SupresionInstalacion()
                 except AttributeError:
                     logger.warning("La base no admite la supresión de la bitácora durante la instalación")
+                self.releer_estado_fabrica()                   # DF-03 (modo fábrica)
                 self.calibration_audit = SensorCalibrationAuditDB()
                 self._numeracion_y_ciclos_interrumpidos()
                 # O2a: valores vigentes de los parámetros del equipo (system_params).
@@ -709,6 +713,31 @@ class BackendContext:
                                     or getattr(self, "_marca_interrumpido", None))
         self.alarm_manager.activar(OPERANDO_SIN_BD)
         return secuencia.ARR_SIN_BD
+
+    # ── modo fábrica (DF-03) ─────────────────────────────────────────────────
+
+    def releer_estado_fabrica(self) -> str:
+        """Lee de la base el estado del equipo ('FABRICA' | 'ENTREGADO') y lo
+        guarda para /status. Sin base, con una base que no lo sabe leer o ante
+        cualquier error, 'ENTREGADO'. Nunca lanza. Se llama al abrir la base;
+        el cierre de fabricación (Etapa 5) reinicia el software, así que no
+        hace falta releer en caliente."""
+        estado = "ENTREGADO"
+        try:
+            lector = getattr(self.db, "estado_fabrica", None)
+            if callable(lector) and lector() == "FABRICA":
+                estado = "FABRICA"
+        except Exception:
+            logger.exception("No se pudo leer el estado de fábrica: se toma ENTREGADO")
+        self._estado_fabrica = estado
+        if estado == "FABRICA":
+            logger.warning("El equipo está en MODO FÁBRICA")
+        return estado
+
+    def modo_fabrica(self) -> bool:
+        """True solo con el estado FÁBRICA leído de una base disponible (DF-03:
+        sin base o en el modo sin base, False)."""
+        return self.sin_base_de_datos is not True and self._estado_fabrica == "FABRICA"
 
     # ── 7. conectando_modulos_es ─────────────────────────────────────────────
 
