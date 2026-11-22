@@ -1,0 +1,7 @@
+Fecha: 2026-11-02
+Commit del merge a dev: 99312497 (modo-oscuro -> dev, sin push)
+Suite completa (pytest tests, 77 min, rama modo-oscuro en b80c7217): 9713 pasan, 2 fallan, 6 errores, 38 skip, 7 xfail.
+Los 8 casos malos pasan al repetirlos: 2 de test_tema_oscuro (el codigo se edito durante la corrida; con b80c7217 pasa completo, 47) y 6 errores de test_l9_login_qml_recordar_olvido (el QML de Login no cargo en la corrida completa; repetida sola pasa 6/6 en la rama y en dev; causa no determinada, no verificado si es preexistente).
+No se repitio la suite completa sobre el commit del merge.
+Entrega NO compilada: python tools/entrega/compilar_entrega.py
+Pendiente de Cristian: OSC-01, OSC-02, OSC-16, OSC-17/18/20 (ver R_informe.md); renumerar REQ-OSC-01 al unir con dashboard-reportes.
