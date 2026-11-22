@@ -102,6 +102,7 @@ $script:ValoresGestionados = @(
     'HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings|ActiveHoursStart',
     'HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings|ActiveHoursEnd',
     'HKLM:\SOFTWARE\Policies\Microsoft\Windows\EdgeUI|AllowEdgeSwipe',
+    'HKLM:\SOFTWARE\Policies\Microsoft\Dsh|AllowNewsAndInterests',
     'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Power|HiberbootEnabled'
 )
 # Valores que nunca se escriben en el log
@@ -279,7 +280,8 @@ $script:ValoresUsuarioGestionados = @(
     'Control Panel\Desktop|Wallpaper',
     'Software\Microsoft\Windows\CurrentVersion\Explorer\Wallpapers|BackgroundType',
     'Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced|HideIcons',
-    'Software\Microsoft\Windows\CurrentVersion\Explorer\StuckRects3|Settings'
+    'Software\Microsoft\Windows\CurrentVersion\Explorer\StuckRects3|Settings',
+    'Control Panel\Desktop|TouchGestureSetting'
 )
 $script:ColmenaTemporal = 'EspecifikaEstacion07'
 $script:TiposValorUsuario = @('String', 'ExpandString', 'DWord', 'QWord', 'Binary', 'MultiString')

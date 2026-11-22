@@ -45,7 +45,7 @@ def test_lista_blanca_cubre_todo_lo_que_escriben_los_pasos():
     for paso in ("01_cuenta_autologon.ps1", "02_arranque_silencioso.ps1",
                  "04_notificaciones_actualizaciones_gestos.ps1", "05_plan_energia.ps1"):
         escritos |= _valores_escritos(_ps(paso))
-    assert len(escritos) == 25
+    assert len(escritos) == 26   # 20-nov: + Dsh|AllowNewsAndInterests (widgets)
     assert escritos == _gestionados()
 
 

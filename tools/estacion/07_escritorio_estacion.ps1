@@ -1,7 +1,8 @@
 <#
 .SYNOPSIS
   Paso 7: escritorio de la estacion (EST-09, tanda 18): fondo de Especifika,
-  barra de tareas con ocultar automaticamente e iconos del escritorio ocultos.
+  barra de tareas con ocultar automaticamente, iconos del escritorio ocultos
+  y sin gestos tactiles de 3 y 4 dedos (20-nov).
 .DESCRIPTION
   Decision EST-09 (docs/mis_plans/decisiones_tanda_18.md). El PC tiene una
   sola cuenta: la que instala y entra con el inicio automatico. Los tres
@@ -59,6 +60,15 @@
        the desktop" (NoDesktop) como alternativa por usuario; DECISION SIN
        CONFIRMAR. Surte efecto en el siguiente inicio de sesion (o al
        reiniciar el Explorador).
+  4. Gestos tactiles de 3 y 4 dedos desactivados (pedido de Cristian, 20-nov:
+     deslizar con 3 dedos abria la vista de tareas sobre la aplicacion):
+     - HKCU\Control Panel\Desktop: TouchGestureSetting = 0 (REG_DWORD; 1 los
+       activa), el que escribe Configuracion > Bluetooth y dispositivos >
+       Entrada tactil > "Gestos tactiles con tres y cuatro dedos" (Windows 11).
+       Con 0 Windows entrega esos toques a la aplicacion. Valor no documentado
+       formalmente por Microsoft; DECISION SIN CONFIRMAR. Surte efecto en el
+       siguiente inicio de sesion. Los gestos de borde y los widgets van en el
+       paso 04 (HKLM).
 
   Respaldo: respaldo_07_escritorio_estacion.json en <RutaDatos>\estacion
   (solo Administradores y SYSTEM), con el SID de la cuenta y cada valor
@@ -122,6 +132,9 @@ try {
 
     # 3. Iconos del escritorio ocultos
     Set-ValorUsuario -Paso $Paso -Colmena $colmena -Ruta $Avanzado -Nombre 'HideIcons' -Valor 1 -Tipo DWord
+
+    # 4. Sin gestos tactiles de 3 y 4 dedos (vista de tareas, escritorios)
+    Set-ValorUsuario -Paso $Paso -Colmena $colmena -Ruta $Escritorio -Nombre 'TouchGestureSetting' -Valor 0 -Tipo DWord
 
     # 2. Barra de tareas: solo el bit 0x01 del byte 8 de StuckRects3\Settings
     $barra = Get-ValorUsuario $colmena.Raiz $StuckRects3 'Settings'

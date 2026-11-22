@@ -10,6 +10,11 @@
     calidad 30 dias y caracteristicas 365 dias. En Home las directivas de
     WindowsUpdate pueden ignorarse: verificarlo en la checklist.
   - Gestos de borde de la pantalla tactil: deshabilitados (AllowEdgeSwipe=0).
+  - Widgets (panel de noticias e intereses de Windows 11, el que sale al deslizar
+    desde el borde izquierdo o desde el boton de la barra): deshabilitados con la
+    directiva "Allow widgets" (Dsh\AllowNewsAndInterests=0). Cubre el panel
+    aunque AllowEdgeSwipe no lo bloquee en alguna version de Windows 11.
+    Los gestos de 3 y 4 dedos son por usuario: paso 07.
   Idempotente; inverso: 04_revertir_notificaciones_actualizaciones_gestos.ps1.
 #>
 [CmdletBinding(SupportsShouldProcess)]
@@ -45,6 +50,9 @@ Set-RegValor -Paso $Paso -Ruta 'HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settin
 
 # Gestos de borde
 Set-RegValor -Paso $Paso -Ruta 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\EdgeUI' -Nombre 'AllowEdgeSwipe' -Valor 0
+
+# Widgets (panel de noticias)
+Set-RegValor -Paso $Paso -Ruta 'HKLM:\SOFTWARE\Policies\Microsoft\Dsh' -Nombre 'AllowNewsAndInterests' -Valor 0
 
 Write-Log 'Para que las directivas se apliquen ya: gpupdate /force o reiniciar.'
 Write-Log "== Fin $Paso =="

@@ -37,6 +37,7 @@ STUCKRECTS3 = "Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\StuckRect
 GESTIONADOS = {
     f"{ESCRITORIO}|WallpaperStyle", f"{ESCRITORIO}|TileWallpaper", f"{ESCRITORIO}|Wallpaper",
     f"{WALLPAPERS}|BackgroundType", f"{AVANZADO}|HideIcons", f"{STUCKRECTS3}|Settings",
+    f"{ESCRITORIO}|TouchGestureSetting",
 }
 
 
@@ -107,6 +108,7 @@ def test_texto_escribe_los_tres_ajustes_con_sus_valores():
     assert escritos[f"{WALLPAPERS}|BackgroundType"] == ("0", "DWord")        # tipo «Imagen»
     assert escritos[f"{AVANZADO}|HideIcons"] == ("1", "DWord")
     assert escritos[f"{STUCKRECTS3}|Settings"] == ("$nuevo", "Binary")
+    assert escritos[f"{ESCRITORIO}|TouchGestureSetting"] == ("0", "DWord")   # sin gestos de 3 y 4 dedos
     # la lista blanca cubre exactamente lo que escribe el paso
     assert set(escritos) == GESTIONADOS == _gestionados_usuario()
 

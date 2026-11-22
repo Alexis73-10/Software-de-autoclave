@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  Inverso del paso 4: restaura notificaciones, Windows Update y gestos de borde.
+  Inverso del paso 4: restaura notificaciones, Windows Update, gestos de borde y widgets.
 #>
 [CmdletBinding(SupportsShouldProcess)]
 param()

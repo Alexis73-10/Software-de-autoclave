@@ -19,10 +19,10 @@ Primero simular cada uno con `-WhatIf`; luego sin él. Reiniciar al final.
 | 1 | `01_cuenta_autologon.ps1 [-Usuario operador]` | Cuenta local estándar e inicio de sesión automático (pide la contraseña) | §3.1, §4 |
 | 2 | `02_arranque_silencioso.ps1` | Copia del BCD, `bootux disabled`, sin pantalla de bloqueo ni contraseña al reanudar | §3.3, §3.4 |
 | 3 | `03_tarea_autoclave.ps1 [-Usuario operador] [-Ejecutable ruta]` | Tarea "al iniciar sesión" que lanza `Autoclave.exe`, 3 reintentos cada minuto | §3.2, §8 |
-| 4 | `04_notificaciones_actualizaciones_gestos.ps1 [-HoraActivaInicio 6 -HoraActivaFin 23]` | Sin notificaciones, Windows Update sin reinicio automático y diferido, sin gestos de borde | §5 |
+| 4 | `04_notificaciones_actualizaciones_gestos.ps1 [-HoraActivaInicio 6 -HoraActivaFin 23]` | Sin notificaciones, Windows Update sin reinicio automático y diferido, sin gestos de borde ni widgets (panel de noticias, `Dsh\AllowNewsAndInterests=0`) | §5 |
 | 5 | `05_plan_energia.ps1` | Sin suspensión, hibernación ni apagado de pantalla; botón de encendido "no hacer nada" | §7 |
 | 6 | `06_asociar_tactiles.ps1 [-MinutosEspera 10]` | Asocia cada pantalla táctil con su monitor: abre `%windir%\System32\MultiDigitizer.exe` y pide tocar cada pantalla una vez. Solo con 2 o más monitores | D11-5 (tanda 11) |
-| 7 | `07_escritorio_estacion.ps1 [-Usuario cuenta -Dominio equipo] [-Imagen ruta]` | Escritorio de la estación en el perfil de la cuenta del inicio automático: fondo de Especifika (Rellenar, todos los monitores, tipo «Imagen»), barra de tareas con «Ocultar automáticamente» e íconos del escritorio ocultos. Ver «Paso 7» abajo | EST-09 (tanda 18) |
+| 7 | `07_escritorio_estacion.ps1 [-Usuario cuenta -Dominio equipo] [-Imagen ruta]` | Escritorio de la estación en el perfil de la cuenta del inicio automático: fondo de Especifika (Rellenar, todos los monitores, tipo «Imagen»), barra de tareas con «Ocultar automáticamente», íconos del escritorio ocultos y sin gestos táctiles de 3 y 4 dedos (`TouchGestureSetting=0`, 20-nov). Ver «Paso 7» abajo | EST-09 (tanda 18) |
 | 8 | `08_red_modulos.ps1 -Adaptador <MAC>` | Red del módulo E/S: el adaptador Ethernet dedicado (elegido por su MAC) queda en `192.168.3.10/24`, sin puerta de enlace ni DNS y sin DHCP. Ver «Paso 8» abajo | T20-05 (tanda 20) |
 
 Ejemplo:
