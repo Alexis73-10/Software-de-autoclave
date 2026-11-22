@@ -42,6 +42,7 @@ _SCRIPT = textwrap.dedent(r'''
     from autoclave.ui_qml.bridge import i18n_qml
     from autoclave.cliente.session_manager import SessionManager
     from tests.helpers.textos_caben_qml import FUNCION_REVISAR
+    from tests.helpers.solapes_qml import FUNCION_SOLAPES, ANIMADOS, INSIGNIAS
 
     cfg = json.loads(sys.argv[1])
     tema, destino = cfg["tema"], cfg["destino"]
@@ -219,6 +220,8 @@ _SCRIPT = textwrap.dedent(r'''
     import glob as _glob
     for _f in sorted(_glob.glob(os.path.join(cfg["banco"], "hor_escenarios_*.py"))):
         exec(compile(open(_f, encoding="utf-8").read(), _f, "exec"), globals())
+    if cfg.get("listar"):
+        print("ESCENARIOS=" + json.dumps(list(E))); sys.exit(0)
 
     REVISOR = None
 
@@ -397,10 +400,10 @@ _SCRIPT = textwrap.dedent(r'''
         archivo = os.path.join(destino, f"hor_{tema}_{nombre}.png")
         win.grabWindow().save(archivo)
         comp = QQmlComponent(engine)
-        comp.setData(("import QtQuick\nQtObject {\n" + FUNCION_REVISAR + FUERA + "\n}\n").encode("utf-8"),
+        comp.setData(("import QtQuick\nQtObject {\n" + FUNCION_REVISAR + FUERA + FUNCION_SOLAPES + "\n}\n").encode("utf-8"),
                      QUrl.fromLocalFile(QML_DIR + "/_revisor_hor.qml"))
         rev = comp.create()
-        problemas, fuera = [], []
+        problemas, fuera, solapes = [], [], []
         QTest.qWait(10)
         if rev is not None:
             r = json.loads(QMetaObject.invokeMethod(rev, "revisarDesde", Q_RETURN_ARG("QVariant"),
@@ -412,9 +415,20 @@ _SCRIPT = textwrap.dedent(r'''
             problemas += json.loads(QMetaObject.invokeMethod(rev, "desbordesTexto", Q_RETURN_ARG("QVariant"),
                                                              Q_ARG("QVariant", win.contentItem()),
                                                              Q_ARG("QVariant", W), Q_ARG("QVariant", H)))
+            # RV etapa A: solapes entre elementos (tests/helpers/solapes_qml.py), en
+            # su propia clave del resumen: `problemas` queda como antes (lo comparan
+            # tests/banco/resp_capturas.py y test_resp_sin_barras.py)
+            try:
+                solapes = json.loads(QMetaObject.invokeMethod(rev, "solapesDesde", Q_RETURN_ARG("QVariant"),
+                                                              Q_ARG("QVariant", win.contentItem()),
+                                                              Q_ARG("QVariant", W), Q_ARG("QVariant", H),
+                                                              Q_ARG("QVariant", list(ANIMADOS)),
+                                                              Q_ARG("QVariant", list(INSIGNIAS))))
+            except Exception as ex:  # noqa: BLE001
+                print("solapes: fallo del detector", repr(ex)); solapes = []
         print("captura", nombre, len(problemas), "problemas", len(fuera), "fuera")
         win.close(); engine.deleteLater(); QTest.qWait(50)
-        return {"problemas": problemas, "fuera": fuera,
+        return {"problemas": problemas, "fuera": fuera, "solapes": solapes,
                 "avisos": [a for a in avisos if "Binding loop" not in a][:10]}
 
     resumen = {}
@@ -441,6 +455,8 @@ def main() -> int:
     ap.add_argument("--plataforma", default="windows")
     # árbol de fuentes a capturar (p. ej. un worktree de dev para el vertical)
     ap.add_argument("--raiz", default=str(RAIZ_PROPIA))
+    # RV: imprime los nombres de los escenarios y sale
+    ap.add_argument("--listar", action="store_true")
     a = ap.parse_args()
     ancho, alto = (int(x) for x in a.tamano.split("x"))
     Path(a.destino).mkdir(parents=True, exist_ok=True)
@@ -449,10 +465,15 @@ def main() -> int:
     for tema in a.temas:
         cfg = {"tema": tema, "destino": a.destino, "ancho": ancho, "alto": alto,
                "escenarios": a.escenarios, "idioma": a.idioma,
-               "banco": str(RAIZ_PROPIA / "tests" / "banco")}
+               "banco": str(RAIZ_PROPIA / "tests" / "banco"), "listar": a.listar}
         p = subprocess.run([sys.executable, "-X", "utf8", "-c", _SCRIPT, json.dumps(cfg)],
                            capture_output=True, text=True, encoding="utf-8", env=env,
                            cwd=a.raiz, timeout=1800)
+        if a.listar:
+            for linea in p.stdout.splitlines():
+                if linea.startswith("ESCENARIOS="):
+                    print(chr(10).join(json.loads(linea[len("ESCENARIOS="):])))
+            return 0
         resumen = {}
         for linea in p.stdout.splitlines():
             if linea.startswith("RESUMEN="):

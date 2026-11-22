@@ -197,7 +197,7 @@ _CICLO_ESPERA = """PantallaCicloEnCurso {
     objectName: "pantallaCiclo"
     anchors.fill: parent
     puente: puenteC; comandos: comandosC; infoEquipo: infoC
-    resultado: "exitoso"; entregada: false; forzable: true
+    resultado: "exitoso"; entregada: false
     fases: %s
     transcurridoS: 3312
 }""" % str(_COMPLETAS).replace("'", '"')

@@ -1,0 +1,4 @@
+Revisión visual (RV) cerrada el 2026-11-20.
+Último commit del trabajo: 4e3c0788 (rama revision-visual, desde dev 75189880).
+Suite completa (una vez, offscreen): 12531 pasan, 32 fallan, 6 errores, 11 omitidas, 15 xfail. Al repetir sin los backends de la etapa E, 11 pasan; 24 fallan igual en dev limpio; 3 eran del entorno (programas de usuario reescritos por la suite, restaurados; .bak del 13-nov). Detalle en R_informe.md, «Pruebas».
+No se compiló la entrega ni se unió a dev.

@@ -1,0 +1,127 @@
+[
+ {
+  "flujo": "opciones_es",
+  "paso": 1,
+  "nombre": "opciones",
+  "captura": "opciones_es\\01_opciones.png",
+  "esperado": "Opciones tras el login de ingeniero",
+  "ok": true,
+  "avisos": [
+   "This plugin does not support raise()"
+  ]
+ },
+ {
+  "flujo": "opciones_es",
+  "paso": 2,
+  "nombre": "seccion_parametros_ciclo",
+  "captura": "opciones_es\\02_seccion_parametros_ciclo.png",
+  "esperado": "sección parametros_ciclo abierta",
+  "ok": true,
+  "avisos": []
+ },
+ {
+  "flujo": "opciones_es",
+  "paso": 3,
+  "nombre": "seccion_parametros_sistema",
+  "captura": "opciones_es\\03_seccion_parametros_sistema.png",
+  "esperado": "sección parametros_sistema abierta",
+  "ok": true,
+  "avisos": []
+ },
+ {
+  "flujo": "opciones_es",
+  "paso": 4,
+  "nombre": "seccion_entradas_salidas",
+  "captura": "opciones_es\\04_seccion_entradas_salidas.png",
+  "esperado": "sección entradas_salidas abierta",
+  "ok": true,
+  "avisos": []
+ },
+ {
+  "flujo": "opciones_es",
+  "paso": 5,
+  "nombre": "seccion_mantenimiento",
+  "captura": "opciones_es\\05_seccion_mantenimiento.png",
+  "esperado": "sección mantenimiento abierta",
+  "ok": true,
+  "avisos": []
+ },
+ {
+  "flujo": "opciones_es",
+  "paso": 6,
+  "nombre": "seccion_opciones_avanzadas",
+  "captura": "opciones_es\\06_seccion_opciones_avanzadas.png",
+  "esperado": "sección opciones_avanzadas abierta",
+  "ok": true,
+  "avisos": []
+ },
+ {
+  "flujo": "opciones_es",
+  "paso": 7,
+  "nombre": "seccion_usuarios",
+  "captura": "opciones_es\\07_seccion_usuarios.png",
+  "esperado": "sección usuarios abierta",
+  "ok": true,
+  "avisos": []
+ },
+ {
+  "flujo": "opciones_es",
+  "paso": 8,
+  "nombre": "seccion_conectividad",
+  "captura": "opciones_es\\08_seccion_conectividad.png",
+  "esperado": "sección conectividad abierta",
+  "ok": true,
+  "avisos": []
+ },
+ {
+  "flujo": "opciones_es",
+  "paso": 9,
+  "nombre": "seccion_fecha_hora",
+  "captura": "opciones_es\\09_seccion_fecha_hora.png",
+  "esperado": "sección fecha_hora abierta",
+  "ok": true,
+  "avisos": []
+ },
+ {
+  "flujo": "opciones_es",
+  "paso": 9,
+  "nota": "no accionado por seguridad: controles de fecha_hora (solo se abrió la sección)"
+ },
+ {
+  "flujo": "opciones_es",
+  "paso": 10,
+  "nombre": "seccion_info_sistema",
+  "captura": "opciones_es\\10_seccion_info_sistema.png",
+  "esperado": "sección info_sistema abierta",
+  "ok": true,
+  "avisos": []
+ },
+ {
+  "flujo": "opciones_es",
+  "paso": 11,
+  "nombre": "seccion_bitacora",
+  "captura": "opciones_es\\11_seccion_bitacora.png",
+  "esperado": "sección bitacora abierta",
+  "ok": true,
+  "avisos": []
+ },
+ {
+  "flujo": "opciones_es",
+  "paso": 11,
+  "nota": "no accionado por seguridad: entrada_respaldo"
+ },
+ {
+  "flujo": "opciones_es",
+  "paso": 12,
+  "nombre": "seccion_respaldo",
+  "captura": "opciones_es\\12_seccion_respaldo.png",
+  "esperado": "sección respaldo abierta",
+  "ok": true,
+  "avisos": []
+ },
+ {
+  "flujo": "opciones_es",
+  "paso": 12,
+  "nota": "no accionado por seguridad: controles de respaldo (solo se abrió la sección)"
+ }
+]

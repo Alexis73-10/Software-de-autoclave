@@ -1,0 +1,41 @@
+[
+ {
+  "flujo": "confirmar_fin_es",
+  "paso": 1,
+  "nombre": "terminado",
+  "captura": "confirmar_fin_es\\01_terminado.png",
+  "esperado": "Ciclo en curso terminado con CONFIRMAR",
+  "ok": true,
+  "avisos": [
+   "This plugin does not support raise()"
+  ]
+ },
+ {
+  "flujo": "confirmar_fin_es",
+  "paso": 1,
+  "nota": "toque_desviado: centro de CONFIRMAR lo recibe QQuickItem:detectorToques (padre )"
+ },
+ {
+  "flujo": "confirmar_fin_es",
+  "paso": 2,
+  "nombre": "modal_confirmar",
+  "captura": "confirmar_fin_es\\02_modal_confirmar.png",
+  "esperado": "modal de confirmación",
+  "ok": true,
+  "avisos": []
+ },
+ {
+  "flujo": "confirmar_fin_es",
+  "paso": 2,
+  "nota": "toque_desviado: centro de botonAccionModal lo recibe QQuickItem:detectorToques (padre )"
+ },
+ {
+  "flujo": "confirmar_fin_es",
+  "paso": 3,
+  "nombre": "confirmado",
+  "captura": "confirmar_fin_es\\03_confirmado.png",
+  "esperado": "regresa a Preciclo tras confirmar",
+  "ok": true,
+  "avisos": []
+ }
+]

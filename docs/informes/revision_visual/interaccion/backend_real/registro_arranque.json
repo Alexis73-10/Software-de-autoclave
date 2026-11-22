@@ -1,0 +1,31 @@
+[
+ {
+  "flujo": "arranque_es",
+  "paso": 1,
+  "nombre": "intro",
+  "captura": "arranque_es\\01_intro.png",
+  "esperado": "intro de arranque visible",
+  "ok": true,
+  "avisos": [
+   "This plugin does not support raise()"
+  ]
+ },
+ {
+  "flujo": "arranque_es",
+  "paso": 2,
+  "nombre": "tras_intro",
+  "captura": "arranque_es\\02_tras_intro.png",
+  "esperado": "Reposo o pantalla principal al terminar la intro",
+  "ok": false,
+  "avisos": []
+ },
+ {
+  "flujo": "arranque_es",
+  "paso": 3,
+  "nombre": "principal",
+  "captura": "arranque_es\\03_principal.png",
+  "esperado": "Preciclo (puerta 1) tras tocar el Reposo",
+  "ok": true,
+  "avisos": []
+ }
+]

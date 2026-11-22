@@ -1,0 +1,38 @@
+{
+ "d_ciclo_ajuste": {
+  "problemas": [],
+  "fuera": [],
+  "solapes": [],
+  "avisos": []
+ },
+ "d_equipo_ajuste": {
+  "problemas": [],
+  "fuera": [],
+  "solapes": [],
+  "avisos": []
+ },
+ "teclado_alfa": {
+  "problemas": [],
+  "fuera": [],
+  "solapes": [],
+  "avisos": []
+ },
+ "teclado_num": {
+  "problemas": [],
+  "fuera": [],
+  "solapes": [],
+  "avisos": []
+ },
+ "d_parametros_ciclo_fase": {
+  "problemas": [],
+  "fuera": [],
+  "solapes": [],
+  "avisos": []
+ },
+ "d_ciclo_sensores": {
+  "problemas": [],
+  "fuera": [],
+  "solapes": [],
+  "avisos": []
+ }
+}

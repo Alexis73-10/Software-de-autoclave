@@ -87,9 +87,9 @@ Item {
                 id: valorTexto
                 // Tanda horizontal (ronda 2): con el valor vacío el texto no tiene
                 // línea base y la unidad (alineada a ella) se montaba sobre el
-                // rango; en horizontal un espacio conserva la línea. En vertical,
-                // como siempre (preexistente, pendiente de decisión)
-                text: Escala.horizontal && ctrl.texto === "" ? " " : ctrl.texto
+                // rango; un espacio conserva la línea (RV-04, revisión visual
+                // 19-nov: también en vertical, donde seguía montándose)
+                text: ctrl.texto === "" ? " " : ctrl.texto
                 color: Colores.textoPrimario
                 font.family: raiz._estilo(TecladoProvisional.encabezadoValorEstilo).familia
                 font.weight: raiz._estilo(TecladoProvisional.encabezadoValorEstilo).peso

@@ -1,0 +1,75 @@
+[
+ {
+  "flujo": "ciclo_es",
+  "paso": 1,
+  "nombre": "en_curso",
+  "captura": "ciclo_es\\01_en_curso.png",
+  "esperado": "Ciclo en curso con barra de fases y gráfica",
+  "ok": true,
+  "avisos": [
+   "Mouse event at 1203, 1677 occurs outside target window (1200x1920).",
+   "Mouse event at 1221, 1677 occurs outside target window (1200x1920).",
+   "Mouse event at 1239, 1677 occurs outside target window (1200x1920).",
+   "Mouse event at 1239, 1677 occurs outside target window (1200x1920)."
+  ]
+ },
+ {
+  "flujo": "ciclo_es",
+  "paso": 2,
+  "nombre": "cursor_grafica",
+  "captura": "ciclo_es\\02_cursor_grafica.png",
+  "esperado": "globo del cursor en la gráfica",
+  "ok": true,
+  "avisos": []
+ },
+ {
+  "flujo": "ciclo_es",
+  "paso": 3,
+  "nombre": "campana_ciclo",
+  "captura": "ciclo_es\\03_campana_ciclo.png",
+  "esperado": "panel de notificaciones",
+  "ok": true,
+  "avisos": []
+ },
+ {
+  "flujo": "ciclo_es",
+  "paso": 4,
+  "nombre": "cancelar_incompleto",
+  "captura": "ciclo_es\\04_cancelar_incompleto.png",
+  "esperado": "no cancela; la manija regresa",
+  "ok": true,
+  "avisos": []
+ },
+ {
+  "flujo": "ciclo_es",
+  "paso": 5,
+  "nombre": "fin",
+  "captura": "ciclo_es\\05_fin.png",
+  "esperado": "fin del ciclo con CONFIRMAR",
+  "ok": true,
+  "avisos": []
+ },
+ {
+  "flujo": "ciclo_es",
+  "paso": 5,
+  "nota": "toque_desviado: centro de CONFIRMAR lo recibe QQuickItem:detectorToques (padre )"
+ },
+ {
+  "flujo": "ciclo_es",
+  "paso": 6,
+  "nombre": "modal_confirmar",
+  "captura": "ciclo_es\\06_modal_confirmar.png",
+  "esperado": "modal de confirmación",
+  "ok": false,
+  "avisos": []
+ },
+ {
+  "flujo": "ciclo_es",
+  "paso": 7,
+  "nombre": "confirmado",
+  "captura": "ciclo_es\\07_confirmado.png",
+  "esperado": "regresa a Preciclo tras confirmar",
+  "ok": false,
+  "avisos": []
+ }
+]

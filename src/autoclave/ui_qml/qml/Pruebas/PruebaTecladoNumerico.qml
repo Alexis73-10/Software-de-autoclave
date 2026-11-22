@@ -82,6 +82,7 @@ Window {
                 width: parent.width; height: Escala.px(120)
                 radius: Escala.px(12)
                 border.color: Colores.bordeCampo; border.width: Escala.px(2)
+                color: Colores.fondoCampo   // RV-36: legible en oscuro (#FFFFFF en claro)
                 Column {
                     anchors.verticalCenter: parent.verticalCenter
                     x: Escala.px(24)

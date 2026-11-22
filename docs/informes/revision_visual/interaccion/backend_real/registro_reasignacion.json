@@ -1,0 +1,18 @@
+[
+ {
+  "flujo": "reasignacion_es",
+  "paso": 1,
+  "nombre": "reasignacion",
+  "captura": "reasignacion_es\\01_reasignacion.png",
+  "esperado": "tabla de reasignación",
+  "ok": true,
+  "avisos": [
+   "This plugin does not support raise()"
+  ]
+ },
+ {
+  "flujo": "reasignacion_es",
+  "paso": 1,
+  "nota": "no accionado por seguridad: Aplicar y Restaurar fábrica de Reasignación (reinician el control)"
+ }
+]

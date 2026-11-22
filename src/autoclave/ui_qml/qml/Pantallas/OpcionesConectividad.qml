@@ -101,7 +101,14 @@ Item {
         color: Colores.accionPrimario
         opacity: habilitado ? 1.0 : 0.4
         Text {
-            anchors.centerIn: parent
+            // RV-05 (revisión visual, 19-nov): en horizontal el texto se salía del
+            // botón; baja la letra hasta caber (nunca se recorta, D8-5.4)
+            anchors.fill: parent
+            anchors.leftMargin: Escala.px(12); anchors.rightMargin: Escala.px(12)
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
+            fontSizeMode: Text.HorizontalFit
+            minimumPixelSize: Escala.fuenteMinima
             text: boton.texto
             color: Colores.textoSobreAccion
             font.family: Tipografia.familia

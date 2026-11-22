@@ -131,8 +131,9 @@ Item {
                         : raiz.campoActivo === campo.nombre ? Colores.accionPrimario
                                                             : Colores.bordeCampo
             border.width: raiz.campoActivo === campo.nombre || raiz.error(campo.nombre) !== "" ? 2 : 1
-            // Ronda 2 (horizontal): en vertical el recuadro no fija color (blanco por defecto, también en oscuro: preexistente, pendiente de decisión); en horizontal toma Colores.fondoCampo (#FFFFFF en claro, igual que hoy)
-            Binding on color { when: raiz.hz; value: Colores.fondoCampo }
+            // RV-01/RV-02 (revisión visual, 19-nov): el recuadro toma Colores.fondoCampo en las dos
+            // orientaciones (#FFFFFF en claro, igual que antes; en oscuro ya no queda blanco)
+            color: Colores.fondoCampo
 
             IconoColor {
                 id: candado

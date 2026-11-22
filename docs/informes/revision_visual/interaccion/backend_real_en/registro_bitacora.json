@@ -1,0 +1,31 @@
+[
+ {
+  "flujo": "bitacora_es",
+  "paso": 1,
+  "nombre": "bitacora",
+  "captura": "bitacora_es\\01_bitacora.png",
+  "esperado": "bitácora con filas",
+  "ok": true,
+  "avisos": [
+   "This plugin does not support raise()"
+  ]
+ },
+ {
+  "flujo": "bitacora_es",
+  "paso": 2,
+  "nombre": "calendario",
+  "captura": "bitacora_es\\02_calendario.png",
+  "esperado": "calendario táctil del filtro Desde",
+  "ok": true,
+  "avisos": []
+ },
+ {
+  "flujo": "bitacora_es",
+  "paso": 3,
+  "nombre": "filtro_hoy",
+  "captura": "bitacora_es\\03_filtro_hoy.png",
+  "esperado": "filtrado desde hoy",
+  "ok": false,
+  "avisos": []
+ }
+]

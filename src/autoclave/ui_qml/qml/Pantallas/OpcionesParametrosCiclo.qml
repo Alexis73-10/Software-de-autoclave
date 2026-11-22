@@ -1055,6 +1055,10 @@ Item {
                 // Nuevo valor: numérico con el teclado; booleano y enumerado con opciones (U-17)
                 Rectangle {
                     objectName: "campoNuevoValor"
+                    // RV-38 (revisión visual, 19-nov): sin color fijo quedaba blanco
+                    // también en oscuro y el valor tecleado (texto claro) no se veía;
+                    // fondoCampo es #FFFFFF en claro, igual que antes
+                    color: Colores.fondoCampo
                     visible: ajuste.param !== null && !ajuste.esModo && ajuste.param.tipo !== "bool" && ajuste.param.tipo !== "enum"
                     width: parent.width
                     height: Escala.px(88)

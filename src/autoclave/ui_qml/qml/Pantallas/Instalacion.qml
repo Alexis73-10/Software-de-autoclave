@@ -550,7 +550,8 @@ Item {
                     CampoFormulario {
                         id: campoSerieOriginal
                         visible: raiz.automatizado
-                        y: (raiz.hz ? Escala.px(273) : Escala.px(440)) + ayudaAutomatizado.height
+                        // RV-16 (revisión visual, 19-nov): margen entre la ayuda y la etiqueta
+                        y: (raiz.hz ? Escala.px(273) : Escala.px(440)) + ayudaAutomatizado.height + Escala.px(16)
                         width: raiz.hz ? lienzo.medio : parent.width
                         etiqueta: I18n.t("instalacion.serie_original", I18n.lang)
                         marcador: I18n.t("instalacion.serie_original_marcador", I18n.lang)
@@ -565,7 +566,7 @@ Item {
                         id: campoModeloOriginal
                         visible: raiz.automatizado
                         x: raiz.hz ? lienzo.xDer : 0
-                        y: (raiz.hz ? Escala.px(273) : Escala.px(607)) + ayudaAutomatizado.height
+                        y: (raiz.hz ? Escala.px(273) : Escala.px(607)) + ayudaAutomatizado.height + Escala.px(16)
                         width: raiz.hz ? lienzo.medio : parent.width
                         etiqueta: I18n.t("instalacion.modelo_original", I18n.lang)
                         marcador: I18n.t("instalacion.modelo_original_marcador", I18n.lang)
@@ -577,8 +578,8 @@ Item {
                         onTocado: raiz.editar("modelo_original")
                     }
                     Ayuda {
-                        y: raiz.hz ? (raiz.automatizado ? Escala.px(456) + ayudaAutomatizado.height : Escala.px(283))
-                                   : (raiz.automatizado ? Escala.px(790) + ayudaAutomatizado.height : Escala.px(450))
+                        y: raiz.hz ? (raiz.automatizado ? Escala.px(456) + ayudaAutomatizado.height + Escala.px(16) : Escala.px(283))
+                                   : (raiz.automatizado ? Escala.px(790) + ayudaAutomatizado.height + Escala.px(16) : Escala.px(450))
                         width: parent.width
                         text: I18n.t("instalacion.activacion_ayuda", I18n.lang)
                     }

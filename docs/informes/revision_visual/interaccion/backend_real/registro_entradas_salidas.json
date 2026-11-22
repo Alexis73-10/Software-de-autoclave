@@ -1,0 +1,77 @@
+[
+ {
+  "flujo": "entradas_salidas_es",
+  "paso": 1,
+  "nombre": "entradas",
+  "captura": "entradas_salidas_es\\01_entradas.png",
+  "esperado": "entradas digitales",
+  "ok": true,
+  "avisos": [
+   "This plugin does not support raise()"
+  ]
+ },
+ {
+  "flujo": "entradas_salidas_es",
+  "paso": 1,
+  "nota": "toque_desviado: centro de Salidas lo recibe QQuickItem: (padre )"
+ },
+ {
+  "flujo": "entradas_salidas_es",
+  "paso": 2,
+  "nombre": "salidas",
+  "captura": "entradas_salidas_es\\02_salidas.png",
+  "esperado": "salidas",
+  "ok": true,
+  "avisos": []
+ },
+ {
+  "flujo": "entradas_salidas_es",
+  "paso": 3,
+  "nombre": "dialogo_modo_prueba",
+  "captura": "entradas_salidas_es\\03_dialogo_modo_prueba.png",
+  "esperado": "diálogo para habilitar el modo prueba",
+  "ok": true,
+  "avisos": []
+ },
+ {
+  "flujo": "entradas_salidas_es",
+  "paso": 4,
+  "nombre": "modo_prueba",
+  "captura": "entradas_salidas_es\\04_modo_prueba.png",
+  "esperado": "modo prueba activo (banner)",
+  "ok": true,
+  "avisos": []
+ },
+ {
+  "flujo": "entradas_salidas_es",
+  "paso": 4,
+  "nota": "toque_desviado: centro de botonSalida_bomba_vacio lo recibe QQuickItem: (padre botonInicio)"
+ },
+ {
+  "flujo": "entradas_salidas_es",
+  "paso": 5,
+  "nombre": "salida_on",
+  "captura": "entradas_salidas_es\\05_salida_on.png",
+  "esperado": "botonSalida_bomba_vacio encendida o pendiente",
+  "ok": true,
+  "avisos": []
+ },
+ {
+  "flujo": "entradas_salidas_es",
+  "paso": 6,
+  "nombre": "salida_off",
+  "captura": "entradas_salidas_es\\06_salida_off.png",
+  "esperado": "botonSalida_bomba_vacio apagada",
+  "ok": true,
+  "avisos": []
+ },
+ {
+  "flujo": "entradas_salidas_es",
+  "paso": 7,
+  "nombre": "sale_modo_prueba",
+  "captura": "entradas_salidas_es\\07_sale_modo_prueba.png",
+  "esperado": "sale del modo prueba",
+  "ok": true,
+  "avisos": []
+ }
+]

@@ -1,0 +1,70 @@
+[
+ {
+  "flujo": "parametros_es",
+  "paso": 1,
+  "nombre": "seccion_esterilizacion",
+  "captura": "parametros_es\\01_seccion_esterilizacion.png",
+  "esperado": "parámetros de Esterilización",
+  "ok": true,
+  "avisos": []
+ },
+ {
+  "flujo": "parametros_es",
+  "paso": 2,
+  "nombre": "ajuste",
+  "captura": "parametros_es\\02_ajuste.png",
+  "esperado": "ventana de ajuste de param_tiempo_esterilizacion",
+  "ok": true,
+  "avisos": []
+ },
+ {
+  "flujo": "parametros_es",
+  "paso": 3,
+  "nombre": "teclado_numerico",
+  "captura": "parametros_es\\03_teclado_numerico.png",
+  "esperado": "teclado numérico abierto",
+  "ok": true,
+  "avisos": []
+ },
+ {
+  "flujo": "parametros_es",
+  "paso": 4,
+  "nombre": "fuera_de_rango",
+  "captura": "parametros_es\\04_fuera_de_rango.png",
+  "esperado": "valor fuera de rango resaltado",
+  "ok": true,
+  "avisos": []
+ },
+ {
+  "flujo": "parametros_es",
+  "paso": 5,
+  "nombre": "fuera_de_rango_confirmar",
+  "captura": "parametros_es\\05_fuera_de_rango_confirmar.png",
+  "esperado": "no acepta el valor fuera de rango (sigue el teclado o muestra error)",
+  "ok": false,
+  "avisos": []
+ },
+ {
+  "flujo": "parametros_es",
+  "paso": 5,
+  "nota": "sin tecla para '4'; visibles ['Cancelar', 'Guardar cambios', 'Por defecto']"
+ },
+ {
+  "flujo": "parametros_es",
+  "paso": 6,
+  "nombre": "valor_valido",
+  "captura": "parametros_es\\06_valor_valido.png",
+  "esperado": "valor 4 en el campo nuevo valor",
+  "ok": true,
+  "avisos": []
+ },
+ {
+  "flujo": "parametros_es",
+  "paso": 7,
+  "nombre": "guardado",
+  "captura": "parametros_es\\07_guardado.png",
+  "esperado": "ventana cerrada y la fila muestra 4 min",
+  "ok": false,
+  "avisos": []
+ }
+]
