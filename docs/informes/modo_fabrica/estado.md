@@ -5,7 +5,7 @@ Rama `modo-fabrica` (desde `dev` f4a9aa9f). Plan en `docs/mis_plans/planeacion_m
 | Paso | Estado | Commit |
 |---|---|---|
 | Revisión del plan contra el código | Hecho | 9f4f920c |
-| Etapa 1: `estado_fabrica`, entrada, `/status`, protección, franja | Pendiente | |
+| Etapa 1: `estado_fabrica`, entrada, `/status`, protección, franja | Hecho (informe `E1_informe.md`) | d97e8bfd |
 | Etapa 2: programas de fábrica y numeración | Pendiente | |
 | Etapa 3: base de fábrica del equipo (parámetros, calibración, restaurar) | Pendiente | |
 | Etapa 4: paquete de liberación | Pendiente | |
