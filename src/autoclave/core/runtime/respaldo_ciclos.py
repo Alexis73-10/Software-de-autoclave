@@ -20,7 +20,11 @@
 #
 # Al arrancar con la base disponible, `pendientes()` entrega los respaldos para
 # reimportar (idempotente por uuid) y `archivar()` los mueve a `importados/`.
-# Nunca se borra un respaldo.
+# Nunca se borra un respaldo, con UNA excepción documentada (FAB-10, modo
+# fábrica, Etapa 5): el cierre de fabricación borra respaldo_ciclos/ completo
+# (pendientes e importados/) al completarse en el arranque
+# (core/runtime/cierre_fabrica.py), para que los ciclos de prueba no se
+# reimporten en la base entregada. Nada más los borra.
 
 import json
 import logging

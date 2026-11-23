@@ -8,7 +8,10 @@ import Autoclave.I18n
 // partes:
 //   - Manejo de ciclos (técnico e ingeniero, solo fuera de ciclo);
 //   - Reasignación de entradas y salidas (R8 de la tanda 8): solo el ingeniero
-//     (`puedeReasignar`); el técnico no ve el selector ni la reasignación.
+//     (`puedeReasignar`); el técnico no ve el selector ni la reasignación;
+//   - Cierre de fabricación (modo fábrica, Etapa 5): solo con el equipo en
+//     FÁBRICA y sesión de ingeniero (`cierreFabrica`, lo calcula Opciones.qml
+//     con UiBridge.modoFabrica).
 // `segmento` entra en el historial de OPCIONES (D8-4.1, _propiedadesSubnivel).
 // DISEÑO PROVISIONAL sin mockup.
 Item {
@@ -19,8 +22,13 @@ Item {
     property bool puedeReasignar: false
     property string motivoManejo: ""
     property bool borrarFabrica: false            // modo fábrica: FÁBRICA + ingeniero
-    property string segmento: "manejo"            // "manejo" | "reasignacion"
-    readonly property string segmentoVisible: puedeReasignar ? segmento : "manejo"
+    property bool cierreFabrica: false            // modo fábrica, Etapa 5: FÁBRICA + ingeniero
+    property string segmento: "manejo"            // "manejo" | "reasignacion" | "cierre"
+    readonly property string segmentoVisible: !puedeReasignar ? "manejo"
+                                              : (segmento === "cierre" && !cierreFabrica ? "manejo" : segmento)
+    readonly property var _segmentos: [{ valor: "manejo", texto: "manejo_ciclos.segmento_manejo" },
+                                       { valor: "reasignacion", texto: "manejo_ciclos.segmento_reasignacion" }]
+                                      .concat(cierreFabrica ? [{ valor: "cierre", texto: "manejo_ciclos.segmento_cierre_fabrica" }] : [])
     readonly property bool cambiosPendientes: reasignacion.item?.cambiosPendientes ?? false
 
     // Cambiar de parte con cambios sin guardar en la reasignación pide confirmar
@@ -49,14 +57,13 @@ Item {
         width: parent.width
         height: visible ? Escala.px(96) : 0
         Repeater {
-            model: [{ valor: "manejo", texto: "manejo_ciclos.segmento_manejo" },
-                    { valor: "reasignacion", texto: "manejo_ciclos.segmento_reasignacion" }]
+            model: raiz._segmentos
             delegate: Rectangle {
                 id: seg
                 required property var modelData
                 readonly property bool activo: modelData.valor === raiz.segmentoVisible
                 objectName: "segmentoAvanzadas_" + modelData.valor
-                width: selector.width / 2
+                width: selector.width / raiz._segmentos.length
                 height: selector.height
                 radius: Escala.px(8)
                 color: activo ? Colores.accionPrimario : Colores.fondoTarjeta
@@ -104,6 +111,17 @@ Item {
             active: raiz.puedeReasignar && raiz.segmentoVisible === "reasignacion"
             anchors.fill: parent
             sourceComponent: OpcionesReasignacion {
+                teclado: raiz.teclado
+            }
+        }
+
+        // Modo fábrica, Etapa 5: solo FÁBRICA + ingeniero
+        Loader {
+            id: cierre
+            objectName: "cargadorCierreFabrica"
+            active: raiz.puedeReasignar && raiz.cierreFabrica && raiz.segmentoVisible === "cierre"
+            anchors.fill: parent
+            sourceComponent: OpcionesCierreFabrica {
                 teclado: raiz.teclado
             }
         }

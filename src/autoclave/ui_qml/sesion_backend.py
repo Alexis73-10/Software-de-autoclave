@@ -87,6 +87,8 @@ _CLAVES = {
     "programa_de_fabrica": "opciones.err_no_editable",
     # Modo fábrica (DF-04): toda ruta de fábrica en ENTREGADO
     "solo_modo_fabrica": "fabrica.err_solo_modo_fabrica",
+    # Modo fábrica, Etapa 5: toda escritura mientras corre el cierre de fabricación
+    "cierre_en_curso": "fabrica.err_cierre_en_curso",
     "BASE_OCUPADA": "opciones.err_base_ocupada",
     "f0_no_disponible": "opciones.err_f0",
     "apertura_automatica_no_disponible": "opciones.err_apertura_puertas_simples",
@@ -288,7 +290,17 @@ _CLAVES_INICIO_CICLO = {
 _CLAVES_CONFIRMAR_CICLO = {
     "camara_no_entregada": "sesion.camara_no_entregada",
 }
+# Modo fábrica, Etapa 5: POST /fabrica/cierre (CierreFabricaController). El
+# 409 `cierre_estado_no_permitido` trae `motivo`; los 403 de reautenticación
+# y `solo_modo_fabrica` ya son globales.
+_CLAVES_CIERRE_FABRICA = {
+    "cierre_estado_no_permitido": "cierre_fabrica.err_estado",
+    "usb_ausente": "cierre_fabrica.err_usb_ausente",
+    "usb_no_escribible": "cierre_fabrica.err_usb_no_escribible",
+    "usb_sin_espacio": "cierre_fabrica.err_usb_sin_espacio",
+}
 _CLAVES_POR_RUTA = (("/io/test", _CLAVES_IO_TEST),
+                    ("/fabrica/cierre", _CLAVES_CIERRE_FABRICA),
                     ("/cycle/start", _CLAVES_INICIO_CICLO),
                     ("/cycle/acknowledge", _CLAVES_CONFIRMAR_CICLO),
                     ("/maintenance/atm-calibration", _CLAVES_CALIBRACION_ATM),

@@ -252,6 +252,9 @@ def _parametros_de_perfiles():
 
 FAMILIAS = {
     "menu.": _sufijos_menu,
+    # Modo fábrica, Etapa 5: etapas del cierre de fabricación (OpcionesCierreFabrica.qml)
+    "cierre_fabrica.etapa_": lambda: list(__import__(
+        "autoclave.core.runtime.cierre_fabrica", fromlist=["ETAPAS"]).ETAPAS),
     # (hotfix ES, 6-nov: se retiró la familia sistema.estado_seguro_causa_)
     # U10a (tanda 10, D10-1.2): TextoAjustable.qml busca "abrev.<clave>" con
     # I18n.existe (la abreviatura es optativa); las que hay existen en ambos idiomas

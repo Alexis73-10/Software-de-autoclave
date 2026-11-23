@@ -19,7 +19,7 @@ import pytest
 SRC = Path(__file__).resolve().parents[1] / "src" / "autoclave"
 MODULO = "core/runtime/fabrica_equipo.py"
 # Etapa 5: módulo(s) del cierre que pueden llamar a las funciones de escritura
-CIERRE: set[str] = set()
+CIERRE: set[str] = {"core/runtime/cierre_fabrica.py"}
 ARCHIVOS = ("parametros_fabrica_equipo", "calibracion_fabrica_equipo")
 ESCRITURAS = ("escribir_parametros_fabrica_equipo", "escribir_calibracion_fabrica_equipo",
               "consolidar_defectos_programas")

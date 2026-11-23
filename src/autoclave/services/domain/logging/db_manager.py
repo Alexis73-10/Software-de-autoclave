@@ -492,6 +492,8 @@ def _migracion_v15(conn: sqlite3.Connection) -> None:
 ESTADO_FABRICA = "FABRICA"
 ESTADO_ENTREGADO = "ENTREGADO"
 EVENTO_EQUIPO_INSTALADO = "equipo_instalado"
+# D-12: única fila nueva de la bitácora tras el cierre de fabricación (Etapa 5)
+EVENTO_EQUIPO_LIBERADO = "equipo_liberado_fabrica"
 
 # Hay una base «usada» (DF-02, condición 3): ciclos o una fila equipo_instalado
 _SQL_BASE_USADA = ("SELECT EXISTS (SELECT 1 FROM ciclos) OR EXISTS "
@@ -971,6 +973,81 @@ class DbManager:
         if entro:
             logger.warning("Modo fábrica: el equipo entra en FÁBRICA (serie %s)", entidad)
         return ESTADO_FABRICA if entro else self.estado_fabrica()
+
+    # ── Cierre de fabricación (Etapa 5, DF-05) ─────────────────────────
+    _TABLAS_CONTEO_CIERRE = ("ciclos", "lecturas", "alarmas_historial", "audit_log",
+                             "mantenimientos", "operadores", "catalogo_carga", "ciclo_carga")
+
+    def conteos_cierre_fabrica(self) -> dict:
+        """Filas que el cierre de fabricación deja fuera de la base nueva, por
+        tabla, más `usuarios_prueba` (cuentas que no son del sistema). Solo
+        lectura. Lanza si la base no responde."""
+        with self._lock:
+            salida = {t: int(self._conn.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0])
+                      for t in self._TABLAS_CONTEO_CIERRE}
+            salida["usuarios_prueba"] = int(self._conn.execute(
+                "SELECT COUNT(*) FROM usuarios WHERE COALESCE(cuenta_sistema, 0) = 0"
+            ).fetchone()[0])
+        return salida
+
+    def datos_para_cierre_fabrica(self) -> tuple[list[dict], dict | None]:
+        """Lo que pasa de esta base a la nueva en el cierre: las filas crudas
+        de `system_params` y la PRIMERA fila `equipo_instalado` de la bitácora
+        (PA-08: la instalación original; None si no la hay). Solo lectura."""
+        with self._lock:
+            parametros = [dict(f) for f in self._conn.execute(
+                "SELECT clave, valor, defecto, minimo, maximo FROM system_params ORDER BY clave")]
+            fila = self._conn.execute(
+                "SELECT ts, usuario, rol, evento, entidad, valor_anterior, valor_nuevo, detalle "
+                "FROM audit_log WHERE evento = ? ORDER BY id LIMIT 1",
+                (EVENTO_EQUIPO_INSTALADO,)).fetchone()
+        return parametros, (dict(fila) if fila is not None else None)
+
+    def preparar_base_entregada(self, *, parametros: list[dict], equipo_instalado: dict | None,
+                                usuario: str, rol: str, detalle_liberacion: dict,
+                                fecha_liberacion: str, hash_paquete: str) -> None:
+        """Siembra de la base NUEVA del cierre de fabricación (FAB-07, D-11,
+        D-12, PA-08), en UNA transacción: `system_params` vigentes (el valor
+        vigente pasa a ser también el defecto, sin usuario ni fecha: es la base
+        de fábrica del equipo), `estado_fabrica` ENTREGADO con la fecha y el
+        hash del paquete, la fila `equipo_instalado` original (mismos campos y
+        fecha) y una sola fila `equipo_liberado_fabrica`. Solo sobre una base
+        recién creada: con ciclos, bitácora o estado ya escritos lanza
+        RuntimeError sin tocar nada. Nunca borra filas ni toca triggers."""
+        with self._lock:
+            usada = self._conn.execute(
+                "SELECT EXISTS (SELECT 1 FROM ciclos) OR EXISTS (SELECT 1 FROM audit_log)"
+                " OR EXISTS (SELECT 1 FROM estado_fabrica)").fetchone()[0]
+            if usada:
+                raise RuntimeError("la base del cierre no está vacía")
+            try:
+                if self._conn.in_transaction:
+                    self._conn.rollback()
+                self._conn.execute("BEGIN IMMEDIATE")
+                for p in parametros:
+                    self._conn.execute(
+                        "INSERT INTO system_params (clave, valor, defecto, minimo, maximo,"
+                        " usuario, fecha) VALUES (?,?,?,?,?,'',NULL)",
+                        (p["clave"], p["valor"], p["valor"], p.get("minimo"), p.get("maximo")))
+                self._conn.execute(
+                    "INSERT INTO estado_fabrica (id, estado, fecha_liberacion, hash_paquete, creado)"
+                    " VALUES (1, ?, ?, ?, ?)",
+                    (ESTADO_ENTREGADO, fecha_liberacion, hash_paquete, fecha_liberacion))
+                if equipo_instalado is not None:
+                    e = equipo_instalado
+                    self._conn.execute(_SQL_AUDITORIA, (
+                        e.get("ts"), e.get("usuario") or "", e.get("rol") or "",
+                        EVENTO_EQUIPO_INSTALADO, e.get("entidad") or "", e.get("valor_anterior"),
+                        e.get("valor_nuevo"), e.get("detalle")))
+                fila = list(_fila_auditoria(EVENTO_EQUIPO_LIBERADO, usuario, rol, "",
+                                            None, None, detalle_liberacion))
+                fila[0] = fecha_liberacion
+                self._conn.execute(_SQL_AUDITORIA, tuple(fila))
+                self._conn.commit()
+            except BaseException:
+                if self._conn.in_transaction:
+                    self._conn.rollback()
+                raise
 
     # ------------------------------------------------------------------
     # Parámetros del equipo (O2a, tanda 6): tabla system_params

@@ -46,6 +46,11 @@ Cambios deliberados de la línea base (nada más cambia sin tocar este archivo):
   dependencia ``requiere_modo_fabrica``), insertada en ``rutas.json`` tras
   ``DELETE /programas/{numero}`` sin reordenar las demás; ``openapi.json`` se
   regeneró con ``openapi_ordenado`` (solo ese path).
+- Modo fábrica, Etapa 5 (22-nov): rutas nuevas ``GET``/``POST /fabrica/cierre``
+  (router ``rutas/fabrica.py``, dependencia ``requiere_modo_fabrica``),
+  insertadas en ``rutas.json`` tras las del catálogo de carga sin reordenar las
+  demás; ``openapi.json`` se regeneró con ``openapi_ordenado`` (solo ese path y
+  el esquema ``_CierreBody``).
 """
 import json
 from pathlib import Path
