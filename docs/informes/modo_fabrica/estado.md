@@ -11,4 +11,4 @@ Rama `modo-fabrica` (desde `dev` f4a9aa9f). Plan en `docs/mis_plans/planeacion_m
 | Etapa 4: paquete de liberación (módulo, PDF sin Qt, DF-08 en respaldos, USB) | Hecho (informe `E4_informe.md`; subconjunto de 857 pruebas en verde, suite completa pendiente del coordinador) | c2e37c4d |
 | Etapa 5: cierre en dos tiempos y pantalla de cierre | Hecho (informe `E5_informe.md`; subconjunto de 489 + 526 pruebas en verde, suite completa pendiente del coordinador) | 7a3bf749 |
 | Correcciones SAF (revisión de seguridad SAF-01..08, pregunta 4, `_unidades_usb` único) | Hecho (informe `S_correcciones.md`; subconjunto 2012 en verde, 4 rojas preexistentes de `test_s9_planta_simulada`; suite completa pendiente del coordinador) | 0a31e948 |
-| Etapa 6: pruebas de aceptación, riesgos, trazabilidad, CLAUDE.md, revisión de seguridad | Pendiente | |
+| Etapa 6: pruebas de aceptación, riesgos, trazabilidad, CLAUDE.md, informe final | Hecho (`P_aceptacion.md`, `R_informe.md`; HAZ-FAB-01..07, REQ-117..REQ-123, bloque de banco FAB-B1..B11; `tests/test_fab_*.py` 322 en verde; suite completa pendiente del coordinador; sin unir a `dev` ni compilar) | (commit de la Etapa 6) |

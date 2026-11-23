@@ -3561,3 +3561,84 @@ Precondiciones: lector USB elegido por Especifika (HID, sufijo Enter) conectado 
 - **Criterio:** Aprobado si las cuatro salidas dicen «CARGA NO ESTÉRIL», la carga queda ligada al ciclo cancelado y el ciclo siguiente no la hereda.
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+## Bloque FAB. Modo fábrica y liberación del equipo (22-nov)
+
+Precondiciones: compilado de la rama `modo-fabrica` (Setup); un código de instalación v2 `INS` y uno `REI` del generador para la serie del equipo de pruebas; USB extraíble vacía y una segunda USB con protección contra escritura (o llena); un PC aparte con un verificador de SHA-256 (por ejemplo `certutil -hashfile <zip> SHA256`) y un visor de SQLite. Riesgos HAZ-FAB-01..07; trazabilidad REQ-117..REQ-123; aceptación en `docs/informes/modo_fabrica/P_aceptacion.md`. Orden sugerido: B1, B2, primera parte de B3, B4, B11, B5 → B7, segunda parte de B3, B6, B9, B10; B8 en un equipo reinstalado limpio. El cierre (B5) borra los registros del equipo: los pasos previos deben estar anotados antes.
+
+### FAB-B1 — Instalación limpia: el equipo queda en FÁBRICA con la franja
+- **Modo:** Sin vapor  ·  **Origen:** D-13, D-14, DF-02, P-01; HAZ-FAB-01, HAZ-FAB-03
+- **Pasos:** instalar con el Setup en un disco sin `X:\Especifika\Autoclave` y terminar el asistente con el código `INS`. Tras el reinicio, recorrer las dos pantallas (vertical y horizontal si aplica). Consultar `GET /status` (`modo_fabrica`). Repetir en un equipo actualizado desde la alpha anterior (ya instalado, con ciclos).
+- **Criterio:** Aprobado si la instalación limpia muestra la franja violeta «MODO FÁBRICA» en el borde inferior de las dos pantallas y `/status.modo_fabrica` es `true`, y el equipo actualizado queda sin franja y con `false`.
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### FAB-B2 — Crear y borrar programas de fábrica
+- **Modo:** Sin vapor  ·  **Origen:** D-05..D-07, DF-06, PA-07, P-02; HAZ-FAB-01
+- **Pasos:** con sesión de ingeniero en FÁBRICA, en Opciones › Opciones avanzadas › Manejo de ciclos, duplicar programas hasta ocupar del 1 al 10 e intentar uno más. Borrar el 1 con «Borrar (modo fábrica)» y duplicar otro. Borrar B&D. Reiniciar el software y reinstalar el Setup como actualización (Reparar). Repetir con sesión de técnico.
+- **Criterio:** Aprobado si el undécimo se rechaza con su texto, el nuevo toma el número 1, B&D no reaparece tras el reinicio ni tras la actualización, la bitácora tiene `programa_fabrica_borrado`, y el técnico no ve el botón de borrado de fábrica y recibe el texto de rol al crear.
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### FAB-B3 — Calibrar, ajustar parámetros y restaurar tras el cierre
+- **Modo:** Sin vapor  ·  **Origen:** D-08, DF-07, FAB-08, P-03; HAZ-FAB-02, HAZ-FAB-05
+- **Pasos:** en FÁBRICA, calibrar la Principal y la presión de cámara contra patrón (ganancia y offset distintos de 1,0/0,0) y cambiar dos parámetros del equipo. Anotar los valores. Después del cierre (FAB-B7), cambiar en campo esa calibración y esos parámetros y usar «Restaurar» («defecto») en cada uno. Repetir la restauración tras reasignar la Principal a otro puerto.
+- **Criterio:** Aprobado si «defecto» devuelve exactamente los valores anotados en FÁBRICA (no el neutro ni el genérico) y la bitácora dice origen `fabrica_equipo`; con el puerto cambiado rige el neutro. Anotar si la pantalla avisa del neutro (pregunta abierta 5).
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### FAB-B4 — Cierre rechazado sin USB o con USB protegida
+- **Modo:** Sin vapor  ·  **Origen:** §6.1, P-07; HAZ-FAB-06
+- **Pasos:** en Opciones › Opciones avanzadas › Cierre de fabricación, intentar el cierre sin USB, con la USB protegida contra escritura y con una USB llena. Intentarlo también con un ciclo en curso, en modo prueba y con el paro activado.
+- **Criterio:** Aprobado si cada intento se rechaza con su motivo, ninguna USB queda con archivos nuevos, el equipo sigue en FÁBRICA con sus ciclos y la bitácora sin cambios.
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### FAB-B5 — Cierre con USB real y verificación del ZIP en un PC
+- **Modo:** Sin vapor (con al menos 3 ciclos de prueba previos, uno fallido)  ·  **Origen:** D-04, FAB-02, DF-05, PA-03, P-04, P-09; HAZ-FAB-02, HAZ-FAB-06
+- **Pasos:** con ingeniero, iniciar el cierre con la USB vacía (confirmación y contraseña). Anotar la ruta y el hash que muestra la pantalla y el tiempo que tarda. Sin dejar que nadie toque el equipo, esperar el reinicio. En el PC: calcular el SHA-256 del ZIP, abrir `manifiesto.json` (`tipo` «liberacion»), revisar `informe_liberacion.pdf` (calibración, parámetros, programas, ciclos, contadores y las dos firmas), un PDF de `ciclos/`, `bitacora.csv` en Excel y `historial.db` (columna `hash_pw` de `usuarios` vacía).
+- **Criterio:** Aprobado si el SHA-256 coincide con el de la pantalla, el informe está completo y legible, la bitácora abre con columnas correctas y `historial.db` no tiene hashes de contraseña.
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### FAB-B6 — Reinstalar el Setup con REI sobre un equipo entregado
+- **Modo:** Sin vapor  ·  **Origen:** D-14, DF-02, SAF-04, P-06; HAZ-FAB-01
+- **Pasos:** sobre el equipo ya entregado (tras FAB-B7), reinstalar el Setup como actualización y luego como Reparar. Después, desinstalar sin borrar `datos\` e instalar con el código `REI`. Anotar qué deja el desinstalador en `datos\` (pregunta abierta 2).
+- **Criterio:** Aprobado si en todos los casos el equipo queda ENTREGADO (sin franja, `/status.modo_fabrica` `false`), con sus datos, y el cierre de fabricación no aparece.
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### FAB-B7 — Reinicio y equipo entregado
+- **Modo:** Sin vapor  ·  **Origen:** D-09..D-12, DF-09, DF-10, PA-06, PA-08, PA-09, P-04, P-10; HAZ-FAB-04, HAZ-FAB-07
+- **Pasos:** tras el reinicio de FAB-B5, y después de un segundo reinicio del PC, revisar: franja ausente; Historial y Reportes sin ciclos; Bitácora con solo «Equipo instalado» y «Equipo liberado de fábrica»; Usuarios con solo `Admin` e `Ingeniero` y cambio de contraseña obligatorio (SIS-07 activo); sin operadores ni catálogo de carga; número del próximo ciclo 1; `datos\data\respaldo_ciclos` ausente o vacío; sin `*.log` de las pruebas. Buscar en `datos\` una cadena conocida de un ciclo de prueba (nombre de operador o lote) con `findstr /s /m`.
+- **Criterio:** Aprobado si todo lo anterior se cumple y la búsqueda no encuentra coincidencias. Anotar los logs que quedaron solo truncados por estar abiertos.
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### FAB-B8 — Corte de energía durante el cierre
+- **Modo:** Sin vapor  ·  **Origen:** FAB-05, DF-05, SAF-02, SAF-03, P-08; HAZ-FAB-04
+- **Pasos:** en un equipo en FÁBRICA (reinstalado limpio), (a) cortar la energía mientras se genera el paquete; encender. (b) Repetir el cierre y cortar la energía durante la espera de 10 s previa al reinicio (después de escrita la marca); encender.
+- **Criterio:** Aprobado si en (a) el equipo arranca en FÁBRICA con sus datos, sin temporales en `datos\` y el cierre se puede repetir; y en (b) el arranque termina el cierre y queda ENTREGADO como en FAB-B7. Si el arranque se detiene con «Cierre de fabricación incompleto», anotar el log y verificar que un reinicio lo completa.
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### FAB-B9 — Marca plantada a mano y base borrada en un equipo entregado
+- **Modo:** Sin vapor  ·  **Origen:** SAF-01, SAF-06, P-11; HAZ-FAB-01
+- **Pasos:** en un equipo ENTREGADO que ya corrió un ciclo, (a) crear a mano `datos\data\cierre_fabrica.json` vacío y reiniciar; (b) copiar ahí la marca de otro cierre legítimo y reiniciar; (c) con el software detenido, borrar `datos\data\autoclave.db` y arrancar.
+- **Criterio:** Aprobado si en (a) y (b) no se borra nada (ciclos, respaldos, contador y logs intactos), la marca queda renombrada `cierre_fabrica.json.rechazada-*` y el motivo está en el log; y en (c) el equipo arranca en ENTREGADO, nunca en FÁBRICA.
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### FAB-B10 — Funciones de fábrica rechazadas en ENTREGADO
+- **Modo:** Sin vapor  ·  **Origen:** DF-04, P-05; HAZ-FAB-01
+- **Pasos:** en el equipo entregado, con cada rol (y sin sesión), abrir Opciones › Opciones avanzadas y llamar desde otro PC de la red de servicio a `GET /fabrica/cierre` y `DELETE /fabrica/programas/<id>`.
+- **Criterio:** Aprobado si la pantalla no muestra «Borrar (modo fábrica)» ni «Cierre de fabricación» y las rutas responden 409 `solo_modo_fabrica` para todos.
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### FAB-B11 — Revisión visual de la franja en todas las pantallas
+- **Modo:** Sin vapor  ·  **Origen:** D-13, §5.4, E1-D1; HAZ-FAB-03
+- **Pasos:** con el equipo en FÁBRICA, correr la skill revision-visual-pantallas sobre todas las pantallas (menú principal, Preciclo, Ciclo en curso, Opciones y sus secciones, Historial, Reportes, Bitácora, teclados y modales) en claro y oscuro, vertical y horizontal; luego recorrerlas en las táctiles reales.
+- **Criterio:** Aprobado si la franja se ve en todas, no tapa ningún texto ni control (sin solapes reportados) y sigue visible sobre modales y teclados. Captura para Cristian.
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
