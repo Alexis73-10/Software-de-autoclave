@@ -1,5 +1,5 @@
 """Modo fábrica, Etapa 1 (DF-02): el asistente de instalación deja el equipo en
-FÁBRICA solo con un código de primera instalación (v1 o INS/INSA) sobre una
+FÁBRICA solo con un código de primera instalación (INS/INSA; SAF-04: un v1 ya no) sobre una
 base sin uso; con REI/REIA, o con una base ya usada, queda en ENTREGADO. Un
 error no deshace la instalación."""
 import sys
@@ -51,7 +51,7 @@ def _instalar(pi, tmp_path, verificador):
 
 
 @pytest.mark.parametrize("resultado, esperado", [
-    (ResultadoCodigo(ok=True, formato="v1"), True),
+    (ResultadoCodigo(ok=True, formato="v1"), False),     # corrección SAF-04
     (ResultadoCodigo(ok=True, formato="v2", tipo="INS"), True),
     (ResultadoCodigo(ok=True, formato="v2", tipo="INS", originales=("S", "M")), True),  # INSA
     (ResultadoCodigo(ok=True, formato="v2", tipo="REI"), False),
@@ -70,11 +70,12 @@ def test_instalacion_con_ins_entra_en_fabrica(pi, tmp_path):
     assert eventos == ["equipo_instalado"]
 
 
-def test_instalacion_con_v1_entra_en_fabrica(pi, tmp_path):
+def test_instalacion_con_v1_queda_entregado(pi, tmp_path):
+    # corrección SAF-04 de la revisión de seguridad: un v1 no es primera instalación
     def v1(serial, codigo, modo=None, *a, hoy=None, **k):
         return ResultadoCodigo(ok=True, formato="v1")
     estado, eventos = _instalar(pi, tmp_path, v1)
-    assert estado == "FABRICA" and eventos == ["equipo_instalado"]
+    assert estado == "ENTREGADO" and eventos == ["equipo_instalado"]
 
 
 def test_reinstalacion_con_rei_queda_entregado(pi, tmp_path):

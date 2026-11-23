@@ -526,6 +526,7 @@
     "abriendo_base_datos": "Abriendo base de datos",
     "fallo_titulo": "Fallo de arranque",
     "fallo_bloqueante": "El arranque no puede continuar",
+    "cierre_fabrica_incompleto": "Cierre de fabricación incompleto: reinicie el equipo; si persiste, contacte a Especifika",
     "sin_progreso": "Sin respuesta del sistema de control",
     "verificando_instalacion": "Verificando instalación",
     "liberando_procesos": "Liberando procesos",
@@ -2593,7 +2594,8 @@
     },
     "arranque": {
       "titulo": "Fallo de arranque",
-      "accion": "Cierre el programa y ábralo de nuevo. Si el fallo se repite, llame a servicio técnico."
+      "accion": "Cierre el programa y ábralo de nuevo. Si el fallo se repite, llame a servicio técnico.",
+      "accion_cierre_fabrica": "Reinicie el equipo. Si el fallo persiste, contacte a Especifika. No opere el equipo."
     },
     "no_abrir_motivos": {
       "temp_alta": {

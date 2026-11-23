@@ -246,6 +246,20 @@ def resumir_arranque(instantanea) -> dict:
     }
 
 
+def codigo_fallo(instantanea) -> str:
+    """Código (ARR_*) de la etapa que falló de forma bloqueante, o "" (modo
+    fábrica, SAF-02: la pantalla da un texto propio a ARR_CIERRE_FABRICA)."""
+    try:
+        if instantanea.get("falloBloqueante") is not True:
+            return ""
+        for e in instantanea["etapas"]:
+            if e.get("estado") == "fallo" and isinstance(e.get("codigo"), str):
+                return e["codigo"]
+    except (AttributeError, KeyError, TypeError):
+        pass
+    return ""
+
+
 def _terminado_real(instantanea) -> bool:
     """Tanda 26 (ARQ-D3): el backend terminó todas sus etapas sin fallo
     bloqueante (el «sin módulo E/S» que deja terminar la intro no cuenta)."""
@@ -582,6 +596,9 @@ class ProgresoArranqueBackend(QObject):
     proceso = Property(str, lambda self: self._publicado["proceso"], notify=cambiado)
     terminado = Property(bool, lambda self: self._publicado["terminado"], notify=cambiado)
     falloBloqueante = Property(bool, lambda self: self._publicado["fallo"], notify=cambiado)
+    # SAF-02 (modo fábrica): código de la etapa fallida, "" sin fallo
+    codigoFallo = Property(str, lambda self: codigo_fallo(self._ultima)
+                           if self._publicado["fallo"] else "", notify=cambiado)
     # Tanda 26: la barra solo se llena en la salida si el backend terminó de verdad
     completo = Property(bool, _completo, notify=cambiado)
     # ARQ-D5: backend reiniciado con esta pantalla abierta (Main.qml muestra la barra)

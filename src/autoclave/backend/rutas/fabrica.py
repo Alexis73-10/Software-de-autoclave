@@ -35,6 +35,9 @@ from autoclave.backend.dependencias import (RechazoApi, _rechazar, context, reau
 from autoclave.backend.rutas import apagado
 from autoclave.backend.rutas._comun import _salidas_sin_confirmar_pendiente
 from autoclave.core.runtime import cierre_fabrica as cf
+# mismo descubrimiento de unidades que el respaldo y el catálogo de carga (un
+# solo objeto: las pruebas lo parchean en los tres módulos a la vez)
+from autoclave.backend.rutas.respaldo import _unidades_usb  # noqa: E402
 from autoclave.core.runtime import paquete_liberacion as pl
 from autoclave.state_machine.machine.enum_global import GlobalState
 
@@ -108,11 +111,6 @@ def _rutas() -> cf.RutasCierre:
 
 def _fuentes() -> pl.FuentesPaquete:
     return pl.fuentes_del_equipo(context)
-
-
-def _unidades_usb() -> list[dict]:
-    from autoclave.core.runtime import respaldo as rp
-    return rp.unidades_usb()
 
 
 def _serie() -> str:

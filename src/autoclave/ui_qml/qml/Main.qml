@@ -402,10 +402,15 @@ Window {
                 prioridad: "alta"
                 idAlarma: "ARRANQUE"
                 tocable: true     // ALD (tanda 26): abre el detalle
+                // SAF-02 (modo fábrica): texto propio para el cierre de fabricación incompleto
+                readonly property bool cierreFabrica: !(intro.item?.sinProgreso ?? false)
+                    && (ventana.progresoArranque?.codigoFallo ?? "") === "ARR_CIERRE_FABRICA"
                 onPulsada: detalleArranque.abrirDesde(DetalleAviso.armar(
-                    "arranque", { "arranque": { "sinProgreso": intro.item?.sinProgreso ?? false } }))
+                    "arranque", { "arranque": { "sinProgreso": intro.item?.sinProgreso ?? false,
+                                                "codigo": ventana.progresoArranque?.codigoFallo ?? "" } }))
                 descripcion: I18n.t("arranque.fallo_titulo", I18n.lang) + ": " +
-                             I18n.t((intro.item?.sinProgreso ?? false)
+                             I18n.t(cierreFabrica ? "arranque.cierre_fabrica_incompleto"
+                                    : (intro.item?.sinProgreso ?? false)
                                             ? "arranque.sin_progreso" : "arranque.fallo_bloqueante", I18n.lang)
             }
             VentanaDetalleAlarma {

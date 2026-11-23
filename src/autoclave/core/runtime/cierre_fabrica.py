@@ -23,17 +23,27 @@
 #
 # FASE 2, al arrancar el backend ANTES de abrir cualquier DbManager
 # (backend/main.py llama a completar_cierre_si_pendiente):
-#   - con marca: pasos idempotentes, cada uno anotado en la marca al terminar
-#     y nunca repetido una vez hecho (no se vuelve a borrar nada en un
-#     arranque posterior). Los críticos (archivos de fábrica, defectos, base,
-#     respaldo de ciclos, contadores) se reintentan en el próximo arranque si
-#     fallan, y mientras tanto la base queda bloqueada con la marca
-#     BD_BLOQUEADA (el backend opera sin base y no reimporta nada): un ciclo
-#     de prueba nunca entra en la base entregada. Los de mejor esfuerzo
-#     (registros, sobrescritura de la base vieja) se dan por hechos con aviso
-#     en el log si algo no se pudo borrar. Al final se borra la marca.
+#   - con marca: PRIMERO se valida (SAF-01 de la revisión de seguridad): marca
+#     legible, `formato` 1, `hash_paquete` hex de 64 y `fecha`; con el paso
+#     `base` pendiente, `.nueva` íntegra, ENTREGADO con el mismo hash y fecha,
+#     y la base vigente (solo lectura) en FÁBRICA; con `base` hecho, la base
+#     vigente ENTREGADO con ese hash y fecha, sin ciclos y sin filas de
+#     bitácora posteriores a `equipo_liberado_fabrica`. Si algo no valida no
+#     se borra nada: la marca se renombra a `cierre_fabrica.json.rechazada-
+#     <fecha>` y el arranque sigue normal. Validada, pasos idempotentes, cada
+#     uno anotado en la marca al terminar y nunca repetido una vez hecho; si la
+#     marca no se puede actualizar tras un paso, la fase 2 se corta (SAF-03).
+#     Los críticos (archivos de fábrica, defectos, base, respaldo de ciclos,
+#     contadores) se reintentan en el próximo arranque si fallan, y mientras
+#     tanto el arranque queda detenido con el fallo bloqueante
+#     ARR_CIERRE_FABRICA (SAF-02: sin control ni ciclos; antes BD_BLOQUEADA y
+#     modo sin base, que permitía ciclos). Los de mejor esfuerzo (registros,
+#     sobrescritura de la base vieja) se dan por hechos con aviso en el log si
+#     algo no se pudo borrar. Al final se borra la marca (si no se puede, se
+#     renombra a `cierre_fabrica.hecho`).
 #   - sin marca: se borran los temporales que hayan quedado (corte antes del
-#     punto de no retorno, FAB-05) y los restos de un cierre ya terminado.
+#     punto de no retorno, FAB-05) y, solo con la base vigente ENTREGADO y con
+#     fecha de liberación (SAF-06), los restos de un cierre ya terminado.
 #
 # Se conservan: perfil, licencia, asignacion_io.json (y su .formato1.bak),
 # módulo y red, calibración vigente, programas y listas .lst, idioma,
@@ -44,6 +54,7 @@
 import json
 import logging
 import os
+import re
 import shutil
 import sqlite3
 import sys
@@ -60,7 +71,10 @@ from autoclave.utils.archivos import escribir_texto_atomico
 logger = logging.getLogger(__name__)
 
 NOMBRE_MARCA = "cierre_fabrica.json"
+NOMBRE_MARCA_HECHA = "cierre_fabrica.hecho"
+SUFIJO_RECHAZADA = ".rechazada-"
 FORMATO_MARCA = 1
+_HASH_HEX = re.compile(r"^[0-9a-f]{64}$")
 SUFIJO_NUEVO = fe.SUFIJO_TEMPORAL_DEFECTO          # ".fab_nuevo"
 SUFIJO_BASE_NUEVA = ".nueva"
 SUFIJO_BASE_VIEJA = ".vieja"
@@ -69,9 +83,9 @@ SUFIJO_BORRAR = ".fab_borrar"
 CARPETA_DEFECTO = "defecto"
 CARPETA_RESPALDO_CICLOS = "respaldo_ciclos"
 SIDECARS_BASE = ("-wal", "-shm", "-journal")
-# Texto inicial de la marca BD_BLOQUEADA que deja una fase 2 incompleta: solo
-# esa marca la retira el propio cierre al terminar (otra, la de una base
-# corrupta, solo la retira un técnico)
+# Texto inicial de la marca BD_BLOQUEADA que dejaba una fase 2 incompleta antes
+# de SAF-02 (hoy ya no se escribe; si queda una de antes, el cierre la retira al
+# terminar; otra, la de una base corrupta, solo la retira un técnico)
 PREFIJO_BLOQUEO = "Cierre de fabricación incompleto"
 
 # Pasos de la fase 2, en orden; los cinco primeros son críticos
@@ -451,24 +465,168 @@ def escribir_marca(rutas: RutasCierre, resultado: ResultadoFase1, usuario: str) 
 
 
 # ── fase 2 ──────────────────────────────────────────────────────────────
+class _MarcaRechazada(Exception):
+    """La marca no corresponde a un cierre legítimo de este equipo (SAF-01):
+    no se borra nada y la marca se aparta."""
+
+
+class _NoVerificable(Exception):
+    """No se pudo leer una base para validar (bloqueada, sin permisos): no se
+    borra nada, la marca se conserva y el arranque queda detenido (SAF-02)."""
+
+
+class _MarcaNoGuardada(Exception):
+    """SAF-03: la marca no se pudo actualizar tras un paso."""
+
+
+# Estado de la fase 2 de este proceso por ruta de la marca: True = cierre
+# pendiente que no pudo terminar (el arranque se detiene, SAF-02)
+_ESTADO_FASE2: dict[str, bool] = {}
+# Contexto de la fase 2 en curso (un solo hilo, al arrancar): la fecha de la
+# marca para no borrar respaldos posteriores (SAF-02, defensa en profundidad)
+_CONTEXTO: dict = {"fecha": None}
+
+
 def _leer_marca(ruta: Path) -> dict:
+    """La marca como objeto. Lanza _MarcaRechazada si es ilegible o no es un
+    objeto (SAF-01: se retiró «marca ilegible = repetir todo»)."""
     try:
         datos = json.loads(ruta.read_text(encoding="utf-8"))
-        if isinstance(datos, dict):
-            return datos
-        raise ValueError("no es un objeto")
     except Exception as e:
-        # la marca existe: el punto de no retorno ya pasó. Ilegible = todos
-        # los pasos pendientes (son idempotentes en el mismo arranque)
-        logger.error("Cierre de fabricación: marca ilegible (%s); se repiten todos los pasos", e)
-        return {"formato": FORMATO_MARCA, "pasos_pendientes": list(PASOS), "pasos_hechos": []}
+        raise _MarcaRechazada(f"marca ilegible ({type(e).__name__})") from e
+    if not isinstance(datos, dict):
+        raise _MarcaRechazada("la marca no es un objeto")
+    return datos
 
 
 def _guardar_marca(ruta: Path, datos: dict) -> None:
+    """SAF-03: lanza _MarcaNoGuardada si no se puede escribir (antes se tragaba
+    el error y un paso destructivo podía repetirse)."""
     try:
         escribir_texto_atomico(ruta, json.dumps(datos, ensure_ascii=False, indent=2))
-    except Exception:
+    except Exception as e:
         logger.exception("Cierre de fabricación: no se pudo actualizar la marca")
+        raise _MarcaNoGuardada(f"{type(e).__name__}: {e}") from e
+
+
+def _fecha_marca(datos: dict) -> datetime:
+    fecha = datos.get("fecha")
+    if not isinstance(fecha, str):
+        raise _MarcaRechazada("marca sin fecha")
+    try:
+        return datetime.fromisoformat(fecha)
+    except ValueError as e:
+        raise _MarcaRechazada(f"fecha ilegible: {fecha!r}") from e
+
+
+def _abrir_solo_lectura(ruta: Path) -> sqlite3.Connection:
+    """URI `mode=ro`: nunca crea la base (si no existe, falla)."""
+    return sqlite3.connect(Path(ruta).resolve().as_uri() + "?mode=ro", uri=True, timeout=5.0)
+
+
+def _leer_base(ruta: Path, *, integridad: bool = False, contar: bool = False) -> dict:
+    """{estado, fecha, hash[, integridad][, ciclos, liberado, posteriores]} de
+    una base, en solo lectura. Lanza _MarcaRechazada si la base no existe, no
+    es una base o no tiene las tablas, y _NoVerificable si no se puede abrir o
+    está bloqueada."""
+    from autoclave.services.domain.logging.db_manager import EVENTO_EQUIPO_LIBERADO
+    ruta = Path(ruta)
+    if not ruta.is_file():
+        raise _MarcaRechazada(f"no existe {ruta.name}")
+    try:
+        conn = _abrir_solo_lectura(ruta)
+    except sqlite3.Error as e:
+        raise _NoVerificable(f"{ruta.name}: {e}") from e
+    try:
+        salida = {}
+        if integridad:
+            salida["integridad"] = conn.execute("PRAGMA integrity_check").fetchone()[0]
+        fila = conn.execute("SELECT estado, fecha_liberacion, hash_paquete FROM estado_fabrica "
+                            "WHERE id = 1").fetchone()
+        salida.update(estado=fila[0] if fila else None, fecha=fila[1] if fila else None,
+                      hash=fila[2] if fila else None)
+        if contar:
+            salida["ciclos"] = int(conn.execute("SELECT COUNT(*) FROM ciclos").fetchone()[0])
+            ultimo = conn.execute("SELECT MAX(id) FROM audit_log WHERE evento = ?",
+                                  (EVENTO_EQUIPO_LIBERADO,)).fetchone()[0]
+            salida["liberado"] = ultimo is not None
+            salida["posteriores"] = int(conn.execute(
+                "SELECT COUNT(*) FROM audit_log WHERE id > ?",
+                (ultimo if ultimo is not None else -1,)).fetchone()[0])
+        return salida
+    except sqlite3.OperationalError as e:
+        texto = str(e).lower()
+        if "no such table" in texto or "no such column" in texto:
+            raise _MarcaRechazada(f"{ruta.name}: {e}") from e
+        raise _NoVerificable(f"{ruta.name}: {e}") from e
+    except sqlite3.DatabaseError as e:
+        raise _MarcaRechazada(f"{ruta.name} no es una base válida: {e}") from e
+    finally:
+        conn.close()
+
+
+def _validar_entregada(ruta: Path, hash_paquete: str, fecha: str) -> None:
+    """La base (ya reemplazada) es la del cierre de la marca y no se usó."""
+    from autoclave.services.domain.logging.db_manager import ESTADO_ENTREGADO
+    b = _leer_base(ruta, contar=True)
+    if b["estado"] != ESTADO_ENTREGADO:
+        raise _MarcaRechazada(f"la base vigente no está ENTREGADO ({b['estado']})")
+    if b["hash"] != hash_paquete or b["fecha"] != fecha:
+        raise _MarcaRechazada("la base vigente es de otro cierre (hash o fecha distintos)")
+    if b["ciclos"]:
+        raise _MarcaRechazada(f"la base vigente tiene {b['ciclos']} ciclos")
+    if not b["liberado"] or b["posteriores"]:
+        raise _MarcaRechazada("la base vigente tiene bitácora posterior a la liberación")
+
+
+def _validar_marca(rutas: RutasCierre, datos: dict, pendientes: list[str]) -> None:
+    """SAF-01: lanza _MarcaRechazada (o _NoVerificable) si la fase 2 no debe
+    tocar nada."""
+    from autoclave.services.domain.logging.db_manager import ESTADO_ENTREGADO, ESTADO_FABRICA
+    if datos.get("formato") != FORMATO_MARCA or isinstance(datos.get("formato"), bool):
+        raise _MarcaRechazada(f"formato de marca desconocido: {datos.get('formato')!r}")
+    hash_paquete = datos.get("hash_paquete")
+    if not isinstance(hash_paquete, str) or not _HASH_HEX.match(hash_paquete):
+        raise _MarcaRechazada("hash_paquete inválido")
+    _fecha_marca(datos)
+    fecha = datos["fecha"]
+    for clave in ("pasos_hechos", "pasos_pendientes"):
+        if clave in datos and not isinstance(datos[clave], list):
+            raise _MarcaRechazada(f"{clave} no es una lista")
+    if "base" in pendientes and rutas.base_nueva.exists():
+        n = _leer_base(rutas.base_nueva, integridad=True)
+        if n.get("integridad") != "ok":
+            raise _MarcaRechazada(f"{rutas.base_nueva.name} no íntegra: {n.get('integridad')}")
+        if n["estado"] != ESTADO_ENTREGADO or n["hash"] != hash_paquete or n["fecha"] != fecha:
+            raise _MarcaRechazada(f"{rutas.base_nueva.name} no es la base del cierre de la marca")
+        # la vigente (o, cortado a mitad del reemplazo, la ya apartada) en FÁBRICA
+        vigente = rutas.base if rutas.base.exists() \
+            else rutas.base.with_name(rutas.base.name + SUFIJO_BASE_VIEJA)
+        v = _leer_base(vigente)
+        if v["estado"] != ESTADO_FABRICA:
+            raise _MarcaRechazada(f"la base vigente no está en FÁBRICA ({v['estado']})")
+        return
+    # base ya reemplazada (también con la marca sin actualizar tras el paso)
+    _validar_entregada(rutas.base, hash_paquete, fecha)
+
+
+def _apartar_marca_rechazada(rutas: RutasCierre, motivo: str) -> Path | None:
+    """La marca rechazada se renombra sin sobrescribir una anterior."""
+    sello = datetime.now().strftime("%Y%m%d-%H%M%S")
+    base = rutas.marca.with_name(NOMBRE_MARCA + SUFIJO_RECHAZADA + sello)
+    destino, n = base, 1
+    while destino.exists():
+        destino = base.with_name(f"{base.name}-{n}")
+        n += 1
+    try:
+        os.rename(rutas.marca, destino)
+    except OSError:
+        logger.exception("Cierre de fabricación: no se pudo apartar la marca rechazada (%s)",
+                         motivo)
+        return None
+    logger.error("Cierre de fabricación: marca RECHAZADA (%s); no se borró nada; apartada en %s",
+                 motivo, destino.name)
+    return destino
 
 
 def _paso_archivos_fabrica(rutas: RutasCierre, _fallos: list) -> None:
@@ -509,41 +667,95 @@ def _paso_base(rutas: RutasCierre, _fallos: list) -> None:
     _con_reintentos(lambda: os.replace(nueva, base))
 
 
+def _posterior(archivo: Path, limite: datetime | None) -> bool:
+    """Modificado después de la fecha de la marca (SAF-02). Ante un error al
+    leer la fecha, se toma como posterior (se conserva)."""
+    if limite is None:
+        return False
+    try:
+        return datetime.fromtimestamp(archivo.stat().st_mtime) > limite
+    except (OSError, ValueError, OverflowError):
+        return True
+
+
 def _paso_respaldo_ciclos(rutas: RutasCierre, fallos: list) -> None:
     """FAB-10: todo respaldo_ciclos (pendientes e importados/). Se aparta con
-    un renombrado (atómico: nada queda para reimportar) y luego se borra."""
+    un renombrado (atómico: nada queda para reimportar) y luego se borra.
+    SAF-02 (defensa en profundidad): un archivo modificado después de la
+    fecha de la marca no se borra (se conserva en su sitio y va al log)."""
+    limite = _CONTEXTO.get("fecha")
     carpeta = Path(rutas.carpeta_datos) / CARPETA_RESPALDO_CICLOS
     apartada = Path(rutas.carpeta_datos) / (CARPETA_RESPALDO_CICLOS + SUFIJO_BORRAR)
     if carpeta.exists():
-        if apartada.exists():
-            shutil.rmtree(apartada, ignore_errors=True)
-        try:
-            _con_reintentos(lambda: os.replace(carpeta, apartada))
-        except OSError:
-            # sin renombrar (un archivo abierto): se borra en el sitio; si queda algo, falla
-            shutil.rmtree(carpeta, ignore_errors=True)
-            if carpeta.exists() and any(carpeta.rglob("*.jsonl")):
-                raise
+        recientes = [a for a in carpeta.rglob("*") if a.is_file() and _posterior(a, limite)]
+        if recientes:
+            logger.error("Cierre de fabricación: %d respaldos de ciclos posteriores a la marca "
+                         "se CONSERVAN: %s", len(recientes),
+                         ", ".join(sorted(a.name for a in recientes)))
+            _borrar_arbol_con_ceros(carpeta, fallos, limite)
+        else:
+            if apartada.exists():
+                shutil.rmtree(apartada, ignore_errors=True)
+            try:
+                _con_reintentos(lambda: os.replace(carpeta, apartada))
+            except OSError:
+                # sin renombrar (un archivo abierto): se borra en el sitio; si queda algo, falla
+                shutil.rmtree(carpeta, ignore_errors=True)
+                if carpeta.exists() and any(carpeta.rglob("*.jsonl")):
+                    raise
     if apartada.exists():
-        _borrar_arbol_con_ceros(apartada, fallos)
+        _borrar_arbol_con_ceros(apartada, fallos, limite)
 
 
-def _borrar_arbol_con_ceros(carpeta: Path, fallos: list) -> None:
+def _borrar_arbol_con_ceros(carpeta: Path, fallos: list, limite: datetime | None = None) -> None:
+    """Con `limite`, los archivos posteriores se conservan (y las carpetas que
+    los contienen); sin él, se borra todo."""
+    conservados = []
     for archivo in sorted(carpeta.rglob("*"), reverse=True):
-        if archivo.is_file() and not sobrescribir_y_borrar(archivo):
+        if not archivo.is_file():
+            continue
+        if _posterior(archivo, limite):
+            conservados.append(archivo)
+            continue
+        if not sobrescribir_y_borrar(archivo):
             fallos.append(archivo.name)
+    if conservados:
+        for sub in sorted((d for d in carpeta.rglob("*") if d.is_dir()), reverse=True):
+            try:
+                sub.rmdir()
+            except OSError:
+                pass
+        return
     shutil.rmtree(carpeta, ignore_errors=True)
     if carpeta.exists():
         fallos.append(carpeta.name)
 
 
+def _ciclos_en_base(rutas: RutasCierre) -> int:
+    """Ciclos de la base vigente (solo lectura). Lanza si no se puede saber."""
+    if not rutas.base.is_file():
+        return 0
+    conn = _abrir_solo_lectura(rutas.base)
+    try:
+        return int(conn.execute("SELECT COUNT(*) FROM ciclos").fetchone()[0])
+    finally:
+        conn.close()
+
+
 def _paso_contadores(rutas: RutasCierre, _fallos: list) -> None:
     """D-10, DF-09, DF-10: contador de ciclos y base de mantenimiento en 0;
-    numeros_usados.json sin los números 1 a 10 (conserva los mayores)."""
+    numeros_usados.json sin los números 1 a 10 (conserva los mayores).
+    SAF-02: si la base vigente tiene ciclos, el contador y la base de
+    mantenimiento no se tocan (nunca baja la numeración de ciclos reales)."""
     datos = Path(rutas.carpeta_datos)
-    escribir_texto_atomico(datos / "ciclo_contador.json", json.dumps({"ultimo": 0}))
-    escribir_texto_atomico(datos / "mantenimiento_base.json",
-                           json.dumps({"ciclos_instalacion": 0}))
+    ciclos = _ciclos_en_base(rutas)
+    if ciclos:
+        logger.error("Cierre de fabricación: la base vigente tiene %d ciclos; el contador de "
+                     "ciclos y la base de mantenimiento NO se ponen en cero", ciclos)
+    else:
+        escribir_texto_atomico(datos / "ciclo_contador.json", json.dumps({"ultimo": 0}))
+        escribir_texto_atomico(datos / "mantenimiento_base.json",
+                               json.dumps({"ciclos_instalacion": 0}))
     from autoclave.core.managers.gestion_programas import NUMEROS_USADOS
     usados = Path(rutas.carpeta_ciclos) / "user" / NUMEROS_USADOS
     if usados.exists():
@@ -603,20 +815,8 @@ def _marca_bloqueo(rutas: RutasCierre) -> Path:
     return marca_bd_bloqueada(rutas.base)
 
 
-def _bloquear_base(rutas: RutasCierre, paso: str, error: str) -> None:
-    marca = _marca_bloqueo(rutas)
-    if marca.exists():
-        return
-    try:
-        escribir_texto_atomico(marca, (
-            f"{PREFIJO_BLOQUEO}: falló el paso '{paso}' ({error}).\n"
-            "El cierre se reintenta en el próximo arranque y retira esta marca al terminar.\n"
-            "Si persiste, un técnico de Especifika debe revisar backend.log.\n"))
-    except Exception:
-        logger.exception("Cierre de fabricación: no se pudo dejar la marca BD_BLOQUEADA")
-
-
 def _desbloquear_base(rutas: RutasCierre) -> None:
+    """Retira una BD_BLOQUEADA propia de antes de SAF-02 (hoy no se escribe)."""
     marca = _marca_bloqueo(rutas)
     try:
         if marca.exists() and marca.read_text(encoding="utf-8").startswith(PREFIJO_BLOQUEO):
@@ -626,70 +826,174 @@ def _desbloquear_base(rutas: RutasCierre) -> None:
         logger.exception("Cierre de fabricación: no se pudo retirar la marca BD_BLOQUEADA")
 
 
+def _base_entregada_con_fecha(rutas: RutasCierre) -> bool:
+    """SAF-06: la base vigente (solo lectura) está ENTREGADO con fecha de
+    liberación. Ante cualquier duda, False."""
+    from autoclave.services.domain.logging.db_manager import ESTADO_ENTREGADO
+    try:
+        b = _leer_base(rutas.base)
+    except (_MarcaRechazada, _NoVerificable) as e:
+        logger.info("Cierre de fabricación: restos sin tocar (%s)", e)
+        return False
+    except Exception:
+        logger.exception("Cierre de fabricación: no se pudo leer la base para los restos")
+        return False
+    return b["estado"] == ESTADO_ENTREGADO and b["fecha"] is not None
+
+
 def _limpiar_restos(rutas: RutasCierre) -> list[str]:
-    """Sin marca: temporales de una fase 1 cortada y restos de un cierre ya
-    terminado (base vieja, defectos viejos, respaldo apartado)."""
+    """Sin marca: temporales de una fase 1 cortada (solo archivos que crea el
+    cierre) y, solo con la base vigente ENTREGADO y con fecha de liberación
+    (SAF-06), los restos de un cierre ya terminado (base vieja, defectos
+    viejos, respaldo apartado). Si no, esos restos no se tocan."""
     borrados = []
     hay = [p for p in [rutas.base_nueva, rutas.defecto_nuevo]
            + list(Path(rutas.carpeta_datos).glob("*" + SUFIJO_NUEVO)) if p.exists()]
     if hay:
         limpiar_temporales(rutas)
         borrados += [p.name for p in hay]
-    for archivo in _bases_viejas(rutas):
-        if archivo.exists():
-            sobrescribir_y_borrar(archivo)
-            borrados.append(archivo.name)
     apartada = Path(rutas.carpeta_datos) / (CARPETA_RESPALDO_CICLOS + SUFIJO_BORRAR)
-    for carpeta in (rutas.defecto_viejo, apartada):
-        if carpeta.exists():
-            _borrar_arbol_con_ceros(carpeta, [])
-            borrados.append(carpeta.name)
+    restos = [a for a in _bases_viejas(rutas) if a.exists()] \
+        + [c for c in (rutas.defecto_viejo, apartada) if c.exists()]
+    if restos:
+        if _base_entregada_con_fecha(rutas):
+            for archivo in _bases_viejas(rutas):
+                if archivo.exists():
+                    sobrescribir_y_borrar(archivo)
+                    borrados.append(archivo.name)
+            for carpeta in (rutas.defecto_viejo, apartada):
+                if carpeta.exists():
+                    _borrar_arbol_con_ceros(carpeta, [])
+                    borrados.append(carpeta.name)
+        else:
+            logger.warning("Cierre de fabricación: restos sin tocar (la base vigente no está "
+                           "ENTREGADO con fecha de liberación): %s",
+                           ", ".join(p.name for p in restos))
     if borrados:
         logger.warning("Cierre de fabricación: sin marca; restos borrados: %s", ", ".join(borrados))
     return borrados
 
 
+def _quitar_marca(rutas: RutasCierre) -> None:
+    """SAF-03: si no se puede borrar, se renombra a cierre_fabrica.hecho; si
+    tampoco, queda con todos los pasos hechos (el próximo arranque solo la
+    vuelve a quitar) y la validación de SAF-01 impide repetir lo destructivo."""
+    try:
+        rutas.marca.unlink()
+        return
+    except FileNotFoundError:
+        return
+    except OSError:
+        logger.exception("Cierre de fabricación: no se pudo borrar la marca")
+    try:
+        os.replace(rutas.marca, rutas.marca.with_name(NOMBRE_MARCA_HECHA))
+        logger.warning("Cierre de fabricación: marca renombrada a %s", NOMBRE_MARCA_HECHA)
+    except OSError:
+        logger.exception("Cierre de fabricación: tampoco se pudo renombrar la marca")
+
+
+def cierre_incompleto(rutas: RutasCierre | None = None) -> bool:
+    """SAF-02: hay un cierre de fabricación pendiente que no pudo terminar y
+    el equipo no debe operar (lo consulta la etapa 1 del arranque, que se
+    detiene con ARR_CIERRE_FABRICA). Si la fase 2 corrió en este proceso, su
+    resultado; si no, que exista la marca (falla cerrada). Nunca lanza."""
+    try:
+        if rutas is None:
+            from autoclave.services.domain.logging.db_manager import DB_DEFAULT
+            marca = Path(DB_DEFAULT).with_name(NOMBRE_MARCA)
+        else:
+            marca = rutas.marca
+        clave = str(marca)
+        if clave in _ESTADO_FASE2:
+            return _ESTADO_FASE2[clave]
+        return marca.exists()
+    except Exception:
+        logger.exception("Cierre de fabricación: no se pudo comprobar si quedó incompleto")
+        return False
+
+
 def completar_cierre_si_pendiente(rutas: RutasCierre | None = None) -> dict:
     """Fase 2 (DF-05). Llamar al arrancar el backend ANTES de abrir cualquier
     DbManager. Nunca lanza. Devuelve {"marca", "completado", "hechos",
-    "pendientes", "fallos", "restos"}."""
+    "pendientes", "fallos", "restos", "rechazada", "motivo", "bloquear"}.
+    `bloquear` True = cierre pendiente que no terminó (SAF-02)."""
     salida = {"marca": False, "completado": False, "hechos": [], "pendientes": [],
-              "fallos": [], "restos": []}
+              "fallos": [], "restos": [], "rechazada": None, "motivo": "", "bloquear": False}
+    clave = None
     try:
         rutas = rutas or rutas_del_equipo()
+        clave = str(rutas.marca)
         if not rutas.marca.exists():
             salida["restos"] = _limpiar_restos(rutas)
+            _ESTADO_FASE2[clave] = False
             return salida
         salida["marca"] = True
-        logger.warning("Cierre de fabricación pendiente: se completa antes de abrir la base")
-        datos = _leer_marca(rutas.marca)
-        hechos = [p for p in datos.get("pasos_hechos", []) if p in PASOS]
-        for paso in PASOS:
-            if paso in hechos:
-                continue
-            fallos: list = []
-            try:
-                _FUNCIONES[paso](rutas, fallos)
-            except Exception as e:
-                logger.exception("Cierre de fabricación: falló el paso '%s'", paso)
-                if paso in PASOS_CRITICOS:
-                    salida["pendientes"] = [p for p in PASOS if p not in hechos]
-                    salida["hechos"] = hechos
-                    _bloquear_base(rutas, paso, f"{type(e).__name__}: {e}")
+        logger.warning("Cierre de fabricación pendiente: se valida antes de abrir la base")
+        hechos: list[str] = []
+        pendientes: list[str] = list(PASOS)
+        try:
+            datos = _leer_marca(rutas.marca)
+            lista = datos.get("pasos_hechos", [])
+            hechos = [p for p in lista if p in PASOS] if isinstance(lista, list) else []
+            pendientes = [p for p in PASOS if p not in hechos]
+            if pendientes:
+                _validar_marca(rutas, datos, pendientes)
+        except _MarcaRechazada as e:
+            destino = _apartar_marca_rechazada(rutas, str(e))
+            salida.update(rechazada=destino.name if destino else None, motivo=str(e))
+            _ESTADO_FASE2[clave] = False
+            return salida
+        except _NoVerificable as e:
+            logger.error("Cierre de fabricación: no se pudo validar (%s); no se borra nada y el "
+                         "arranque queda detenido", e)
+            salida.update(pendientes=pendientes, hechos=hechos, motivo=str(e), bloquear=True)
+            _ESTADO_FASE2[clave] = True
+            return salida
+        _CONTEXTO["fecha"] = _fecha_marca(datos) if pendientes else None
+        try:
+            for paso in PASOS:
+                if paso in hechos:
+                    continue
+                fallos: list = []
+                try:
+                    _FUNCIONES[paso](rutas, fallos)
+                except Exception as e:
+                    logger.exception("Cierre de fabricación: falló el paso '%s'", paso)
+                    if paso in PASOS_CRITICOS:
+                        salida.update(pendientes=[p for p in PASOS if p not in hechos],
+                                      hechos=hechos, bloquear=True,
+                                      motivo=f"{paso}: {type(e).__name__}: {e}")
+                        _ESTADO_FASE2[clave] = True
+                        return salida
+                    fallos.append(f"{type(e).__name__}: {e}")
+                if fallos:
+                    logger.warning("Cierre de fabricación: paso '%s' hecho con avisos: %s",
+                                   paso, "; ".join(fallos))
+                    salida["fallos"] += fallos
+                anotados = hechos + [paso]
+                datos["pasos_hechos"] = anotados
+                datos["pasos_pendientes"] = [p for p in PASOS if p not in anotados]
+                try:
+                    _guardar_marca(rutas.marca, datos)
+                except _MarcaNoGuardada as e:
+                    # SAF-03: el paso se hizo pero la marca no lo dice; se corta
+                    # aquí (el próximo arranque lo repite tras validar)
+                    salida.update(pendientes=[p for p in PASOS if p not in hechos],
+                                  hechos=list(hechos), bloquear=True,
+                                  motivo=f"marca no actualizada tras '{paso}': {e}")
+                    _ESTADO_FASE2[clave] = True
                     return salida
-                fallos.append(f"{type(e).__name__}: {e}")
-            if fallos:
-                logger.warning("Cierre de fabricación: paso '%s' hecho con avisos: %s",
-                               paso, "; ".join(fallos))
-                salida["fallos"] += fallos
-            hechos.append(paso)
-            datos["pasos_hechos"] = hechos
-            datos["pasos_pendientes"] = [p for p in PASOS if p not in hechos]
-            _guardar_marca(rutas.marca, datos)
-        rutas.marca.unlink()
+                hechos = anotados
+        finally:
+            _CONTEXTO["fecha"] = None
+        _quitar_marca(rutas)
         _desbloquear_base(rutas)
         salida.update(completado=True, hechos=hechos)
+        _ESTADO_FASE2[clave] = False
         logger.warning("Cierre de fabricación terminado: equipo ENTREGADO")
     except Exception:
         logger.exception("Cierre de fabricación: error inesperado en la fase 2")
+        salida["bloquear"] = salida["marca"]
+        if clave is not None:
+            _ESTADO_FASE2[clave] = salida["marca"]
     return salida

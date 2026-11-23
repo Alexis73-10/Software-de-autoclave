@@ -37,6 +37,7 @@
 import logging
 import os
 from datetime import datetime
+from pathlib import Path
 
 from PySide6.QtCore import Property, QObject, Signal, Slot
 
@@ -165,12 +166,31 @@ def ahora_local() -> datetime:
 
 def es_primera_instalacion(resultado: ResultadoCodigo | None) -> bool:
     """Modo fábrica (DF-02, condición 1): el código validado es de primera
-    instalación: v1, o v2 de tipo INS (también INSA, que el verificador
-    devuelve como INS con originales). Un REI/REIA nunca; sin resultado o con
-    uno no válido, False (falla segura: el equipo queda en ENTREGADO)."""
+    instalación: v2 de tipo INS (también INSA, que el verificador devuelve
+    como INS con originales). Corrección SAF-04 de la revisión de seguridad:
+    un código v1 ya NO cuenta (no distingue instalación de reinstalación). Un
+    REI/REIA nunca; sin resultado o con uno no válido, False (falla segura:
+    el equipo queda en ENTREGADO)."""
     if not isinstance(resultado, ResultadoCodigo) or resultado.ok is not True:
         return False
-    return resultado.formato == "v1" or (resultado.formato == "v2" and resultado.tipo == "INS")
+    return resultado.formato == "v2" and resultado.tipo == "INS"
+
+
+def hay_evidencia_entregado(carpeta) -> bool:
+    """SAF-04: evidencia de ENTREGADO fuera de la base. Un cierre de
+    fabricación deja en la carpeta de datos los dos archivos de la base de
+    fábrica del equipo (fe.NOMBRE_PARAMETROS y fe.NOMBRE_CALIBRACION; ver
+    fabrica_equipo.ruta_parametros()/ruta_calibracion()). Si alguno existe,
+    el equipo ya se entregó y el asistente no entra en FÁBRICA aunque la base
+    esté vacía (base perdida en campo). Ante un error, True (falla segura)."""
+    from autoclave.core.runtime import fabrica_equipo as fe
+    try:
+        carpeta = Path(carpeta)
+        return any((carpeta / n).exists() for n in (fe.NOMBRE_PARAMETROS, fe.NOMBRE_CALIBRACION))
+    except Exception:
+        logger.exception("Modo fábrica: no se pudo buscar la evidencia de ENTREGADO; se toma "
+                         "como entregado")
+        return True
 
 
 def construir_perfil(datos: dict, codigo: str, ahora: datetime | None = None,
@@ -352,8 +372,9 @@ def registrar_equipo_instalado(perfil: InstallationProfile, abrir_bd=_abrir_bd,
     terminarla, con serie, modelo, versión y zona horaria de Windows. Un error
     no deshace la instalación (el perfil ya está escrito): queda en el log.
 
-    Modo fábrica (DF-02): con `primera_instalacion` (código v1 o INS) y una
-    base sin uso, la misma transacción deja el equipo en FÁBRICA
+    Modo fábrica (DF-02): con `primera_instalacion` (código INS; SAF-04: un v1
+    ya no), una base sin uso y sin evidencia de un cierre anterior en la
+    carpeta de datos (SAF-04), la misma transacción deja el equipo en FÁBRICA
     (`DbManager.entrar_modo_fabrica_e_instalar`). Devuelve el estado
     resultante; ante un error, "ENTREGADO" (sin fila)."""
     from autoclave._version import version_completa
@@ -365,8 +386,19 @@ def registrar_equipo_instalado(perfil: InstallationProfile, abrir_bd=_abrir_bd,
     try:
         db = abrir_bd()
         try:
+            primera = primera_instalacion is True
+            if primera:
+                # SAF-04: la carpeta de datos es la de la base (en el equipo,
+                # la misma que fabrica_equipo.carpeta_datos())
+                ruta_db = getattr(db, "_path", None)
+                carpeta = (Path(ruta_db) if isinstance(ruta_db, (str, os.PathLike))
+                           else _ruta_base_por_defecto()).parent
+                if hay_evidencia_entregado(carpeta):
+                    logger.warning("Modo fábrica: hay base de fábrica del equipo en %s (cierre "
+                                   "anterior): no se entra en FÁBRICA", carpeta)
+                    primera = False
             estado = db.entrar_modo_fabrica_e_instalar(
-                primera_instalacion=primera_instalacion is True, usuario="sistema",
+                primera_instalacion=primera, usuario="sistema",
                 entidad=perfil.serial_number,
                 detalle={"serie": perfil.serial_number, "modelo": perfil.model_id,
                          "version": version_completa(), "zona_horaria": zona(),
@@ -378,6 +410,11 @@ def registrar_equipo_instalado(perfil: InstallationProfile, abrir_bd=_abrir_bd,
         return "ENTREGADO"
     logger.info("Estado del equipo al terminar la instalación: %s", estado)
     return estado
+
+
+def _ruta_base_por_defecto() -> Path:
+    from autoclave.services.domain.logging.db_manager import DB_DEFAULT
+    return Path(DB_DEFAULT)
 
 
 def _hay_perfil_valido() -> bool:

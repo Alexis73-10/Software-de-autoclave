@@ -526,6 +526,7 @@
     "abriendo_base_datos": "Opening database",
     "fallo_titulo": "Startup failure",
     "fallo_bloqueante": "Startup cannot continue",
+    "cierre_fabrica_incompleto": "Factory closing incomplete: restart the equipment; if it persists, contact Especifika",
     "sin_progreso": "No response from the control system",
     "verificando_instalacion": "Checking installation",
     "liberando_procesos": "Releasing processes",
@@ -2593,7 +2594,8 @@
     },
     "arranque": {
       "titulo": "Startup failure",
-      "accion": "Close the program and open it again. If the failure repeats, call technical service."
+      "accion": "Close the program and open it again. If the failure repeats, call technical service.",
+      "accion_cierre_fabrica": "Restart the equipment. If the failure persists, contact Especifika. Do not operate the equipment."
     },
     "no_abrir_motivos": {
       "temp_alta": {

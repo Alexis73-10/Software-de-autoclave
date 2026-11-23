@@ -39,6 +39,9 @@ ARR_SIN_ES = "ARR_SIN_ES"
 ARR_ERROR_INTERNO = "ARR_ERROR_INTERNO"
 
 ARR_SENSORES = "ARR_SENSORES"   # tanda 26 (ARQ-D8): etapa 8 degradada
+# Modo fábrica (SAF-02 de la revisión de seguridad): cierre de fabricación
+# pendiente que no pudo terminar; bloqueante en la etapa 1 (sin control ni ciclos)
+ARR_CIERRE_FABRICA = "ARR_CIERRE_FABRICA"
 
 PLAZO_ES_S = 15.0       # §4.7: a los 15 s sin E/S se anota ARR_SIN_ES (sigue reintentando)
 INTENTOS_BD = 3         # §4.6

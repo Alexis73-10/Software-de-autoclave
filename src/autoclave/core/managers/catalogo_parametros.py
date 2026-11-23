@@ -937,6 +937,56 @@ def evaluar_desviacion_acumulada(tipo: str, ganancia: float, offset: float,
     return None, ""
 
 
+_PUNTOS_POLINOMIO = 36
+
+
+def evaluar_desviacion_polinomio(tipo: str, poly, sensor: str | None = None
+                                 ) -> tuple[str | None, str]:
+    """Modo fábrica (SAF-08): la misma prueba que evaluar_desviacion_acumulada
+    para una calibración de usuario con polinomio (Horner, orden descendente,
+    como hal/measures/converters._user_calibrate): desviación respecto de la
+    neutra en `_PUNTOS_POLINOMIO` puntos del rango operativo, y además
+    creciente en todo ese rango (si no, la lectura no es invertible). Nivel
+    None | "aviso" | "rechazo"."""
+    lim = limites_calibracion(tipo, sensor)
+    if lim is None:
+        return "rechazo", f"tipo de canal sin límites de calibración: {tipo!r}"
+    try:
+        coef = [float(c) for c in poly]
+    except (TypeError, ValueError):
+        return "rechazo", "polinomio mal formado"
+    if len(coef) < 2 or not all(math.isfinite(c) for c in coef):
+        return "rechazo", "polinomio mal formado o no finito"
+    u = lim["unidad"]
+    lo, hi = lim["operativo"]
+    xs = [lo + (hi - lo) * i / (_PUNTOS_POLINOMIO - 1) for i in range(_PUNTOS_POLINOMIO)]
+
+    def valor(c, x):
+        r = 0.0
+        for k in c:
+            r = r * x + k
+        return r
+    n = len(coef) - 1
+    derivada = [c * (n - i) for i, c in enumerate(coef[:-1])]
+    try:
+        ys = [valor(coef, x) for x in xs]
+        ds = [valor(derivada, x) for x in xs]
+    except OverflowError:
+        return "rechazo", "polinomio no finito en el rango operativo"
+    if not all(math.isfinite(v) for v in ys + ds):
+        return "rechazo", "polinomio no finito en el rango operativo"
+    if any(d <= 0 for d in ds):
+        return "rechazo", "el polinomio no es creciente en el rango operativo"
+    desvio = max(abs(y - x) for x, y in zip(xs, ys))
+    if desvio > lim["desviacion_max"]:
+        return "rechazo", (f"el polinomio se aparta {desvio:.1f} {u} de la neutra, más que el "
+                           f"máximo ({lim['desviacion_max']:g} {u}): revise el sensor")
+    if desvio > lim["desviacion_aviso"]:
+        return "aviso", (f"el polinomio se aparta {desvio:.1f} {u} de la neutra "
+                         f"(aviso > {lim['desviacion_aviso']:g} {u})")
+    return None, ""
+
+
 def limites_calibracion(tipo: str, sensor: str | None = None) -> dict | None:
     base = CALIBRACION_PLAUSIBLE.get(tipo)
     if base is None:

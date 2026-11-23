@@ -27,9 +27,10 @@ Cada decisión de este archivo es una `DECISIÓN SIN CONFIRMAR`. Se tomó la rec
   - `etapa_cierre` no va en la base (R-02).
 - **DF-02. Entrada a FÁBRICA (R-01).**
   - Solo la escribe el asistente al terminar, y solo si se cumplen tres condiciones:
-    1. El código es de primera instalación (v1, o v2 de tipo `INS`; un `REI` nunca).
+    1. El código es de primera instalación: v2 de tipo `INS` (un `REI` nunca). **Corrección SAF-04** (revisión de seguridad, 22-nov): un v1 ya no cuenta; antes «v1, o v2 de tipo `INS`».
     2. La tabla no tiene fila.
     3. La base no tiene ciclos ni una fila `equipo_instalado` anterior.
+    4. **Corrección SAF-04:** no hay evidencia de ENTREGADO fuera de la base (`parametros_fabrica_equipo.json` o `calibracion_fabrica_equipo.yaml` en la carpeta de datos).
   - La fila FÁBRICA y `equipo_instalado` se escriben en la misma transacción.
   - Si falla, el equipo queda en ENTREGADO, la dirección segura frente a FAB-01, y queda en el log.
 - **DF-03. Lectura.**

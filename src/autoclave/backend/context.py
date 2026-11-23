@@ -150,6 +150,13 @@ class BackendContext:
     # ── 1. verificando_instalacion ───────────────────────────────────────────
 
     def verificar_instalacion(self) -> None:
+        # Modo fábrica (SAF-02): con un cierre de fabricación pendiente que no
+        # pudo terminar el equipo no opera (antes: BD_BLOQUEADA y modo sin
+        # base, que permitía ciclos). Bloqueante antes de leer nada más.
+        from autoclave.core.runtime import cierre_fabrica
+        if cierre_fabrica.cierre_incompleto():
+            raise ErrorArranque(secuencia.ARR_CIERRE_FABRICA,
+                                "Cierre de fabricación incompleto: reinicie el equipo")
         try:
             profile = get_installation_profile()
         except ClockTamperedError as e:

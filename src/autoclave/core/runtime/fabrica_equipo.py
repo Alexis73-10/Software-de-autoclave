@@ -160,15 +160,20 @@ def entrada_calibracion_equipo(tipo: str, sensor: str, canal: int, ruta=None) ->
         gain, offset, poly = entrada.get("gain"), entrada.get("offset"), entrada.get("poly")
         if not (_numero(gain) and _numero(offset)):
             raise ValueError("ganancia u offset no numéricos")
+        from autoclave.core.managers.catalogo_parametros import (evaluar_desviacion_acumulada,
+                                                                  evaluar_desviacion_polinomio)
         if poly is not None:
             if not isinstance(poly, list) or not poly or not all(_numero(x) for x in poly):
                 raise ValueError("polinomio mal formado")
             poly = [float(x) for x in poly]
+        if poly is not None and len(poly) >= 2:
+            # SAF-08: el polinomio rige la lectura (converters._user_calibrate):
+            # la misma prueba de plausibilidad, sobre el polinomio
+            nivel, motivo = evaluar_desviacion_polinomio(tipo, poly, sensor)
         else:
-            from autoclave.core.managers.catalogo_parametros import evaluar_desviacion_acumulada
             nivel, motivo = evaluar_desviacion_acumulada(tipo, float(gain), float(offset), sensor)
-            if nivel == "rechazo":
-                raise ValueError(f"calibración no plausible: {motivo}")
+        if nivel == "rechazo":
+            raise ValueError(f"calibración no plausible: {motivo}")
         return {"gain": float(gain), "offset": float(offset), "poly": poly}
     except Exception as e:
         logger.warning("Calibración del equipo de %s/%s no válida (%s): rige el neutro", tipo, sensor, e)

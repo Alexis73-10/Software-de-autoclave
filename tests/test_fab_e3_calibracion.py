@@ -190,11 +190,12 @@ def test_defecto_con_poly(cliente, datos):
     client, ctx, yaml_path = cliente
     canal = EstadoAutoclave.map_pres["pres_camara"]
     _guardar(datos, {"formato": 1, "pressure": {"pres_camara": {
-        "canal": canal, "gain": 1.0, "offset": 0.0, "poly": [0.0, 1.01]}}})
+        "canal": canal, "gain": 1.0, "offset": 0.0, "poly": [1.01, 0.0]}}})
+    # SAF-08: un polinomio plausible (1,01·x); [0, 1.01] era una constante
     r = _restaurar(client)
     assert r.status_code == 200 and r.json()["origen"] == "fabrica_equipo"
-    assert _user_pres(yaml_path, canal).poly == [0.0, 1.01]
-    assert ctx.db.registrar_auditoria.call_args.kwargs["valor_nuevo"]["poly"] == [0.0, 1.01]
+    assert _user_pres(yaml_path, canal).poly == [1.01, 0.0]
+    assert ctx.db.registrar_auditoria.call_args.kwargs["valor_nuevo"]["poly"] == [1.01, 0.0]
 
 
 def test_auditoria_fallida_revierte_tambien_con_la_del_equipo(cliente, datos, origen):

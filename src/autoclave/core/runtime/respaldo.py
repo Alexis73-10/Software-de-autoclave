@@ -109,14 +109,39 @@ def crear(equipo: dict, partes: dict, contenido: dict, usuario: str, version_sw:
     return mem.getvalue()
 
 
+# Modo fábrica (SAF-07): lo que delata un paquete de liberación aunque su
+# manifiesto diga otra cosa (el `tipo` se puede editar recalculando el hash)
+PREFIJO_LIBERACION = "liberacion_"
+_ARCHIVOS_LIBERACION = frozenset({"informe_liberacion.pdf", "bitacora.csv"})
+_CARPETA_LIBERACION = "ciclos/"
+
+
+def es_paquete_liberacion(nombre_archivo: str, nombres_zip=()) -> bool:
+    """SAF-07: por nombre (`liberacion_*`) o por contenido
+    (`informe_liberacion.pdf`, `bitacora.csv` o `ciclos/`)."""
+    if str(nombre_archivo).lower().startswith(PREFIJO_LIBERACION):
+        return True
+    for n in nombres_zip:
+        n = str(n).replace("\\", "/").lstrip("/")
+        if n in _ARCHIVOS_LIBERACION or n.startswith(_CARPETA_LIBERACION):
+            return True
+    return False
+
+
 def leer(ruta: Path) -> tuple[dict, dict]:
-    """(manifiesto, {ruta: bytes}) validando integridad. Lanza ErrorRespaldo."""
+    """(manifiesto, {ruta: bytes}) validando integridad. Lanza ErrorRespaldo.
+    SAF-07: un paquete de liberación (por nombre o contenido) se rechaza con
+    `paquete_no_restaurable` antes que cualquier otro motivo."""
     ruta = Path(ruta)
+    if es_paquete_liberacion(ruta.name):
+        raise ErrorRespaldo("paquete_no_restaurable", ruta.name)
     try:
         if ruta.stat().st_size > MAX_ZIP_BYTES:
             raise ErrorRespaldo("demasiado_grande")
         with zipfile.ZipFile(ruta) as z:
             nombres = z.namelist()
+            if es_paquete_liberacion(ruta.name, nombres):
+                raise ErrorRespaldo("paquete_no_restaurable", ruta.name)
             if "manifiesto.json" not in nombres:
                 raise ErrorRespaldo("sin_manifiesto")
             # SAF-06 de O2h: topes al número de entradas y al tamaño total
@@ -180,7 +205,10 @@ def resumen(ruta: Path, equipo: dict, version_sw: str) -> dict:
 
 
 def ruta_respaldo_segura(unidad: str, archivo: str) -> Path:
-    """Ruta dentro de <unidad>/Especifika_respaldos; rechaza traversal."""
+    """Ruta dentro de <unidad>/Especifika_respaldos; rechaza traversal. SAF-07:
+    un `liberacion_*` da `paquete_no_restaurable`."""
+    if isinstance(archivo, str) and es_paquete_liberacion(archivo):
+        raise ErrorRespaldo("paquete_no_restaurable", archivo)
     if not isinstance(archivo, str) or not _NOMBRE_RESPALDO.match(archivo):
         raise ErrorRespaldo("archivo_invalido")
     base = (Path(unidad) / CARPETA).resolve()

@@ -10,6 +10,7 @@
 # src/autoclave/cycles del repositorio.
 
 import json
+import os
 import shutil
 import sqlite3
 import zipfile
@@ -42,8 +43,10 @@ class _Config:
 
 
 def _sembrar_base(db: DbManager) -> None:
-    db.registrar_auditoria("equipo_instalado", usuario="sistema", entidad="SN260001",
-                           detalle={"serie": "SN260001", "modelo": "M-1", "zona": "SA Pacific"})
+    # un equipo en FÁBRICA de verdad (DF-02): la fase 2 lo exige (SAF-01)
+    assert db.entrar_modo_fabrica_e_instalar(
+        primera_instalacion=True, entidad="SN260001",
+        detalle={"serie": "SN260001", "modelo": "M-1", "zona": "SA Pacific"}) == "FABRICA"
     db.crear_usuario("Ana Pérez", "ana", HASH, "ingeniero")
     db.crear_usuario("Luis " + CADENA, "luis", HASH + "2", "operador")
     db.crear_operador("Operadora " + CADENA, creado_por="ana")
@@ -106,6 +109,11 @@ class Equipo:
         (rc / "importados").mkdir(parents=True)
         (rc / "aaaa-1111.jsonl").write_text(json.dumps({"lote": CADENA}) + "\n", encoding="utf-8")
         (rc / "importados" / "bbbb-2222.jsonl").write_text(CADENA + "\n", encoding="utf-8")
+        # anteriores a la fecha de la marca (AHORA), como los de ciclos reales
+        # de FÁBRICA (SAF-02 conserva los posteriores)
+        antes = (AHORA.timestamp() - 86400,) * 2
+        for f in rc.rglob("*.jsonl"):
+            os.utime(f, antes)
         for nombre in ("backend.log", "lanzador.log", "ui_puerta1.log"):
             (self.data / nombre).write_text(f"{nombre} {CADENA}\n", encoding="utf-8")
         (self.logs / "autoclave.log").write_text(CADENA + "\n", encoding="utf-8")
@@ -408,9 +416,9 @@ def test_p08_corte_en_cada_paso_de_la_fase2_y_reanudacion(equipo, monkeypatch, p
     if paso in cf.PASOS_CRITICOS:
         assert salida["completado"] is False and paso in salida["pendientes"]
         assert equipo.rutas.marca.exists()
-        # la base queda bloqueada: el backend no abre ni reimporta nada
-        bloqueo = equipo.data / "BD_BLOQUEADA"
-        assert bloqueo.read_text(encoding="utf-8").startswith(cf.PREFIJO_BLOQUEO)
+        # SAF-02: el arranque queda detenido (ARR_CIERRE_FABRICA), sin BD_BLOQUEADA
+        assert salida["bloquear"] is True and cf.cierre_incompleto(equipo.rutas) is True
+        assert not (equipo.data / "BD_BLOQUEADA").exists()
         hechos = json.loads(equipo.rutas.marca.read_text(encoding="utf-8"))["pasos_hechos"]
         assert hechos == list(cf.PASOS[:cf.PASOS.index(paso)])
         monkeypatch.setitem(cf._FUNCIONES, paso, original)
@@ -434,12 +442,16 @@ def test_p08_corte_a_mitad_del_reemplazo_de_la_base(equipo):
     _comprobar_entregado(equipo, r)
 
 
-@pytest.mark.req("P-08")
-def test_p08_marca_ilegible_completa_igual(equipo):
-    r = _cierre_completo(equipo)
+@pytest.mark.req("P-08", "SAF-01")
+def test_p08_marca_ilegible_se_rechaza_sin_borrar(equipo):
+    # SAF-01: se retiró «marca ilegible = repetir todo»
+    _cierre_completo(equipo)
     equipo.rutas.marca.write_text("{roto", encoding="utf-8")
-    assert cf.completar_cierre_si_pendiente(equipo.rutas)["completado"] is True
-    _comprobar_entregado(equipo, r)
+    salida = cf.completar_cierre_si_pendiente(equipo.rutas)
+    assert salida["completado"] is False and salida["rechazada"]
+    assert not equipo.rutas.marca.exists() and cf.cierre_incompleto(equipo.rutas) is False
+    assert _conteo(equipo.rutas.base, "ciclos") == 2
+    assert (equipo.data / "respaldo_ciclos" / "aaaa-1111.jsonl").exists()
 
 
 def test_un_wal_viejo_no_queda_junto_a_la_base_nueva(equipo):

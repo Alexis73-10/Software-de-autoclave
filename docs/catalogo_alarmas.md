@@ -43,6 +43,7 @@ Fuente: `backend/arranque/secuencia.py`. No son alarmas del `AlarmManager`: son 
 |---|---|---|---|
 | `ARR_PERFIL` | verificando_instalacion | fallo | Perfil de instalación ausente o inválido. |
 | `ARR_RELOJ` | verificando_instalacion | fallo | Reloj del sistema anterior a la fecha de instalación. |
+| `ARR_CIERRE_FABRICA` | verificando_instalacion | fallo | Modo fábrica (SAF-02): cierre de fabricación pendiente que no pudo terminar (`cierre_fabrica.cierre_incompleto`); sin control ni ciclos. La pantalla dice «Cierre de fabricación incompleto: reinicie el equipo; si persiste, contacte a Especifika». |
 | `ARR_CONFIG_ILEGIBLE` | cargando_configuracion | fallo | `global_params.json` ausente o ilegible. |
 | `ARR_CICLO_DEFECTO` | cargando_configuracion | fallo | No existe el ciclo por defecto (`bowe_dick`). |
 | `CONFIGURACION_INVALIDA` | cargando_configuracion | fallo | Valores fuera de rango (ver la alarma del mismo nombre). |
