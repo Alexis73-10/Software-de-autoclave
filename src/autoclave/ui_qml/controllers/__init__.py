@@ -33,3 +33,5 @@ from autoclave.ui_qml.controllers import catalogo_carga_controller  # noqa: F401
 from autoclave.ui_qml.controllers import reasignacion_controller  # noqa: F401
 # OPCIONES > Opciones avanzadas > Manejo de ciclos (C9, tanda 9, D9-10).
 from autoclave.ui_qml.controllers import manejo_ciclos_controller  # noqa: F401
+# OPCIONES > Opciones avanzadas > Cierre de fabricación (modo fábrica, Etapa 5).
+from autoclave.ui_qml.controllers import cierre_fabrica_controller  # noqa: F401

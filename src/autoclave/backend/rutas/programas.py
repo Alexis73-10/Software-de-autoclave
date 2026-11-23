@@ -16,7 +16,8 @@ from autoclave.auth.roles import ROL_INGENIERO, ROL_TECNICO
 from fastapi import APIRouter
 
 from autoclave.backend.dependencias import (DISTINTO_DE_CICLO, _Rechazo, _auditar,
-    _lock_archivos, _rechazar, context, guard_estado, requiere_rol)
+    _equipo_en_modo_fabrica, _lock_archivos, _rechazar, context, guard_estado,
+    requiere_modo_fabrica, requiere_rol)
 from autoclave.backend.rutas._comun import (_ai_habilitadas, _carga_liquida,
     _escribir_json_programa, _nombres_ciclo, _puertas_simples)
 
@@ -69,6 +70,8 @@ def get_programas():
             "editable": _programa_editable(cycle),
             "habilitado": getattr(cycle, "habilitado", True) is not False,
             "personalizado": getattr(cycle, "personalizado", False) is True,
+            # Modo fábrica (Etapa 2): programa de fábrica creado en FÁBRICA
+            "fabrica_equipo": getattr(cycle, "fabrica_equipo", False) is True,
             "seleccionado": activo is not None and cycle.id == activo,
             "secciones": [{"clave": s, "no_se_ejecuta": _no_se_ejecuta(cycle, s)}
                           for s in _SECCIONES_PROGRAMA if s in cycle.parameters],
@@ -301,10 +304,19 @@ def post_programa_duplicar(numero: int, body: _DuplicarBody,
                            sesion: Sesion = Depends(requiere_rol(ROL_TECNICO, ROL_INGENIERO))):
     entidad = f"/programas/{numero}/duplicar"
     cm = context.cycle_manager
+    # Modo fábrica (Etapa 2, D-02/§5.3): en FÁBRICA crear y duplicar dan un
+    # programa de fábrica del equipo y solo los hace un ingeniero
+    fabrica = _equipo_en_modo_fabrica()
+    if fabrica and sesion.rol != ROL_INGENIERO:
+        _rechazar(403, "rol_sin_permiso", "Su rol no tiene permiso para esta acción",
+                  entidad, sesion)
     nuevo = _gestion(
-        entidad, sesion, lambda gp, activo: gp.duplicar(cm, numero, body.nombre),
+        entidad, sesion,
+        lambda gp, activo: gp.duplicar(cm, numero, body.nombre, modo_fabrica=fabrica),
         "programa_creado" if body.crear else "programa_duplicado",
-        lambda c: ({"origen": numero}, {"numero": c.number, "cycle_id": c.id, "nombre": c.name}),
+        lambda c: ({"origen": numero},
+                   {"numero": c.number, "cycle_id": c.id, "nombre": c.name,
+                    **({"fabrica_equipo": True} if fabrica else {})}),
         lambda gp, c: gp.deshacer_duplicado(cm, c),
         excepcion_ingeniero=False)                     # C9 (D9-10): solo fuera de ciclo
     return {"ok": True, "numero": nuevo.number, "cycle_id": nuevo.id, "nombre": nuevo.name}
@@ -322,6 +334,23 @@ def delete_programa(numero: int,
              confirmar=lambda gp, c: gp.confirmar_borrado(c),
              excepcion_ingeniero=False)                # C9 (D9-10): solo fuera de ciclo
     return {"ok": True, "numero": numero}
+
+
+@router.delete("/fabrica/programas/{cycle_id}")
+def delete_programa_fabrica(cycle_id: str, sesion: Sesion = Depends(requiere_modo_fabrica())):
+    """Modo fábrica (D-06, DF-06): borra un programa de fábrica, genérico o
+    del equipo, sin registrar su número. Solo ingeniero, con el equipo en
+    FÁBRICA y fuera de ciclo; nunca el programa seleccionado."""
+    entidad = f"/fabrica/programas/{cycle_id}"
+    cm = context.cycle_manager
+    borrado = _gestion(
+        entidad, sesion, lambda gp, activo: gp.borrar_fabrica(cm, cycle_id, activo),
+        "programa_fabrica_borrado",
+        lambda c: ({"numero": c._numero_borrado, "cycle_id": c.id, "nombre": c.name}, None),
+        lambda gp, c: gp.deshacer_borrado_fabrica(cm, c),
+        confirmar=lambda gp, c: gp.confirmar_borrado(c),
+        excepcion_ingeniero=False)
+    return {"ok": True, "cycle_id": borrado.id, "numero": borrado._numero_borrado}
 
 
 class _EntradasBody(BaseModel):

@@ -133,6 +133,9 @@ QtObject {
     readonly property color graficaTituloEje:   oscuro ? "#A7B3C1" : "#333333" // = textoSecundario (OSC-04)
     readonly property color graficaBordeBoton:  oscuro ? "#33445A" : "#C8C8C8" // = bordeCampo
     readonly property color graficaZoomIcono:   oscuro ? "#5B9BFF" : "#3A6FD8" // ZOM-07, tanda 34; DECISIÓN SIN CONFIRMAR
+    // Modo fábrica (D-13): franja fija «MODO FÁBRICA» (Componentes/FranjaModoFabrica.qml)
+    readonly property color franjaFabricaFondo: oscuro ? "#4A1470" : "#6A1B9A"
+    readonly property color franjaFabricaTexto: oscuro ? "#F3E5FF" : "#FFFFFF"
 
     // Valores de sensores (tira de Preciclo/Ciclo; hoy paleta.negro)
     // valorTempCamara/Referencia/Presion: por posición de Entradas mostradas (igual que la gráfica), no por tipo de sensor.

@@ -142,6 +142,10 @@ _FABRICA_LEGADA = frozenset({"bowe_dick", "134_instrumental", "instrumental_121"
                              "liquidos", "textiles"})
 NUMEROS_USADOS = "numeros_usados.json"   # igual que gestion_programas.NUMEROS_USADOS
 MARCA_FABRICA_VISTOS = "fabrica_vistos.lst"   # en cycles/user; no es .json a propósito
+# Modo fábrica (DF-06, R-03): ids de los programas de fábrica borrados en FÁBRICA.
+# El cargador no los toma de factory/ (tampoco los 5 heredados) y la siembra no
+# los recrea. Mismo formato que fabrica_vistos.lst (un id por línea, ordenado).
+MARCA_FABRICA_BORRADOS = "fabrica_borrados.lst"
 
 
 def _datos_programa(ruta: str):
@@ -149,14 +153,43 @@ def _datos_programa(ruta: str):
         return json.load(f)
 
 
-def _escribir_marca_vistos(usuario: str, ids) -> None:
-    ruta = os.path.join(usuario, MARCA_FABRICA_VISTOS)
+def leer_lista_ids(usuario: str, nombre: str) -> set | None:
+    """Ids de una lista `*.lst` de cycles/user (un id por línea). None si el
+    archivo no existe. Lanza OSError si existe y no se puede leer."""
+    ruta = os.path.join(usuario, nombre)
+    if not os.path.exists(ruta):
+        return None
+    with open(ruta, "r", encoding="utf-8") as f:
+        return {l.strip() for l in f if l.strip()}
+
+
+def escribir_lista_ids(usuario: str, nombre: str, ids) -> None:
+    """Escritura atómica de una lista `*.lst` (ordenada, un id por línea)."""
+    ruta = os.path.join(usuario, nombre)
     temporal = f"{ruta}.{os.getpid()}.tmp"
-    with open(temporal, "w", encoding="utf-8") as f:
-        f.write("\n".join(sorted(ids)) + "\n")
-        f.flush()
-        os.fsync(f.fileno())
-    os.replace(temporal, ruta)
+    try:
+        with open(temporal, "w", encoding="utf-8") as f:
+            f.write("\n".join(sorted(ids)) + "\n")
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(temporal, ruta)
+    finally:
+        if os.path.exists(temporal):
+            os.remove(temporal)
+
+
+def fabrica_borrados(usuario: str) -> set:
+    """DF-06: ids de fabrica_borrados.lst; vacío si no existe. Ante un archivo
+    ilegible, vacío con aviso (el comportamiento anterior a la lista)."""
+    try:
+        return leer_lista_ids(usuario, MARCA_FABRICA_BORRADOS) or set()
+    except OSError:
+        logger.warning("fabrica_borrados.lst ilegible: se ignora", exc_info=True)
+        return set()
+
+
+def _escribir_marca_vistos(usuario: str, ids) -> None:
+    escribir_lista_ids(usuario, MARCA_FABRICA_VISTOS, ids)
 
 
 def sembrar_faltantes_usuario(raiz_ciclos: str) -> list:
@@ -179,6 +212,8 @@ def sembrar_faltantes_usuario(raiz_ciclos: str) -> list:
                 vistos = {l.strip() for l in f if l.strip()}
         else:
             vistos = set(_FABRICA_LEGADA)
+        # DF-06: un programa borrado en FÁBRICA nunca se siembra
+        borrados = fabrica_borrados(usuario)
         ids_usuario, numeros_usuario = set(), set()
         for nombre in os.listdir(usuario):
             if not nombre.endswith(".json"):
@@ -209,7 +244,7 @@ def sembrar_faltantes_usuario(raiz_ciclos: str) -> list:
             try:
                 datos = _datos_programa(os.path.join(fabrica, nombre))
                 cid, numero = datos["cycle_id"], datos.get("cycle_number")
-                if cid in vistos:
+                if cid in vistos or cid in borrados:
                     continue
                 destino = os.path.join(usuario, nombre)
                 if cid in ids_usuario or numero in numeros_usuario or os.path.exists(destino):

@@ -30,7 +30,7 @@ def _fila(db, ciclo_id):
 
 def test_bd_nueva_tiene_columnas_y_version_12(tmp_path):
     db = DbManager(tmp_path / "a.db")
-    assert db.get_version_esquema() == db_manager.ESQUEMA_VERSION == 15   # v15: carga del ciclo (RCB-05)
+    assert db.get_version_esquema() == db_manager.ESQUEMA_VERSION == 16   # v16: estado_fabrica (modo fábrica, DF-01)
     cols = _columnas(db._conn)
     assert "serie_original" in cols and "modelo_original" in cols
 

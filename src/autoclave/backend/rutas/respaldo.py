@@ -197,6 +197,12 @@ def post_backup_export(body: _ExportarBody,
         contenido["usuarios.json"] = json.dumps(_usuarios_sin_hash(), ensure_ascii=False).encode("utf-8")
     if body.historial:
         contenido["historial.db"] = _copia_bd()
+    # Modo fábrica E3: la base de fábrica del equipo va como copia (carpeta
+    # fabrica_equipo/ del ZIP); la restauración no la restaura (FAB-06)
+    from autoclave.core.runtime import fabrica_equipo
+    with _lock_archivos:
+        contenido.update(fabrica_equipo.contenido_respaldo(body.perfil_calibracion,
+                                                           body.parametros_programas))
     with _lock_respaldo:
         zip_bytes = rp.crear(equipo, partes, contenido, sesion.usuario, _version_sw())
         carpeta = Path(unidad) / rp.CARPETA
@@ -231,6 +237,13 @@ def post_backup_restore(body: _RestaurarBody,
                  detalle={"archivo": body.archivo, "motivo": e.codigo})
         raise RechazoApi(422, e.codigo, "Respaldo inválido")
     motivo = rp.validar_para_equipo(m, _meta_equipo(), _version_sw())
+    if motivo == "paquete_no_restaurable":
+        # Modo fábrica E4 (DF-08, R-06): un paquete de liberación (u otro tipo
+        # que no sea «respaldo») nunca se restaura
+        _auditar("respaldo_rechazado", sesion, entidad=entidad,
+                 detalle={"archivo": body.archivo, "motivo": motivo,
+                          "tipo": rp.tipo_manifiesto(m)})
+        raise RechazoApi(422, motivo, "El paquete no es un respaldo restaurable")
     if motivo:
         _auditar("respaldo_rechazado", sesion, entidad=entidad,
                  detalle={"archivo": body.archivo, "motivo": motivo, "serie_respaldo": m.get("serie")})

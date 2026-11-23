@@ -356,6 +356,12 @@ def restaurar_calibracion(tipo: str, sensor: str, body: dict = Body(...),
     ganancia 1.0, offset 0.0) o a los valores previos a la última modificación
     ("ultimo", de valor_anterior en audit_log). Mismas reglas que el PATCH:
     rol, estado, auditoría obligatoria con reversión del archivo."""
+    # Modo fábrica E3 (D-08, FAB-08, DF-07): "defecto" es la calibración de
+    # fábrica del equipo (`fabrica_equipo.entrada_calibracion_equipo`) y solo
+    # sin ella (archivo ausente, sin el sensor, inválida o de otro canal) la
+    # neutra; la auditoría y la respuesta dicen `origen` ("fabrica_equipo" |
+    # "neutro"). El docstring de arriba queda igual: es la descripción de la
+    # ruta en la base OpenAPI de la tanda 15.
     # P1 (tanda 7): la pantalla QML pide el sensor con el nombre de /io/channels
     # (temp_referencia); se usa la clave canónica (temp_ref) para el canal, los
     # límites por canal y la auditoría
@@ -373,9 +379,18 @@ def restaurar_calibracion(tipo: str, sensor: str, body: dict = Body(...),
     with guard_estado(DISTINTO_DE_CICLO, ruta, sesion, excepcion_ingeniero=True):
         contexto_ciclo = _contexto_ciclo()
 
+    nuevo_poly, origen = None, None
     with _lock_archivos:
         if destino == "defecto":
-            nuevo_gain, nuevo_offset = 1.0, 0.0
+            # Modo fábrica E3 (D-08, FAB-08, DF-07): la calibración de fábrica
+            # del equipo si existe y vale para el canal vigente; si no, neutro
+            from autoclave.core.runtime import fabrica_equipo
+            entrada = fabrica_equipo.entrada_calibracion_equipo(tipo, sensor, index)
+            if entrada is not None:
+                nuevo_gain, nuevo_offset = entrada["gain"], entrada["offset"]
+                nuevo_poly, origen = entrada["poly"], "fabrica_equipo"
+            else:
+                nuevo_gain, nuevo_offset, origen = 1.0, 0.0, "neutro"
         else:
             try:
                 filas = context.db.get_auditoria(evento="calibracion_cambio",
@@ -405,17 +420,23 @@ def restaurar_calibracion(tipo: str, sensor: str, body: dict = Body(...),
         # R8 (3.ª vuelta, SEN): puerto físico también al restaurar
         detalle = {"accion": f"restaurar_{destino}",
                    "puerto": index + 1, "formato": _FORMATO_PUERTO}
+        if origen is not None:
+            detalle["origen"] = origen
         detalle.update(contexto_ciclo)
+        valor_nuevo = {"gain": nuevo_gain, "offset": nuevo_offset}
+        if nuevo_poly:
+            valor_nuevo["poly"] = nuevo_poly
         previo = Path(CALIBRATION_PATH).read_bytes()
         write_user_calibration(CALIBRATION_PATH, tipo, index, nuevo_gain, nuevo_offset,
-                               0.0, 0.0, 0.0, 0.0, nota=f"restaurada ({destino})")
+                               0.0, 0.0, 0.0, 0.0, nota=f"restaurada ({destino})",
+                               poly=nuevo_poly)
         context.units.reload_calibration(CALIBRATION_PATH)
         try:
             context.db.registrar_auditoria(
                 "calibracion_cambio", usuario=sesion.usuario, rol=sesion.rol,
                 entidad=entidad,
                 valor_anterior={"gain": old_gain, "offset": old_offset},
-                valor_nuevo={"gain": nuevo_gain, "offset": nuevo_offset},
+                valor_nuevo=valor_nuevo,
                 detalle=detalle)
         except Exception:
             logger.exception("Restauración %s sin auditoría: se revierte", entidad)
@@ -430,7 +451,10 @@ def restaurar_calibracion(tipo: str, sensor: str, body: dict = Body(...),
             _rechazar(503, "auditoria_no_disponible",
                       "No se pudo registrar el cambio: calibración no aplicada", ruta, sesion)
 
-    return {"ok": True, "gain": nuevo_gain, "offset": nuevo_offset}
+    respuesta = {"ok": True, "gain": nuevo_gain, "offset": nuevo_offset}
+    if origen is not None:
+        respuesta["origen"] = origen
+    return respuesta
 
 
 # ── Unidades de presentación (U1, tanda 5; decisión 6 de Cristian) ─────────

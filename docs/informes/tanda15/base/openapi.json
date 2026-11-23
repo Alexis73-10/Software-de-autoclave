@@ -162,6 +162,28 @@
     "title": "_CambioClaveBody",
     "type": "object"
    },
+   "_CierreBody": {
+    "properties": {
+     "clave": {
+      "default": "",
+      "title": "Clave",
+      "type": "string"
+     },
+     "unidad": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Unidad"
+     }
+    },
+    "title": "_CierreBody",
+    "type": "object"
+   },
    "_CorreoConfigBody": {
     "properties": {
      "destinatarios": {
@@ -3054,6 +3076,160 @@
      }
     },
     "summary": "Post Email Test"
+   }
+  },
+  "/fabrica/cierre": {
+   "get": {
+    "description": "Resumen del cierre de fabricación, USB, precondiciones y estado.",
+    "operationId": "get_cierre_fabrica_cierre_get",
+    "parameters": [
+     {
+      "in": "header",
+      "name": "authorization",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Get Cierre"
+   },
+   "post": {
+    "description": "Inicia el cierre de fabricación (contraseña del ingeniero). 202: el\navance se consulta con GET /fabrica/cierre.",
+    "operationId": "post_cierre_fabrica_cierre_post",
+    "parameters": [
+     {
+      "in": "header",
+      "name": "authorization",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/_CierreBody",
+        "default": {
+         "clave": ""
+        }
+       }
+      }
+     }
+    },
+    "responses": {
+     "202": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Post Cierre"
+   }
+  },
+  "/fabrica/programas/{cycle_id}": {
+   "delete": {
+    "description": "Modo fábrica (D-06, DF-06): borra un programa de fábrica, genérico o\ndel equipo, sin registrar su número. Solo ingeniero, con el equipo en\nFÁBRICA y fuera de ciclo; nunca el programa seleccionado.",
+    "operationId": "delete_programa_fabrica_fabrica_programas__cycle_id__delete",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "cycle_id",
+      "required": true,
+      "schema": {
+       "title": "Cycle Id",
+       "type": "string"
+      }
+     },
+     {
+      "in": "header",
+      "name": "authorization",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Delete Programa Fabrica"
    }
   },
   "/fault/reset": {

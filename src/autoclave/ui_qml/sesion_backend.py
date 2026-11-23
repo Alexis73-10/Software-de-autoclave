@@ -85,6 +85,10 @@ _CLAVES = {
     "VALOR_INVALIDO": "opciones.err_valor_invalido",
     "PROGRAMA_NO_EDITABLE": "opciones.err_no_editable",
     "programa_de_fabrica": "opciones.err_no_editable",
+    # Modo fábrica (DF-04): toda ruta de fábrica en ENTREGADO
+    "solo_modo_fabrica": "fabrica.err_solo_modo_fabrica",
+    # Modo fábrica, Etapa 5: toda escritura mientras corre el cierre de fabricación
+    "cierre_en_curso": "fabrica.err_cierre_en_curso",
     "BASE_OCUPADA": "opciones.err_base_ocupada",
     "f0_no_disponible": "opciones.err_f0",
     "apertura_automatica_no_disponible": "opciones.err_apertura_puertas_simples",
@@ -192,6 +196,13 @@ _CODIGOS_MANTENIMIENTO = frozenset({     # MantenimientoController
 _CODIGOS_PROGRAMAS = frozenset({     # ManejoCiclosController
     "nombre_repetido", "programa_activo", "programa_no_encontrado",
     "programa_existente",
+    # Modo fábrica, Etapa 2: crear/duplicar en FÁBRICA con los 10 ocupados
+    "maximo_programas_fabrica",
+})
+# Modo fábrica, Etapa 2: DELETE /fabrica/programas/{cycle_id} (ManejoCiclosController)
+_CODIGOS_FABRICA_PROGRAMAS = frozenset({
+    "programa_activo", "programa_no_encontrado", "no_es_programa_de_fabrica",
+    "error_archivo",
 })
 # A7 (tanda 27): "incoherente" se separó en incoherente_empaque e
 # incoherente_limites (con `detalle`); /global_params ya no emite
@@ -251,6 +262,7 @@ _CLAVES_RESTAURAR = {
     "formato": "respaldo.err_formato",
     "otra_serie": "respaldo.err_otra_serie",
     "version": "respaldo.err_version",
+    "paquete_no_restaurable": "respaldo.err_paquete_no_restaurable",   # modo fábrica E4 (DF-08)
     "parametros_invalidos": "respaldo.err_parametros",
     "calibracion_invalida": "respaldo.err_calibracion",
     "calibracion_implausible": "respaldo.err_calibracion",
@@ -278,7 +290,17 @@ _CLAVES_INICIO_CICLO = {
 _CLAVES_CONFIRMAR_CICLO = {
     "camara_no_entregada": "sesion.camara_no_entregada",
 }
+# Modo fábrica, Etapa 5: POST /fabrica/cierre (CierreFabricaController). El
+# 409 `cierre_estado_no_permitido` trae `motivo`; los 403 de reautenticación
+# y `solo_modo_fabrica` ya son globales.
+_CLAVES_CIERRE_FABRICA = {
+    "cierre_estado_no_permitido": "cierre_fabrica.err_estado",
+    "usb_ausente": "cierre_fabrica.err_usb_ausente",
+    "usb_no_escribible": "cierre_fabrica.err_usb_no_escribible",
+    "usb_sin_espacio": "cierre_fabrica.err_usb_sin_espacio",
+}
 _CLAVES_POR_RUTA = (("/io/test", _CLAVES_IO_TEST),
+                    ("/fabrica/cierre", _CLAVES_CIERRE_FABRICA),
                     ("/cycle/start", _CLAVES_INICIO_CICLO),
                     ("/cycle/acknowledge", _CLAVES_CONFIRMAR_CICLO),
                     ("/maintenance/atm-calibration", _CLAVES_CALIBRACION_ATM),
@@ -291,6 +313,7 @@ _CODIGOS_POR_RUTA = (("/io/assignment", _CODIGOS_REASIGNACION),
                      ("/email", _CODIGOS_EMAIL),
                      ("/maintenance", _CODIGOS_MANTENIMIENTO),
                      ("/programas", _CODIGOS_PROGRAMAS),
+                     ("/fabrica/programas", _CODIGOS_FABRICA_PROGRAMAS),
                      ("/global_params", _CODIGOS_GLOBAL_PARAMS),
                      ("/language", _CODIGOS_ARCHIVO),
                      ("/units", _CODIGOS_ARCHIVO),

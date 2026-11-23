@@ -116,7 +116,11 @@ def write_user_calibration(
     shown_high: float,
     real_high: float,
     nota: str | None = None,
+    poly: list[float] | None = None,
 ) -> None:
+    """`poly` (modo fábrica E3): coeficientes que se conservan junto a
+    gain/offset al restaurar la calibración de fábrica del equipo que los
+    tenía; sin él, la entrada queda solo con {gain, offset} como siempre."""
     seccion = _SECCION_POR_TIPO[tipo]
 
     yaml_path = Path(yaml_path)
@@ -145,6 +149,8 @@ def write_user_calibration(
     seq = data["calibration"]["user"][seccion]
 
     _reemplazar_entrada_sensor(seq, index, gain, offset)
+    if poly:
+        seq[index]["poly"] = [round(float(x), 9) for x in poly]
 
     if nota is not None:
         comentario = (f"{_MARCADOR_AUTO} Sensor {tipo}[{index}] -- {nota} "

@@ -20,8 +20,8 @@ from autoclave.backend.arranque.secuencia import ejecutar_arranque
 from autoclave.backend.arranque.sin_bd import BdNoDisponibleError
 from autoclave.backend.dependencias import (RechazoApi, _cierre_ordenado_hecho,
     _contexto_operable, _detener_arranque, context, registro_arranque)
-from autoclave.backend.rutas import (alarmas, apagado, carga, ciclo, historial, mantenimiento,
-    parametros_ciclo, programas, puertas, reportes, respaldo, sistema, usuarios)
+from autoclave.backend.rutas import (alarmas, apagado, carga, ciclo, fabrica, historial,
+    mantenimiento, parametros_ciclo, programas, puertas, reportes, respaldo, sistema, usuarios)
 from autoclave.backend.rutas import arranque as rutas_arranque
 from autoclave.backend.rutas import io as rutas_io
 from autoclave.backend.rutas._comun import _reasignacion
@@ -112,6 +112,14 @@ rutas_arranque.fijar_iniciador(iniciar_arranque)
 
 @app.middleware("http")
 async def _compuerta_de_arranque(request: Request, call_next):
+    # Modo fábrica, Etapa 5: durante el cierre de fabricación toda escritura
+    # (inicio de ciclo, modo prueba, puertas, configuración...) se rechaza,
+    # salvo la sesión, la actividad de la UI, las alarmas y el apagado
+    if fabrica.ruta_bloqueada_por_cierre(request.method, request.url.path):
+        return JSONResponse(status_code=409, content={
+            "detail": "Cierre de fabricación en curso",
+            "codigo": "cierre_en_curso",
+        })
     if _compuerta_arranque and request.url.path not in _RUTAS_SIN_COMPUERTA:
         if not _contexto_operable.is_set():
             fallido = registro_arranque.fallo_bloqueante
@@ -183,6 +191,7 @@ app.include_router(puertas.router)
 app.include_router(parametros_ciclo.router)
 app.include_router(programas.router)
 app.include_router(carga.router)       # RCB-08: catálogo de carga
+app.include_router(fabrica.router)     # modo fábrica, Etapa 5: cierre de fabricación
 
 # ── R8 (tanda 8, D8-5.12): Opciones avanzadas = reasignación de E/S ───────────
 # Sus rutas viven en server_reasignacion.py; se registran aquí, al final, con

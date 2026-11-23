@@ -15,6 +15,12 @@
 #   usuarios.json     usuario, nombre, rol y activo — SIN hashes de contraseña.
 #   historial.db      copia de la base (opcional; nunca se restaura).
 #
+# Modo fábrica E4 (DF-08, R-06): el manifiesto lleva `tipo` («respaldo» aquí;
+# «liberacion» en el paquete de liberación, core/runtime/paquete_liberacion.py,
+# que reutiliza sha256 y hash_manifiesto). Un manifiesto sin `tipo` (respaldos
+# anteriores) se trata como «respaldo»; validar_para_equipo rechaza cualquier
+# otro tipo con `paquete_no_restaurable` (la ruta responde 422).
+#
 # Restaurar valida el manifiesto (hash y hashes de archivo), el formato, la
 # versión mayor del software y el NÚMERO DE SERIE: un respaldo de OTRO equipo
 # se rechaza siempre (la calibración y el perfil son del equipo). Aplica solo
@@ -37,6 +43,8 @@ from pathlib import Path
 
 FORMATO = 1
 CARPETA = "Especifika_respaldos"
+TIPO_RESPALDO = "respaldo"
+TIPO_LIBERACION = "liberacion"
 PARTES = ("perfil_calibracion", "parametros_programas", "usuarios", "historial")
 MAX_ZIP_BYTES = 200 * 1024 * 1024
 MAX_ARCHIVO_BYTES = 150 * 1024 * 1024
@@ -56,9 +64,20 @@ def sha256(datos: bytes) -> str:
     return hashlib.sha256(datos).hexdigest()
 
 
-def _hash_manifiesto(m: dict) -> str:
+def hash_manifiesto(m: dict) -> str:
+    """SHA-256 del manifiesto sin el campo `hash` (JSON canónico)."""
     sin = {k: v for k, v in m.items() if k != "hash"}
     return sha256(json.dumps(sin, sort_keys=True, ensure_ascii=False).encode("utf-8"))
+
+
+_hash_manifiesto = hash_manifiesto
+
+
+def tipo_manifiesto(m: dict) -> str:
+    """DF-08: `tipo` del manifiesto; sin campo (respaldos anteriores a la
+    Etapa 4 del modo fábrica), «respaldo»."""
+    tipo = m.get("tipo") if isinstance(m, dict) else None
+    return TIPO_RESPALDO if tipo is None else str(tipo)
 
 
 def version_mayor(v: str) -> str:
@@ -76,7 +95,8 @@ def crear(equipo: dict, partes: dict, contenido: dict, usuario: str, version_sw:
     llamador según `partes`."""
     ahora = ahora or datetime.now()
     archivos = {ruta: sha256(datos) for ruta, datos in sorted(contenido.items())}
-    m = {"formato": FORMATO, "version_sw": version_sw, "serie": equipo.get("serie", ""),
+    m = {"tipo": TIPO_RESPALDO, "formato": FORMATO, "version_sw": version_sw,
+         "serie": equipo.get("serie", ""),
          "modelo": equipo.get("modelo", ""), "creado_en": ahora.isoformat(timespec="seconds"),
          "creado_por": usuario, "partes": {p: bool(partes.get(p)) for p in PARTES},
          "archivos": archivos}
@@ -89,14 +109,39 @@ def crear(equipo: dict, partes: dict, contenido: dict, usuario: str, version_sw:
     return mem.getvalue()
 
 
+# Modo fábrica (SAF-07): lo que delata un paquete de liberación aunque su
+# manifiesto diga otra cosa (el `tipo` se puede editar recalculando el hash)
+PREFIJO_LIBERACION = "liberacion_"
+_ARCHIVOS_LIBERACION = frozenset({"informe_liberacion.pdf", "bitacora.csv"})
+_CARPETA_LIBERACION = "ciclos/"
+
+
+def es_paquete_liberacion(nombre_archivo: str, nombres_zip=()) -> bool:
+    """SAF-07: por nombre (`liberacion_*`) o por contenido
+    (`informe_liberacion.pdf`, `bitacora.csv` o `ciclos/`)."""
+    if str(nombre_archivo).lower().startswith(PREFIJO_LIBERACION):
+        return True
+    for n in nombres_zip:
+        n = str(n).replace("\\", "/").lstrip("/")
+        if n in _ARCHIVOS_LIBERACION or n.startswith(_CARPETA_LIBERACION):
+            return True
+    return False
+
+
 def leer(ruta: Path) -> tuple[dict, dict]:
-    """(manifiesto, {ruta: bytes}) validando integridad. Lanza ErrorRespaldo."""
+    """(manifiesto, {ruta: bytes}) validando integridad. Lanza ErrorRespaldo.
+    SAF-07: un paquete de liberación (por nombre o contenido) se rechaza con
+    `paquete_no_restaurable` antes que cualquier otro motivo."""
     ruta = Path(ruta)
+    if es_paquete_liberacion(ruta.name):
+        raise ErrorRespaldo("paquete_no_restaurable", ruta.name)
     try:
         if ruta.stat().st_size > MAX_ZIP_BYTES:
             raise ErrorRespaldo("demasiado_grande")
         with zipfile.ZipFile(ruta) as z:
             nombres = z.namelist()
+            if es_paquete_liberacion(ruta.name, nombres):
+                raise ErrorRespaldo("paquete_no_restaurable", ruta.name)
             if "manifiesto.json" not in nombres:
                 raise ErrorRespaldo("sin_manifiesto")
             # SAF-06 de O2h: topes al número de entradas y al tamaño total
@@ -128,7 +173,11 @@ def leer(ruta: Path) -> tuple[dict, dict]:
 
 
 def validar_para_equipo(m: dict, equipo: dict, version_sw: str) -> str:
-    """"" si se puede restaurar en este equipo; si no, el código del rechazo."""
+    """"" si se puede restaurar en este equipo; si no, el código del rechazo.
+    DF-08: un paquete que no es un respaldo (p. ej. el de liberación) da
+    `paquete_no_restaurable` antes que cualquier otro motivo."""
+    if tipo_manifiesto(m) != TIPO_RESPALDO:
+        return "paquete_no_restaurable"
     if m.get("formato") != FORMATO:
         return "formato"
     serie = equipo.get("serie") or ""
@@ -156,7 +205,10 @@ def resumen(ruta: Path, equipo: dict, version_sw: str) -> dict:
 
 
 def ruta_respaldo_segura(unidad: str, archivo: str) -> Path:
-    """Ruta dentro de <unidad>/Especifika_respaldos; rechaza traversal."""
+    """Ruta dentro de <unidad>/Especifika_respaldos; rechaza traversal. SAF-07:
+    un `liberacion_*` da `paquete_no_restaurable`."""
+    if isinstance(archivo, str) and es_paquete_liberacion(archivo):
+        raise ErrorRespaldo("paquete_no_restaurable", archivo)
     if not isinstance(archivo, str) or not _NOMBRE_RESPALDO.match(archivo):
         raise ErrorRespaldo("archivo_invalido")
     base = (Path(unidad) / CARPETA).resolve()

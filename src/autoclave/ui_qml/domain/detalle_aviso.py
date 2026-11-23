@@ -151,7 +151,15 @@ def _motivo_no_abrir(ctx: dict, idioma: str) -> tuple[str, str]:
     return _t(descripcion, idioma, **params), _t(base + ".accion", idioma, **params)
 
 
+CODIGO_CIERRE_FABRICA = "ARR_CIERRE_FABRICA"
+
+
 def _textos_arranque(ctx: dict, idioma: str) -> tuple[str, str]:
+    if ctx.get("codigo") == CODIGO_CIERRE_FABRICA and not ctx.get("sinProgreso"):
+        # modo fábrica (SAF-02): cierre de fabricación pendiente sin terminar
+        return (_t("arranque.fallo_titulo", idioma) + ": "
+                + _t("arranque.cierre_fabrica_incompleto", idioma),
+                _t("aviso_detalle.arranque.accion_cierre_fabrica", idioma))
     clave = "arranque.sin_progreso" if ctx.get("sinProgreso") else "arranque.fallo_bloqueante"
     return (_t("arranque.fallo_titulo", idioma) + ": " + _t(clave, idioma),
             _t("aviso_detalle.arranque.accion", idioma))

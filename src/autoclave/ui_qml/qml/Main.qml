@@ -279,6 +279,7 @@ Window {
 
     // Lienzo: mide lo mismo que la ventana (sin franjas, decisión de Cristian)
     Item {
+        id: lienzo
         width: Escala.px(Escala.anchoLienzo)
         height: Escala.px(Escala.altoLienzo)
         anchors.centerIn: parent
@@ -401,10 +402,15 @@ Window {
                 prioridad: "alta"
                 idAlarma: "ARRANQUE"
                 tocable: true     // ALD (tanda 26): abre el detalle
+                // SAF-02 (modo fábrica): texto propio para el cierre de fabricación incompleto
+                readonly property bool cierreFabrica: !(intro.item?.sinProgreso ?? false)
+                    && (ventana.progresoArranque?.codigoFallo ?? "") === "ARR_CIERRE_FABRICA"
                 onPulsada: detalleArranque.abrirDesde(DetalleAviso.armar(
-                    "arranque", { "arranque": { "sinProgreso": intro.item?.sinProgreso ?? false } }))
+                    "arranque", { "arranque": { "sinProgreso": intro.item?.sinProgreso ?? false,
+                                                "codigo": ventana.progresoArranque?.codigoFallo ?? "" } }))
                 descripcion: I18n.t("arranque.fallo_titulo", I18n.lang) + ": " +
-                             I18n.t((intro.item?.sinProgreso ?? false)
+                             I18n.t(cierreFabrica ? "arranque.cierre_fabrica_incompleto"
+                                    : (intro.item?.sinProgreso ?? false)
                                             ? "arranque.sin_progreso" : "arranque.fallo_bloqueante", I18n.lang)
             }
             VentanaDetalleAlarma {
@@ -412,6 +418,19 @@ Window {
                 objectName: "detalleAlarmaArranque"
             }
         }
+    }
+
+    // Modo fábrica (D-13): franja fija «MODO FÁBRICA» en todas las pantallas
+    // de esta ventana (puerta 1 o 2), incluida Ciclo en curso, mientras
+    // /status.modo_fabrica sea true. En el borde inferior (el superior tiene el
+    // reloj), fuera del lienzo y con z 2000 para quedar también sobre las
+    // capas emergentes (z 1000); no recibe toques.
+    FranjaModoFabrica {
+        anchors.bottom: lienzo.bottom
+        anchors.left: lienzo.left
+        anchors.right: lienzo.right
+        z: 2000
+        activa: ventana.puente?.modoFabrica ?? false
     }
 
     // Pantallas de alto fijo (1920 de diseño): centradas en el lienzo (AreaFija)

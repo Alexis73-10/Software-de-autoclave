@@ -120,10 +120,29 @@ def latido_y_ticket(server, plazo_s: float = 120.0, tope_interfaz_s: float = TOP
         logger.exception("No se pudo iniciar el ticket de arranque")
 
 
+def completar_cierre_fabrica(completar=None) -> dict | None:
+    """Modo fábrica, Etapa 5 (DF-05, fase 2): el punto más temprano del
+    backend, antes de importar el servidor (el contexto no abre nada al
+    construirse) y por tanto antes de cualquier DbManager, del perfil, de la
+    configuración y de los programas; también sin perfil de instalación. Con
+    la marca del cierre, reemplaza los archivos y la base, borra los registros
+    y pone los contadores en cero; sin marca, borra los temporales que hayan
+    quedado. Nunca lanza."""
+    try:
+        if completar is None:
+            from autoclave.core.runtime.cierre_fabrica import completar_cierre_si_pendiente
+            completar = completar_cierre_si_pendiente
+        return completar()
+    except Exception:
+        logger.exception("Cierre de fabricación: no se pudo comprobar al arrancar")
+        return None
+
+
 def main():
     _configurar_logging_archivo()
     from autoclave._version import version_completa
     logger.info("Autoclave %s: backend iniciado desde %s", version_completa(), __file__)   # VER-05
+    completar_cierre_fabrica()
     from autoclave.backend import server
 
     server.preparar_arranque()   # 503 en todo salvo /arranque hasta tener el control

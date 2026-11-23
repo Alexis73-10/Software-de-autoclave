@@ -56,6 +56,8 @@ EVENTOS = (
     "software_reiniciado",
     # C9 (tanda 9, D9-10): Manejo de ciclos
     "programa_creado", "programa_duplicado", "programa_habilitado", "programa_borrado",
+    # Modo fábrica (Etapa 2, D-06): borrado de un programa de fábrica en FÁBRICA
+    "programa_fabrica_borrado",
     # U11 (tanda 11, D11-6): cuentas del sistema Admin e Ingeniero
     "usuario_renombrado", "cuenta_sistema_rechazada",
     # T30-03 (tanda 30): eliminar usuario (sin borrar la fila) y cambiar su rol
@@ -64,6 +66,8 @@ EVENTOS = (
     "contrasena_fijada_instalacion",
     # BIT-02 (tanda 17): única fila de la instalación, al terminar el asistente
     "equipo_instalado",
+    # Modo fábrica (D-12): única fila nueva tras el cierre de fabricación (Etapa 5)
+    "equipo_liberado_fabrica",
     # A13 (tanda 28; M3 de la tanda 28b): secado tras fallo del protocolo de
     # estado seguro (inicio y resultado: hecho, sin_vacio, cortado...).
     # AJ28B-08: antes se registraban como evento desconocido
@@ -130,6 +134,7 @@ _CATEGORIA = {
         "impresora_configurada", "param_ciclo_cambio", "param_ciclo_no_aplicado_en_curso",
         "ROLES_SENSOR", "entradas_mostradas", "correo_configurado",
         "programa_creado", "programa_duplicado", "programa_habilitado", "programa_borrado",
+        "programa_fabrica_borrado",
         "reasignacion_io", "reasignacion_io_fabrica", "reasignacion_io_rechazada",
         "reasignacion_io_verificada", "asignacion_io_migrada",
         "catalogo_carga_alta", "catalogo_carga_editado", "catalogo_carga_baja",
@@ -150,6 +155,7 @@ _CATEGORIA = {
     "sistema": (
         "correo_enviado", "respaldo_exportado", "respaldo_rechazado", "respaldo_restaurado",
         "reinicio_control", "software_reiniciado", "equipo_instalado",
+        "equipo_liberado_fabrica",
         "ciclo_reimportado", "ciclo_completado_desde_respaldo", "tarjeta_conectada",
     ),
 }

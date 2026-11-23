@@ -627,6 +627,11 @@ Item {
                 teclado: raiz.teclado
                 puedeReasignar: control.puedeReasignarIo
                 motivoManejo: control.motivoManejoCiclos
+                // Modo fábrica (Etapa 2): borrar programas de fábrica, solo con el
+                // equipo en FÁBRICA (UiBridge.modoFabrica) y sesión de ingeniero
+                borrarFabrica: control.puedeReasignarIo && (raiz.puente?.modoFabrica === true)
+                // Etapa 5: entrada «Cierre de fabricación» con la misma condición
+                cierreFabrica: control.puedeReasignarIo && (raiz.puente?.modoFabrica === true)
             }
         }
 
