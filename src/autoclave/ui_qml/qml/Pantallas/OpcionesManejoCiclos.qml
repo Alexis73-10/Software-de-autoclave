@@ -23,6 +23,9 @@ Item {
 
     property QtObject teclado: null       // PanelTeclado de la ventana
     property string motivo: ""            // "" | "rol" | "ciclo" | "estado"
+    // Modo fábrica (Etapa 2): equipo en FÁBRICA y sesión de ingeniero; solo
+    // entonces se ofrece borrar los programas de fábrica
+    property bool borrarFabrica: false
     readonly property bool puedeOperar: motivo === ""
     // crear / duplicar / borrar en curso: solo una a la vez
     readonly property bool ocupado: control.operacionEnCurso
@@ -33,6 +36,8 @@ Item {
     property int baseElegida: 0
     property int _numeroABorrar: 0
     property string _nombreABorrar: ""
+    property int _numeroFabricaABorrar: 0
+    property string _nombreFabricaABorrar: ""
 
     ManejoCiclosController {
         id: control
@@ -73,6 +78,14 @@ Item {
         _numeroABorrar = numero
         _nombreABorrar = nombre
         dialogoBorrar.abrir()
+    }
+
+    function pedirBorrarFabrica(numero, nombre) {
+        if (!puedeOperar || ocupado || !borrarFabrica)
+            return
+        _numeroFabricaABorrar = numero
+        _nombreFabricaABorrar = nombre
+        dialogoBorrarFabrica.abrir()
     }
 
     // ------------------------------------------------------------ cabecera
@@ -250,7 +263,8 @@ Item {
                 width: parent.width
                 wrapMode: Text.WordWrap
                 text: raiz.texto(tarjeta.modelData.personalizado ? "manejo_ciclos.personalizado"
-                                                                 : "manejo_ciclos.de_fabrica")
+                                 : tarjeta.modelData.fabrica_equipo ? "manejo_ciclos.de_fabrica_equipo"
+                                                                    : "manejo_ciclos.de_fabrica")
                       + " · " + raiz.texto(tarjeta.modelData.habilitado ? "manejo_ciclos.habilitado"
                                                                        : "manejo_ciclos.deshabilitado")
                       + (tarjeta.modelData.danado ? " · " + raiz.texto("manejo_ciclos.danado") : "")
@@ -289,6 +303,17 @@ Item {
                                 && control.pendientes["habilitado:" + (tarjeta.modelData.numero ?? 0)] === undefined
                     onPulsado: if (habilitado) raiz.pedirBorrar(tarjeta.modelData.numero,
                                                                  tarjeta.modelData.nombre)
+                }
+                // Modo fábrica (Etapa 2): solo en FÁBRICA con sesión de ingeniero
+                BotonFormulario {
+                    objectName: "botonBorrarFabrica_" + (tarjeta.modelData.numero ?? 0)
+                    visible: raiz.borrarFabrica && tarjeta.modelData.borrableFabrica === true
+                    width: Escala.px(250)
+                    texto: raiz.texto("manejo_ciclos.borrar_fabrica")
+                    habilitado: raiz.puedeOperar && !raiz.ocupado
+                                && control.pendientes["habilitado:" + (tarjeta.modelData.numero ?? 0)] === undefined
+                    onPulsado: if (habilitado) raiz.pedirBorrarFabrica(tarjeta.modelData.numero,
+                                                                        tarjeta.modelData.nombre)
                 }
             }
         }
@@ -384,5 +409,16 @@ Item {
         textoCancelar: I18n.t("acciones.cancelar", I18n.lang)
         colorConfirmar: Colores.peligroTexto
         onConfirmado: { cerrar(); control.borrar(raiz._numeroABorrar) }
+    }
+
+    DialogoConfirmacion {
+        id: dialogoBorrarFabrica
+        objectName: "dialogoBorrarFabricaManejo"
+        mensaje: I18n.t("manejo_ciclos.borrar_fabrica_pregunta", I18n.lang,
+                        { nombre: raiz._nombreFabricaABorrar })
+        textoConfirmar: I18n.t("manejo_ciclos.borrar", I18n.lang)
+        textoCancelar: I18n.t("acciones.cancelar", I18n.lang)
+        colorConfirmar: Colores.peligroTexto
+        onConfirmado: { cerrar(); control.borrarFabrica(raiz._numeroFabricaABorrar) }
     }
 }

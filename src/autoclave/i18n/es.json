@@ -2433,7 +2433,14 @@
     "err_no_duplicable": "Este programa no se puede duplicar: está dañado o fuera del catálogo.",
     "err_no_encontrado": "El programa ya no existe; se recargó la lista.",
     "err_base_ocupada": "Base de datos no disponible: el cambio no se aplicó.",
-    "err_sin_respuesta": "El control no respondió; se recargó la lista para ver el resultado."
+    "err_sin_respuesta": "El control no respondió; se recargó la lista para ver el resultado.",
+    "de_fabrica_equipo": "De fábrica del equipo",
+    "borrar_fabrica": "Borrar (modo fábrica)",
+    "borrar_fabrica_pregunta": "¿Borrar el programa de fábrica {nombre}? Su número queda libre para otro programa de fábrica y el programa no volverá a aparecer, tampoco con una actualización.",
+    "err_maximo_fabrica": "Ya hay 10 programas de fábrica: borre uno antes de crear otro.",
+    "err_solo_modo_fabrica": "Solo disponible con el equipo en modo fábrica.",
+    "err_no_es_fabrica": "Este programa no es de fábrica: use el borrado normal.",
+    "err_archivo": "No se pudo escribir en los archivos de programas: el cambio no se aplicó."
   },
   "reasignacion": {
     "subtitulo": "Reasignación de entradas y salidas",
@@ -2787,6 +2794,7 @@
     "procesando": "Procesando…"
   },
   "fabrica": {
-    "franja": "MODO FÁBRICA"
+    "franja": "MODO FÁBRICA",
+    "err_solo_modo_fabrica": "Solo disponible con el equipo en modo fábrica."
   }
 }

@@ -2433,7 +2433,14 @@
     "err_no_duplicable": "This program cannot be duplicated: it is damaged or outside the catalog.",
     "err_no_encontrado": "The program no longer exists; the list was reloaded.",
     "err_base_ocupada": "Database not available: the change was not applied.",
-    "err_sin_respuesta": "The control did not respond; the list was reloaded to show the result."
+    "err_sin_respuesta": "The control did not respond; the list was reloaded to show the result.",
+    "de_fabrica_equipo": "Factory program of this unit",
+    "borrar_fabrica": "Delete (factory mode)",
+    "borrar_fabrica_pregunta": "Delete the factory program {nombre}? Its number becomes free for another factory program and the program will not come back, not even with an update.",
+    "err_maximo_fabrica": "There are already 10 factory programs: delete one before creating another.",
+    "err_solo_modo_fabrica": "Only available with the unit in factory mode.",
+    "err_no_es_fabrica": "This program is not a factory program: use the normal delete.",
+    "err_archivo": "The program files could not be written: the change was not applied."
   },
   "reasignacion": {
     "subtitulo": "Input and output reassignment",
@@ -2787,6 +2794,7 @@
     "procesando": "Processing…"
   },
   "fabrica": {
-    "franja": "FACTORY MODE"
+    "franja": "FACTORY MODE",
+    "err_solo_modo_fabrica": "Only available with the unit in factory mode."
   }
 }

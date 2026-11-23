@@ -85,6 +85,8 @@ _CLAVES = {
     "VALOR_INVALIDO": "opciones.err_valor_invalido",
     "PROGRAMA_NO_EDITABLE": "opciones.err_no_editable",
     "programa_de_fabrica": "opciones.err_no_editable",
+    # Modo fábrica (DF-04): toda ruta de fábrica en ENTREGADO
+    "solo_modo_fabrica": "fabrica.err_solo_modo_fabrica",
     "BASE_OCUPADA": "opciones.err_base_ocupada",
     "f0_no_disponible": "opciones.err_f0",
     "apertura_automatica_no_disponible": "opciones.err_apertura_puertas_simples",
@@ -192,6 +194,13 @@ _CODIGOS_MANTENIMIENTO = frozenset({     # MantenimientoController
 _CODIGOS_PROGRAMAS = frozenset({     # ManejoCiclosController
     "nombre_repetido", "programa_activo", "programa_no_encontrado",
     "programa_existente",
+    # Modo fábrica, Etapa 2: crear/duplicar en FÁBRICA con los 10 ocupados
+    "maximo_programas_fabrica",
+})
+# Modo fábrica, Etapa 2: DELETE /fabrica/programas/{cycle_id} (ManejoCiclosController)
+_CODIGOS_FABRICA_PROGRAMAS = frozenset({
+    "programa_activo", "programa_no_encontrado", "no_es_programa_de_fabrica",
+    "error_archivo",
 })
 # A7 (tanda 27): "incoherente" se separó en incoherente_empaque e
 # incoherente_limites (con `detalle`); /global_params ya no emite
@@ -291,6 +300,7 @@ _CODIGOS_POR_RUTA = (("/io/assignment", _CODIGOS_REASIGNACION),
                      ("/email", _CODIGOS_EMAIL),
                      ("/maintenance", _CODIGOS_MANTENIMIENTO),
                      ("/programas", _CODIGOS_PROGRAMAS),
+                     ("/fabrica/programas", _CODIGOS_FABRICA_PROGRAMAS),
                      ("/global_params", _CODIGOS_GLOBAL_PARAMS),
                      ("/language", _CODIGOS_ARCHIVO),
                      ("/units", _CODIGOS_ARCHIVO),

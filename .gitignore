@@ -60,3 +60,5 @@ docs/informes/**/*.log
 
 # PRI-05: marca de programas de fábrica vistos (la escribe el programa)
 src/autoclave/cycles/user/fabrica_vistos.lst
+# Modo fábrica (DF-06): programas de fábrica borrados en FÁBRICA (la escribe el programa)
+src/autoclave/cycles/user/fabrica_borrados.lst

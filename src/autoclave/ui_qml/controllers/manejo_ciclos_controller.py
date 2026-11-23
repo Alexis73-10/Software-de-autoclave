@@ -9,7 +9,10 @@
 #     evento de la bitácora (programa_creado);
 #   - PUT /programas/{n}/habilitado {habilitado};
 #   - DELETE /programas/{n} (solo personalizados; el backend rechaza los de
-#     fábrica y el programa seleccionado).
+#     fábrica y el programa seleccionado);
+#   - Modo fábrica (Etapa 2): DELETE /fabrica/programas/{cycle_id} borra un
+#     programa de fábrica (genérico o del equipo). Solo con el equipo en
+#     FÁBRICA y sesión de ingeniero; la pantalla no lo ofrece en ENTREGADO.
 # El backend es la autoridad (rol, fuera de ciclo, nombre válido y único). Un
 # resultado sin respuesta es incierto: la lista se relee siempre.
 #
@@ -47,6 +50,11 @@ _MENSAJES = {
     "programa_no_encontrado": "manejo_ciclos.err_no_encontrado",
     "programa_existente": "manejo_ciclos.err_generico",
     "BASE_OCUPADA": "manejo_ciclos.err_base_ocupada",
+    # Modo fábrica (Etapa 2)
+    "maximo_programas_fabrica": "manejo_ciclos.err_maximo_fabrica",
+    "solo_modo_fabrica": "manejo_ciclos.err_solo_modo_fabrica",
+    "no_es_programa_de_fabrica": "manejo_ciclos.err_no_es_fabrica",
+    "error_archivo": "manejo_ciclos.err_archivo",
     sesion_backend.BACKEND_NO_RESPONDE: "manejo_ciclos.err_sin_respuesta",
 }
 
@@ -79,9 +87,12 @@ def _filas(datos) -> list | None:
         danado = bool(p.get("danado"))
         personalizado = p.get("personalizado") is True
         filas.append({**p, "personalizado": personalizado,
+                      "fabrica_equipo": p.get("fabrica_equipo") is True,
                       "habilitado": p.get("habilitado", True) is not False,
                       "duplicable": not danado,
-                      "borrable": personalizado})
+                      "borrable": personalizado,
+                      # modo fábrica: genérico sembrado o de fábrica del equipo
+                      "borrableFabrica": not personalizado})
     return filas
 
 
@@ -363,6 +374,28 @@ class ManejoCiclosController(QObject):
         return self._iniciar_programa("DELETE", f"/programas/{n}", None,
                                       "manejo_ciclos.ok_borrado", {"nombre": nombre}, conciliar,
                                       borra=n)
+
+    @Slot(int, result=bool)
+    def borrarFabrica(self, numero: int) -> bool:
+        """Modo fábrica (Etapa 2): borra el programa de fábrica `numero` por su
+        cycle_id. True = enviada; False sin enviar (desconocido, personalizado,
+        otra operación en curso o su habilitar en vuelo)."""
+        n = int(numero)
+        fila = next((p for p in self._programas if p.get("numero") == n), None)
+        cid = fila.get("cycle_id") if fila else None
+        if not isinstance(cid, str) or not cid or not fila.get("borrableFabrica"):
+            return False
+        if self._clave(n) in self._opt.pendientes():
+            return False
+
+        def conciliar(filas):
+            # el programa borrado ya no está en la lista releída
+            return (oc.SIN_CONFIRMAR if any(f.get("cycle_id") == cid for f in filas)
+                    else oc.CONFIRMADA)
+
+        return self._iniciar_programa("DELETE", f"/fabrica/programas/{cid}", None,
+                                      "manejo_ciclos.ok_borrado", {"nombre": fila.get("nombre", "")},
+                                      conciliar, borra=n)
 
     # ── mensajes ─────────────────────────────────────────────────────
 

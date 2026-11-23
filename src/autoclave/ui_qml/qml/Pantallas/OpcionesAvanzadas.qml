@@ -18,6 +18,7 @@ Item {
     property QtObject teclado: null
     property bool puedeReasignar: false
     property string motivoManejo: ""
+    property bool borrarFabrica: false            // modo fábrica: FÁBRICA + ingeniero
     property string segmento: "manejo"            // "manejo" | "reasignacion"
     readonly property string segmentoVisible: puedeReasignar ? segmento : "manejo"
     readonly property bool cambiosPendientes: reasignacion.item?.cambiosPendientes ?? false
@@ -92,6 +93,7 @@ Item {
             sourceComponent: OpcionesManejoCiclos {
                 teclado: raiz.teclado
                 motivo: raiz.motivoManejo
+                borrarFabrica: raiz.borrarFabrica
             }
         }
 

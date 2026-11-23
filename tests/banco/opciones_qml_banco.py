@@ -63,10 +63,11 @@ _SCRIPT = textwrap.dedent(r'''
         width: %d; height: %d; visible: true
         Binding { target: Escala; property: "factor"; value: %f }
         QtObject { id: puenteFalso; objectName: "puente"; property string machineState: "%s"
-                   property bool connected: true }
+                   property bool connected: true; property bool modoFabrica: %s }
         Opciones { objectName: "opciones"; anchors.fill: parent; puente: puenteFalso }
     }
-    """ % (cfg["ancho"], cfg["alto"], cfg["ancho"] / 1200.0, cfg["estado"])
+    """ % (cfg["ancho"], cfg["alto"], cfg["ancho"] / 1200.0, cfg["estado"],
+           "true" if cfg.get("modo_fabrica") else "false")
     ruta = f"{QML_DIR}/_prueba_opciones_doble_{os.getpid()}.qml"
     open(ruta, "w", encoding="utf-8").write(QML)
     try:
@@ -151,14 +152,16 @@ _SCRIPT = textwrap.dedent(r'''
 
 def correr(rol: str, pasos: str, rutas: dict | None = None, estado: str = "PREPARADO",
            capturas: bool = False, dir_capturas: Path | None = None,
-           ancho: int = 1200, alto: int = 1920, revisar: bool = False) -> dict:
+           ancho: int = 1200, alto: int = 1920, revisar: bool = False,
+           modo_fabrica: bool = False) -> dict:
     """U10b: `ancho`/`alto` (Escala.factor = ancho/1200) y `revisar` (cada
     capturar() revisa los textos; ver tests/helpers/textos_caben_qml.py)."""
     destino = Path(dir_capturas or CAPTURAS)
     if capturas:
         destino.mkdir(parents=True, exist_ok=True)
     cfg = {"rol": rol, "estado": estado, "rutas": rutas or {}, "pasos": textwrap.dedent(pasos),
-           "capturas": str(destino) if capturas else "", "ancho": ancho, "alto": alto}
+           "capturas": str(destino) if capturas else "", "ancho": ancho, "alto": alto,
+           "modo_fabrica": modo_fabrica}   # modo fábrica, Etapa 2: UiBridge.modoFabrica
     if revisar:
         from tests.helpers.textos_caben_qml import FUNCION_REVISAR
         cfg["funcion"] = FUNCION_REVISAR
