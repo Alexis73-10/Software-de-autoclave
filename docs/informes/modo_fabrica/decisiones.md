@@ -53,3 +53,7 @@ Cada decisión de este archivo es una `DECISIÓN SIN CONFIRMAR`. Se tomó la rec
 - **DF-08. Manifiesto con tipo (R-06).** `tipo` vale «respaldo» o «liberacion». Un manifiesto sin `tipo` se trata como «respaldo». La restauración rechaza todo lo que no sea «respaldo» con 422 `paquete_no_restaurable`.
 - **DF-09. Mantenimiento (R-04).** El cierre deja `mantenimiento_base.json` en `{"ciclos_instalacion": 0}` y conserva `mantenimiento.json` (los intervalos).
 - **DF-10. Numeración (FAB-09).** El cierre quita del 1 al 10 de `numeros_usados.json` y conserva los mayores.
+
+## Cierre por delegación (23-nov-2026)
+
+Cristian delegó las decisiones urgentes. PA-06 (rige D-11), sin HMAC, SAF-04 (v1 no entra en FÁBRICA), E4-D1 (PDF propio), E1-D1 (franja abajo) y PA-04 (carga real no bloqueada) quedan **decididas tal como están**. El razonamiento está en `R_informe.md`, «Decisiones cerradas por delegación».

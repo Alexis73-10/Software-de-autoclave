@@ -1,6 +1,6 @@
 # Modo fábrica y liberación del equipo: informe final
 
-Fecha: 22-nov-2026. Rama `modo-fabrica` (desde `dev` f4a9aa9f). **La rama no está unida a `dev` y la entrega no está compilada.** Plan: `docs/mis_plans/planeacion_modo_fabrica.md` (v2). Cristian ordenó ejecutarlo sin supervisión y sin responder antes las preguntas abiertas: todo lo que se decidió sin él está marcado `DECISIÓN SIN CONFIRMAR` y se consolida al final.
+Fecha: 22-nov-2026. Rama `modo-fabrica` (desde `dev` f4a9aa9f). **Unida a `dev` el 23-nov-2026 por orden de Cristian; la entrega no está compilada.** Plan: `docs/mis_plans/planeacion_modo_fabrica.md` (v2). Cristian ordenó ejecutarlo sin supervisión y sin responder antes las preguntas abiertas: todo lo que se decidió sin él está marcado `DECISIÓN SIN CONFIRMAR` y se consolida al final.
 
 ## Resumen
 
@@ -47,6 +47,18 @@ En ENTREGADO, todas las funciones de fábrica responden 409 para todos los roles
   - paquete;
   - cierre;
   - rechazo de la restauración.
+
+## Decisiones cerradas por delegación (23-nov-2026)
+
+Cristian delegó las cinco decisiones urgentes («dejaré las 5 decisiones a tu criterio»). Se cierran así, sin cambio de código:
+
+1. **PA-06, contraseñas tras el cierre: rige D-11.** Las cuentas semilla salen con la contraseña inicial y el cambio obligatorio en el primer ingreso (SIS-07). Fijarlas en el cierre haría que fábrica conociera las contraseñas del hospital, y el primer ingreso ya obliga a cambiarlas. Residual en HAZ-FAB-07: entre la entrega y el primer ingreso, la contraseña semilla es conocida. La instalación en sitio debe incluir el primer ingreso y el cambio.
+2. **SAF-01/S-1, sin sello HMAC de la marca.** La única clave disponible en el equipo (K_t) es común y legible, así que un sello solo frenaría la edición casual. Esa edición ya la frena la validación de la marca contra la base (formato, hash, fecha, estado y bitácora). Residual aceptado en HAZ-FAB-01.
+3. **SAF-04, códigos v1: no ponen el equipo en FÁBRICA.** Solo v2 `INS`/`INSA` lo hacen. Los v1 siguen sirviendo para instalar, pero el equipo queda ENTREGADO, que es la dirección segura. La evidencia fuera de la base (`*_fabrica_equipo.*`) evita volver a FÁBRICA si el desinstalador borra la base (pregunta 2: residual que se verifica en el banco FAB-B6).
+4. **E4-D1, PDF del paquete con generador propio sin Qt.** Lleva los mismos datos que el PDF del correo. El formato definitivo del registro de liberación se revisa en el banco FAB-B5.
+5. **E1-D1 y PA-04.** La franja queda en el borde inferior; su revisión en todas las pantallas es el banco FAB-B11. Un ciclo con carga real en FÁBRICA no se bloquea: el paquete de liberación conserva su registro antes de borrarlo.
+
+Siguen abiertas, sin urgencia: la pregunta 5 (aviso cuando «defecto» cae al neutro) y las demás `DECISIÓN SIN CONFIRMAR` de la lista siguiente.
 
 ## `DECISIÓN SIN CONFIRMAR`: lista consolidada para Cristian
 
@@ -164,7 +176,7 @@ En ENTREGADO, todas las funciones de fábrica responden 409 para todos los roles
 
 ## Siguiente paso
 
-1. Suite completa (coordinador).
-2. Decisiones de prioridad 1 de Cristian.
-3. Unión a `dev` y compilación con `tools/entrega/compilar_entrega.py`.
+1. Suite completa: hecha.
+2. Decisiones de prioridad 1: cerradas por delegación el 23-nov (ver arriba).
+3. Unión a `dev`: hecha el 23-nov. Falta la compilación con `tools/entrega/compilar_entrega.py`.
 4. Banco FAB.
