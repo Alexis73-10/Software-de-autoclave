@@ -1054,6 +1054,18 @@
   "response_model": null
  },
  {
+  "path": "/fabrica/programas/{cycle_id}",
+  "methods": [
+   "DELETE"
+  ],
+  "name": "delete_programa_fabrica",
+  "dependencias": [
+   "requiere_modo_fabrica.<locals>.dependencia"
+  ],
+  "status_code": null,
+  "response_model": null
+ },
+ {
   "path": "/cycle/display-inputs",
   "methods": [
    "GET"

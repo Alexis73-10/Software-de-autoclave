@@ -5,7 +5,8 @@ import math
 import os
 import sys
 import logging
-from autoclave.utils.resources import resource_path, sembrar_faltantes_usuario, _FABRICA_LEGADA
+from autoclave.utils.resources import (resource_path, sembrar_faltantes_usuario, _FABRICA_LEGADA,
+                                       fabrica_borrados)
 from autoclave.core.runtime.sensores_ciclo import asignacion_por_omision, interpretar_asignacion
 from autoclave.core.managers import catalogo_parametros
 
@@ -824,6 +825,7 @@ class Cycle:
         c.personalizado = getattr(self, "personalizado", False)
         c.entradas_mostradas = getattr(self, "entradas_mostradas", None)
         c.nombre_clave = getattr(self, "nombre_clave", None)
+        c.fabrica_equipo = getattr(self, "fabrica_equipo", False) is True
         return c
 
     def instantanea(self) -> dict:
@@ -1112,6 +1114,10 @@ class CycleManager:
         if not os.path.exists(folder_path):
             print("❌ No existe la carpeta")
             return
+        # Modo fábrica (DF-06, R-03): un programa borrado en FÁBRICA no se toma
+        # de factory/, tampoco uno de los 5 heredados. Sin la lista, nada cambia.
+        borrados = (fabrica_borrados(self.carpeta("cycles/user")) if source == "factory"
+                    else set())
 
         for file in os.listdir(folder_path):
             if file.endswith(".json"):
@@ -1121,6 +1127,10 @@ class CycleManager:
                     with open(full_path, "r", encoding="utf-8") as f:
                         data = json.load(f)
 
+                        if data.get("cycle_id") in borrados:
+                            logger.info("Programa de fábrica %s borrado en modo fábrica: "
+                                        "no se carga", data.get("cycle_id"))
+                            continue
                         numero = _numero_de_ciclo(data.get("cycle_number"))
                         cycle = Cycle(
                             cycle_id=data["cycle_id"],
@@ -1138,6 +1148,13 @@ class CycleManager:
                         clave = data.get("nombre_clave")
                         cycle.nombre_clave = clave if isinstance(clave, str) and clave else None
                         cycle.personalizado = data.get("personalizado", False) is True
+                        # Modo fábrica (Etapa 2): programa de fábrica del equipo,
+                        # creado en FÁBRICA (solo cuenta en cycles/user)
+                        cycle.fabrica_equipo = (source == "user"
+                                                and data.get("fabrica_equipo", False) is True)
+                        # número del JSON: el de un programa de fábrica que lo cede
+                        # (PRI-06/PRI-07) sigue ocupando su número en FÁBRICA
+                        cycle.numero_json = numero
                         em = data.get("entradas_mostradas")
                         cycle.entradas_mostradas = (list(em) if isinstance(em, list)
                                                     and all(isinstance(x, str) for x in em) else None)

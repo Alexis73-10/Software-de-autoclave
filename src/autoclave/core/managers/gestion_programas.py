@@ -14,6 +14,19 @@
 #   Su número queda registrado como usado y no vuelve a asignarse.
 #
 # Las escrituras son atómicas (.tmp + fsync + os.replace).
+#
+# Modo fábrica (Etapa 2; planeacion_modo_fabrica.md §5.3, D-05..D-07, DF-06,
+# PA-07). Estas funciones no leen la base: el backend les pasa el estado
+# (`modo_fabrica`).
+# - En FÁBRICA, crear y duplicar dan un programa de fábrica del equipo
+#   ("fabrica_equipo": true, sin "personalizado") con el primer número libre
+#   del 1 al 10, sin consultar ni escribir numeros_usados.json; con los 10
+#   ocupados, 409 `maximo_programas_fabrica`.
+# - En ENTREGADO, un programa de usuario nuevo toma max(11, numero_nuevo()).
+# - borrar_fabrica: borra un programa de fábrica (genérico sembrado o del
+#   equipo) con su .bak y su defecto, sin registrar el número, y lo anota en
+#   fabrica_vistos.lst y fabrica_borrados.lst (el cargador y la siembra no lo
+#   recrean).
 
 import json
 import os
@@ -21,9 +34,15 @@ import re
 
 from autoclave.core.managers.cycle_manager import Cycle
 from autoclave.core.runtime import sensores_ciclo as sc
+from autoclave.utils.resources import (MARCA_FABRICA_BORRADOS, MARCA_FABRICA_VISTOS,
+                                       _FABRICA_LEGADA, escribir_lista_ids, leer_lista_ids)
 
 NUMEROS_USADOS = "numeros_usados.json"   # en cycles/user/
 NOMBRE_MAX = 40
+# Modo fábrica (D-05, PA-07): rango de los programas de fábrica y primer número
+# de los programas de usuario en ENTREGADO
+MAXIMO_NUMERO_FABRICA = 10
+PRIMER_NUMERO_USUARIO = 11
 
 
 class ErrorPrograma(Exception):
@@ -79,6 +98,34 @@ def numero_nuevo(cm) -> int:
     return max(vistos | {0}) + 1
 
 
+def numero_usuario_nuevo(cm) -> int:
+    """PA-07 (ENTREGADO): número de un programa de usuario nuevo,
+    max(11, numero_nuevo()). Los existentes no se renumeran."""
+    return max(PRIMER_NUMERO_USUARIO, numero_nuevo(cm))
+
+
+def _es_numero(n) -> bool:
+    return isinstance(n, int) and not isinstance(n, bool)
+
+
+def numero_fabrica_libre(cm) -> int:
+    """D-07 (FÁBRICA): primer número del 1 al 10 que no ocupa ningún programa
+    cargado (de usuario o genérico de factory/, también uno que cedió su
+    número), ni un genérico de fábrica, ni un defecto. No consulta
+    numeros_usados.json. 409 `maximo_programas_fabrica` con los 10 ocupados."""
+    ocupados = set()
+    for c in list(cm.cycles.values()):
+        for n in (getattr(c, "number", None), getattr(c, "numero_json", None)):
+            if _es_numero(n):
+                ocupados.add(n)
+    ocupados |= {n for n in list(cm.fabrica) + list(cm.defectos) if _es_numero(n)}
+    for n in range(1, MAXIMO_NUMERO_FABRICA + 1):
+        if n not in ocupados:
+            return n
+    raise ErrorPrograma("maximo_programas_fabrica",
+                        f"Ya hay {MAXIMO_NUMERO_FABRICA} programas de fábrica", 409)
+
+
 def fijar_habilitado(cm, numero: int, habilitado: bool, activo_id: str | None) -> tuple[bool, bool]:
     """Devuelve (anterior, nuevo)."""
     if not isinstance(habilitado, bool):
@@ -114,7 +161,26 @@ def _nombre_valido(cm, nombre) -> str:
     return nombre
 
 
-def duplicar(cm, numero: int, nombre) -> Cycle:
+def _id_nuevo(cm, numero: int) -> str:
+    """programa_<n>; en FÁBRICA un número se reutiliza, así que el id de un
+    programa borrado (fabrica_borrados.lst) no vuelve: se le agrega un sufijo
+    para que la bitácora y la última modificación no mezclen los dos."""
+    usuario = cm.carpeta("cycles/user")
+    try:
+        borrados = leer_lista_ids(usuario, MARCA_FABRICA_BORRADOS) or set()
+    except OSError:
+        borrados = set()
+    candidato, k = f"programa_{numero}", 2
+    while (candidato in borrados or candidato in cm.cycles
+           or os.path.exists(os.path.join(usuario, f"{candidato}.json"))):
+        candidato, k = f"programa_{numero}_{k}", k + 1
+    return candidato
+
+
+def duplicar(cm, numero: int, nombre, *, modo_fabrica: bool = False) -> Cycle:
+    """Duplica (o «Crear», C9) el programa `numero`. `modo_fabrica` True
+    (equipo en FÁBRICA): programa de fábrica del equipo con número del 1 al
+    10; False (ENTREGADO): programa de usuario personalizado desde el 11."""
     origen = programa(cm, numero)
     _de_usuario(origen)
     if getattr(origen, "danado", None):
@@ -125,14 +191,20 @@ def duplicar(cm, numero: int, nombre) -> Cycle:
     errores = catalogo_parametros.errores_programa(origen.parameters)
     if errores:
         raise ErrorPrograma("PROGRAMA_NO_EDITABLE", "Programa fuera del catálogo: " + errores[0])
-    nuevo_num = numero_nuevo(cm)
-    nuevo_id = f"programa_{nuevo_num}"
+    nuevo_num = numero_fabrica_libre(cm) if modo_fabrica else numero_usuario_nuevo(cm)
+    nuevo_id = _id_nuevo(cm, nuevo_num) if modo_fabrica else f"programa_{nuevo_num}"
     with open(origen._path, "r", encoding="utf-8") as f:
         data = json.load(f)
     # valores vigentes en memoria (los mismos que el disco tras cada guardado)
     data["parameters"] = json.loads(json.dumps(origen.parameters))
     data.update({"cycle_id": nuevo_id, "cycle_number": nuevo_num, "display_name": nombre,
-                 "personalizado": True, "habilitado": True, "duplicado_de": numero})
+                 "habilitado": True, "duplicado_de": numero})
+    if modo_fabrica:
+        data.pop("personalizado", None)
+        data["fabrica_equipo"] = True
+    else:
+        data.pop("fabrica_equipo", None)
+        data["personalizado"] = True
     carpeta_user = cm.carpeta("cycles/user")
     ruta = os.path.join(carpeta_user, f"{nuevo_id}.json")
     if os.path.exists(ruta) or nuevo_id in cm.cycles:
@@ -143,7 +215,8 @@ def duplicar(cm, numero: int, nombre) -> Cycle:
     defecto = {"cycle_id": nuevo_id, "cycle_number": nuevo_num, "display_name": nombre,
                "parameters": data.get("parameters", {})}
     ruta_def = os.path.join(carpeta_def, f"{nuevo_id}.json")
-    _registrar_numero(cm, nuevo_num)            # primero: el número nunca se reutiliza
+    if not modo_fabrica:
+        _registrar_numero(cm, nuevo_num)        # primero: el número nunca se reutiliza
     try:
         _escribir_atomico(ruta_def, defecto)
         _escribir_atomico(ruta, data)
@@ -156,7 +229,9 @@ def duplicar(cm, numero: int, nombre) -> Cycle:
     c = origen.copia()
     c.id, c.name, c.number = nuevo_id, nombre, nuevo_num
     c.source, c._path = "user", ruta
-    c.habilitado, c.personalizado = True, True
+    c.habilitado, c.personalizado = True, not modo_fabrica
+    c.fabrica_equipo = modo_fabrica
+    c.numero_json = nuevo_num
     c._ruta_defecto = ruta_def
     cm.cycles[nuevo_id] = c
     cm.defectos[nuevo_num] = Cycle(nuevo_id, nombre, json.loads(json.dumps(defecto["parameters"])),
@@ -188,6 +263,117 @@ def borrar(cm, numero: int, activo_id: str | None) -> Cycle:
     c._defecto_borrado = cm.defectos.pop(numero, None)
     cm.cycles.pop(c.id, None)
     return c
+
+
+def _defectos_de(cm, c) -> list[str]:
+    """Archivos de cycles/defecto del programa: por `cycle_number` (el
+    índice de los defectos) o por `cycle_id`, no por el nombre del archivo."""
+    carpeta = cm.carpeta("cycles/defecto")
+    if not os.path.isdir(carpeta):
+        return []
+    numero = c.number if _es_numero(c.number) else getattr(c, "numero_json", None)
+    salida = []
+    for nombre in sorted(os.listdir(carpeta)):
+        if not nombre.endswith(".json"):
+            continue
+        ruta = os.path.join(carpeta, nombre)
+        try:
+            with open(ruta, "r", encoding="utf-8") as f:
+                d = json.load(f)
+        except (OSError, ValueError):
+            continue
+        if not isinstance(d, dict):
+            continue
+        if (_es_numero(numero) and d.get("cycle_number") == numero) or d.get("cycle_id") == c.id:
+            salida.append(ruta)
+    return salida
+
+
+def _restaurar_lista(usuario: str, nombre: str, previa) -> None:
+    if previa is None:
+        ruta = os.path.join(usuario, nombre)
+        if os.path.exists(ruta):
+            os.remove(ruta)
+    else:
+        escribir_lista_ids(usuario, nombre, previa)
+
+
+def borrar_fabrica(cm, cycle_id: str, activo_id: str | None) -> Cycle:
+    """Modo fábrica (D-06, DF-06): borra un programa de fábrica, genérico
+    (sembrado en cycles/user o cargado de factory/) o del equipo. No un
+    personalizado (422 `no_es_programa_de_fabrica`) ni el seleccionado (409
+    `programa_activo`). El número no va a numeros_usados.json. El id queda en
+    fabrica_vistos.lst y en fabrica_borrados.lst. Como `borrar`, en dos pasos:
+    los archivos se apartan con .borrado y `confirmar_borrado` los elimina
+    tras auditar; `deshacer_borrado_fabrica` lo revierte todo."""
+    c = cm.cycles.get(cycle_id) if isinstance(cycle_id, str) else None
+    if c is None:
+        raise ErrorPrograma("programa_no_encontrado", f"Programa {cycle_id} no encontrado", 404)
+    if (getattr(c, "personalizado", False) is True
+            or getattr(c, "source", "") not in ("user", "factory")):
+        raise ErrorPrograma("no_es_programa_de_fabrica",
+                            "Solo se borran aquí programas de fábrica", 422)
+    if c.id == activo_id:
+        raise ErrorPrograma("programa_activo", "No se puede borrar el programa seleccionado")
+    usuario = cm.carpeta("cycles/user")
+    try:
+        previa_vistos = leer_lista_ids(usuario, MARCA_FABRICA_VISTOS)
+        previa_borrados = leer_lista_ids(usuario, MARCA_FABRICA_BORRADOS)
+    except OSError:
+        raise ErrorPrograma("error_archivo",
+                            "No se pudo leer la lista de programas de fábrica", 503)
+    rutas = []
+    if c.source == "user" and getattr(c, "_path", None):
+        rutas = [c._path, c._path + ".bak"]
+    rutas += _defectos_de(cm, c)
+    apartadas = []
+    try:
+        # primero las listas: si el borrado queda a medias, el programa no
+        # vuelve a aparecer desde factory/ ni por la siembra
+        escribir_lista_ids(usuario, MARCA_FABRICA_BORRADOS, (previa_borrados or set()) | {c.id})
+        base_vistos = previa_vistos if previa_vistos is not None else set(_FABRICA_LEGADA)
+        escribir_lista_ids(usuario, MARCA_FABRICA_VISTOS, base_vistos | {c.id})
+        for r in rutas:
+            if os.path.exists(r):
+                os.replace(r, r + ".borrado")
+                apartadas.append(r)
+    except OSError:
+        for r in apartadas:
+            if os.path.exists(r + ".borrado"):
+                os.replace(r + ".borrado", r)
+        try:
+            _restaurar_lista(usuario, MARCA_FABRICA_BORRADOS, previa_borrados)
+            _restaurar_lista(usuario, MARCA_FABRICA_VISTOS, previa_vistos)
+        except OSError:
+            pass
+        raise ErrorPrograma("error_archivo", "No se pudo borrar el programa", 503)
+    c._apartadas = apartadas
+    c._listas_previas = (previa_vistos, previa_borrados)
+    numero = c.number if _es_numero(c.number) else getattr(c, "numero_json", None)
+    c._numero_borrado = numero
+    c._defecto_borrado = cm.defectos.pop(numero, None) if _es_numero(numero) else None
+    fab = cm.fabrica.get(numero) if _es_numero(numero) else None
+    c._fabrica_borrada = cm.fabrica.pop(numero) if getattr(fab, "id", None) == c.id else None
+    cm.cycles.pop(c.id, None)
+    return c
+
+
+def deshacer_borrado_fabrica(cm, c) -> None:
+    """Auditoría fallida (RB-03.5): todo vuelve como estaba."""
+    for r in getattr(c, "_apartadas", []):
+        if os.path.exists(r + ".borrado"):
+            os.replace(r + ".borrado", r)
+    cm.cycles[c.id] = c
+    usuario = cm.carpeta("cycles/user")
+    previa_vistos, previa_borrados = getattr(c, "_listas_previas", (None, None))
+    _restaurar_lista(usuario, MARCA_FABRICA_BORRADOS, previa_borrados)
+    _restaurar_lista(usuario, MARCA_FABRICA_VISTOS, previa_vistos)
+    numero = getattr(c, "_numero_borrado", None)
+    if _es_numero(numero):
+        if getattr(c, "_defecto_borrado", None) is not None:
+            cm.defectos[numero] = c._defecto_borrado
+        if getattr(c, "_fabrica_borrada", None) is not None:
+            cm.fabrica[numero] = c._fabrica_borrada
 
 
 def confirmar_borrado(c) -> None:

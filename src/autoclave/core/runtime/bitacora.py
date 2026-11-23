@@ -56,6 +56,8 @@ EVENTOS = (
     "software_reiniciado",
     # C9 (tanda 9, D9-10): Manejo de ciclos
     "programa_creado", "programa_duplicado", "programa_habilitado", "programa_borrado",
+    # Modo fábrica (Etapa 2, D-06): borrado de un programa de fábrica en FÁBRICA
+    "programa_fabrica_borrado",
     # U11 (tanda 11, D11-6): cuentas del sistema Admin e Ingeniero
     "usuario_renombrado", "cuenta_sistema_rechazada",
     # T30-03 (tanda 30): eliminar usuario (sin borrar la fila) y cambiar su rol
@@ -132,6 +134,7 @@ _CATEGORIA = {
         "impresora_configurada", "param_ciclo_cambio", "param_ciclo_no_aplicado_en_curso",
         "ROLES_SENSOR", "entradas_mostradas", "correo_configurado",
         "programa_creado", "programa_duplicado", "programa_habilitado", "programa_borrado",
+        "programa_fabrica_borrado",
         "reasignacion_io", "reasignacion_io_fabrica", "reasignacion_io_rechazada",
         "reasignacion_io_verificada", "asignacion_io_migrada",
         "catalogo_carga_alta", "catalogo_carga_editado", "catalogo_carga_baja",

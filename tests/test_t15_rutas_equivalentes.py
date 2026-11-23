@@ -41,6 +41,11 @@ Cambios deliberados de la línea base (nada más cambia sin tocar este archivo):
   (búsqueda inversa). ``openapi.json`` se regeneró con ``openapi_ordenado``:
   solo esos paths, el parámetro, la descripción de ``/cycle/history`` y los
   esquemas ``_AltaBody``, ``_ModificarBody`` e ``_ImportarBody``.
+- Modo fábrica, Etapa 2 (22-nov): ruta nueva
+  ``DELETE /fabrica/programas/{cycle_id}`` (router ``rutas/programas.py``,
+  dependencia ``requiere_modo_fabrica``), insertada en ``rutas.json`` tras
+  ``DELETE /programas/{numero}`` sin reordenar las demás; ``openapi.json`` se
+  regeneró con ``openapi_ordenado`` (solo ese path).
 """
 import json
 from pathlib import Path

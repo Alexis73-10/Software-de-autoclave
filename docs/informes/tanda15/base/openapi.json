@@ -3056,6 +3056,60 @@
     "summary": "Post Email Test"
    }
   },
+  "/fabrica/programas/{cycle_id}": {
+   "delete": {
+    "description": "Modo fábrica (D-06, DF-06): borra un programa de fábrica, genérico o\ndel equipo, sin registrar su número. Solo ingeniero, con el equipo en\nFÁBRICA y fuera de ciclo; nunca el programa seleccionado.",
+    "operationId": "delete_programa_fabrica_fabrica_programas__cycle_id__delete",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "cycle_id",
+      "required": true,
+      "schema": {
+       "title": "Cycle Id",
+       "type": "string"
+      }
+     },
+     {
+      "in": "header",
+      "name": "authorization",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Delete Programa Fabrica"
+   }
+  },
   "/fault/reset": {
    "post": {
     "description": "Reconoce el estado de falla y solicita retornar a PREPARACION. Sin\nidentificación (decisión 16). Con el paro de emergencia activo, 409 y no\nse guarda RESET_FALLA: tras soltarlo hay que reconocer de nuevo (§5.9).",
