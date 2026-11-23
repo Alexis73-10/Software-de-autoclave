@@ -7,7 +7,7 @@ Rama `modo-fabrica` (desde `dev` f4a9aa9f). Plan en `docs/mis_plans/planeacion_m
 | Revisión del plan contra el código | Hecho | 9f4f920c |
 | Etapa 1: `estado_fabrica`, entrada, `/status`, protección, franja | Hecho (informe `E1_informe.md`) | d97e8bfd |
 | Etapa 2: programas de fábrica y numeración | Hecho (informe `E2_informe.md`) | b1d37c70, 873793e1 |
-| Etapa 3: base de fábrica del equipo (parámetros, calibración, restaurar) | Hecho (informe `E3_informe.md`; suite completa pendiente: detenida por falta de memoria) | ver git log |
+| Etapa 3: base de fábrica del equipo (parámetros, calibración, restaurar) | Hecho (informe `E3_informe.md`; suite completa pendiente: detenida por falta de memoria) | f2aa3833 |
 | Etapa 4: paquete de liberación | Pendiente | |
 | Etapa 5: cierre en dos tiempos y pantalla de cierre | Pendiente | |
 | Etapa 6: pruebas de aceptación, riesgos, trazabilidad, CLAUDE.md, revisión de seguridad | Pendiente | |
