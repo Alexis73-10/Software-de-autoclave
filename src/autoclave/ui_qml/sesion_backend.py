@@ -260,6 +260,7 @@ _CLAVES_RESTAURAR = {
     "formato": "respaldo.err_formato",
     "otra_serie": "respaldo.err_otra_serie",
     "version": "respaldo.err_version",
+    "paquete_no_restaurable": "respaldo.err_paquete_no_restaurable",   # modo fábrica E4 (DF-08)
     "parametros_invalidos": "respaldo.err_parametros",
     "calibracion_invalida": "respaldo.err_calibracion",
     "calibracion_implausible": "respaldo.err_calibracion",

@@ -237,6 +237,13 @@ def post_backup_restore(body: _RestaurarBody,
                  detalle={"archivo": body.archivo, "motivo": e.codigo})
         raise RechazoApi(422, e.codigo, "Respaldo inválido")
     motivo = rp.validar_para_equipo(m, _meta_equipo(), _version_sw())
+    if motivo == "paquete_no_restaurable":
+        # Modo fábrica E4 (DF-08, R-06): un paquete de liberación (u otro tipo
+        # que no sea «respaldo») nunca se restaura
+        _auditar("respaldo_rechazado", sesion, entidad=entidad,
+                 detalle={"archivo": body.archivo, "motivo": motivo,
+                          "tipo": rp.tipo_manifiesto(m)})
+        raise RechazoApi(422, motivo, "El paquete no es un respaldo restaurable")
     if motivo:
         _auditar("respaldo_rechazado", sesion, entidad=entidad,
                  detalle={"archivo": body.archivo, "motivo": motivo, "serie_respaldo": m.get("serie")})

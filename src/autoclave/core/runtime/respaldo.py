@@ -15,6 +15,12 @@
 #   usuarios.json     usuario, nombre, rol y activo — SIN hashes de contraseña.
 #   historial.db      copia de la base (opcional; nunca se restaura).
 #
+# Modo fábrica E4 (DF-08, R-06): el manifiesto lleva `tipo` («respaldo» aquí;
+# «liberacion» en el paquete de liberación, core/runtime/paquete_liberacion.py,
+# que reutiliza sha256 y hash_manifiesto). Un manifiesto sin `tipo` (respaldos
+# anteriores) se trata como «respaldo»; validar_para_equipo rechaza cualquier
+# otro tipo con `paquete_no_restaurable` (la ruta responde 422).
+#
 # Restaurar valida el manifiesto (hash y hashes de archivo), el formato, la
 # versión mayor del software y el NÚMERO DE SERIE: un respaldo de OTRO equipo
 # se rechaza siempre (la calibración y el perfil son del equipo). Aplica solo
@@ -37,6 +43,8 @@ from pathlib import Path
 
 FORMATO = 1
 CARPETA = "Especifika_respaldos"
+TIPO_RESPALDO = "respaldo"
+TIPO_LIBERACION = "liberacion"
 PARTES = ("perfil_calibracion", "parametros_programas", "usuarios", "historial")
 MAX_ZIP_BYTES = 200 * 1024 * 1024
 MAX_ARCHIVO_BYTES = 150 * 1024 * 1024
@@ -56,9 +64,20 @@ def sha256(datos: bytes) -> str:
     return hashlib.sha256(datos).hexdigest()
 
 
-def _hash_manifiesto(m: dict) -> str:
+def hash_manifiesto(m: dict) -> str:
+    """SHA-256 del manifiesto sin el campo `hash` (JSON canónico)."""
     sin = {k: v for k, v in m.items() if k != "hash"}
     return sha256(json.dumps(sin, sort_keys=True, ensure_ascii=False).encode("utf-8"))
+
+
+_hash_manifiesto = hash_manifiesto
+
+
+def tipo_manifiesto(m: dict) -> str:
+    """DF-08: `tipo` del manifiesto; sin campo (respaldos anteriores a la
+    Etapa 4 del modo fábrica), «respaldo»."""
+    tipo = m.get("tipo") if isinstance(m, dict) else None
+    return TIPO_RESPALDO if tipo is None else str(tipo)
 
 
 def version_mayor(v: str) -> str:
@@ -76,7 +95,8 @@ def crear(equipo: dict, partes: dict, contenido: dict, usuario: str, version_sw:
     llamador según `partes`."""
     ahora = ahora or datetime.now()
     archivos = {ruta: sha256(datos) for ruta, datos in sorted(contenido.items())}
-    m = {"formato": FORMATO, "version_sw": version_sw, "serie": equipo.get("serie", ""),
+    m = {"tipo": TIPO_RESPALDO, "formato": FORMATO, "version_sw": version_sw,
+         "serie": equipo.get("serie", ""),
          "modelo": equipo.get("modelo", ""), "creado_en": ahora.isoformat(timespec="seconds"),
          "creado_por": usuario, "partes": {p: bool(partes.get(p)) for p in PARTES},
          "archivos": archivos}
@@ -128,7 +148,11 @@ def leer(ruta: Path) -> tuple[dict, dict]:
 
 
 def validar_para_equipo(m: dict, equipo: dict, version_sw: str) -> str:
-    """"" si se puede restaurar en este equipo; si no, el código del rechazo."""
+    """"" si se puede restaurar en este equipo; si no, el código del rechazo.
+    DF-08: un paquete que no es un respaldo (p. ej. el de liberación) da
+    `paquete_no_restaurable` antes que cualquier otro motivo."""
+    if tipo_manifiesto(m) != TIPO_RESPALDO:
+        return "paquete_no_restaurable"
     if m.get("formato") != FORMATO:
         return "formato"
     serie = equipo.get("serie") or ""

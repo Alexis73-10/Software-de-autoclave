@@ -1755,6 +1755,7 @@
     "err_formato": "The backup has an unknown format.",
     "err_otra_serie": "The backup belongs to another unit.",
     "err_version": "The backup is from an incompatible software version.",
+    "err_paquete_no_restaurable": "This file is a factory release package, not a backup: it cannot be restored.",
     "err_parametros": "The backup parameters are not valid.",
     "err_calibracion": "The backup calibration is not valid.",
     "err_calibracion_otro_enlace": "The backup calibration is for another type of I/O module.",

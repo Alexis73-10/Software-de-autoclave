@@ -1755,6 +1755,7 @@
     "err_formato": "El respaldo tiene un formato desconocido.",
     "err_otra_serie": "El respaldo es de otro equipo.",
     "err_version": "El respaldo es de una versión de software incompatible.",
+    "err_paquete_no_restaurable": "Este archivo es un paquete de liberación de fábrica, no un respaldo: no se puede restaurar.",
     "err_parametros": "Los parámetros del respaldo no son válidos.",
     "err_calibracion": "La calibración del respaldo no es válida.",
     "err_calibracion_otro_enlace": "La calibración del respaldo es de otro tipo de módulo E/S.",
