@@ -31,7 +31,7 @@ En ENTREGADO, todas las funciones de fábrica responden 409 para todos los roles
 - 18 archivos `tests/test_fab_*.py` (E1..E5, S). Corridos juntos en la Etapa 6: 322 en verde (279 s; con el árbol de trabajo que incluía cambios sin commitear de otra sesión en `ui_bridge.py` y `SeccionEstadoSeguro.qml`).
 - Subconjuntos por etapa en verde (ver cada informe): E1, 1042; E2, suite completa igual a la base; E4, 857; E5, 489 + 526; correcciones SAF, 2012, con 4 rojas preexistentes de `test_s9_planta_simulada`.
 - Base de comparación: `suite_base.txt`, con 20 fallos y 6 errores preexistentes.
-- **SUITE COMPLETA: pendiente del coordinador.**
+- **Suite completa (copia aislada en 0953f8ae, `-n 4`):** 21 failed, 13073 passed, 11 skipped, 15 xfailed, 6 errors. Contra la base (20 failed, 6 errors, `suite_base.txt`): los 20 fallos de base siguen y hay 1 más, `test_t26_arq_revision.py::test_latido_se_renueva_en_cada_tick_retenido_aunque_verificar_sensores_lance`, que pasa al correrlo solo, en la rama y en `dev` (intermitente por la ejecución en paralelo). Ninguna regresión confirmada.
 - Aceptación P-01..P-12: todas tienen prueba automática. P-06 solo cubre la lógica y necesita el Setup real. El detalle está en `P_aceptacion.md`.
 
 ## Riesgos y trazabilidad
