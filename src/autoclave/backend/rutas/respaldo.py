@@ -197,6 +197,12 @@ def post_backup_export(body: _ExportarBody,
         contenido["usuarios.json"] = json.dumps(_usuarios_sin_hash(), ensure_ascii=False).encode("utf-8")
     if body.historial:
         contenido["historial.db"] = _copia_bd()
+    # Modo fábrica E3: la base de fábrica del equipo va como copia (carpeta
+    # fabrica_equipo/ del ZIP); la restauración no la restaura (FAB-06)
+    from autoclave.core.runtime import fabrica_equipo
+    with _lock_archivos:
+        contenido.update(fabrica_equipo.contenido_respaldo(body.perfil_calibracion,
+                                                           body.parametros_programas))
     with _lock_respaldo:
         zip_bytes = rp.crear(equipo, partes, contenido, sesion.usuario, _version_sw())
         carpeta = Path(unidad) / rp.CARPETA

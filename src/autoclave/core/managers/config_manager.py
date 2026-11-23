@@ -92,6 +92,44 @@ def canonica(clave: str) -> str:
     return ALIAS.get(clave, clave)
 
 
+def regla_empaque(v: dict) -> str:
+    """'' o la regla de empaque incumplida (SAF-01 de O2a) por el conjunto
+    `v` (presion_empaque, vacio_empaque, presion_atmosferica). Pura: la usan
+    `fijar` y la carga de la base de fábrica del equipo (modo fábrica, E3)."""
+    pe, ve, atm = v.get("presion_empaque"), v.get("vacio_empaque"), v.get("presion_atmosferica")
+    if not all(_es_numero(x) for x in (pe, ve, atm)):
+        return "sin_referencia"             # fail-closed sin referencia
+    if pe < atm + MARGEN_EMPAQUE_SOBRE_ATM:
+        return "empaque_sobre_atm"
+    if pe * FACTOR_CHEQUEO_CICLO <= atm:
+        return "empaque_chequeo_ciclo"
+    if ve > atm - MARGEN_VACIO_BAJO_ATM:
+        return "vacio_bajo_atm"
+    if ve >= pe:
+        return "vacio_bajo_empaque"
+    return ""
+
+
+def regla_limites(v: dict) -> str:
+    """'' o la regla de límites de presión incumplida (F1, tanda 16: DEU-01
+    suministro < alivio <= fondo; D-CHQ corte <= alivio de chaqueta - 10)
+    por el conjunto `v` (las claves de CLAVES_LIMITES_PRESION). Pura."""
+    from autoclave.core.managers import limites_equipo as le
+    if not all(_es_numero(v.get(k)) for k in _CLAVES_LIMITES_PRESION):
+        return "sin_referencia"
+    fondo, sumi = v["presion_fondo_escala"], v["presion_suministro_vapor"]
+    a_cam, a_chq = v["presion_alivio_camara"], v["presion_alivio_chaqueta"]
+    if not le.limites_coherentes(fondo, sumi, a_cam, a_chq):
+        if sumi >= a_cam or sumi >= a_chq:
+            return "suministro_bajo_alivio"
+        if a_cam > fondo or a_chq > fondo:
+            return "alivio_bajo_fondo"
+        return "sin_referencia"
+    if v["presion_max_chaqueta_control"] > a_chq - le.MARGEN_CORTE_BAJO_ALIVIO:
+        return "corte_bajo_alivio_chaqueta"
+    return ""
+
+
 def _es_numero(v) -> bool:
     return (isinstance(v, (int, float)) and not isinstance(v, bool)
             and math.isfinite(float(v)))
@@ -109,7 +147,12 @@ class ConfigManager:
         self.lock_cambios = threading.RLock()
 
     # ── carga ────────────────────────────────────────────────────────────
-    def load_config(self):
+    def load_config(self, ruta_fabrica_equipo=None):
+        """Carga `global_params.json` y, encima, la base de fábrica del equipo
+        (`fabrica_equipo.NOMBRE_PARAMETROS`; modo fábrica E3, D-08/FAB-08): lo
+        que quede válido de ese archivo reemplaza al valor genérico como valor
+        de fábrica (y valor inicial). `ruta_fabrica_equipo`: solo para
+        pruebas; por omisión, la carpeta de datos del equipo."""
         path = resource_path("autoclave/config/global_params.json")
 
         with open(path, "r", encoding="utf-8") as f:
@@ -123,6 +166,52 @@ class ConfigManager:
         self.config = config
         self._fabrica = {c: e.get("value") for c, e in config.items() if isinstance(e, dict)}
         self._meta = {}
+        self._aplicar_fabrica_equipo(ruta_fabrica_equipo)
+
+    def _aplicar_fabrica_equipo(self, ruta=None) -> None:
+        """Modo fábrica, Etapa 3: superpone la base de fábrica del equipo a
+        los valores de fábrica genéricos. Cada clave conocida con tipo y
+        rango del catálogo válidos reemplaza al genérico (también uno de
+        solo lectura, como la atmosférica calibrada); una clave desconocida o
+        un valor inválido se ignora con aviso. Si el conjunto resultante
+        incumple la coherencia de límites de presión o de empaque, se ignora
+        el archivo entero (falla hacia el genérico). Sin archivo, nada
+        cambia. Nunca lanza."""
+        from autoclave.core.runtime import fabrica_equipo as fe
+        try:
+            ruta = fe.ruta_parametros() if ruta is None else ruta
+            crudo = fe.leer_parametros_crudos(ruta)
+        except Exception:
+            logger.exception("Base de fábrica del equipo ilegible: rigen los genéricos")
+            return
+        if crudo is None:
+            return
+        validos = {}
+        for clave, valor in crudo.items():
+            c = canonica(clave)
+            entrada = self.config.get(c)
+            if not isinstance(entrada, dict) or "value" not in entrada:
+                logger.warning("Base de fábrica del equipo: clave desconocida %r ignorada", clave)
+                continue
+            v, error = self._validar(c, entrada, valor, permitir_solo_lectura=True)
+            if error:
+                logger.warning("Base de fábrica del equipo: %s = %r inválido (%s): vale el genérico %r",
+                               c, valor, error, self._fabrica.get(c))
+                continue
+            validos[c] = v
+        if not validos:
+            return
+        conjunto = dict(self._fabrica)
+        conjunto.update(validos)
+        reglas = [r for r in (regla_limites(conjunto), regla_empaque(conjunto)) if r]
+        if reglas:
+            logger.warning("Base de fábrica del equipo incoherente (%s): se ignora entera y rigen "
+                           "los genéricos", ", ".join(reglas))
+            return
+        for c, v in validos.items():
+            self._fabrica[c] = v
+            self.config[c]["value"] = v
+        logger.info("Base de fábrica del equipo aplicada: %d parámetros", len(validos))
 
     def vincular_bd(self, db) -> None:
         """Toma de `system_params` los valores vigentes y siembra los que
@@ -245,17 +334,8 @@ class ConfigManager:
         v = dict(vigentes)
         v[clave] = nuevo
         pe, ve, atm = v["presion_empaque"], v["vacio_empaque"], v["presion_atmosferica"]
-        if not all(_es_numero(x) for x in (pe, ve, atm)):
-            regla = "sin_referencia"             # fail-closed sin referencia
-        elif pe < atm + MARGEN_EMPAQUE_SOBRE_ATM:
-            regla = "empaque_sobre_atm"
-        elif pe * FACTOR_CHEQUEO_CICLO <= atm:
-            regla = "empaque_chequeo_ciclo"
-        elif ve > atm - MARGEN_VACIO_BAJO_ATM:
-            regla = "vacio_bajo_atm"
-        elif ve >= pe:
-            regla = "vacio_bajo_empaque"
-        else:
+        regla = regla_empaque(v)
+        if not regla:
             return "", {}
         return INCOHERENTE_EMPAQUE, {
             "regla": regla, "clave": clave, "vigentes": vigentes, "propuestos": v,
@@ -276,20 +356,8 @@ class ConfigManager:
         vigentes = {k: (self.config.get(k) or {}).get("value") for k in _CLAVES_LIMITES_PRESION}
         v = dict(vigentes)
         v[clave] = nuevo
-        fondo, sumi = v["presion_fondo_escala"], v["presion_suministro_vapor"]
-        a_cam, a_chq = v["presion_alivio_camara"], v["presion_alivio_chaqueta"]
-        if not all(_es_numero(x) for x in v.values()):
-            regla = "sin_referencia"
-        elif not le.limites_coherentes(fondo, sumi, a_cam, a_chq):
-            if sumi >= a_cam or sumi >= a_chq:
-                regla = "suministro_bajo_alivio"
-            elif a_cam > fondo or a_chq > fondo:
-                regla = "alivio_bajo_fondo"
-            else:
-                regla = "sin_referencia"
-        elif v["presion_max_chaqueta_control"] > a_chq - le.MARGEN_CORTE_BAJO_ALIVIO:
-            regla = "corte_bajo_alivio_chaqueta"
-        else:
+        regla = regla_limites(v)
+        if not regla:
             return "", {}
         return INCOHERENTE_LIMITES, {
             "regla": regla, "clave": clave, "vigentes": vigentes, "propuestos": v,
